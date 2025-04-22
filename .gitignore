@@ -1,0 +1,7 @@
+# CMake
+build/
+# Rust
+target/
+# Zig
+.zig-cache/
+.zig-out/
