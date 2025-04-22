@@ -22,15 +22,6 @@ extern "C" {
         return sy::aligned_malloc(len, align);
     }
 
-    static bool default_resize(void* self, void* buf, size_t newLen, size_t oldAlign) {
-        (void)self;
-        (void)buf;
-        (void)newLen;
-        (void)oldAlign;
-        // TODO take a look at how to implement this. Perhaps looking at how zig does this would be good
-        return false;
-    }
-
     static void default_free(void* self, void* buf, size_t len, size_t align) {
         (void)self;
         (void)len;
@@ -85,6 +76,7 @@ sy::Allocator &sy::Allocator::operator=(Allocator &&other)
     this->_allocator = other._allocator;
     other._allocator.ptr = nullptr;
     other._allocator.vtable = nullptr;
+    return *this;
 }
 
 void* sy::Allocator::cppAllocFn(void* self, size_t len, size_t align) {
