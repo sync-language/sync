@@ -1,4 +1,2 @@
-
-extern "C" int test_add(int a, int b) {
-    return a + b;
-}
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest.h"

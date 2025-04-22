@@ -5,3 +5,5 @@ target/
 # Zig
 .zig-cache/
 .zig-out/
+# Visual Studio
+.vs/

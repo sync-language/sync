@@ -97,3 +97,193 @@ void sy::Allocator::cppDestructorFn(void *self)
 }
 
 sy::c::SyAllocatorVTable sy::Allocator::cppVTable = {&cppAllocFn, &cppFreeFn, &cppDestructorFn};
+
+#ifdef SYNC_LIB_TEST
+
+#include "../doctest.h"
+
+using namespace sy;
+using namespace sy::c;
+
+
+TEST_CASE("C default alloc/free object") {
+    Allocator a;
+    int* p = (int*)sy_allocator_alloc(sy_defaultAllocator, sizeof(int), alignof(int));
+    CHECK_NE(p, nullptr);
+    *p = 10;
+    sy_allocator_free(sy_defaultAllocator, (void*)p, sizeof(int), alignof(int));
+}
+
+TEST_CASE("C default alloc/free array") {
+    Allocator a;
+    int* p = (int*)sy_allocator_alloc(sy_defaultAllocator, sizeof(int) * 10, alignof(int));
+    CHECK_NE(p, nullptr);
+    for(int i = 0; i < 10; i++) {
+        p[i] = i;
+    }
+    sy_allocator_free(sy_defaultAllocator, (void*)p, sizeof(int) * 10, alignof(int));
+}
+
+TEST_CASE("C default alloc/free aligned object") {
+    Allocator a;
+    int* p = (int*)sy_allocator_alloc(sy_defaultAllocator, sizeof(int), 64);
+    CHECK_NE(p, nullptr);
+    const size_t alignMod64 = reinterpret_cast<size_t>(p) % 64;
+    CHECK_EQ(alignMod64, 0);
+    *p = 10;
+    sy_allocator_free(sy_defaultAllocator, (void*)p, sizeof(int), 64);
+}
+
+TEST_CASE("C default alloc/free aligned array") {
+    Allocator a;
+    int* p = (int*)sy_allocator_alloc(sy_defaultAllocator, sizeof(int) * 10, 64);
+    CHECK_NE(p, nullptr);
+    const size_t alignMod64 = reinterpret_cast<size_t>(p) % 64;
+    CHECK_EQ(alignMod64, 0);
+    for(int i = 0; i < 10; i++) {
+        p[i] = i;
+    }
+    sy_allocator_free(sy_defaultAllocator, (void*)p, sizeof(int) * 10, 64);
+}
+
+struct CustomCAllocator {
+    int* ptr;
+    bool freed;
+};
+
+static void* customAlloc(CustomCAllocator* self, size_t len, size_t align) {
+    self->ptr = (int*)sy_allocator_alloc(sy_defaultAllocator, len, align);
+    return self->ptr;
+}
+
+static void customFree(CustomCAllocator* self, void* buf, size_t len, size_t align) {
+    sy_allocator_free(sy_defaultAllocator, buf, len, align);
+    self->freed = true;
+}
+
+static void customDestructor(CustomCAllocator* self) {
+    CHECK(self->freed);
+    self->ptr = nullptr;
+}
+
+static SyAllocatorVTable customVTable = {
+    (sy_allocator_alloc_fn)&customAlloc, 
+    (sy_allocator_free_fn)&customFree, 
+    (sy_allocator_destructor_fn)&customDestructor
+};
+
+TEST_CASE("C custom allocator") {
+    CustomCAllocator obj = {nullptr, false};
+    SyAllocator a = {(void*)&obj, &customVTable};
+
+    int* p = (int*)sy_allocator_alloc(&a, sizeof(int), alignof(int));
+    CHECK_NE(p, nullptr);
+    CHECK_NE(obj.ptr, nullptr);
+    *p = 10;
+    sy_allocator_free(&a, (void*)p, sizeof(int), alignof(int));
+    
+    CHECK_NE(obj.ptr, nullptr);
+    CHECK(obj.freed);
+
+    sy_allocator_destructor(&a);
+    
+    CHECK_EQ(obj.ptr, nullptr);
+}
+
+TEST_CASE("C++ default alloc/free object") {
+    Allocator a;
+    int* p = a.allocObject<int>();
+    CHECK_NE(p, nullptr);
+    *p = 10;
+    a.freeObject(p);
+    CHECK_EQ(p, nullptr);
+}
+
+TEST_CASE("C++ default alloc/free array") {
+    Allocator a;
+    int* p = a.allocArray<int>(10);
+    CHECK_NE(p, nullptr);
+    for(int i = 0; i < 10; i++) {
+        p[i] = i;
+    }
+    a.freeArray(p, 10);
+    CHECK_EQ(p, nullptr);
+}
+
+TEST_CASE("C++ default alloc/free aligned object") {
+    Allocator a;
+    int* p = a.allocAlignedObject<int>(64);
+    CHECK_NE(p, nullptr);
+    const size_t alignMod64 = reinterpret_cast<size_t>(p) % 64;
+    CHECK_EQ(alignMod64, 0);
+    *p = 10;
+    a.freeObject(p);
+    CHECK_EQ(p, nullptr);
+}
+
+TEST_CASE("C++ default alloc/free aligned array") {
+    Allocator a;
+    int* p = a.allocAlignedArray<int>(10, 64);
+    CHECK_NE(p, nullptr);
+    const size_t alignMod64 = reinterpret_cast<size_t>(p) % 64;
+    CHECK_EQ(alignMod64, 0);
+    for(int i = 0; i < 10; i++) {
+        p[i] = i;
+    }
+    a.freeObject(p);
+    CHECK_EQ(p, nullptr);
+}
+
+class CustomCppAllocator : public IAllocator {
+public:
+    CustomCppAllocator() = default;
+
+    CustomCppAllocator(int s) : some(s) {}
+
+    virtual ~CustomCppAllocator() {
+        operator delete(this);
+    }
+
+    void* alloc(size_t len, size_t align) {
+        this->ptr = (int*)sy_allocator_alloc(sy_defaultAllocator, len, align);
+        return this->ptr;
+    }
+
+    void free(void* buf, size_t len, size_t align) {
+        sy_allocator_free(sy_defaultAllocator, buf, len, align);
+        this->freed = true;
+    }
+
+    public:
+    int* ptr = nullptr;
+    bool freed = false;
+    int some = 0;
+};
+
+TEST_CASE("C++ custom allocator") {
+    Allocator a = Allocator::initWith<CustomCppAllocator>();
+    CustomCppAllocator* ref = reinterpret_cast<CustomCppAllocator*>(a.cAllocator().ptr);
+
+    CHECK_EQ(ref->ptr, nullptr);
+    CHECK_EQ(ref->freed, false);
+    CHECK_EQ(ref->some, 0);
+    
+    int* p = a.allocObject<int>();
+    CHECK_NE(p, nullptr);
+    CHECK_NE(ref->ptr, nullptr);
+    *p = 10;
+    a.freeObject(p);
+    CHECK_EQ(p, nullptr);  
+    CHECK(ref->freed);
+}
+
+TEST_CASE("C++ custom allocator with constructor args") {
+    Allocator a = Allocator::initWith<CustomCppAllocator>(5);
+    CustomCppAllocator* ref = reinterpret_cast<CustomCppAllocator*>(a.cAllocator().ptr);
+
+    CHECK_EQ(ref->ptr, nullptr);
+    CHECK_EQ(ref->freed, false);
+    CHECK_EQ(ref->some, 5);
+}
+
+#endif

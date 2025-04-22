@@ -26,7 +26,7 @@ namespace sy {
         friend class Allocator;
     protected:
         /// NOTE when overriding, the `this` needs to be free'd, or else a memory leak will occur.
-        virtual ~IAllocator() = 0;
+        virtual ~IAllocator() {};
         virtual void* alloc(size_t len, size_t align) = 0;
         virtual void free(void* buf, size_t len, size_t align) = 0;
     };
@@ -37,9 +37,6 @@ namespace sy {
 
         Allocator();
 
-        template<typename T, typename ...AllocatorConstructArgs>
-        Allocator(AllocatorConstructArgs&&... args) : Allocator(new T(args...)) {}
-
         Allocator(c::SyAllocator&& ownedAllocator);
 
         ~Allocator();
@@ -49,6 +46,11 @@ namespace sy {
 
         Allocator(Allocator&& other);
         Allocator& operator=(Allocator&& other);
+
+        template<typename T, typename ...AllocatorConstructArgs>
+        static Allocator initWith(AllocatorConstructArgs&&... args) {
+            return Allocator(new T(args...));
+        }
 
         /// Allocate memory for a single instance of T. Does not call constructor.
         template<typename T>
@@ -79,32 +81,34 @@ namespace sy {
         }
 
         template<typename T>
-        void freeObject(T* obj) {
+        void freeObject(T*& obj) {
             c::sy_allocator_free(&this->_allocator, obj, sizeof(T), alignof(T));
+            obj = nullptr;
         }
 
         template<typename T>
-        void freeArray(T* obj, size_t len) {
+        void freeArray(T*& obj, size_t len) {
             c::sy_allocator_free(&this->_allocator, obj, sizeof(T) * len, alignof(T));
+            obj = nullptr;
         }
 
         template<typename T>
-        void freeAlignedObject(T* obj, size_t align) {
+        void freeAlignedObject(T*& obj, size_t align) {
             const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
             c::sy_allocator_free(&this->_allocator, obj, sizeof(T), actualAlign);
+            obj = nullptr;
         }
 
         template<typename T>
-        void freeAlignedArray(T* obj, size_t len, size_t align) {
+        void freeAlignedArray(T*& obj, size_t len, size_t align) {
             const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
             c::sy_allocator_free(&this->_allocator, obj, sizeof(T) * len, actualAlign);
+            obj = nullptr;
         }
 
         c::SyAllocator& cAllocator() { return this->_allocator; }
 
     private:
-
-        c::SyAllocator _allocator;
 
         Allocator(IAllocator* ownedAllocator);
 
@@ -114,6 +118,10 @@ namespace sy {
 
         static c::SyAllocatorVTable cppVTable;    
 
+    private:
+
+        c::SyAllocator _allocator;
+        
     };
 }
 
