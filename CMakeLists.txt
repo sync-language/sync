@@ -11,6 +11,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_library(SyncLib STATIC
     "lib/src/test.cpp"
+    "lib/src/mem/allocator.cpp"
+    "lib/src/mem/os_mem.cpp"
 )
 
 # Ensure all warnings are caught
@@ -19,5 +21,7 @@ if(MSVC)
 else()
   target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
+
+set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 
 install(TARGETS SyncLib DESTINATION .)
