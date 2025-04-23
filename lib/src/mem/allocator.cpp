@@ -19,14 +19,14 @@ extern "C" {
 
     static void* default_alloc(void* self, size_t len, size_t align) {
         (void)self;
-        return sy::aligned_malloc(len, align);
+        return aligned_malloc(len, align);
     }
 
     static void default_free(void* self, void* buf, size_t len, size_t align) {
         (void)self;
         (void)len;
         (void)align;
-        sy::aligned_free(buf);
+        aligned_free(buf);
     }
 
     static void default_destructor(void* self) {
