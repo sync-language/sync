@@ -113,7 +113,6 @@ sy::c::SyAllocatorVTable sy::Allocator::cppVTable = {&cppAllocFn, &cppFreeFn, &c
 using namespace sy;
 using namespace sy::c;
 
-
 TEST_CASE("C default alloc/free object") {
     Allocator a;
     int* p = (int*)sy_allocator_alloc(sy_defaultAllocator, sizeof(int), alignof(int));
@@ -294,4 +293,4 @@ TEST_CASE("C++ custom allocator with constructor args") {
     CHECK_EQ(ref->some, 5);
 }
 
-#endif
+#endif SYNC_LIB_TEST
