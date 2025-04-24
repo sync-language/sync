@@ -27,7 +27,6 @@ impl Allocator {
         return Self{allocator: c_allocator};
     }
 
-
     pub fn alloc_object<T>(self: &mut Self) -> Result<NonNull<T>, AllocError> {
         return self.alloc_aligned_object(NonZero::new(align_of::<T>()).expect("Cannot allocate memory for zero aligned type"));
     }
@@ -162,5 +161,15 @@ mod tests {
     fn size_align_of_nested_box() {        
         assert_eq!(size_of::<Box<Box<dyn IAllocator>>>(), size_of::<*mut c_void>());
         assert_eq!(align_of::<Box<Box<dyn IAllocator>>>(), align_of::<*mut c_void>());
+    }
+
+    #[test]
+    fn size_of_box_dyn() {
+        assert_eq!(size_of::<Box<dyn IAllocator>>(), 16);
+    }
+
+    #[test]
+    fn size_of_option_fn_ptr() {
+        assert_eq!(size_of::<Option<fn(ptr: *mut c_void)>>(), 8);
     }
 }

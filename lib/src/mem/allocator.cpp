@@ -33,14 +33,16 @@ extern "C" {
         (void)self;
     }
 
+#ifndef SY_CUSTOM_DEFAULT_ALLOCATOR
     static SyAllocatorVTable defaultVTable = {&default_alloc, &default_free, &default_destructor};
     static SyAllocator defaultAllocator = {nullptr, &defaultVTable};
-    SyAllocator* sy_defaultAllocator = &defaultAllocator;
+    SyAllocator* const sy_defaultAllocator = &defaultAllocator;
+#endif
 }
 
 #include "allocator.hpp"
 
-sy::Allocator::Allocator() : _allocator(defaultAllocator) {}
+sy::Allocator::Allocator() : _allocator(*sy_defaultAllocator) {}
 
 sy::Allocator::Allocator(sy::IAllocator* ownedAllocator) {
     this->_allocator.ptr = reinterpret_cast<void*>(ownedAllocator);

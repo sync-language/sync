@@ -4,6 +4,6 @@ build/
 target/
 # Zig
 .zig-cache/
-.zig-out/
+zig-out/
 # Visual Studio
 .vs/

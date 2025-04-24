@@ -2,18 +2,22 @@ const std = @import("std");
 const Build = std.Build;
 
 const moduleName = "sync_lang";
+const SY_CUSTOM_DEFAULT_ALLOCATOR = "SY_CUSTOM_DEFAULT_ALLOCATOR";
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const syncModule = b.addModule(
+        moduleName,
+        .{ .root_source_file = .{ .cwd_relative = "lib/src/root.zig" } },
+    );
     { // Module
-        const syncModule = b.addModule(
-            moduleName,
-            .{ .root_source_file = .{ .cwd_relative = "lib/src/root.zig" } },
-        );
+
         syncModule.link_libc = true;
         syncModule.link_libcpp = true;
+
+        syncModule.addCMacro(SY_CUSTOM_DEFAULT_ALLOCATOR, "1");
 
         const c_flags = [_][]const u8{};
         syncModule.addCSourceFiles(.{
@@ -21,9 +25,19 @@ pub fn build(b: *std.Build) void {
             .flags = &c_flags,
         });
     }
-    {
+    { // Static Library
+        const lib = b.addStaticLibrary(.{
+            .name = "SyncLib",
+            .root_source_file = .{ .cwd_relative = "lib/src/lib.zig" },
+            .target = target,
+            .optimize = optimize,
+        });
+        lib.root_module.addImport(moduleName, syncModule);
+        b.installArtifact(lib);
+    }
+    { // Tests
         const libUnitTests = b.addTest(.{
-            .root_source_file = .{ .cwd_relative = "lib/src/tests.zig" },
+            .root_source_file = .{ .cwd_relative = "lib/src/test.zig" },
             .target = target,
             .optimize = optimize,
         });
@@ -53,5 +67,6 @@ pub fn build(b: *std.Build) void {
 }
 
 const sync_lang_c_sources = [_][]const u8{
-    "lib/src/test.cpp",
+    "lib/src/mem/os_mem.cpp",
+    "lib/src/mem/allocator.cpp",
 };

@@ -34,7 +34,7 @@ SY_API void sy_allocator_free(SyAllocator* self, void* buf, size_t len, size_t a
 
 SY_API void sy_allocator_destructor(SyAllocator* self);
 
-SY_API extern SyAllocator* sy_defaultAllocator;
+SY_API extern SyAllocator* const sy_defaultAllocator;
 
 #ifdef __cplusplus
 } // extern "C"
