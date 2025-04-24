@@ -31,9 +31,30 @@ namespace sy {
         virtual void free(void* buf, size_t len, size_t align) = 0;
     };
 
+    namespace detail {
+        void allocator_result_ensure_non_null(void* ptr);
+    }
+
     /// Can be bitcast to `c::SyAllocator`.
     class SY_API Allocator final {
     public:
+
+        template<typename T>
+        class Result {
+            friend class Allocator;
+        public:
+            Result() : _mem(nullptr) {}
+            
+            T* get() const {
+                T* mem = const_cast<T*>(this->_mem);
+                detail::allocator_result_ensure_non_null(reinterpret_cast<void*>(mem));
+                return mem;
+            }
+        private:
+            Result(T* ptr) : _mem(ptr) {}
+        private:
+            T* _mem;
+        };
 
         Allocator();
 
@@ -54,27 +75,27 @@ namespace sy {
 
         /// Allocate memory for a single instance of T. Does not call constructor.
         template<typename T>
-        T* allocObject() {
+        Result<T> allocObject() {
             return reinterpret_cast<T*>(
                 c::sy_allocator_alloc(&this->_allocator, sizeof(T), alignof(T)));      
         }
 
         template<typename T>
-        T* allocArray(size_t len) {
+        Result<T> allocArray(size_t len) {
             return reinterpret_cast<T*>(
                 c::sy_allocator_alloc(&this->_allocator, sizeof(T) * len, alignof(T)));    
         }
 
         /// Allocate memory for a single instance of T. Does not call constructor.
         template<typename T>
-        T* allocAlignedObject(size_t align) {
+        Result<T> allocAlignedObject(size_t align) {
             const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
             return reinterpret_cast<T*>(
                 c::sy_allocator_alloc(&this->_allocator, sizeof(T), actualAlign));      
         }
 
         template<typename T>
-        T* allocAlignedArray(size_t len, size_t align) {
+        Result<T> allocAlignedArray(size_t len, size_t align) {
             const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
             return reinterpret_cast<T*>(
                 c::sy_allocator_alloc(&this->_allocator, sizeof(T) * len, actualAlign));    
