@@ -8,12 +8,15 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 
 add_library(SyncLib STATIC
+    "src/util/panic.cpp"
+
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
 )
 
 add_executable(SyncLibTests
     "src/test.cpp"
+    "src/util/panic.cpp"
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
 )
@@ -21,6 +24,8 @@ add_executable(SyncLibTests
 # Ensure all warnings are caught
 if(MSVC)
   target_compile_options(SyncLib PRIVATE /W4 /WX)
+  # C++ exceptions and unwind semantics. Necessary for Rust
+  target_compile_options(SyncLib PRIVATE /EHsc) 
 else()
   target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()

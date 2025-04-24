@@ -41,10 +41,10 @@ extern "C" {
 }
 
 #include "allocator.hpp"
-#include <assert.h>
+#include "../util/assert.hpp"
 
 void sy::detail::allocator_result_ensure_non_null(void *ptr) {
-    assert(ptr != nullptr && "Expected non-null pointer.");
+    sy_assert(ptr != nullptr, "Expected non-null pointer");
 }
 
 
@@ -293,4 +293,4 @@ TEST_CASE("C++ custom allocator with constructor args") {
     CHECK_EQ(ref->some, 5);
 }
 
-#endif SYNC_LIB_TEST
+#endif // SYNC_LIB_TEST
