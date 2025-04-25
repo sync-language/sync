@@ -5,6 +5,8 @@
 
 #include "../core.h"
 
+struct SyType;
+
 typedef enum SyTypeTag {
     /// Maps to a singular `SyType` instance.
     SyTypeTagBool = 0,
@@ -65,17 +67,39 @@ typedef enum SyTypeTag {
 
 typedef struct SyBaseTypeInfo {
     /// Actual size of the type in bytes.
-    size_t sizeType;
+    size_t      sizeType;
     /// Alignment of the type. For now, `alignType <= 8` is required.
     /// TODO support alignments greater than 8 for 64 bit
-    uint8_t alignType;
+    uint8_t     alignType;
     /// Is a non-null utf8 character array up to `nameLength` in size in bytes. Does not need to be null terminated.
     const char* name;
     /// Amount of bytes of `name`.
-    size_t nameLength;
+    size_t      nameLength;
     
     // TODO add functions
 } SyBaseTypeInfo;
 
+/// Internal use only. Used for type requirements on C unions.
+typedef void* _sy_type_extra_info_unused_t;
+
+typedef struct SyTypeInfoInt {
+    /// If `true`, this is a signed integer, otherwise unsigned.
+    bool    isSigned;
+    /// Must be one of `8`, `16`, `32`, or `64`.
+    uint8_t bits;
+} SyTypeInfoInt;
+
+typedef union SyTypeExtraInfo {
+    _sy_type_extra_info_unused_t    _boolInfo;
+    SyTypeInfoInt                   intInfo;
+} SyTypeExtraInfo;
+
+typedef struct SyType {
+    SyBaseTypeInfo  baseInfo;
+    /// Used as a tagged union with the payload being `extra`.
+    SyTypeTag       tag;
+    /// Used as a tagged union, with the tags being `tag`.
+    SyTypeExtraInfo extra;
+} SyType;
 
 #endif // SY_TYPES_TYPE_H_
