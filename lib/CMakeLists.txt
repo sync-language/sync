@@ -9,9 +9,9 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_library(SyncLib STATIC
     "src/util/panic.cpp"
-
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
+    "src/types/function/function.cpp"
 )
 
 add_executable(SyncLibTests
@@ -19,6 +19,7 @@ add_executable(SyncLibTests
     "src/util/panic.cpp"
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
+    "src/types/function/function.cpp"
 )
 
 # Ensure all warnings are caught

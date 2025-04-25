@@ -27,6 +27,7 @@
 
 #else // __cplusplus
 
+#include <cstddef>
 #include <cstdint>
 
 using std::size_t;
