@@ -14,7 +14,9 @@ const TypeTag = enum(i32) {
     Option = 12,
     Error = 13,
     Result = 14,
-    Function = 15,
-    Sync = 16,
-    Struct = 17,
+    Vec = 15,
+    Matrix = 16,
+    Function = 17,
+    Sync = 18,
+    Struct = 19,
 };

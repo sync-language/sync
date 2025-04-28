@@ -51,15 +51,22 @@ typedef enum SyTypeTag {
     /// Maps to effectively infinite `SyType` instances, depending on the type of the ok value and the error value.
     /// Holds ownership over the values.
     SyTypeTagResult = 14,
+    /// Maps to a few `SyType` instances, depending on the type of each component for the integer and float types, 
+    /// along with the dimensions, being `2`, `3`, or `4`. These can map to GLSL types.
+    SyTypeTagVector = 15,
+    /// Maps to a few `SyType` instances, depending on the `32` or `64` bit floats, along with the X and Y dimensions,
+    /// each of which can be `2`, `3`, or `4`. These can map to GLSL types.
+    /// TODO figure out column vs row major
+    SyTypeTagMatrix = 16,
     /// Maps to effectively infinite `SyType` instances, depending on the return type and argument types.
     /// Is a function pointer. Doesn't handle member binding.
-    SyTypeTagFunction = 15,
+    SyTypeTagFunction = 17,
     /// Maps to effectively infinite `SyType` instances, depending on the object type, and whether it's
     /// single ownership, shared ownership, or weak referencing.
-    SyTypeTagSync = 16,
+    SyTypeTagSync = 18,
     /// Maps to effectively infinite `SyType` instances, depending on the struct name (and relevant namespacing),
     /// it's members, and various other factors.
-    SyTypeTagStruct = 17,
+    SyTypeTagStruct = 19,
 
     // Enforce 32 bit size
     _SY_TYPE_TAG_MAX_ENUM = 0x7FFFFFFF
