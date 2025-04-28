@@ -36,4 +36,21 @@ extern "C" {
         free(buf);
         #endif
     }
+
+    void* page_malloc(size_t len) {    
+        #if defined(_WIN32) || defined(WIN32)
+        return VirtualAlloc(NULL, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        #elif __GNUC__
+        return mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        #endif
+    }
+
+    void page_free(void *pagesStart, size_t len) {
+        #if defined(_WIN32) || defined(WIN32)
+        VirtualFree(pagesStart, len, MEM_DECOMMIT | MEM_RELEASE);
+        #elif __GNUC__
+        munmap(pagesStart, len);
+        #endif    
+    }
 }
+
