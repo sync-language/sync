@@ -29,6 +29,13 @@ typedef struct SyFunction {
     const struct SyType**   argsTypes;
     /// If zero, the function take no arguments
     uint16_t                argsLen;
+    /// Alignment required for this function call. Any value under
+    /// [16](https://learn.microsoft.com/en-us/cpp/build/stack-usage?view=msvc-170) will be rounded up to 16.
+    /// This is used to determine the necessary alignment of function calls
+    /// # Debug Asserts
+    /// Alignment must be a multiple of 2.
+    /// `alignment % 2 == 0`.
+    size_t                  alignment;
     /// Determines if this function is a C function or script function.
     SyFunctionType          tag;
     /// Both for C functions and script functions. Given `tag` and `info`, the function will be correctly called.
