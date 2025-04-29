@@ -191,3 +191,9 @@ bool Stack::extendCurrentFrameForNextFrameAlignment(size_t alignment)
 
     return true;
 }
+
+#ifdef SYNC_LIB_TEST
+
+#include "../doctest.h"
+
+#endif // SYNC_LIB_TEST

@@ -99,6 +99,8 @@ private:
 
     bool extendCurrentFrameForNextFrameAlignment(size_t alignment);
 
+
+    
 private:
 
     Raw raw;
