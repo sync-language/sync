@@ -1,17 +1,24 @@
 #include "stack.hpp"
 #include "../util/assert.hpp"
-#include <new>
 #include "../mem/os_mem.hpp"
+#if _MSC_VER
+#include <new>
+#endif
 
 static_assert(sizeof(Stack) == sizeof(Stack::Raw));
 static_assert(alignof(Stack) == alignof(Stack::Raw));
 
-namespace detail {  
-    static thread_local alignas(std::hardware_destructive_interference_size)
-    Stack::stack_value_t defaultValueStorage[DEFAULT_STACK_SLOT_SIZE];
+namespace detail {
+    
+    #if _MSC_VER
+    constexpr size_t STORAGE_ALIGNMENT = std::hardware_destructive_interference_size;
+    #else
+    constexpr size_t STORAGE_ALIGNMENT = 64;
+    #endif
 
-    static thread_local alignas(std::hardware_destructive_interference_size)
-    Stack::stack_type_t defaultTypeStorage[DEFAULT_STACK_SLOT_SIZE];
+    alignas(STORAGE_ALIGNMENT) static thread_local Stack::stack_value_t defaultValueStorage[DEFAULT_STACK_SLOT_SIZE];
+
+    alignas(STORAGE_ALIGNMENT) static thread_local Stack::stack_type_t defaultTypeStorage[DEFAULT_STACK_SLOT_SIZE];
 
     /// Creating this as a compile time known value avoids any problem of constructor ordering before main(),
     /// in the event anyone using this library requires script stuff to be done before main() as well.
