@@ -12,6 +12,7 @@ add_library(SyncLib STATIC
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
     "src/types/function/function.cpp"
+    "src/interpreter/stack.cpp"
 )
 
 add_executable(SyncLibTests
@@ -20,6 +21,7 @@ add_executable(SyncLibTests
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
     "src/types/function/function.cpp"
+    "src/interpreter/stack.cpp"
 )
 
 # Ensure all warnings are caught
