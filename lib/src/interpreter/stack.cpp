@@ -78,7 +78,7 @@ FrameGuard Stack::pushFrame(size_t frameLength, size_t alignment, void *retValDs
 {
     sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
     sy_assert(frameLength < MAX_FRAME_LEN, "Frame length must not exceed the maximum");
-    sy_assert(frameLength > 1, "Frame length of 0 is useless");
+    sy_assert(frameLength > 0, "Frame length of 0 is useless");
 
     const size_t actualAlignment = alignment < 16 ? 16 : alignment;
 
