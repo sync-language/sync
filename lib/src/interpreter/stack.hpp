@@ -21,6 +21,8 @@ namespace sy {
 
 struct Bytecode;
 
+class FrameGuard;
+
 class Stack {
 public:
 
@@ -31,6 +33,9 @@ public:
         size_t basePointerOffset = 0;
         size_t frameLength = 0;
         void* retValueDst = nullptr;
+        #if _DEBUG
+        bool validated = false;
+        #endif
     };
 
     Stack();
@@ -53,13 +58,7 @@ public:
     /// @param retValDst Memory address where the return value of a function should be copied to. Can be `nullptr`,
     /// meaning no return value destination.
     /// @return `true` if successful, otherwise `false` in which pushing the frame would overflow the stack.
-    [[nodiscard]] bool pushFrame(size_t frameLength, size_t alignment, void* retValDst);
-
-    /// Pops the current frame from the stack, and restores the old one. Does not unwind the stack.
-    /// # Debug Asserts
-    /// Expects there to be an old stack to restore. For example, calling `pushFrame(...)` once, and then calling
-    /// `popFrame(...)` twice is an error. The first pop is fine, but the second has no frame to restore.
-    void popFrame();
+    [[nodiscard]] FrameGuard pushFrame(size_t frameLength, size_t alignment, void* retValDst);
 
     [[nodiscard]] size_t slots() const { return this->raw.slots; }
 
@@ -99,11 +98,43 @@ private:
 
     bool extendCurrentFrameForNextFrameAlignment(size_t alignment);
 
+    friend class FrameGuard;
 
+    /// Pops the current frame from the stack, and restores the old one. Does not unwind the stack.
+    /// # Debug Asserts
+    /// Expects there to be an old stack to restore. For example, calling `pushFrame(...)` once, and then calling
+    /// `popFrame(...)` twice is an error. The first pop is fine, but the second has no frame to restore.
+    void popFrame();
+
+    bool currentFrameValidated() const;
     
 private:
 
     Raw raw;
+};
+
+/// An RAII guard over a stack frame, to automatically handle popping the frame, and checking for stack overflow.
+/// The `checkOverflow(...)` member function MUST be called. Upon calling, it signals to the stack that the frame
+/// has been validated, and thus can be used.
+class FrameGuard {
+public:
+    ~FrameGuard();
+    FrameGuard(FrameGuard&& other);
+    FrameGuard& operator=(FrameGuard&& other);
+
+    FrameGuard(const FrameGuard&) = delete;
+    FrameGuard& operator=(const FrameGuard&) = delete;
+
+    /// This must be called. If not, the stack frame will not be validated. See `Stack::Frame::validated`
+    /// @returns `true` if the push operation would have overflowed the stack (for early return), otherwise `false`.
+    bool checkOverflow() const;
+
+private:
+    friend class Stack;
+    FrameGuard() = default;
+    FrameGuard(Stack* inStack) : stack(inStack) {}
+private:
+    Stack* stack = nullptr;
 };
 
 #endif // SY_INTERPRETER_STACK_HPP_

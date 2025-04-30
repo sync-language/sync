@@ -74,7 +74,7 @@ Stack &Stack::getActiveStack()
     return *detail::activeStack;
 }
 
-bool Stack::pushFrame(size_t frameLength, size_t alignment, void *retValDst)
+FrameGuard Stack::pushFrame(size_t frameLength, size_t alignment, void *retValDst)
 {
     sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
     sy_assert(alignment >= 16, "Alignment should be greater than or equal to 16");
@@ -88,12 +88,12 @@ bool Stack::pushFrame(size_t frameLength, size_t alignment, void *retValDst)
 
     const size_t actualAlignment = alignment < 16 ? 16 : alignment;
     if(this->extendCurrentFrameForNextFrameAlignment(actualAlignment) == false) {
-        return false;
+        return FrameGuard();
     }
 
     const size_t newBaseOffset = this->raw.nextBaseOffset + frameLength + OLD_FRAME_INFO_RESERVED_SLOTS;
     if(newBaseOffset > this->raw.slots) {
-        return false;
+        return FrameGuard();
     }
 
     // store old frame data within memory of new frame
@@ -123,12 +123,13 @@ bool Stack::pushFrame(size_t frameLength, size_t alignment, void *retValDst)
     };
     this->raw.currentFrame = newFrame;
     this->raw.nextBaseOffset += frameLength + OLD_FRAME_INFO_RESERVED_SLOTS;
-    return true;
+    return FrameGuard(this);
 }
 
 void Stack::popFrame()
 {
     sy_assert(this->raw.nextBaseOffset != 0, "No more frames to pop");
+    sy_assert(this->currentFrameValidated(), "Cannot pop non-validated frame");
 
     const size_t offset = this->raw.currentFrame.frameLength + OLD_FRAME_INFO_RESERVED_SLOTS;
     
@@ -167,6 +168,15 @@ void Stack::popFrame()
     this->raw.currentFrame = oldFrame;
 }
 
+bool Stack::currentFrameValidated() const
+{
+    #if _DEBUG
+    return this->raw.currentFrame.validated;
+    #else
+    return true;
+    #endif
+}
+
 bool Stack::extendCurrentFrameForNextFrameAlignment(size_t alignment)
 {
     sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
@@ -190,6 +200,37 @@ bool Stack::extendCurrentFrameForNextFrameAlignment(size_t alignment)
     sy_assert(this->raw.nextBaseOffset % alignment == 0, "Adjusted base offset must satisfy alignment requirements");
 
     return true;
+}
+
+FrameGuard::~FrameGuard()
+{
+    if(this->stack == nullptr) return;
+    
+    this->stack->popFrame();
+    this->stack = nullptr;
+}
+
+FrameGuard::FrameGuard(FrameGuard&& other) : stack(other.stack) {
+    other.stack = nullptr;
+}
+
+FrameGuard &FrameGuard::operator=(FrameGuard && other) {
+    this->stack = other.stack;
+    other.stack = nullptr;
+    return *this;
+}
+
+bool FrameGuard::checkOverflow() const
+{
+    if(this->stack == nullptr) {
+        return true;
+    }
+
+    #if _DEBUG
+    Stack* mutableStack = const_cast<Stack*>(this->stack);
+    mutableStack->raw.currentFrame.validated = true;
+    #endif
+    return false;
 }
 
 #ifdef SYNC_LIB_TEST
