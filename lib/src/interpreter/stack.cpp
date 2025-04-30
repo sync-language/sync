@@ -77,16 +77,16 @@ Stack &Stack::getActiveStack()
 FrameGuard Stack::pushFrame(size_t frameLength, size_t alignment, void *retValDst)
 {
     sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
-    sy_assert(alignment >= 16, "Alignment should be greater than or equal to 16");
     sy_assert(frameLength < MAX_FRAME_LEN, "Frame length must not exceed the maximum");
     sy_assert(frameLength > 1, "Frame length of 0 is useless");
 
+    const size_t actualAlignment = alignment < 16 ? 16 : alignment;
+
     { // validate values are properly aligned
         const size_t asNum = reinterpret_cast<size_t>(this->raw.values);
-        sy_assert(asNum % alignment == 0, "The stack values must be aligned to the required frame alignment");
+        sy_assert(asNum % actualAlignment == 0, "The stack values must be aligned to the required frame alignment");
     }
 
-    const size_t actualAlignment = alignment < 16 ? 16 : alignment;
     if(this->extendCurrentFrameForNextFrameAlignment(actualAlignment) == false) {
         return FrameGuard();
     }
