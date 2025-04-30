@@ -13,6 +13,7 @@ add_library(SyncLib STATIC
     "src/mem/os_mem.cpp"
     "src/types/function/function.cpp"
     "src/interpreter/stack.cpp"
+    "src/interpreter/bytecode.cpp"
 )
 
 add_executable(SyncLibTests
@@ -22,6 +23,7 @@ add_executable(SyncLibTests
     "src/mem/os_mem.cpp"
     "src/types/function/function.cpp"
     "src/interpreter/stack.cpp"
+    "src/interpreter/bytecode.cpp"
 )
 
 # Ensure all warnings are caught
