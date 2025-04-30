@@ -119,7 +119,10 @@ FrameGuard Stack::pushFrame(size_t frameLength, size_t alignment, void *retValDs
     const Frame newFrame = {
         this->raw.nextBaseOffset,
         frameLength,
-        retValDst
+        retValDst,
+        #if _DEBUG
+        false // flag
+        #endif
     };
     this->raw.currentFrame = newFrame;
     this->raw.nextBaseOffset += frameLength + OLD_FRAME_INFO_RESERVED_SLOTS;
@@ -161,7 +164,10 @@ void Stack::popFrame()
     const Frame oldFrame = {
         this->raw.nextBaseOffset - oldFrameLength - OLD_FRAME_INFO_RESERVED_SLOTS,
         oldFrameLength,
-        oldRetValDst
+        oldRetValDst,
+        #if _DEBUG
+        true // flag
+        #endif
     };
 
     this->raw.instructionPointer = oldInstructionPtr;
