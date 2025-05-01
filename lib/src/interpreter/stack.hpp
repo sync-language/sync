@@ -16,7 +16,7 @@ namespace detail {
 }
 
 namespace sy {
-    class Type;
+    struct Type;
 }
 
 struct Bytecode;

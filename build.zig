@@ -70,6 +70,7 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/util/panic.cpp",
     "lib/src/mem/os_mem.cpp",
     "lib/src/mem/allocator.cpp",
+    "lib/src/types/type_info.cpp",
     "lib/src/types/function/function.cpp",
     "lib/src/interpreter/stack.cpp",
     "lib/src/interpreter/bytecode.cpp",

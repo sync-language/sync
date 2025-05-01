@@ -4,6 +4,7 @@
 #define SY_TYPES_TYPE_H_
 
 #include "../core.h"
+#include "string/string_slice.h"
 
 struct SyType;
 
@@ -72,20 +73,6 @@ typedef enum SyTypeTag {
     _SY_TYPE_TAG_MAX_ENUM = 0x7FFFFFFF
 } SyTypeTag;
 
-typedef struct SyBaseTypeInfo {
-    /// Actual size of the type in bytes.
-    size_t      sizeType;
-    /// Alignment of the type. For now, `alignType <= 8` is required.
-    /// TODO support alignments greater than 8 for 64 bit
-    uint8_t     alignType;
-    /// Is a non-null utf8 character array up to `nameLength` in size in bytes. Does not need to be null terminated.
-    const char* name;
-    /// Amount of bytes of `name`.
-    size_t      nameLength;
-    
-    // TODO add functions
-} SyBaseTypeInfo;
-
 /// Internal use only. Used for type requirements on C unions.
 typedef void* _sy_type_extra_info_unused_t;
 
@@ -96,17 +83,50 @@ typedef struct SyTypeInfoInt {
     uint8_t bits;
 } SyTypeInfoInt;
 
+typedef struct SyTypeInfoFloat {
+    /// Must be `32` or `64`.
+    uint8_t bits;
+} SyTypeInfoFloat;
+
 typedef union SyTypeExtraInfo {
     _sy_type_extra_info_unused_t    _boolInfo;
     SyTypeInfoInt                   intInfo;
+    SyTypeInfoFloat                 floatInfo;
 } SyTypeExtraInfo;
 
 typedef struct SyType {
-    SyBaseTypeInfo  baseInfo;
+    /// Actual size of the type in bytes.
+    size_t      sizeType;
+    /// Alignment of the type. For now, `alignType <= 8` is required.
+    /// TODO support alignments greater than 8 for 64 bit
+    size_t     alignType;
+    SyStringSlice name;
     /// Used as a tagged union with the payload being `extra`.
     SyTypeTag       tag;
     /// Used as a tagged union, with the tags being `tag`.
     SyTypeExtraInfo extra;
 } SyType;
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+SY_API extern const SyType* const SY_TYPE_BOOL;
+SY_API extern const SyType* const SY_TYPE_I8;
+SY_API extern const SyType* const SY_TYPE_I16; 
+SY_API extern const SyType* const SY_TYPE_I32;
+SY_API extern const SyType* const SY_TYPE_I64;
+SY_API extern const SyType* const SY_TYPE_U8;
+SY_API extern const SyType* const SY_TYPE_U16;
+SY_API extern const SyType* const SY_TYPE_U32;
+SY_API extern const SyType* const SY_TYPE_U64;
+SY_API extern const SyType* const SY_TYPE_USIZE;
+SY_API extern const SyType* const SY_TYPE_F32;
+SY_API extern const SyType* const SY_TYPE_F64;
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif // SY_TYPES_TYPE_H_

@@ -9,7 +9,7 @@ namespace sy {
         #include "string_slice.h"
     }
 
-    class StringSlice {
+    class SY_API StringSlice {
     public:
         StringSlice() = default;
 
