@@ -12,4 +12,4 @@ set(CMAKE_CXX_STANDARD 17)
 add_subdirectory(lib)
 
 enable_testing()
-add_test(SyncLibCppTests SyncLibTests)
+add_test(SyncLibCppTests lib/SyncLibTests)
