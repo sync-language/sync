@@ -26,7 +26,7 @@ class FrameGuard;
 class Stack {
 public:
 
-    static constexpr size_t BITS_PER_STACK_OPERAND = 13;
+    static constexpr size_t BITS_PER_STACK_OPERAND = 16;
     static constexpr size_t MAX_FRAME_LEN = 1 << BITS_PER_STACK_OPERAND;
 
     struct Frame {

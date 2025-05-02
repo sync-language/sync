@@ -3,6 +3,7 @@
 #define SY_INTERPRETER_BYTECODE_HPP_
 
 #include "../core.h"
+#include "stack.hpp"
 
 namespace sy {
     struct Type;
@@ -10,7 +11,14 @@ namespace sy {
 
 enum class OpCode : uint8_t {
     Nop = 0,
-    LoadZero,
+    /// May be 2 wide instruction if loading the default value for non scalar types.
+    /// For scalar types, loads zero values.
+    LoadDefault,
+    /// May be 2 wide instruction if loading uninitialized memory for non scalar type.
+    /// Loads value 0xAA into all bytes of the memory an object will occupy.
+    /// This is the same as [undefined](https://ziglang.org/documentation/master/#undefined) in zig.
+    /// Primarily, this is useful for doing struct and array initialization.
+    LoadUninitialized,
     LoadImmediate,
     Return,
     Call,
@@ -40,9 +48,28 @@ constexpr size_t OPCODE_BITMASK = 0b11111111;
 
 /// Zero initializing gets a Nop.
 struct Bytecode {
-    uint64_t value;
+    uint64_t value = 0;
+
+    template<typename OperandsT>
+    Bytecode(const OperandsT& operands) {
+        static_assert(sizeof(OperandsT) == sizeof(Bytecode));
+        static_assert(alignof(OperandsT) == alignof(Bytecode));
+        assertOpCodeMatch(operands.reserveOpcode, OperandsT::OPCODE); // make sure mistakes arent made
+        *this = reinterpret_cast<const Bytecode&>(operands);
+    }
 
     OpCode getOpcode() const;
+
+    template<typename OperandsT>
+    OperandsT toOperands() const {
+        static_assert(sizeof(OperandsT) == sizeof(Bytecode));
+        static_assert(alignof(OperandsT) == alignof(Bytecode));
+        assertOpCodeMatch(this->getOpcode(), OperandsT::OPCODE);
+        return *reinterpret_cast<const OperandsT*>(this);
+    }
+
+private:
+    static void assertOpCodeMatch(OpCode actual, OpCode expected);
 };
 
 enum class ScalarTag : uint8_t {
@@ -63,5 +90,39 @@ enum class ScalarTag : uint8_t {
 constexpr size_t SCALAR_TAG_USED_BITS = 6;
 
 const sy::Type* scalarTypeFromTag(ScalarTag tag);
+
+/// Holds all operand types. All operands are expected to have a static constexpr member named `OPCODE` of type 
+/// `OpCode`, matching the opcode of the operation. This is used for validation.
+/// They are also all expected to have the first `OPCODE_USED_BITS` be a bitfield named `reserveOpcode`.
+/// Lastly, all operand types must be of size `sizeof(Bytecode)`, and align `alignof(Bytecode)`.
+namespace operands {
+    
+    /// If `isScalar == false`, this is a wide instruction, with the second "bytecode" being a 
+    /// `const Sy::Type*` instance.
+    struct LoadDefault {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        /// Boolean
+        uint64_t isScalar: 1;
+        /// Used if `isScalar == true`
+        uint64_t scalarTag: SCALAR_TAG_USED_BITS;
+        uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
+
+        static constexpr OpCode OPCODE = OpCode::LoadDefault;
+    };
+
+    /// If `isScalar == false`, this is a wide instruction, with the second "bytecode" being a 
+    /// `const Sy::Type*` instance.
+    struct LoadUninitialized {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        /// Boolean
+        uint64_t isScalar: 1;
+        /// Used if `isScalar == true`
+        uint64_t scalarTag: SCALAR_TAG_USED_BITS;
+        uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
+
+        static constexpr OpCode OPCODE = OpCode::LoadUninitialized;
+    };
+
+}
 
 #endif // SY_INTERPRETER_BYTECODE_HPP_

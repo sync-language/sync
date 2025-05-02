@@ -1,11 +1,17 @@
 #include "bytecode.hpp"
 #include "../types/type_info.hpp"
 #include "../util/unreachable.hpp"
+#include "../util/assert.hpp"
 
 OpCode Bytecode::getOpcode() const
 {
     // This is safe.
     return static_cast<OpCode>(this->value & OPCODE_BITMASK);
+}
+
+void Bytecode::assertOpCodeMatch(OpCode actual, OpCode expected)
+{
+    sy_assert(actual == expected, "Cannot convert this bytecode to an invalid operand");
 }
 
 const sy::Type *scalarTypeFromTag(ScalarTag tag)
