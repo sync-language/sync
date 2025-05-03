@@ -99,7 +99,7 @@ typedef struct SyType {
     size_t      sizeType;
     /// Alignment of the type. For now, `alignType <= 8` is required.
     /// TODO support alignments greater than 8 for 64 bit
-    size_t     alignType;
+    uint16_t     alignType;
     SyStringSlice name;
     /// Used as a tagged union with the payload being `extra`.
     SyTypeTag       tag;

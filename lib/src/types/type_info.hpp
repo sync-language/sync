@@ -34,13 +34,13 @@ namespace sy {
         };
 
         size_t      sizeType;
-        size_t      alignType;
+        uint16_t      alignType;
         StringSlice name;
         Tag         tag;
         ExtraInfo   extra;
 
         constexpr Type(size_t inSize, size_t inAlign, StringSlice inName, Tag inTag, ExtraInfo inExtra)
-            : sizeType(inSize), alignType(inAlign), name(inName), tag(inTag), extra(inExtra)
+            : sizeType(inSize), alignType(static_cast<uint16_t>(inAlign)), name(inName), tag(inTag), extra(inExtra)
         {}
 
         static const Type* const TYPE_BOOL;

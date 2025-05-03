@@ -35,7 +35,7 @@ typedef struct SyFunction {
     /// # Debug Asserts
     /// Alignment must be a multiple of 2.
     /// `alignment % 2 == 0`.
-    size_t                  alignment;
+    uint16_t                  alignment;
     /// Determines if this function is a C function or script function.
     SyFunctionType          tag;
     /// Both for C functions and script functions. Given `tag` and `info`, the function will be correctly called.
