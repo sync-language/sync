@@ -1,4 +1,5 @@
 //! API
+#pragma once
 #ifndef SY_CORE_H_
 #define SY_CORE_H_
 

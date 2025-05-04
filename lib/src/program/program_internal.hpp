@@ -11,7 +11,7 @@ namespace sy {
     /// Corresponds with `SyFunction::fptr` if `SyFunction::tag == SyFunctionTypeScript`.
     struct InterpreterFunctionScriptInfo {
         const Program*  program;
-        size_t          stackSpaceRequired;
+        uint16_t        stackSpaceRequired;
         size_t          bytecodeCount;
         const Bytecode* bytecode;
     };

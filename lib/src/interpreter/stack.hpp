@@ -17,6 +17,8 @@ namespace detail {
 
 namespace sy {
     struct Type;
+    class Function;
+    class CallStack;
 }
 
 struct Bytecode;
@@ -31,8 +33,9 @@ public:
 
     struct Frame {
         size_t basePointerOffset = 0;
-        size_t frameLength = 0;
+        uint16_t frameLength = 0;
         void* retValueDst = nullptr;
+        const sy::Function* function = nullptr;
         #if _DEBUG
         bool validated = false;
         #endif
@@ -58,7 +61,14 @@ public:
     /// @param retValDst Memory address where the return value of a function should be copied to. Can be `nullptr`,
     /// meaning no return value destination.
     /// @return `true` if successful, otherwise `false` in which pushing the frame would overflow the stack.
-    [[nodiscard]] FrameGuard pushFrame(size_t frameLength, size_t alignment, void* retValDst);
+    [[nodiscard]] FrameGuard pushFrame(uint16_t frameLength, uint16_t alignment, void* retValDst);
+
+    /// Sets the function of the current stack frame.
+    void setFrameFunction(const sy::Function* function);
+
+    [[nodiscard]] FrameGuard pushFunctionFrame(const sy::Function* function, void* retValDst);
+
+    [[nodiscard]] sy::CallStack callStack() const;
 
     [[nodiscard]] size_t slots() const { return this->raw.slots; }
 
@@ -70,16 +80,19 @@ public:
     struct Raw {
         const Bytecode* instructionPointer;
         /// Offset from `values` and `types` indicated where the next frame should start
-        size_t          nextBaseOffset;
-        Frame           currentFrame;
+        size_t                  nextBaseOffset;
+        Frame                   currentFrame;
         /// Allocated as pages
-        stack_value_t*  values;
+        stack_value_t*          values;
         /// Allocates as pages
-        stack_type_t*   types;
+        stack_type_t*           types;
         /// Does not need to be the amount of pages, or total number of bytes in the pages for `stack` and `types.
         /// For both `mmap` and `VirtualAlloc`, the length argument does not need to be a page multiple, as the C
         /// runtime library will handle it accordingly.
-        size_t          slots;
+        size_t                  slots;
+        const sy::Function**    callstackFunctions;
+        size_t                  callstackLen;
+        size_t                  callstackCapacity;
     };
 
 private:
@@ -87,16 +100,23 @@ private:
     /// The index used to read the instruction pointer of the previous frame.
     /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::values`.
     static constexpr size_t OLD_INSTRUCTION_POINTER = 0;
-    /// The index used to read the instruction pointer of the previous frame.
+    /// The index used to read the frame length of the previous frame.
     /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::values`.
     static constexpr size_t OLD_FRAME_LENGTH = 1;
-    /// The index used to read the instruction pointer of the previous frame. 
+    /// The index used to read the return value destination of the previous frame. 
     /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
     static constexpr size_t OLD_RETURN_VALUE_DST = 0;
+    /// The index used to read the function of the previous frame. 
+    /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
+    static constexpr size_t OLD_FUNCTION = 1;
     /// The amount of slots the old stack frame info needs to store itself within the bounds of the new frame.
     static constexpr size_t OLD_FRAME_INFO_RESERVED_SLOTS = 2;
 
-    bool extendCurrentFrameForNextFrameAlignment(size_t alignment);
+    // Maybe good idea to not store the instruction pointer itself, but the offset within the bytecode.
+    // That way it can occupy 48 bits rather than a full pointer, and then the other 16 bits can be the frame length.
+    // This allows storing the previous function, while saving room for 1 more another old frame data store.
+
+    bool extendCurrentFrameForNextFrameAlignment(uint16_t alignment);
 
     friend class FrameGuard;
 

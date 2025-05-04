@@ -64,7 +64,7 @@ sy::Allocator::~Allocator()
         return;
     }
 
-    c::sy_allocator_destructor(&this->_allocator);
+    sy_allocator_destructor(&this->_allocator);
     this->_allocator.ptr = nullptr;
     this->_allocator.vtable = nullptr;
 }
@@ -78,7 +78,7 @@ sy::Allocator::Allocator(Allocator &&other) : _allocator(other._allocator)
 sy::Allocator &sy::Allocator::operator=(Allocator &&other)
 {
     if(this->_allocator.ptr != nullptr) {
-        c::sy_allocator_destructor(&this->_allocator);
+        sy_allocator_destructor(&this->_allocator);
     }
 
     this->_allocator = other._allocator;

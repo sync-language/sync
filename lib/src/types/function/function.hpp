@@ -11,7 +11,7 @@ namespace sy {
         #include "function.h"
     }
 
-    class Type;
+    struct Type;
 
     class Function {
     public:

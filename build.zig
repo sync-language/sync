@@ -74,4 +74,5 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/types/function/function.cpp",
     "lib/src/interpreter/stack.cpp",
     "lib/src/interpreter/bytecode.cpp",
+    "lib/src/program/program.cpp",
 };

@@ -1,4 +1,5 @@
 //! API
+#pragma once
 #ifndef SY_MEM_ALLOCATOR_H_
 #define SY_MEM_ALLOCATOR_H_
 

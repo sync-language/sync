@@ -1,4 +1,5 @@
 //! API
+#pragma once
 #ifndef SY_MEM_ALLOCATOR_HPP_
 #define SY_MEM_ALLOCATOR_HPP_
 
@@ -8,15 +9,20 @@ namespace sy {
     namespace c {
         #include "allocator.h"
 
-        using ::SyAllocator;
-        using ::SyAllocatorVTable;
-        using ::sy_allocator_alloc_fn;
-        using ::sy_allocator_free_fn;
-        using ::sy_allocator_destructor_fn;
-        using ::sy_allocator_alloc;
-        using ::sy_allocator_free;
-        using ::sy_allocator_destructor;
-        using ::sy_defaultAllocator;
+        using SyAllocator = SyAllocator;
+        using SyAllocatorVTable = SyAllocatorVTable;
+        using sy_allocator_alloc_fn = sy_allocator_alloc_fn;
+        using sy_allocator_free_fn = sy_allocator_free_fn;
+        using sy_allocator_destructor_fn = sy_allocator_destructor_fn;
+
+        // What the flip
+        extern "C" {
+            SY_API void* sy_allocator_alloc(SyAllocator* self, size_t len, size_t align);
+                        /// @param `buf` Non-null. 
+            SY_API void sy_allocator_free(SyAllocator* self, void* buf, size_t len, size_t align);
+
+            SY_API void sy_allocator_destructor(SyAllocator* self);
+        }
     }
 
     class Allocator;
@@ -145,6 +151,5 @@ namespace sy {
         
     };
 }
-
 
 #endif // SY_MEM_ALLOCATOR_HPP_
