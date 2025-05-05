@@ -5,7 +5,9 @@
 #include "../mem/os_mem.hpp"
 #include "../types/function/function.hpp"
 #include "../program/program_internal.hpp"
+#include "../types/type_info.hpp"
 #include <utility>
+#include <iostream>
 #if _MSC_VER
 #include <new>
 #endif
@@ -82,10 +84,11 @@ Stack &Stack::getActiveStack()
     return *detail::activeStack;
 }
 
-FrameGuard Stack::pushFrame(uint16_t frameLength, uint16_t alignment, void *retValDst)
+FrameGuard Stack::pushFrame(size_t frameLength, uint16_t alignment, void *retValDst)
 {
     sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
     sy_assert(frameLength > 0, "Frame length of 0 is useless");
+    sy_assert(frameLength <= MAX_FRAME_LEN, "Frame length cannot exceed maximum");
 
     const uint16_t actualAlignment = alignment < 16 ? 16 : alignment;
 
@@ -108,28 +111,11 @@ FrameGuard Stack::pushFrame(uint16_t frameLength, uint16_t alignment, void *retV
         sy_assert(this->raw.nextBaseOffset >= OLD_FRAME_INFO_RESERVED_SLOTS, 
             "Trying to set out of bounds memory before the stack memory allocations");
 
-        const size_t nextFrameOffsetBefore = this->raw.nextBaseOffset - OLD_FRAME_INFO_RESERVED_SLOTS;
-        stack_value_t* const beforeFrameStart1 = &this->raw.values[nextFrameOffsetBefore];
-        stack_type_t* const beforeFrameStart2 = &this->raw.types[nextFrameOffsetBefore];
-
-        // stupid const cast
-        const Bytecode*& oldInstructionPtr =
-            const_cast<const Bytecode*&>(reinterpret_cast<Bytecode*&>(beforeFrameStart1[OLD_INSTRUCTION_POINTER]));
-        size_t& oldFrameLength =
-            reinterpret_cast<size_t&>(beforeFrameStart1[OLD_FRAME_LENGTH]); // actually uint16_t
-        void*& oldRetValDst =
-            reinterpret_cast<void*&>(beforeFrameStart2[OLD_RETURN_VALUE_DST]);
-        const sy::Function*& oldFunction =
-            const_cast<const sy::Function*&>(reinterpret_cast<sy::Function*&>(beforeFrameStart2[OLD_RETURN_VALUE_DST]));
-
-        oldInstructionPtr = this->raw.instructionPointer;
-        oldFrameLength = static_cast<size_t>(this->raw.currentFrame.frameLength);
-        oldRetValDst = this->raw.currentFrame.retValueDst;
-        oldFunction = this->raw.currentFrame.function;
+        this->storeCurrentFrameInfoInNext();
     }
 
     const Frame newFrame = {
-        this->raw.nextBaseOffset,
+        this->raw.nextBaseOffset + OLD_FRAME_INFO_RESERVED_SLOTS,
         frameLength,
         retValDst,
         #if _DEBUG
@@ -181,58 +167,91 @@ sy::CallStack Stack::callStack() const
     return sy::CallStack(this->raw.callstackFunctions, this->raw.callstackLen);
 }
 
+const Bytecode *Stack::getInstructionPointer()
+{
+    sy_assert(this->raw.instructionPointer != nullptr, "Cannot get invalid instruction pointer");
+    return this->raw.instructionPointer;
+}
+
+void Stack::setInstructionPointer(const Bytecode *bytecode)
+{
+    sy_assert(bytecode != nullptr, "Cannot set invalid instruction pointer");
+    this->raw.instructionPointer = bytecode;
+}
+
+void* Stack::valueMemoryAt(uint16_t offset)
+{
+    sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
+    const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
+    return &this->raw.values[actualOffset];
+}
+
+const sy::Type* Stack::typeAt(uint16_t offset)
+{
+    sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
+    const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
+    const void* typeMem = this->raw.types[actualOffset];
+    const uintptr_t typeMemAsInt = reinterpret_cast<uintptr_t>(typeMem);
+    const uintptr_t maskedAwayFlag = typeMemAsInt & (~TYPE_NOT_OWNED_FLAG);
+    return reinterpret_cast<const sy::Type*>(maskedAwayFlag);
+}
+
+void Stack::setTypeAt(const sy::Type *type, uint16_t offset)
+{
+    sy_assert(type != nullptr, "Cannot set null type");
+    this->setOptionalTypeAt(type, offset, false);
+}
+
+void Stack::setNonOwningTypeAt(const sy::Type *type, uint16_t offset)
+{    
+    sy_assert(type != nullptr, "Cannot set null type");
+    this->setOptionalTypeAt(type, offset, true);
+}
+
+void Stack::setNullTypeAt(uint16_t offset)
+{
+    this->setOptionalTypeAt(nullptr, offset, false);
+}
+
+bool Stack::isOwnedTypeAt(uint16_t offset)
+{
+    sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
+    const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
+    const void* typeMem = this->raw.types[actualOffset];
+    const uintptr_t typeMemAsInt = reinterpret_cast<uintptr_t>(typeMem);
+    const uintptr_t maskedAwayType = typeMemAsInt & TYPE_NOT_OWNED_FLAG;
+    return maskedAwayType != TYPE_NOT_OWNED_FLAG;
+}
+
 void Stack::popFrame()
 {
     sy_assert(this->raw.nextBaseOffset != 0, "No more frames to pop");
     sy_assert(this->currentFrameValidated(), "Cannot pop non-validated frame");
-
-    const size_t offset = this->raw.currentFrame.frameLength + OLD_FRAME_INFO_RESERVED_SLOTS;
     
-    sy_assert(offset <= this->raw.nextBaseOffset, "Stack was corrupted");
+    sy_assert(this->raw.currentFrame.frameLength <= this->raw.nextBaseOffset, "Stack was corrupted");
 
-    this->raw.nextBaseOffset -= offset;
-    if(this->raw.nextBaseOffset == 0) {
+    const size_t oldNextBaseOffset = 
+        this->raw.nextBaseOffset - (this->raw.currentFrame.frameLength + OLD_FRAME_INFO_RESERVED_SLOTS);
+
+    if(oldNextBaseOffset == 0) {
+        this->raw.nextBaseOffset = 0;
         return;
     }
 
-    const size_t currentFrameBaseBefore = this->raw.currentFrame.basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS;
-    const stack_value_t* const beforeCurrentFrameStart1 = &this->raw.values[currentFrameBaseBefore];
-    const stack_type_t* const beforeCurrentFrameStart2 = &this->raw.types[currentFrameBaseBefore];
+    const Frame oldFrame = this->previousFrame();
+    const Bytecode* const oldInstructionPtr = this->previousInstructionPointer();
 
-    const size_t oldFrameBaseBefore = this->raw.nextBaseOffset - OLD_FRAME_INFO_RESERVED_SLOTS;
-    stack_value_t* const beforeOldFrameStart1 = &this->raw.values[oldFrameBaseBefore];
-    stack_type_t* const beforeOldFrameStart2 = &this->raw.types[oldFrameBaseBefore];
+    sy_assert(this->raw.nextBaseOffset > (oldFrame.frameLength - OLD_FRAME_INFO_RESERVED_SLOTS), "Integer underflow");
 
-    beforeOldFrameStart1[OLD_INSTRUCTION_POINTER] = beforeCurrentFrameStart1[OLD_INSTRUCTION_POINTER];
-    beforeOldFrameStart1[OLD_FRAME_LENGTH] = beforeCurrentFrameStart1[OLD_FRAME_LENGTH];
-    beforeOldFrameStart2[OLD_RETURN_VALUE_DST] = beforeCurrentFrameStart2[OLD_RETURN_VALUE_DST];
-    beforeOldFrameStart2[OLD_FUNCTION] = beforeCurrentFrameStart2[OLD_FUNCTION];
-
-    const Bytecode* const oldInstructionPtr = reinterpret_cast<Bytecode*>(beforeOldFrameStart1[OLD_INSTRUCTION_POINTER]);
-    const uint16_t oldFrameLength = static_cast<uint16_t>(reinterpret_cast<size_t>(beforeOldFrameStart1[OLD_FRAME_LENGTH]));
-    void* const oldRetValDst = reinterpret_cast<void*>(beforeOldFrameStart2[OLD_RETURN_VALUE_DST]);
-    const sy::Function* const oldFunction = reinterpret_cast<sy::Function*>(beforeOldFrameStart2[OLD_FUNCTION]);
-
-    sy_assert(this->raw.nextBaseOffset > static_cast<size_t>(oldFrameLength - OLD_FRAME_INFO_RESERVED_SLOTS), "Integer underflow");
-
-    if(oldFunction != nullptr) {
+    if(oldFrame.function != nullptr) {
         const size_t newCallstackLen = this->raw.callstackLen - 1;
         this->raw.callstackFunctions[newCallstackLen] = nullptr;
         this->raw.callstackLen = newCallstackLen;
     }
 
-    const Frame oldFrame = {
-        this->raw.nextBaseOffset - oldFrameLength - OLD_FRAME_INFO_RESERVED_SLOTS,
-        oldFrameLength,
-        oldRetValDst,
-        oldFunction,
-        #if _DEBUG
-        true // flag
-        #endif
-    };
-
     this->raw.instructionPointer = oldInstructionPtr;
     this->raw.currentFrame = oldFrame;
+    this->raw.nextBaseOffset = oldNextBaseOffset;
 }
 
 bool Stack::currentFrameValidated() const
@@ -267,6 +286,99 @@ bool Stack::extendCurrentFrameForNextFrameAlignment(uint16_t alignment)
     sy_assert((this->raw.nextBaseOffset * sizeof(void*)) % alignment == 0, "Adjusted base offset must satisfy alignment requirements");
 
     return true;
+}
+
+static bool ptrIsAligned(const void* p, size_t alignment) {
+    // Works for null pointers
+    return (((uintptr_t)p) % alignment) == 0;
+}
+
+void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
+{
+    static_assert(alignof(sy::Type) > 1, "Lowest bit must be reserved");
+    sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
+
+    const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
+
+    if(type == nullptr) {
+        this->raw.types[actualOffset] = nullptr;
+    } 
+    
+    sy_assert(ptrIsAligned(reinterpret_cast<const void*>(type), alignof(sy::Type)), "Type pointer misaligned");
+    const size_t slotsOccupied = type->sizeType / 8;
+    const size_t requiredFrameLength = static_cast<size_t>(offset) + slotsOccupied;
+    sy_assert(requiredFrameLength < this->raw.currentFrame.frameLength, "Cannot set type past the frame length");
+
+    const uintptr_t typePtrAsInt = reinterpret_cast<uintptr_t>(type);
+    const uintptr_t refTag = isRef ? TYPE_NOT_OWNED_FLAG : 0; // would be optimized
+
+    this->raw.types[actualOffset] = reinterpret_cast<void*>(typePtrAsInt | refTag);
+    if(slotsOccupied > 1) {
+        for(size_t i = 1; i < slotsOccupied; i++) {
+            this->raw.types[actualOffset + i] = nullptr;
+        }
+    }
+}
+
+void Stack::storeCurrentFrameInfoInNext()
+{
+    stack_value_t* const beforeFrameStart1 = &this->raw.values[this->raw.nextBaseOffset];
+    stack_type_t* const beforeFrameStart2 = &this->raw.types[this->raw.nextBaseOffset];
+
+    // stupid const cast
+    const Bytecode*& oldInstructionPtr =
+        const_cast<const Bytecode*&>(reinterpret_cast<Bytecode*&>(beforeFrameStart1[OLD_INSTRUCTION_POINTER]));
+    size_t& oldFrameLength =
+        reinterpret_cast<size_t&>(beforeFrameStart1[OLD_FRAME_LENGTH]);
+    void*& oldRetValDst =
+        reinterpret_cast<void*&>(beforeFrameStart2[OLD_RETURN_VALUE_DST]);
+    const sy::Function*& oldFunction =
+        const_cast<const sy::Function*&>(reinterpret_cast<sy::Function*&>(beforeFrameStart2[OLD_RETURN_VALUE_DST]));
+
+    oldInstructionPtr = this->raw.instructionPointer;
+    oldFrameLength = static_cast<size_t>(this->raw.currentFrame.frameLength);
+    oldRetValDst = this->raw.currentFrame.retValueDst;
+    oldFunction = this->raw.currentFrame.function;
+}
+
+Stack::Frame Stack::previousFrame() const
+{
+    sy_assert(this->raw.nextBaseOffset != 0, "Cannot get non-existant previous frame");
+    sy_assert(this->currentFrameValidated(), "Cannot pop non-validated frame");
+
+    const Frame currentFrame = this->raw.currentFrame;
+    const size_t oldInfoStartOffset = currentFrame.basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS;
+
+    const stack_value_t* const beforeCurrentFrameStart1 = &this->raw.values[oldInfoStartOffset];
+    const stack_type_t* const beforeCurrentFrameStart2 = &this->raw.types[oldInfoStartOffset];
+
+    const size_t oldFrameLength = reinterpret_cast<size_t>(beforeCurrentFrameStart1[OLD_FRAME_LENGTH]);
+    void* const oldRetValDst = reinterpret_cast<void*>(beforeCurrentFrameStart2[OLD_RETURN_VALUE_DST]);
+    const sy::Function* const oldFunction = reinterpret_cast<sy::Function*>(beforeCurrentFrameStart2[OLD_FUNCTION]);
+
+    const Frame oldFrame = {
+        currentFrame.basePointerOffset - oldFrameLength - OLD_FRAME_INFO_RESERVED_SLOTS,
+        oldFrameLength,
+        oldRetValDst,
+        oldFunction,
+        #if _DEBUG
+        true // flag
+        #endif
+    };
+    return oldFrame;
+}
+
+const Bytecode *Stack::previousInstructionPointer() const
+{
+    sy_assert(this->raw.nextBaseOffset != 0, "Cannot get non-existant previous frame");
+    sy_assert(this->currentFrameValidated(), "Cannot pop non-validated frame");
+
+    const size_t oldInfoStartOffset = this->raw.currentFrame.basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS;
+
+    const stack_value_t* const beforeCurrentFrameStart1 = &this->raw.values[oldInfoStartOffset];
+
+    const Bytecode* const oldInstructionPtr = reinterpret_cast<Bytecode*>(beforeCurrentFrameStart1[OLD_INSTRUCTION_POINTER]);
+    return oldInstructionPtr;
 }
 
 FrameGuard::~FrameGuard()
@@ -330,10 +442,10 @@ TEST_CASE("overflow stack with first frame") {
 
 TEST_CASE("2 frames") {
     Stack& active = Stack::getActiveStack();
-    FrameGuard guard1 = active.pushFrame(1, 16, nullptr);
+    FrameGuard guard1 = active.pushFrame(4, 16, nullptr);
     CHECK_FALSE(guard1.checkOverflow());
     {
-        FrameGuard guard2 = active.pushFrame(1, 16, nullptr);
+        FrameGuard guard2 = active.pushFrame(9, 16, nullptr);
         CHECK_FALSE(guard2.checkOverflow());
     }
 }

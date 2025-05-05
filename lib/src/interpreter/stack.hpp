@@ -33,7 +33,7 @@ public:
 
     struct Frame {
         size_t basePointerOffset = 0;
-        uint16_t frameLength = 0;
+        size_t frameLength = 0; // TODO maybe should be size_t or uint32_t, as UINT16_MAX should probably be a valid index
         void* retValueDst = nullptr;
         const sy::Function* function = nullptr;
         #if _DEBUG
@@ -61,7 +61,7 @@ public:
     /// @param retValDst Memory address where the return value of a function should be copied to. Can be `nullptr`,
     /// meaning no return value destination.
     /// @return `true` if successful, otherwise `false` in which pushing the frame would overflow the stack.
-    [[nodiscard]] FrameGuard pushFrame(uint16_t frameLength, uint16_t alignment, void* retValDst);
+    [[nodiscard]] FrameGuard pushFrame(size_t frameLength, uint16_t alignment, void* retValDst);
 
     /// Sets the function of the current stack frame.
     void setFrameFunction(const sy::Function* function);
@@ -73,6 +73,38 @@ public:
     [[nodiscard]] size_t slots() const { return this->raw.slots; }
 
     [[nodiscard]] size_t bytesUsed() const { return this->slots() * sizeof(void*); }
+
+    [[nodiscard]] const Bytecode* getInstructionPointer();
+
+    void setInstructionPointer(const Bytecode* bytecode);
+
+    /// Will never return `nullptr`.
+    void* valueMemoryAt(uint16_t offset);
+
+    template<typename T>
+    T& valueAt(uint16_t offset) {
+        return reinterpret_cast<T&>(valueMemoryAt(offset));
+    }
+
+    /// May return `nullptr`.
+    const sy::Type* typeAt(uint16_t offset);
+
+    /// Sets the type at a specific offset within the stack frame to be a valid type.
+    /// @param type Non-null pointer.
+    /// @param offset Offset within the stack frame
+    void setTypeAt(const sy::Type* type, uint16_t offset);
+
+    /// Sets the type at a specific offset within the stack frame to be a valid type.
+    /// The type is flagged as non-owning, and thus will not be destroyed when the stack is unwinded.
+    /// @param type Non-null pointer.
+    /// @param offset Offset within the stack frame
+    void setNonOwningTypeAt(const sy::Type* type, uint16_t offset);
+
+    /// Sets the type at `offset` to be `nullptr`, marking it as invalid.
+    void setNullTypeAt(uint16_t offset);
+
+    /// @returns If the type at `offset` is an owned type, and thus would be destroyed when the stack is unwinded.
+    bool isOwnedTypeAt(uint16_t offset);
 
     using stack_value_t = void*;
     using stack_type_t = void*;
@@ -112,11 +144,23 @@ private:
     /// The amount of slots the old stack frame info needs to store itself within the bounds of the new frame.
     static constexpr size_t OLD_FRAME_INFO_RESERVED_SLOTS = 2;
 
+    /// Instances of `sy::Type` are required to have alignment of `alignof(void*)`, therefore on all target platforms,
+    /// the lowest bit will be zeroed, and thus can be used as a flag bit, conserving memory.
+    static constexpr uintptr_t TYPE_NOT_OWNED_FLAG = 0b1;
+
     // Maybe good idea to not store the instruction pointer itself, but the offset within the bytecode.
     // That way it can occupy 48 bits rather than a full pointer, and then the other 16 bits can be the frame length.
     // This allows storing the previous function, while saving room for 1 more another old frame data store.
 
     bool extendCurrentFrameForNextFrameAlignment(uint16_t alignment);
+
+    void setOptionalTypeAt(const sy::Type* type, uint16_t offset, bool isRef);
+
+    void storeCurrentFrameInfoInNext();
+
+    Frame previousFrame() const;
+
+    const Bytecode* previousInstructionPointer() const;
 
     friend class FrameGuard;
 

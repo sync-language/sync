@@ -4,14 +4,16 @@
 
 #include "program.hpp"
 
+struct Bytecode;
+
 namespace sy {
-    struct Bytecode;
 
     /// Extra metadata for script functions. 
     /// Corresponds with `SyFunction::fptr` if `SyFunction::tag == SyFunctionTypeScript`.
     struct InterpreterFunctionScriptInfo {
         const Program*  program;
-        uint16_t        stackSpaceRequired;
+        /// Less than or equal to `Stack::MAX_FRAME_LEN`
+        size_t          stackSpaceRequired;
         size_t          bytecodeCount;
         const Bytecode* bytecode;
     };
