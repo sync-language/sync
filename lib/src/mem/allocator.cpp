@@ -20,10 +20,7 @@ extern "C" {
 
     static void* default_alloc(void* self, size_t len, size_t align) {
         (void)self;
-        std::cout << "hello?\n";
-        void* mem = aligned_malloc(len, align);
-        std::cout << mem << std::endl;
-        return mem;
+        return aligned_malloc(len, align);
     }
 
     static void default_free(void* self, void* buf, size_t len, size_t align) {
