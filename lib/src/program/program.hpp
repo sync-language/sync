@@ -24,7 +24,7 @@ namespace sy {
     class Program {
 
     private:
-        c::SyProgram program;
+        //c::SyProgram program;
     };
 
     class ProgramRuntimeError {

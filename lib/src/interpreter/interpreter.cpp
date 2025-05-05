@@ -11,4 +11,12 @@ using sy::ProgramRuntimeError;
 ProgramRuntimeError sy::interpreterExecuteFunction(const Function *scriptFunction, void *outReturnValue)
 {
     sy_assert(scriptFunction->tag == Function::Type::Script, "Interpreter cannot immediately execute C functions currently");
+
+    Stack& activeStack = Stack::getActiveStack();
+    FrameGuard guard = activeStack.pushFunctionFrame(scriptFunction, outReturnValue);
+    if(guard.checkOverflow()) {
+        return ProgramRuntimeError::initStackOverflow();
+    }
+
+    return ProgramRuntimeError();
 }

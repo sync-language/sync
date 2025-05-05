@@ -34,7 +34,10 @@ namespace detail {
         {0},                    // current frame
         defaultValueStorage,
         defaultTypeStorage,
-        DEFAULT_STACK_SLOT_SIZE // has no allocation
+        DEFAULT_STACK_SLOT_SIZE, // has no allocation
+        nullptr,                // no callstack functions
+        0,                      // no callstack length
+        0                       // no callstack capacity
     };
 
     /// For now, this value will never change, however it'll be supported anyways for when coroutines become a thing.
@@ -170,7 +173,7 @@ FrameGuard Stack::pushFunctionFrame(const sy::Function *function, void* retValDs
     const uint16_t frameLength = scriptInfo->stackSpaceRequired;
     FrameGuard guard = this->pushFrame(frameLength, function->alignment, retValDst);
     this->setFrameFunction(function);
-    return std::move(guard);
+    return guard;
 }
 
 sy::CallStack Stack::callStack() const
@@ -252,7 +255,7 @@ bool Stack::extendCurrentFrameForNextFrameAlignment(uint16_t alignment)
         return true;
     }
 
-    const uint16_t offset = remainder - normalizedAlignment;
+    const uint16_t offset = normalizedAlignment - remainder;
     const size_t newBaseOffset = this->raw.nextBaseOffset + static_cast<size_t>(offset);
     if(newBaseOffset >= this->raw.slots) { // would stack overflow
         return false;
@@ -261,7 +264,7 @@ bool Stack::extendCurrentFrameForNextFrameAlignment(uint16_t alignment)
     this->raw.currentFrame.frameLength += offset;
     this->raw.nextBaseOffset = newBaseOffset;
     
-    sy_assert(this->raw.nextBaseOffset % alignment == 0, "Adjusted base offset must satisfy alignment requirements");
+    sy_assert((this->raw.nextBaseOffset * sizeof(void*)) % alignment == 0, "Adjusted base offset must satisfy alignment requirements");
 
     return true;
 }
@@ -300,5 +303,89 @@ bool FrameGuard::checkOverflow() const
 #ifdef SYNC_LIB_TEST
 
 #include "../doctest.h"
+
+TEST_CASE("push frame on thread local stack") {
+    Stack& tls = Stack::getThisThreadDefaultStack();
+    FrameGuard guard = tls.pushFrame(1, 16, nullptr);
+    CHECK_FALSE(guard.checkOverflow());
+}
+
+TEST_CASE("push frame on active stack") {
+    Stack& active = Stack::getActiveStack();
+    FrameGuard guard = active.pushFrame(1, 16, nullptr);
+    CHECK_FALSE(guard.checkOverflow());
+}
+
+TEST_CASE("construct stack") {
+    Stack stack = Stack(3);
+    FrameGuard guard = stack.pushFrame(1, 16, nullptr);
+    CHECK_FALSE(guard.checkOverflow());
+}
+
+TEST_CASE("overflow stack with first frame") {
+    Stack stack = Stack(3); // only has 1 actual slot
+    FrameGuard guard = stack.pushFrame(2, 16, nullptr);
+    CHECK(guard.checkOverflow());
+}
+
+TEST_CASE("2 frames") {
+    Stack& active = Stack::getActiveStack();
+    FrameGuard guard1 = active.pushFrame(1, 16, nullptr);
+    CHECK_FALSE(guard1.checkOverflow());
+    {
+        FrameGuard guard2 = active.pushFrame(1, 16, nullptr);
+        CHECK_FALSE(guard2.checkOverflow());
+    }
+}
+
+TEST_CASE("many nested frames") {    
+    Stack& active = Stack::getActiveStack();
+    FrameGuard guard1 = active.pushFrame(1, 16, nullptr);
+    CHECK_FALSE(guard1.checkOverflow());
+    {
+        FrameGuard guard2 = active.pushFrame(1, 16, nullptr);
+        CHECK_FALSE(guard2.checkOverflow());
+        {
+            FrameGuard guard3 = active.pushFrame(1, 16, nullptr);
+            CHECK_FALSE(guard3.checkOverflow());
+            {
+                FrameGuard guard4 = active.pushFrame(1, 16, nullptr);
+                CHECK_FALSE(guard4.checkOverflow());
+                {
+                    FrameGuard guard5 = active.pushFrame(1, 16, nullptr);
+                    CHECK_FALSE(guard5.checkOverflow());
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("frames of various length") {
+    Stack& active = Stack::getActiveStack();
+    FrameGuard guard1 = active.pushFrame(100, 16, nullptr);
+    CHECK_FALSE(guard1.checkOverflow());
+    {
+        FrameGuard guard2 = active.pushFrame(400, 16, nullptr);
+        CHECK_FALSE(guard2.checkOverflow());
+        {
+            FrameGuard guard3 = active.pushFrame(3, 16, nullptr);
+            CHECK_FALSE(guard3.checkOverflow());
+            {
+                FrameGuard guard4 = active.pushFrame(80, 16, nullptr);
+                CHECK_FALSE(guard4.checkOverflow());
+                {
+                    FrameGuard guard5 = active.pushFrame(1000, 16, nullptr);
+                    CHECK_FALSE(guard5.checkOverflow());
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("max frame") {
+    Stack& active = Stack::getActiveStack();
+    FrameGuard guard = active.pushFrame(UINT16_MAX, 16, nullptr);
+    CHECK_FALSE(guard.checkOverflow());
+}
 
 #endif // SYNC_LIB_TEST

@@ -8,7 +8,7 @@
 #ifndef SY_MAX_STACK_SIZE
 /// The maximum stack size of the default stack on the thread. This value can be changed when compiling Sync.
 /// 1 MB default (slots * 8 bytes per slot).
-#define SY_MAX_STACK_SIZE (1 << 17)
+#define SY_MAX_STACK_SIZE (1 << 20)
 #endif
 
 namespace detail {
