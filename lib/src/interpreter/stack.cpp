@@ -5,6 +5,7 @@
 #include "../mem/os_mem.hpp"
 #include "../types/function/function.hpp"
 #include "../program/program_internal.hpp"
+#include <utility>
 #if _MSC_VER
 #include <new>
 #endif

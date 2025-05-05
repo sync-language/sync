@@ -6,6 +6,8 @@
 #elif __GNUC__
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <cstdlib>
+#include <errno.h>
 #endif
 
 /*
@@ -18,13 +20,22 @@ an object or an array of such objects in the space allocated (until the space is
 ISO/IEC 9899:201x (aka ISO C11)
 */
 
+#include <iostream>
+
 extern "C" {
     void *aligned_malloc(size_t len, size_t align) {
         #if defined(_WIN32) || defined(WIN32)
         // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/aligned-malloc?view=msvc-170&viewFallbackFrom=vs-2019
-        return _aligned_malloc(len, (size_t)align);
+        return _aligned_malloc(len, (size_t)allocAlign);
         #elif __GNUC__
-        return aligned_alloc(align, len);
+        void* mem = nullptr;
+        if(align <= sizeof(void*)) {
+            mem = std::malloc(len);
+        } else {
+            const size_t allocSize = len < align ? align : len;
+            mem = aligned_alloc(align, allocSize);
+        }
+        return mem;
         #endif
     }
     

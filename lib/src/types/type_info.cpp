@@ -51,18 +51,18 @@ const Type* const sy::Type::TYPE_F64 = &sy::detail::f64TypeInfo;
 extern "C" {
     using sy::c::SyType;
 
-    SY_API const SyType* const SY_TYPE_BOOL = reinterpret_cast<const SyType*>(Type::TYPE_BOOL);
-    SY_API const SyType* const SY_TYPE_I8 = reinterpret_cast<const SyType*>(Type::TYPE_I8);
-    SY_API const SyType* const SY_TYPE_I16 = reinterpret_cast<const SyType*>(Type::TYPE_I16);
-    SY_API const SyType* const SY_TYPE_I32 = reinterpret_cast<const SyType*>(Type::TYPE_I32);
-    SY_API const SyType* const SY_TYPE_I64 = reinterpret_cast<const SyType*>(Type::TYPE_I64);
-    SY_API const SyType* const SY_TYPE_U8 = reinterpret_cast<const SyType*>(Type::TYPE_U8);
-    SY_API const SyType* const SY_TYPE_U16 = reinterpret_cast<const SyType*>(Type::TYPE_U16);
-    SY_API const SyType* const SY_TYPE_U32 = reinterpret_cast<const SyType*>(Type::TYPE_U32);
-    SY_API const SyType* const SY_TYPE_U64 = reinterpret_cast<const SyType*>(Type::TYPE_U64);
-    SY_API const SyType* const SY_TYPE_USIZE = reinterpret_cast<const SyType*>(Type::TYPE_USIZE);
-    SY_API const SyType* const SY_TYPE_F32 = reinterpret_cast<const SyType*>(Type::TYPE_F32);
-    SY_API const SyType* const SY_TYPE_F64 = reinterpret_cast<const SyType*>(Type::TYPE_F64);
+    SY_API const SyType* SY_TYPE_BOOL = reinterpret_cast<const SyType*>(Type::TYPE_BOOL);
+    SY_API const SyType* SY_TYPE_I8 = reinterpret_cast<const SyType*>(Type::TYPE_I8);
+    SY_API const SyType* SY_TYPE_I16 = reinterpret_cast<const SyType*>(Type::TYPE_I16);
+    SY_API const SyType* SY_TYPE_I32 = reinterpret_cast<const SyType*>(Type::TYPE_I32);
+    SY_API const SyType* SY_TYPE_I64 = reinterpret_cast<const SyType*>(Type::TYPE_I64);
+    SY_API const SyType* SY_TYPE_U8 = reinterpret_cast<const SyType*>(Type::TYPE_U8);
+    SY_API const SyType* SY_TYPE_U16 = reinterpret_cast<const SyType*>(Type::TYPE_U16);
+    SY_API const SyType* SY_TYPE_U32 = reinterpret_cast<const SyType*>(Type::TYPE_U32);
+    SY_API const SyType* SY_TYPE_U64 = reinterpret_cast<const SyType*>(Type::TYPE_U64);
+    SY_API const SyType* SY_TYPE_USIZE = reinterpret_cast<const SyType*>(Type::TYPE_USIZE);
+    SY_API const SyType* SY_TYPE_F32 = reinterpret_cast<const SyType*>(Type::TYPE_F32);
+    SY_API const SyType* SY_TYPE_F64 = reinterpret_cast<const SyType*>(Type::TYPE_F64);
 }
 
 #ifdef SYNC_LIB_TEST

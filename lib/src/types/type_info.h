@@ -112,18 +112,18 @@ typedef struct SyType {
 extern "C" {
 #endif
 
-SY_API extern const SyType* const SY_TYPE_BOOL;
-SY_API extern const SyType* const SY_TYPE_I8;
-SY_API extern const SyType* const SY_TYPE_I16; 
-SY_API extern const SyType* const SY_TYPE_I32;
-SY_API extern const SyType* const SY_TYPE_I64;
-SY_API extern const SyType* const SY_TYPE_U8;
-SY_API extern const SyType* const SY_TYPE_U16;
-SY_API extern const SyType* const SY_TYPE_U32;
-SY_API extern const SyType* const SY_TYPE_U64;
-SY_API extern const SyType* const SY_TYPE_USIZE;
-SY_API extern const SyType* const SY_TYPE_F32;
-SY_API extern const SyType* const SY_TYPE_F64;
+SY_API extern const SyType* SY_TYPE_BOOL;
+SY_API extern const SyType* SY_TYPE_I8;
+SY_API extern const SyType* SY_TYPE_I16; 
+SY_API extern const SyType* SY_TYPE_I32;
+SY_API extern const SyType* SY_TYPE_I64;
+SY_API extern const SyType* SY_TYPE_U8;
+SY_API extern const SyType* SY_TYPE_U16;
+SY_API extern const SyType* SY_TYPE_U32;
+SY_API extern const SyType* SY_TYPE_U64;
+SY_API extern const SyType* SY_TYPE_USIZE;
+SY_API extern const SyType* SY_TYPE_F32;
+SY_API extern const SyType* SY_TYPE_F64;
 
 #ifdef __cplusplus
 } // extern "C"

@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include "os_mem.hpp"
 #include <utility>
+#include <iostream>
 
 extern "C" {
     #include "allocator.h"
@@ -19,7 +20,10 @@ extern "C" {
 
     static void* default_alloc(void* self, size_t len, size_t align) {
         (void)self;
-        return aligned_malloc(len, align);
+        std::cout << "hello?\n";
+        void* mem = aligned_malloc(len, align);
+        std::cout << mem << std::endl;
+        return mem;
     }
 
     static void default_free(void* self, void* buf, size_t len, size_t align) {

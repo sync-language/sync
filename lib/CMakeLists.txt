@@ -15,6 +15,7 @@ add_library(SyncLib STATIC
     "src/types/function/function.cpp"
     "src/interpreter/stack.cpp"
     "src/interpreter/bytecode.cpp"
+    "src/interpreter/interpreter.cpp"
     "src/program/program.cpp"
 )
 
@@ -27,6 +28,7 @@ add_executable(SyncLibTests
     "src/types/function/function.cpp"
     "src/interpreter/stack.cpp"
     "src/interpreter/bytecode.cpp"
+    "src/interpreter/interpreter.cpp"
     "src/program/program.cpp"
 )
 
