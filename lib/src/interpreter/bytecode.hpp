@@ -11,6 +11,12 @@ namespace sy {
 
 enum class OpCode : uint8_t {
     Nop = 0,
+    Return,
+    ReturnValue,
+    CallImmediateNoReturn,
+    CallSrcNoReturn,
+    CallImmediateWithReturn,
+    CallSrcWithReturn,
     /// May be 2 wide instruction if loading the default value for non scalar types.
     /// For scalar types, loads zero values.
     LoadDefault,
@@ -20,8 +26,6 @@ enum class OpCode : uint8_t {
     /// Primarily, this is useful for doing struct and array initialization.
     LoadUninitialized,
     LoadImmediate,
-    Return,
-    Call,
     Jump,
     JumpIfFalse,
     Destruct,
@@ -96,6 +100,30 @@ const sy::Type* scalarTypeFromTag(ScalarTag tag);
 /// They are also all expected to have the first `OPCODE_USED_BITS` be a bitfield named `reserveOpcode`.
 /// Lastly, all operand types must be of size `sizeof(Bytecode)`, and align `alignof(Bytecode)`.
 namespace operands {
+
+    /// Returns from a function without a return value.
+    struct Return {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+
+        static constexpr OpCode OPCODE = OpCode::Return;
+    };
+
+    /// Returns from a function with a value.
+    struct ReturnValue {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        uint64_t src: Stack::BITS_PER_STACK_OPERAND;
+
+        static constexpr OpCode OPCODE = OpCode::Return;
+    };
+
+    struct CallImmediateNoReturn {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        uint64_t argCount: 16;
+
+        static size_t bytecodeUsed(uint16_t argCount);
+        
+        static constexpr OpCode OPCODE = OpCode::CallImmediateNoReturn;
+    };
     
     /// If `isScalar == false`, this is a wide instruction, with the second "bytecode" being a 
     /// `const Sy::Type*` instance.

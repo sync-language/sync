@@ -5,9 +5,13 @@
 #include "stack.hpp"
 #include "bytecode.hpp"
 #include "../types/function/function.hpp"
+#include "../types/type_info.hpp"
+#include <cstring>
 
 using sy::ProgramRuntimeError;
 using sy::Program;
+using sy::Type;
+using sy::Function;
 
 static ProgramRuntimeError interpreterExecuteContinuous(const Program* program);
 static ProgramRuntimeError interpreterExecuteOperation(const Program* program);
@@ -50,7 +54,72 @@ static ProgramRuntimeError interpreterExecuteContinuous(const Program* program) 
     }
 }
 
+static void executeReturn(const Bytecode b);
+static void executeReturnValue(const Bytecode b);
+static void executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+
 static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
     ptrdiff_t ipChange = 1;
-    return ProgramRuntimeError();
+    const Bytecode* instructionPointer = Stack::getActiveStack().getInstructionPointer();
+    const OpCode opcode = instructionPointer->getOpcode();
+
+    ProgramRuntimeError potentialErr{}; // Initialize as ok
+    switch(opcode) {
+        case OpCode::Nop: break;
+        case OpCode::Return: {
+            executeReturn(*instructionPointer);
+        } break;
+        case OpCode::ReturnValue: {
+            executeReturnValue(*instructionPointer);
+        } break;
+        case OpCode::CallImmediateNoReturn: {
+            executeCallImmediateNoReturn(ipChange, instructionPointer);
+        } break;
+
+        default: {
+            sy_assert(static_cast<uint8_t>(opcode) && false, "Unimplemented opcode");
+        }
+    }
+    return potentialErr;
+}
+
+void executeReturn(const Bytecode b)
+{
+    const operands::Return operands = b.toOperands<operands::Return>();
+    (void)operands;
+
+    // todo unwind frame
+}
+
+static void executeReturnValue(const Bytecode b)
+{
+    const operands::ReturnValue operands = b.toOperands<operands::ReturnValue>();
+
+    Stack& activeStack = Stack::getActiveStack();
+
+    void* retDst = activeStack.returnDst();
+    sy_assert(retDst != nullptr, "Cannot assign return value to null memory");
+
+    const Type* retValType = activeStack.typeAt(operands.src);
+    sy_assert(retValType != nullptr, "Cannot return null type");
+
+    std::memcpy(retDst, activeStack.valueMemoryAt(operands.src), retValType->sizeType);
+
+    // todo unwind frame
+}
+
+static void performCall(const Function* function, void* retDst, const uint16_t argsCount, const uint16_t* argsSrc) {
+    // todo
+    sy_assert(false, "todo");
+}
+
+static void executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+    const operands::CallImmediateNoReturn operands = bytecodes[0].toOperands<operands::CallImmediateNoReturn>();
+
+    const Function* function = *reinterpret_cast<const Function* const*>(&bytecodes[1]);
+    const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[2]);
+
+    ipChange = static_cast<ptrdiff_t>(operands::CallImmediateNoReturn::bytecodeUsed(operands.argCount));
+
+    performCall(function, nullptr, operands.argCount, argsSrcs);
 }

@@ -223,6 +223,11 @@ bool Stack::isOwnedTypeAt(uint16_t offset)
     return maskedAwayType != TYPE_NOT_OWNED_FLAG;
 }
 
+void *Stack::returnDst()
+{
+    return this->raw.currentFrame.retValueDst;
+}
+
 void Stack::popFrame()
 {
     sy_assert(this->raw.nextBaseOffset != 0, "No more frames to pop");

@@ -33,3 +33,15 @@ const sy::Type *scalarTypeFromTag(ScalarTag tag)
     unreachable();
     return nullptr;
 }
+
+size_t operands::CallImmediateNoReturn::bytecodeUsed(uint16_t argCount)
+{
+    /// Initial bytecode + immediate function
+    size_t used = 1 + 1;
+    if((argCount % 4) == 0) {
+        used += (argCount / 4);
+    } else {
+        used += (argCount / 4) + 1;
+    }
+    return used;
+}

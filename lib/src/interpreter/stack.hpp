@@ -106,6 +106,8 @@ public:
     /// @returns If the type at `offset` is an owned type, and thus would be destroyed when the stack is unwinded.
     bool isOwnedTypeAt(uint16_t offset);
 
+    void* returnDst();
+
     using stack_value_t = void*;
     using stack_type_t = void*;
 
