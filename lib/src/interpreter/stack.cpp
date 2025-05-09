@@ -25,7 +25,7 @@ namespace detail {
 
     alignas(STORAGE_ALIGNMENT) static thread_local Stack::stack_value_t defaultValueStorage[DEFAULT_STACK_SLOT_SIZE];
 
-    alignas(STORAGE_ALIGNMENT) static thread_local Stack::stack_type_t defaultTypeStorage[DEFAULT_STACK_SLOT_SIZE];
+    alignas(STORAGE_ALIGNMENT) static thread_local uintptr_t defaultTypeStorage[DEFAULT_STACK_SLOT_SIZE];
 
     /// Creating this as a compile time known value avoids any problem of constructor ordering before main(),
     /// in the event anyone using this library requires script stuff to be done before main() as well.
@@ -56,8 +56,8 @@ Stack::Stack(size_t slots)
 
     const size_t bytes = slots * sizeof(void*);
     stack_value_t* values = reinterpret_cast<stack_value_t*>(page_malloc(bytes));
-    stack_type_t* types = reinterpret_cast<stack_type_t*>(page_malloc(bytes));
-
+    uintptr_t* types = reinterpret_cast<uintptr_t*>(page_malloc(bytes));
+    
     this->raw.currentFrame = Stack::Frame();
     this->raw.instructionPointer = nullptr;
     this->raw.nextBaseOffset = 0;
@@ -190,8 +190,7 @@ const sy::Type* Stack::typeAt(uint16_t offset)
 {
     sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
     const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
-    const void* typeMem = this->raw.types[actualOffset];
-    const uintptr_t typeMemAsInt = reinterpret_cast<uintptr_t>(typeMem);
+    const uintptr_t typeMemAsInt = this->raw.types[actualOffset];
     const uintptr_t maskedAwayFlag = typeMemAsInt & (~TYPE_NOT_OWNED_FLAG);
     return reinterpret_cast<const sy::Type*>(maskedAwayFlag);
 }
@@ -217,8 +216,7 @@ bool Stack::isOwnedTypeAt(uint16_t offset)
 {
     sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
     const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
-    const void* typeMem = this->raw.types[actualOffset];
-    const uintptr_t typeMemAsInt = reinterpret_cast<uintptr_t>(typeMem);
+    const uintptr_t typeMemAsInt = this->raw.types[actualOffset];
     const uintptr_t maskedAwayType = typeMemAsInt & TYPE_NOT_OWNED_FLAG;
     return maskedAwayType != TYPE_NOT_OWNED_FLAG;
 }
@@ -226,6 +224,27 @@ bool Stack::isOwnedTypeAt(uint16_t offset)
 void *Stack::returnDst()
 {
     return this->raw.currentFrame.retValueDst;
+}
+
+bool Stack::pushScriptFunctionArg(const void *argMem, const sy::Type *type, uint16_t offset)
+{
+    const size_t actualOffset = this->raw.nextBaseOffset + OLD_FRAME_INFO_RESERVED_SLOTS + static_cast<size_t>(offset);
+    const size_t slotsOccupied = type->sizeType / 8;
+    { // validate no stack overflow     
+        const size_t requiredStackSize = actualOffset + slotsOccupied;
+        if(requiredStackSize > this->raw.slots) {
+            return false;
+        }
+    }
+
+    std::memcpy(&this->raw.values[actualOffset], argMem, type->sizeType);
+    this->raw.types[actualOffset] = reinterpret_cast<uintptr_t>(type);
+    if(slotsOccupied > 1) {
+        for(size_t i = 1; i < slotsOccupied; i++) {
+            this->raw.types[actualOffset + i] = reinterpret_cast<uintptr_t>(nullptr);
+        }
+    }
+    return true;
 }
 
 void Stack::popFrame()
@@ -306,7 +325,7 @@ void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
     const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
 
     if(type == nullptr) {
-        this->raw.types[actualOffset] = nullptr;
+        this->raw.types[actualOffset] = reinterpret_cast<uintptr_t>(nullptr);
     } 
     
     sy_assert(ptrIsAligned(reinterpret_cast<const void*>(type), alignof(sy::Type)), "Type pointer misaligned");
@@ -317,10 +336,10 @@ void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
     const uintptr_t typePtrAsInt = reinterpret_cast<uintptr_t>(type);
     const uintptr_t refTag = isRef ? TYPE_NOT_OWNED_FLAG : 0; // would be optimized
 
-    this->raw.types[actualOffset] = reinterpret_cast<void*>(typePtrAsInt | refTag);
+    this->raw.types[actualOffset] = typePtrAsInt | refTag;
     if(slotsOccupied > 1) {
         for(size_t i = 1; i < slotsOccupied; i++) {
-            this->raw.types[actualOffset + i] = nullptr;
+            this->raw.types[actualOffset + i] = reinterpret_cast<uintptr_t>(nullptr);
         }
     }
 }
@@ -328,7 +347,7 @@ void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
 void Stack::storeCurrentFrameInfoInNext()
 {
     stack_value_t* const beforeFrameStart1 = &this->raw.values[this->raw.nextBaseOffset];
-    stack_type_t* const beforeFrameStart2 = &this->raw.types[this->raw.nextBaseOffset];
+    uintptr_t* const beforeFrameStart2 = &this->raw.types[this->raw.nextBaseOffset];
 
     // stupid const cast
     const Bytecode*& oldInstructionPtr =
@@ -355,7 +374,7 @@ Stack::Frame Stack::previousFrame() const
     const size_t oldInfoStartOffset = currentFrame.basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS;
 
     const stack_value_t* const beforeCurrentFrameStart1 = &this->raw.values[oldInfoStartOffset];
-    const stack_type_t* const beforeCurrentFrameStart2 = &this->raw.types[oldInfoStartOffset];
+    const uintptr_t* const beforeCurrentFrameStart2 = &this->raw.types[oldInfoStartOffset];
 
     const size_t oldFrameLength = reinterpret_cast<size_t>(beforeCurrentFrameStart1[OLD_FRAME_LENGTH]);
     void* const oldRetValDst = reinterpret_cast<void*>(beforeCurrentFrameStart2[OLD_RETURN_VALUE_DST]);

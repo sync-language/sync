@@ -5,8 +5,10 @@
 
 #include "../../core.h"
 #include "../string/string_slice.h"
+#include "../../program/program.h"
 
 struct SyType;
+struct SyProgramRuntimeError;
 
 typedef enum SyFunctionType {
     SyFunctionTypeC = 0,
@@ -45,7 +47,9 @@ typedef struct SyFunction {
 /// Helper struct to push function arguments to C functions or into the next script stack frame.
 typedef struct SyFunctionCallArgs {
     const SyFunction*   func;
-    uint16_t            _inner[2];
+    uint16_t            pushedCount;
+    /// Internal use only.
+    uint16_t            _offset;
 } SyFunctionCallArgs;
 
 /// Holds the destination for the return value and type of C and script functions.
@@ -61,6 +65,12 @@ extern "C" {
 
 /// Starts the process of calling a function. See `sy_function_push_arg(...)` and `sy_function_call(...)`.
 SY_API SyFunctionCallArgs sy_function_start_call(const SyFunction* self);
+
+/// Pushs an argument onto the the script or C stack for the next function call.
+/// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
+SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, const void* argMem, const struct SyType* typeInfo);
+
+SY_API SyProgramRuntimeError sy_function_call(SyFunctionCallArgs self, void* retDst);
 
 #ifdef __cplusplus
 } // extern "C"

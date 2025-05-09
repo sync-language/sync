@@ -12,6 +12,7 @@ namespace sy {
     }
 
     struct Type;
+    class ProgramRuntimeError;
 
     class Function {
     public:
@@ -19,6 +20,16 @@ namespace sy {
         enum class Type : int32_t {
             C = c::SyFunctionTypeC,
             Script = c::SyFunctionTypeScript,            
+        };
+
+        struct CallArgs {
+            c::SyFunctionCallArgs info;
+
+            /// Pushs an argument onto the the script or C stack for the next function call.
+            /// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
+            bool push(const void* argMem, const Type* typeInfo);
+
+            ProgramRuntimeError call(void* retDst);
         };
 
         StringSlice     name;

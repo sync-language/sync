@@ -56,9 +56,11 @@ static ProgramRuntimeError interpreterExecuteContinuous(const Program* program) 
 
 static void executeReturn(const Bytecode b);
 static void executeReturnValue(const Bytecode b);
-static void executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static ProgramRuntimeError executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 
 static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
+    (void)program;
+
     ptrdiff_t ipChange = 1;
     const Bytecode* instructionPointer = Stack::getActiveStack().getInstructionPointer();
     const OpCode opcode = instructionPointer->getOpcode();
@@ -108,12 +110,18 @@ static void executeReturnValue(const Bytecode b)
     // todo unwind frame
 }
 
-static void performCall(const Function* function, void* retDst, const uint16_t argsCount, const uint16_t* argsSrc) {
+static ProgramRuntimeError performCall(const Function* function, void* retDst, const uint16_t argsCount, const uint16_t* argsSrc) {
     // todo
     sy_assert(false, "todo");
+
+    (void)function;
+    (void)retDst;
+    (void)argsCount;
+    (void)argsSrc;
+    return ProgramRuntimeError();
 }
 
-static void executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+static ProgramRuntimeError executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operands::CallImmediateNoReturn operands = bytecodes[0].toOperands<operands::CallImmediateNoReturn>();
 
     const Function* function = *reinterpret_cast<const Function* const*>(&bytecodes[1]);
@@ -121,5 +129,5 @@ static void executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* by
 
     ipChange = static_cast<ptrdiff_t>(operands::CallImmediateNoReturn::bytecodeUsed(operands.argCount));
 
-    performCall(function, nullptr, operands.argCount, argsSrcs);
+    return performCall(function, nullptr, operands.argCount, argsSrcs);
 }

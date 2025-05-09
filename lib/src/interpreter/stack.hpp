@@ -108,8 +108,14 @@ public:
 
     void* returnDst();
 
+    /// @brief Attempts to push an argument to the stack frame after the current one.
+    /// @param argMem Memory to copy the argument data from.
+    /// @param type The type of the argument.
+    /// @param offset The offset within the next stack frame to set it at.
+    /// @return `true` if the arg was copied successfully copied, or `false` if a stack overflow would occur.
+    [[nodiscard]] bool pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset);
+
     using stack_value_t = void*;
-    using stack_type_t = void*;
 
     struct Raw {
         const Bytecode* instructionPointer;
@@ -119,7 +125,7 @@ public:
         /// Allocated as pages
         stack_value_t*          values;
         /// Allocates as pages
-        stack_type_t*           types;
+        uintptr_t*           types;
         /// Does not need to be the amount of pages, or total number of bytes in the pages for `stack` and `types.
         /// For both `mmap` and `VirtualAlloc`, the length argument does not need to be a page multiple, as the C
         /// runtime library will handle it accordingly.
