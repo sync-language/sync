@@ -17,7 +17,7 @@ namespace sy {
     class Function {
     public:
 
-        enum class Type : int32_t {
+        enum class CallType : int32_t {
             C = c::SyFunctionTypeC,
             Script = c::SyFunctionTypeScript,            
         };
@@ -40,7 +40,7 @@ namespace sy {
         const Type**    argsTypes;
         uint16_t        argsLen;
         uint16_t        alignment = SY_FUNCTION_MIN_ALIGN;
-        Type            tag;
+        CallType        tag;
         const void*     fptr;
     };
 }

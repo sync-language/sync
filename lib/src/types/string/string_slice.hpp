@@ -3,6 +3,7 @@
 #ifndef SY_TYPES_STRING_STRING_SLICE_HPP_
 #define SY_TYPES_STRING_STRING_SLICE_HPP_
 
+#include "../../core.h"
 
 namespace sy {
     namespace c {

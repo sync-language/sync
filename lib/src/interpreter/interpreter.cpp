@@ -6,6 +6,7 @@
 #include "bytecode.hpp"
 #include "../types/function/function.hpp"
 #include "../types/type_info.hpp"
+#include "../util/unreachable.hpp"
 #include <cstring>
 
 using sy::ProgramRuntimeError;
@@ -18,7 +19,13 @@ static ProgramRuntimeError interpreterExecuteOperation(const Program* program);
 
 ProgramRuntimeError sy::interpreterExecuteFunction(const Function *scriptFunction, void *outReturnValue)
 {
-    sy_assert(scriptFunction->tag == Function::Type::Script, "Interpreter cannot immediately execute C functions currently");
+    sy_assert(scriptFunction->tag == Function::CallType::Script, "Interpreter cannot immediately execute C functions currently");
+    if(scriptFunction->returnType != nullptr) {
+        sy_assert(outReturnValue != nullptr, "Function returns a value, which cannot be safely ignored");
+    } else {
+        sy_assert(outReturnValue == nullptr, 
+            "Function does not return a value, so no return value address should be used");
+    }
 
     Stack& activeStack = Stack::getActiveStack();
     FrameGuard guard = activeStack.pushFunctionFrame(scriptFunction, outReturnValue);
@@ -110,14 +117,37 @@ static void executeReturnValue(const Bytecode b)
     // todo unwind frame
 }
 
-static ProgramRuntimeError performCall(const Function* function, void* retDst, const uint16_t argsCount, const uint16_t* argsSrc) {
-    // todo
-    sy_assert(false, "todo");
+static bool pushScriptFunctionArgs(const Function* function, const uint16_t argsCount, const uint16_t* argsSrc) {
+    sy_assert(function->argsLen == argsCount, "Mismatched number of arguments passed to function");
+    sy_assert(function->tag == Function::CallType::Script, 
+        "Cannot push script function arguments to non scirpt function");
+    
+    Function::CallArgs callArgs = function->startCall();
+    Stack& activeStack = Stack::getActiveStack();
 
-    (void)function;
-    (void)retDst;
-    (void)argsCount;
-    (void)argsSrc;
+    for(uint16_t i = 0; i < argsCount; i++) {
+        const uint16_t argSrc = argsSrc[i];
+        const Type* type = activeStack.typeAt(argSrc);
+        sy_assert(type != nullptr, "Cannot push null type to function");
+        if(callArgs.push(activeStack.valueMemoryAt(argSrc), type) == false) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static ProgramRuntimeError performCall(const Function* function, void* retDst, const uint16_t argsCount, const uint16_t* argsSrc) {
+    if(function->tag == Function::CallType::Script) {
+        const bool success = pushScriptFunctionArgs(function, argsCount, argsSrc);
+        if(!success) {
+            return ProgramRuntimeError::initStackOverflow();
+        }
+        return sy::interpreterExecuteFunction(function, retDst);
+    } else {
+        sy_assert(false, "Cannot handle C function calling currently");
+    }
+    
+    unreachable();
     return ProgramRuntimeError();
 }
 

@@ -20,10 +20,11 @@ extern "C" {
         return args;
     }
 
+
     SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, const void* argMem, const SyType* typeInfo) {
         const Function* function = reinterpret_cast<const Function*>(self->func);
         sy_assert(self->pushedCount < function->argsLen, "Cannot push more arguments than the function takes");
-        sy_assert(function->tag == Function::Type::Script, "Can only do script function calling currently");
+        sy_assert(function->tag == Function::CallType::Script, "Can only do script function calling currently");
 
         const bool result = Stack::getActiveStack().pushScriptFunctionArg(
             argMem, reinterpret_cast<const Type*>(typeInfo), self->_offset);
@@ -73,7 +74,7 @@ sy::ProgramRuntimeError sy::Function::CallArgs::call(void *retDst)
 {
     const Function* function = reinterpret_cast<const Function*>(this->info.func);
     sy_assert(this->info.pushedCount == function->argsLen , "Did not push enough arguments for function");
-    sy_assert(function->tag == Function::Type::Script, "Can only do script function calling currently");
+    sy_assert(function->tag == Function::CallType::Script, "Can only do script function calling currently");
 
     return interpreterExecuteFunction(function, retDst);
 }
