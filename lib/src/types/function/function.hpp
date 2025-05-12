@@ -32,12 +32,14 @@ namespace sy {
             ProgramRuntimeError call(void* retDst);
         };
 
+        CallArgs startCall() const;
+
         StringSlice     name;
         StringSlice     identifierName;
         const Type*     returnType;
         const Type**    argsTypes;
         uint16_t        argsLen;
-        uint16_t        alignment = 16;
+        uint16_t        alignment = SY_FUNCTION_MIN_ALIGN;
         Type            tag;
         const void*     fptr;
     };

@@ -77,3 +77,10 @@ sy::ProgramRuntimeError sy::Function::CallArgs::call(void *retDst)
 
     return interpreterExecuteFunction(function, retDst);
 }
+
+sy::Function::CallArgs sy::Function::startCall() const
+{
+    CallArgs callArgs = {{0, 0, 0}};
+    callArgs.info.func = reinterpret_cast<const SyFunction*>(this);
+    return callArgs;
+}
