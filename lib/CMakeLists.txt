@@ -22,6 +22,7 @@ add_library(SyncLib STATIC
 add_executable(SyncLibTests
     "src/test.cpp"
     "src/util/panic.cpp"
+    "src/util/ffi.cpp"
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
     "src/types/type_info.cpp"

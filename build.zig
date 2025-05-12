@@ -68,6 +68,7 @@ pub fn build(b: *std.Build) void {
 
 const sync_lang_c_sources = [_][]const u8{
     "lib/src/util/panic.cpp",
+    "lib/src/util/ffi.cpp",
     "lib/src/mem/os_mem.cpp",
     "lib/src/mem/allocator.cpp",
     "lib/src/types/type_info.cpp",
