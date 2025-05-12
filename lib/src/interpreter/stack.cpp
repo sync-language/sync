@@ -182,6 +182,7 @@ void Stack::setInstructionPointer(const Bytecode *bytecode)
 void* Stack::valueMemoryAt(uint16_t offset)
 {
     sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
+    sy_assert(this->currentFrameValidated(), "Cannot operate on invalid stack frame");
     const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
     return &this->raw.values[actualOffset];
 }
@@ -189,6 +190,7 @@ void* Stack::valueMemoryAt(uint16_t offset)
 const sy::Type* Stack::typeAt(uint16_t offset)
 {
     sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
+    sy_assert(this->currentFrameValidated(), "Cannot operate on invalid stack frame");
     const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
     const uintptr_t typeMemAsInt = this->raw.types[actualOffset];
     const uintptr_t maskedAwayFlag = typeMemAsInt & (~TYPE_NOT_OWNED_FLAG);
@@ -198,23 +200,27 @@ const sy::Type* Stack::typeAt(uint16_t offset)
 void Stack::setTypeAt(const sy::Type *type, uint16_t offset)
 {
     sy_assert(type != nullptr, "Cannot set null type");
+    sy_assert(this->currentFrameValidated(), "Cannot operate on invalid stack frame");
     this->setOptionalTypeAt(type, offset, false);
 }
 
 void Stack::setNonOwningTypeAt(const sy::Type *type, uint16_t offset)
 {    
     sy_assert(type != nullptr, "Cannot set null type");
+    sy_assert(this->currentFrameValidated(), "Cannot operate on invalid stack frame");
     this->setOptionalTypeAt(type, offset, true);
 }
 
 void Stack::setNullTypeAt(uint16_t offset)
 {
+    sy_assert(this->currentFrameValidated(), "Cannot operate on invalid stack frame");
     this->setOptionalTypeAt(nullptr, offset, false);
 }
 
 bool Stack::isOwnedTypeAt(uint16_t offset)
 {
     sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
+    sy_assert(this->currentFrameValidated(), "Cannot operate on invalid stack frame");
     const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
     const uintptr_t typeMemAsInt = this->raw.types[actualOffset];
     const uintptr_t maskedAwayType = typeMemAsInt & TYPE_NOT_OWNED_FLAG;
@@ -321,6 +327,7 @@ void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
 {
     static_assert(alignof(sy::Type) > 1, "Lowest bit must be reserved");
     sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
+    sy_assert(this->currentFrameValidated(), "Cannot operate on invalid stack frame");
 
     const size_t actualOffset = this->raw.currentFrame.basePointerOffset + static_cast<size_t>(offset);
 

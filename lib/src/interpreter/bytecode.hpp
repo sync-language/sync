@@ -113,7 +113,7 @@ namespace operands {
         uint64_t reserveOpcode: OPCODE_USED_BITS;
         uint64_t src: Stack::BITS_PER_STACK_OPERAND;
 
-        static constexpr OpCode OPCODE = OpCode::Return;
+        static constexpr OpCode OPCODE = OpCode::ReturnValue;
     };
 
     struct CallImmediateNoReturn {
