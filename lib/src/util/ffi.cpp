@@ -133,6 +133,15 @@ namespace sy {
     }
 }
 
+/*
+Operations
+- Push stack (maybe this means can call functions)
+- Copy arguments (also into registers)
+- Pop stack
+- THEN function calls
+- It pushes it's own stack
+*/
+
 void sy::ffi::executeCall(const void *fptr)
 {
     #if defined(__aarch64__) || defined(_M_ARM64)
@@ -170,7 +179,7 @@ TEST_CASE("inline asm") {
 
         if(randVal > (RAND_MAX / 2)) { p = p1; }
         else { p = p2; }
-
+ 
         __asm (
             "blr %[p]"
             : [p]"=r"(p)
