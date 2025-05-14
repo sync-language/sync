@@ -87,12 +87,9 @@ typedef struct SyFunctionCallArgs {
     uint16_t            _offset;
 } SyFunctionCallArgs;
 
-/// Holds the destination for the return value and type of C and script functions.
-/// Should be zero initialized for functions that return nothing.
-typedef struct SyFunctionReturn {
-    void*                   destValue;
-    const struct SyType**   destType;
-} SyFunctionReturn;
+typedef struct SyCFunctionHandler {
+    
+} SyCFunctionHandler;
 
 #ifdef __cplusplus
 extern "C" {
