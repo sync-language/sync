@@ -8,6 +8,7 @@
 #include <utility>
 #include <cstring>
 #include <new>
+#include "function.h"
 
 using sy::Function;
 using sy::Type;
@@ -15,6 +16,7 @@ using sy::c::SyFunction;
 using sy::c::SyFunctionCallArgs;
 using sy::c::SyProgramRuntimeError;
 using sy::c::SyType;
+using sy::c::SyCFunctionHandler;
 
 #if _MSC_VER
     static constexpr size_t ALLOC_ALIGNMENT = std::hardware_destructive_interference_size;
@@ -30,7 +32,7 @@ public:
     ~ArgBuf();
 
     struct Arg {
-        const void *mem;
+        void *mem;
         const Type *type;
     };
 
@@ -42,6 +44,13 @@ public:
 
     /// Clears out the arguments. Any that were taken are ignored. The rest are destroyed.
     void clear();
+
+    /// Sets the destination of the function return value.
+    void setReturnDestination(void* dst);
+
+    void* getReturnDestination();
+
+    void setReturnValue(const void* value, const size_t sizeOfType);
 
 private:
     static constexpr size_t INVALID_OFFSET = -1;
@@ -58,6 +67,7 @@ private:
     size_t count = 0;
     size_t valuesCapacity = 0;
     size_t typesAndOffsetsCapacity = 0;
+    void* retDst = nullptr;
 
     // False sharing must be avoided, since arg buffers are intended to be threadlocal.
 };
@@ -126,7 +136,7 @@ void ArgBuf::push(const Arg &arg)
 
 ArgBuf::Arg ArgBuf::at(size_t index) const
 {
-    sy_assert(index < this->count, "Index out of bounds");
+    sy_assert(index < this->count, "C function argument Index out of bounds");
     Arg a{};
     a.mem = reinterpret_cast<const void *>(&this->values[this->offsets[index]]);
     a.type = this->types[index];
@@ -136,7 +146,7 @@ ArgBuf::Arg ArgBuf::at(size_t index) const
 void ArgBuf::take(void *outValue, size_t index)
 {
     sy_assert(outValue != nullptr, "Cannot store argument to null memory");
-    sy_assert(index < this->count, "Index out of bounds taking C function argument");
+    sy_assert(index < this->count, "C function argument index out of bounds");
 
     const Type* type = this->types[index];
     sy_assert(type != nullptr, "Cannot take argument twice");
@@ -151,6 +161,24 @@ void ArgBuf::take(void *outValue, size_t index)
 void ArgBuf::clear() 
 {
     // todo destruct non-taken arguments
+}
+
+void ArgBuf::setReturnDestination(void *dst)
+{
+    sy_assert(dst != nullptr, "Cannot set return destination to null");
+    this->retDst = dst;
+}
+
+void* ArgBuf::getReturnDestination() {
+    sy_assert(this->retDst != nullptr, "Cannot get invalid return destination");
+    return this->retDst;
+}
+
+void ArgBuf::setReturnValue(const void *value, const size_t sizeOfType)
+{
+    sy_assert(this->retDst != nullptr, "Function either doesn't return or return value was already set");
+    memcpy(this->retDst, value, sizeOfType);
+    this->retDst = nullptr;
 }
 
 size_t ArgBuf::nextOffset(const size_t sizeType, const size_t alignType) const
@@ -261,7 +289,7 @@ void ArgBufArray::pushNewBuf()
     this->len += 1;
 }
 
-// static thread_local ArgBuf ffiArgBuf;
+static thread_local ArgBufArray cArgBufs;
 
 extern "C"
 {
@@ -314,7 +342,19 @@ extern "C"
         err.cppErr = callArgs.call(retDst);
         return err.cErr;
     }
-}
+
+    SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler *self, void *outValue, size_t argIndex)
+    {
+        ArgBuf& buf = cArgBufs.bufAt(self->_handle);
+        buf.take(outValue, argIndex);
+    }
+
+    SY_API void sy_c_function_handler_set_return_value(SyCFunctionHandler *self, const void *retValue, const SyType *type)
+    {
+        ArgBuf& buf = cArgBufs.bufAt(self->_handle);
+        buf.setReturnValue(retValue, type->sizeType);
+    }
+} // extern "C"
 
 bool sy::Function::CallArgs::push(const void *argMem, const Type *typeInfo)
 {
@@ -337,4 +377,34 @@ sy::Function::CallArgs sy::Function::startCall() const
     return callArgs;
 }
 
+void* sy::Function::CHandler::getArgMem(size_t argIndex)
+{
+    ArgBuf& buf = cArgBufs.bufAt(this->inner._handle);
+    ArgBuf::Arg arg = buf.at(argIndex);
+    return arg.mem;
+}
 
+const Type *sy::Function::CHandler::getArgType(size_t argIndex)
+{
+    ArgBuf& buf = cArgBufs.bufAt(this->inner._handle);
+    ArgBuf::Arg arg = buf.at(argIndex);
+    return arg.type;
+}
+
+void sy::Function::CHandler::validateArgTypeMatches(void *arg, const Type *storedType, size_t sizeType, size_t alignType)
+{
+    sy_assert((reinterpret_cast<uintptr_t>(arg) % alignType) == 0, "Function argument misaligned");
+    sy_assert(storedType->sizeType == sizeType, "Function argument size mismatch");
+    sy_assert(storedType->alignType == alignType, "Function argument alignment mismatch");
+}
+
+void *sy::Function::CHandler::getRetDst()
+{
+    ArgBuf& buf = cArgBufs.bufAt(this->inner._handle);
+    return buf.getReturnDestination();
+}
+
+void sy::Function::CHandler::validateReturnDstAligned(void *retDst, size_t alignType)
+{
+    sy_assert((reinterpret_cast<uintptr_t>(retDst) % alignType) == 0, "Function return value destination misaligned");
+}

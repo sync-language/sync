@@ -88,7 +88,7 @@ typedef struct SyFunctionCallArgs {
 } SyFunctionCallArgs;
 
 typedef struct SyCFunctionHandler {
-    
+    uint32_t _handle;
 } SyCFunctionHandler;
 
 #ifdef __cplusplus
@@ -103,6 +103,11 @@ SY_API SyFunctionCallArgs sy_function_start_call(const SyFunction* self);
 SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, const void* argMem, const struct SyType* typeInfo);
 
 SY_API SyProgramRuntimeError sy_function_call(SyFunctionCallArgs self, void* retDst);
+
+SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler* self, void* outValue, size_t argIndex);
+
+SY_API void sy_c_function_handler_set_return_value(
+    SyCFunctionHandler* self, const void* retValue, const struct SyType* type);
 
 #ifdef __cplusplus
 } // extern "C"
