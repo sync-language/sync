@@ -138,7 +138,7 @@ ArgBuf::Arg ArgBuf::at(size_t index) const
 {
     sy_assert(index < this->count, "C function argument Index out of bounds");
     Arg a{};
-    a.mem = reinterpret_cast<const void *>(&this->values[this->offsets[index]]);
+    a.mem = const_cast<void*>(reinterpret_cast<const void *>(&this->values[this->offsets[index]]));
     a.type = this->types[index];
     return a;
 }
