@@ -10,13 +10,17 @@
 namespace sy {
     namespace c {
         #include "type_info.h"
+
+        using SyTypeTag = SyTypeTag;
+        using SyTypeInfoInt = SyTypeInfoInt;
+        using SyTypeInfoFloat = SyTypeInfoFloat;
     }
 
     struct SY_API Type {
         enum class Tag : int32_t {
-            Bool = c::SyTypeTagBool,
-            Int = c::SyTypeTagInt,
-            Float = c::SyTypeTagFloat,
+            Bool = c::SyTypeTag::SyTypeTagBool,
+            Int = c::SyTypeTag::SyTypeTagInt,
+            Float = c::SyTypeTag::SyTypeTagFloat,
         };
 
         union SY_API ExtraInfo {

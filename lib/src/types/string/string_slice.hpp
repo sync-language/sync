@@ -8,6 +8,8 @@
 namespace sy {
     namespace c {
         #include "string_slice.h"
+
+        using SyStringSlice = SyStringSlice;
     }
 
     class SY_API StringSlice {

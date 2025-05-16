@@ -43,7 +43,6 @@
 #endif // defined X86_64 or ARM64
 
 struct SyType;
-struct SyProgramRuntimeError;
 
 typedef enum SyFunctionType {
     SyFunctionTypeC = 0,
@@ -76,6 +75,7 @@ typedef struct SyFunction {
     /// Determines if this function is a C function or script function.
     SyFunctionType          tag;
     /// Both for C functions and script functions. Given `tag` and `info`, the function will be correctly called.
+    /// For C functions, this should be a function with the signature of `sy_c_function_t`.
     const void*             fptr;
 } SyFunction;
 
@@ -90,6 +90,9 @@ typedef struct SyFunctionCallArgs {
 typedef struct SyCFunctionHandler {
     uint32_t _handle;
 } SyCFunctionHandler;
+
+/// Function singature for C functions.
+typedef SyProgramRuntimeError(*sy_c_function_t)(SyCFunctionHandler handler);
 
 #ifdef __cplusplus
 extern "C" {

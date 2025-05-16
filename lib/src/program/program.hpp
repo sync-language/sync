@@ -8,6 +8,10 @@
 namespace sy {
     namespace c {
         #include "program.h"
+        
+        using SyProgramRuntimeError = SyProgramRuntimeError;
+        using SyCallStack = SyCallStack;
+        using SyProgramRuntimeErrorKind = SyProgramRuntimeErrorKind;
     }
 
     class Function;
@@ -31,8 +35,8 @@ namespace sy {
     public:
 
         enum class Kind : int32_t {
-            None = c::syProgramRuntimeErrorKindNone,
-            StackOverflow = c::syProgramRuntimeErrorKindStackOverflow,
+            None = c::SyProgramRuntimeErrorKind::syProgramRuntimeErrorKindNone,
+            StackOverflow = c::SyProgramRuntimeErrorKind::syProgramRuntimeErrorKindStackOverflow,
         };
 
         /// Initializes as an Ok, meaning has no error.

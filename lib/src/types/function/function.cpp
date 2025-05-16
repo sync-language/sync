@@ -1,22 +1,20 @@
+#include "function.h"
 #include "function.hpp"
+#include "../type_info.h"
 #include "../type_info.hpp"
 #include "../../util/assert.hpp"
 #include "../../interpreter/stack.hpp"
 #include "../../interpreter/interpreter.hpp"
+#include "../../program/program.h"
 #include "../../program/program_internal.hpp"
 #include "../../mem/allocator.hpp"
+#include "../../util/unreachable.hpp"
 #include <utility>
 #include <cstring>
 #include <new>
-#include "function.h"
 
 using sy::Function;
 using sy::Type;
-using sy::c::SyFunction;
-using sy::c::SyFunctionCallArgs;
-using sy::c::SyProgramRuntimeError;
-using sy::c::SyType;
-using sy::c::SyCFunctionHandler;
 
 #if _MSC_VER
     static constexpr size_t ALLOC_ALIGNMENT = std::hardware_destructive_interference_size;
@@ -81,7 +79,7 @@ public:
 
     ArgBuf& bufAt(uint32_t index);
 
-    void pushNewBuf();
+    uint32_t pushNewBuf();
 private:
     ArgBuf* bufs = nullptr;
     uint32_t len = 0;
@@ -265,7 +263,7 @@ ArgBuf &ArgBufArray::bufAt(uint32_t index)
     return this->bufs[index];
 }
 
-void ArgBufArray::pushNewBuf()
+uint32_t ArgBufArray::pushNewBuf()
 {
     if(this->len == this->capacity) {
         sy::Allocator alloc;
@@ -284,9 +282,11 @@ void ArgBufArray::pushNewBuf()
         this->capacity = newCapacity;
     }
 
-    ArgBuf* placed = new (&this->bufs[this->len]) ArgBuf;
+    const uint32_t handler = this->len;
+    ArgBuf* placed = new (&this->bufs[handler]) ArgBuf;
     (void)placed;
     this->len += 1;
+    return handler;
 }
 
 static thread_local ArgBufArray cArgBufs;
@@ -358,16 +358,28 @@ extern "C"
 
 bool sy::Function::CallArgs::push(const void *argMem, const Type *typeInfo)
 {
-    return c::sy_function_call_args_push(&this->info, argMem, reinterpret_cast<const SyType *>(typeInfo));
+    return sy_function_call_args_push(&this->info, argMem, reinterpret_cast<const SyType *>(typeInfo));
 }
 
 sy::ProgramRuntimeError sy::Function::CallArgs::call(void *retDst)
 {
     const Function *function = reinterpret_cast<const Function *>(this->info.func);
     sy_assert(this->info.pushedCount == function->argsLen, "Did not push enough arguments for function");
-    sy_assert(function->tag == Function::CallType::Script, "Can only do script function calling currently");
 
-    return interpreterExecuteFunction(function, retDst);
+    if(function->tag == Function::CallType::Script) {
+        return interpreterExecuteFunction(function, retDst);
+    }
+    else if(function->tag == Function::CallType::C) {
+        const uint32_t handlerIndex = cArgBufs.pushNewBuf();
+        Function::CHandler handler{handlerIndex};
+        const auto func = (c_function_t)(function->fptr);
+        const ProgramRuntimeError err = func(handler);
+        cArgBufs.bufAt(handlerIndex).clear();
+        return err;
+    }
+    else {
+        unreachable();
+    }
 }
 
 sy::Function::CallArgs sy::Function::startCall() const

@@ -10,11 +10,11 @@
 namespace sy {
     namespace c {
         #include "function.h"
-    }
 
-    namespace detail {
-
-        void* functionArgMemory(uint32_t argBufIndex, size_t argIndex);
+        using SyFunctionType = SyFunctionType;
+        using SyFunctionCallArgs = SyFunctionCallArgs;
+        using SyCFunctionHandler = SyCFunctionHandler;
+        using sy_c_function_t = sy_c_function_t;
     }
 
     struct Type;
@@ -24,8 +24,8 @@ namespace sy {
     public:
 
         enum class CallType : int32_t {
-            C = c::SyFunctionTypeC,
-            Script = c::SyFunctionTypeScript,            
+            C = c::SyFunctionType::SyFunctionTypeC,
+            Script = c::SyFunctionType::SyFunctionTypeScript,            
         };
 
         struct CallArgs {
@@ -39,6 +39,7 @@ namespace sy {
         };
 
         class CHandler {
+            friend class Function;
 
             /// Moves a function argument out of the argument buffer, taking ownership of it.
             /// Arguments are numbered and ordered, starting at 0. 
@@ -71,6 +72,8 @@ namespace sy {
 
         private:
 
+            CHandler(uint32_t index) : inner{index} {}
+            
             void* getArgMem(size_t argIndex);
             const Type* getArgType(size_t argIndex);
             void validateArgTypeMatches(void* arg, const Type* storedType, size_t sizeType, size_t alignType);
@@ -79,6 +82,8 @@ namespace sy {
 
             c::SyCFunctionHandler inner;
         };
+
+        using c_function_t = ProgramRuntimeError(*)(CHandler);
 
         CallArgs startCall() const;
 
@@ -89,7 +94,11 @@ namespace sy {
         uint16_t        argsLen;
         uint16_t        alignment = SY_FUNCTION_MIN_ALIGN;
         CallType        tag;
+        /// Both for C functions and script functions. Given `tag` and `info`, the function will be correctly called.
+        /// For C functions, this should be a function with the signature of `Function::c_function_t`.
         const void*     fptr;
+
+        
     };
 }
 
