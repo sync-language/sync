@@ -8,12 +8,15 @@
 #include <type_traits>
 
 namespace sy {
+    class Function;
+
     namespace c {
         #include "type_info.h"
 
         using SyTypeTag = SyTypeTag;
         using SyTypeInfoInt = SyTypeInfoInt;
         using SyTypeInfoFloat = SyTypeInfoFloat;
+        using SyType = SyType;
     }
 
     struct SY_API Type {
@@ -38,8 +41,10 @@ namespace sy {
         };
 
         size_t      sizeType;
-        uint16_t      alignType;
+        /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported. 
+        uint16_t    alignType;
         StringSlice name;
+        const Function* optionalDestructor = nullptr;
         Tag         tag;
         ExtraInfo   extra;
 

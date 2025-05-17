@@ -7,6 +7,7 @@
 #include "string/string_slice.h"
 
 struct SyType;
+struct SyFunction;
 
 typedef enum SyTypeTag {
     /// Maps to a singular `SyType` instance.
@@ -96,15 +97,15 @@ typedef union SyTypeExtraInfo {
 
 typedef struct SyType {
     /// Actual size of the type in bytes.
-    size_t      sizeType;
-    /// Alignment of the type. For now, `alignType <= 8` is required.
-    /// TODO support alignments greater than 8 for 64 bit
-    uint16_t     alignType;
-    SyStringSlice name;
+    size_t              sizeType;
+    /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported. 
+    uint16_t            alignType;
+    SyStringSlice       name;
+    const SyFunction*   optionalDestructor;
     /// Used as a tagged union with the payload being `extra`.
-    SyTypeTag       tag;
+    SyTypeTag           tag;
     /// Used as a tagged union, with the tags being `tag`.
-    SyTypeExtraInfo extra;
+    SyTypeExtraInfo     extra;
 } SyType;
 
 

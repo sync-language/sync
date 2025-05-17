@@ -1,3 +1,4 @@
+#include "type_info.h"
 #include "type_info.hpp"
 
 using sy::Type;
@@ -71,7 +72,7 @@ extern "C" {
 
 TEST_CASE("same object") {
     const size_t cppBoolPtr = reinterpret_cast<size_t>(sy::Type::TYPE_BOOL);
-    const size_t cBoolPtr = reinterpret_cast<size_t>(sy::c::SY_TYPE_BOOL);
+    const size_t cBoolPtr = reinterpret_cast<size_t>(SY_TYPE_BOOL);
     CHECK_EQ(cppBoolPtr, cBoolPtr);
 }
 

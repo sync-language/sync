@@ -156,7 +156,7 @@ FrameGuard Stack::pushFunctionFrame(const sy::Function *function, void* retValDs
     sy_assert(function->tag == sy::Function::CallType::Script, "Can only push frames for script functions");
     const sy::InterpreterFunctionScriptInfo* scriptInfo =
         reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(function->fptr);
-    const uint16_t frameLength = scriptInfo->stackSpaceRequired;
+    const size_t frameLength = scriptInfo->stackSpaceRequired;
     FrameGuard guard = this->pushFrame(frameLength, function->alignment, retValDst);
     this->setFrameFunction(function);
     return guard;
