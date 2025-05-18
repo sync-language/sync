@@ -5,49 +5,37 @@ using sy::Type;
 
 static_assert(sizeof(sy::Type) == sizeof(sy::c::SyType));
 static_assert(alignof(sy::Type) == alignof(sy::c::SyType));
+static_assert(sizeof(float) == 4); // f32
+static_assert(sizeof(double) == 8); // f64
 
-namespace sy::detail {
-    static const sy::Type boolTypeInfo = Type(sizeof(bool), alignof(bool), "bool", Type::Tag::Bool, Type::ExtraInfo());
+static_assert(sizeof(Type::ExtraInfo::Reference) == sizeof(SyTypeInfoReference));
+static_assert(alignof(Type::ExtraInfo::Reference) == alignof(SyTypeInfoReference));
 
-    static const sy::Type i8TypeInfo = 
-        Type(sizeof(int8_t), alignof(int8_t), "i8", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 8}));
-    static const sy::Type i16TypeInfo = 
-        Type(sizeof(int16_t), alignof(int16_t), "i16", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 16}));
-    static const sy::Type i32TypeInfo = 
-        Type(sizeof(int32_t), alignof(int32_t), "i32", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 32}));
-    static const sy::Type i64TypeInfo = 
-        Type(sizeof(int64_t), alignof(int64_t), "i64", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 64}));
-    static const sy::Type u8TypeInfo = 
-        Type(sizeof(uint8_t), alignof(uint8_t), "u8", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 8}));
-    static const sy::Type u16TypeInfo = 
-        Type(sizeof(uint16_t), alignof(uint16_t), "u16", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 16}));
-    static const sy::Type u32TypeInfo = 
-        Type(sizeof(uint32_t), alignof(uint32_t), "u32", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 32}));
-    static const sy::Type u64TypeInfo = 
-        Type(sizeof(uint64_t), alignof(uint64_t), "u64", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 64}));  
-    static const sy::Type usizeTypeInfo = 
-        Type(sizeof(size_t), alignof(size_t), "usize", Type::Tag::Int, Type::ExtraInfo(
+const Type* const sy::Type::TYPE_BOOL = Type::makeType<bool>("bool", Type::Tag::Bool, Type::ExtraInfo());
+const Type* const sy::Type::TYPE_I8 =
+    Type::makeType<int8_t>("i8", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 8}));
+const Type* const sy::Type::TYPE_I16 = 
+    Type::makeType<int16_t>("i16", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 16}));
+const Type* const sy::Type::TYPE_I32 = 
+    Type::makeType<int32_t>("i32", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 32}));
+const Type* const sy::Type::TYPE_I64 = 
+    Type::makeType<int64_t>("i64", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 64}));
+const Type* const sy::Type::TYPE_U8 = 
+    Type::makeType<uint8_t>("u8", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 8}));
+const Type* const sy::Type::TYPE_U16 =
+    Type::makeType<uint16_t>("u16", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 16}));
+const Type* const sy::Type::TYPE_U32 = 
+    Type::makeType<uint32_t>("u32", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 32}));
+const Type* const sy::Type::TYPE_U64 = 
+    Type::makeType<uint64_t>("u64", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 64}));
+const Type* const sy::Type::TYPE_USIZE = 
+    Type::makeType<size_t>("usize", Type::Tag::Int, Type::ExtraInfo(
             Type::ExtraInfo::Int{false, sizeof(size_t) * 8} // amount of bytes * 8 bits per byte
         ));
-
-    static const sy::Type f32TypeInfo = 
-        Type(sizeof(float), alignof(float), "f32", Type::Tag::Float, Type::ExtraInfo(Type::ExtraInfo::Float{32}));
-    static const sy::Type f64TypeInfo = 
-        Type(sizeof(double), alignof(double), "f64", Type::Tag::Float, Type::ExtraInfo(Type::ExtraInfo::Float{64})); 
-}
-
-const Type* const sy::Type::TYPE_BOOL = &sy::detail::boolTypeInfo;
-const Type* const sy::Type::TYPE_I8 = &sy::detail::i8TypeInfo;
-const Type* const sy::Type::TYPE_I16 = &sy::detail::i16TypeInfo;
-const Type* const sy::Type::TYPE_I32 = &sy::detail::i32TypeInfo;
-const Type* const sy::Type::TYPE_I64 = &sy::detail::i64TypeInfo;
-const Type* const sy::Type::TYPE_U8 = &sy::detail::u8TypeInfo;
-const Type* const sy::Type::TYPE_U16 = &sy::detail::u16TypeInfo;
-const Type* const sy::Type::TYPE_U32 = &sy::detail::u32TypeInfo;
-const Type* const sy::Type::TYPE_U64 = &sy::detail::u64TypeInfo;
-const Type* const sy::Type::TYPE_USIZE = &sy::detail::usizeTypeInfo;
-const Type* const sy::Type::TYPE_F32 = &sy::detail::f32TypeInfo;
-const Type* const sy::Type::TYPE_F64 = &sy::detail::f64TypeInfo;
+const Type* const sy::Type::TYPE_F32 = 
+    Type::makeType<float>("f32", Type::Tag::Float, Type::ExtraInfo(Type::ExtraInfo::Float{32}));
+const Type* const sy::Type::TYPE_F64 = 
+    Type::makeType<double>("f64", Type::Tag::Float, Type::ExtraInfo(Type::ExtraInfo::Float{64}));
 
 extern "C" {
     using sy::c::SyType;

@@ -89,10 +89,16 @@ typedef struct SyTypeInfoFloat {
     uint8_t bits;
 } SyTypeInfoFloat;
 
+typedef struct SyTypeInfoReference {
+    bool            isMutable;
+    const SyType*   childType;
+} SyTypeInfoReference;
+
 typedef union SyTypeExtraInfo {
     _sy_type_extra_info_unused_t    _boolInfo;
     SyTypeInfoInt                   intInfo;
     SyTypeInfoFloat                 floatInfo;
+    SyTypeInfoReference             referenceInfo;
 } SyTypeExtraInfo;
 
 typedef struct SyType {
@@ -106,6 +112,8 @@ typedef struct SyType {
     SyTypeTag           tag;
     /// Used as a tagged union, with the tags being `tag`.
     SyTypeExtraInfo     extra;
+    const SyType*       constRef;
+    const SyType*       mutRef;
 } SyType;
 
 

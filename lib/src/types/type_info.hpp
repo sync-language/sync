@@ -16,6 +16,7 @@ namespace sy {
         using SyTypeTag = SyTypeTag;
         using SyTypeInfoInt = SyTypeInfoInt;
         using SyTypeInfoFloat = SyTypeInfoFloat;
+        using SyTypeInfoReference = SyTypeInfoReference;
         using SyType = SyType;
     }
 
@@ -24,20 +25,28 @@ namespace sy {
             Bool = c::SyTypeTag::SyTypeTagBool,
             Int = c::SyTypeTag::SyTypeTagInt,
             Float = c::SyTypeTag::SyTypeTagFloat,
+            Reference = c::SyTypeTag::SyTypeTagReference,
         };
 
         union SY_API ExtraInfo {
             using unused = void*;
             using Int = c::SyTypeInfoInt;
             using Float = c::SyTypeInfoFloat;
+            
+            struct Reference {
+                bool        isMutable;
+                const Type* childType;
+            };
 
-            unused  _boolInfo;
-            Int     intInfo;
-            Float   floatInfo;
+            unused      _boolInfo;
+            Int         intInfo;
+            Float       floatInfo;
+            Reference   referenceInfo;
 
             constexpr ExtraInfo() : _boolInfo(nullptr) {}
             constexpr ExtraInfo(Int inIntInfo) : intInfo(inIntInfo) {}
             constexpr ExtraInfo(Float inFloatInfo) : floatInfo(inFloatInfo) {}
+            constexpr ExtraInfo(Reference inReferenceInfo) : referenceInfo(inReferenceInfo) {}
         };
 
         size_t      sizeType;
@@ -47,10 +56,18 @@ namespace sy {
         const Function* optionalDestructor = nullptr;
         Tag         tag;
         ExtraInfo   extra;
+        const Type* constRef;
+        const Type* mutRef;
 
-        constexpr Type(size_t inSize, size_t inAlign, StringSlice inName, Tag inTag, ExtraInfo inExtra)
-            : sizeType(inSize), alignType(static_cast<uint16_t>(inAlign)), name(inName), tag(inTag), extra(inExtra)
-        {}
+        template<typename T>
+        static constexpr const Type* makeType(
+            StringSlice inName, 
+            Tag inTag, 
+            ExtraInfo inExtra, 
+            const Function* inOptionalDestructor = nullptr
+        ) {
+            return createType<T>(inName, inTag, inExtra, inOptionalDestructor);      
+        }
 
         static const Type* const TYPE_BOOL;
         static const Type* const TYPE_I8;
@@ -64,6 +81,66 @@ namespace sy {
         static const Type* const TYPE_USIZE;
         static const Type* const TYPE_F32;
         static const Type* const TYPE_F64;
+
+    private:
+
+        template<typename T>
+        static constexpr const Type* createType(
+            StringSlice inName, 
+            Tag inTag, 
+            ExtraInfo inExtra, 
+            const Function* inOptionalDestructor
+        ) {
+            static Type concreteType = {
+                sizeof(T),                          // sizeType
+                static_cast<uint16_t>(alignof(T)),  // alignType
+                inName,                             // name
+                inOptionalDestructor,               // optionalDestructor
+                inTag,                              // tag
+                inExtra,                            // extra
+                nullptr,                            // constRef
+                nullptr                             // mutRef
+            };
+
+            const ExtraInfo::Reference constRefInfo = {false, &concreteType};
+            const ExtraInfo::Reference mutRefInfo = {true, &concreteType};
+
+            const ExtraInfo constRefExtra{constRefInfo};
+            const ExtraInfo mutRefExtra{mutRefInfo};
+
+            static Type constRefType = {
+                sizeof(const T*),
+                static_cast<uint16_t>(alignof(const T*)),
+                "ConstRef", // TODO proper naming
+                nullptr,
+                Tag::Reference,
+                constRefExtra,
+                nullptr,
+                nullptr
+            };
+
+            static Type mutRefType = {
+                sizeof(T*),
+                static_cast<uint16_t>(alignof(T*)),
+                "MutRef", // TODO proper naming
+                nullptr,
+                Tag::Reference,
+                mutRefExtra,
+                nullptr,
+                nullptr
+            };
+
+            concreteType.constRef = &constRefType;
+            concreteType.mutRef = &mutRefType;
+
+            // TODO is this smart?
+            constRefType.constRef = &constRefType;
+            constRefType.mutRef = &mutRefType;
+            mutRefType.constRef = &constRefType;
+            mutRefType.mutRef = &mutRefType;
+
+            return &concreteType;
+        }
     };
 }
 

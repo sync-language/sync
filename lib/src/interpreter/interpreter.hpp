@@ -8,7 +8,7 @@ namespace sy {
 
     /// Begins execution of a function. Does not handle pushing the arguments of the function.
     /// The return of the call will be stored in `outReturnValue`, provided the function does return a value.
-    ProgramRuntimeError interpreterExecuteFunction(const Function* scriptFunction, void* outReturnValue);
+    ProgramRuntimeError interpreterExecuteScriptFunction(const Function* scriptFunction, void* outReturnValue);
 }
 
 

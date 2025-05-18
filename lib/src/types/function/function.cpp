@@ -303,6 +303,7 @@ extern "C"
     SY_API bool sy_function_call_args_push(SyFunctionCallArgs *self, const void *argMem, const SyType *typeInfo)
     {
         const Function *function = reinterpret_cast<const Function *>(self->func);
+        sy_assert(typeInfo != nullptr, "Cannot push null typed argument");
         sy_assert(self->pushedCount < function->argsLen, "Cannot push more arguments than the function takes");
         sy_assert(function->tag == Function::CallType::Script, "Can only do script function calling currently");
 
@@ -367,7 +368,7 @@ sy::ProgramRuntimeError sy::Function::CallArgs::call(void *retDst)
     sy_assert(this->info.pushedCount == function->argsLen, "Did not push enough arguments for function");
 
     if(function->tag == Function::CallType::Script) {
-        return interpreterExecuteFunction(function, retDst);
+        return interpreterExecuteScriptFunction(function, retDst);
     }
     else if(function->tag == Function::CallType::C) {
         const uint32_t handlerIndex = cArgBufs.pushNewBuf();

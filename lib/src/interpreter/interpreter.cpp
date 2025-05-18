@@ -16,10 +16,12 @@ using sy::Function;
 
 static ProgramRuntimeError interpreterExecuteContinuous(const Program* program);
 static ProgramRuntimeError interpreterExecuteOperation(const Program* program);
+static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len);
 
-ProgramRuntimeError sy::interpreterExecuteFunction(const Function *scriptFunction, void *outReturnValue)
+ProgramRuntimeError sy::interpreterExecuteScriptFunction(const Function *scriptFunction, void *outReturnValue)
 {
-    sy_assert(scriptFunction->tag == Function::CallType::Script, "Interpreter cannot immediately execute C functions currently");
+    sy_assert(scriptFunction->tag == Function::CallType::Script, 
+        "Interpreter can only start executing from script functions");
     if(scriptFunction->returnType != nullptr) {
         sy_assert(outReturnValue != nullptr, "Function returns a value, which cannot be safely ignored");
     } else {
@@ -58,6 +60,35 @@ static ProgramRuntimeError interpreterExecuteContinuous(const Program* program) 
         if(err.ok() || isReturn) {
             return err;
         }
+    }
+}
+
+static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len) {
+    Stack& activeStack = Stack::getActiveStack();
+    for(uint16_t i = 0; i < len; i++) {
+        const Type* type = activeStack.typeAt(unwindSlots[i]);
+        if(type == nullptr || type->optionalDestructor == nullptr) {
+            continue;
+        }
+
+        sy_assert(type->tag != Type::Tag::Reference, "Cannot destruct reference types");
+
+        const Type* mutRefType = type->mutRef;
+        sy_assert(mutRefType != nullptr, "Destructors take mutable references");
+        sy_assert(mutRefType->sizeType == sizeof(void*), 
+            "Mutable reference type should have the same size as void*");
+        sy_assert(mutRefType->alignType == alignof(void*), 
+            "Mutable reference type should have the same align as void*");
+
+        void* value = activeStack.valueMemoryAt(unwindSlots[i]);
+        
+        const Function* destructorFn = type->optionalDestructor;
+        Function::CallArgs callArgs = destructorFn->startCall();
+        const bool pushSuccess = callArgs.push(&value, mutRefType);
+        sy_assert(pushSuccess, "TODO overflow when destructor call"); // TODO decide what to do if destructor overflows
+
+        const ProgramRuntimeError err = callArgs.call(nullptr);
+        sy_assert(err.ok(), "Destructors may not throw/cause errors");
     }
 }
 
@@ -142,7 +173,7 @@ static ProgramRuntimeError performCall(const Function* function, void* retDst, c
         if(!success) {
             return ProgramRuntimeError::initStackOverflow();
         }
-        return sy::interpreterExecuteFunction(function, retDst);
+        return sy::interpreterExecuteScriptFunction(function, retDst);
     } else {
         sy_assert(false, "Cannot handle C function calling currently");
     }

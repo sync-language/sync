@@ -22,7 +22,7 @@ namespace sy {
         StringSlice& operator=(StringSlice&&) = default;
 
         template<size_t N>
-        StringSlice(char const (&inStr)[N]) : _inner{inStr, N - 1} {}
+        constexpr StringSlice(char const (&inStr)[N]) : _inner{inStr, N - 1} {}
 
         [[nodiscard]] const char* data() const { return _inner.ptr; }
 
