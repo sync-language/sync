@@ -20,7 +20,7 @@ namespace sy {
         /// Valid for [0, `unwindLen`).
         const uint16_t* unwindSlots;
         /// Length of `unwindSlots`.
-        size_t          unwindLen;
+        uint16_t        unwindLen;
     };
 }
 

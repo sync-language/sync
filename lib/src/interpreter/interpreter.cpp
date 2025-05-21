@@ -43,11 +43,11 @@ ProgramRuntimeError sy::interpreterExecuteScriptFunction(const Function *scriptF
     sy_assert(scriptInfo->program != nullptr, "Script function must have a valid program");
 
     const ProgramRuntimeError err = interpreterExecuteContinuous(scriptInfo->program);
-    if(!err.ok()) {
-        // todo unwind frame
-    }
+    // Regardless of an error or not, the frame should be unwinded.
+    unwindStackFrame(scriptInfo->unwindSlots, scriptInfo->unwindLen);
 
     return err;
+    // `FrameGuard guard` goes out of scope here, popping the frame.
 }
 
 static ProgramRuntimeError interpreterExecuteContinuous(const Program* program) {
@@ -123,12 +123,16 @@ static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
     return potentialErr;
 }
 
-void executeReturn(const Bytecode b)
+
+static void executeReturn(const Bytecode b)
 {
+    // No meaningful work needs to be done. Compiler should optimize this call away.
+    #if _DEBUG
     const operands::Return operands = b.toOperands<operands::Return>();
     (void)operands;
+    #endif // _DEBUG
 
-    // todo unwind frame
+    // Frame is automatically unwinded
 }
 
 static void executeReturnValue(const Bytecode b)
@@ -145,7 +149,7 @@ static void executeReturnValue(const Bytecode b)
 
     std::memcpy(retDst, activeStack.valueMemoryAt(operands.src), retValType->sizeType);
 
-    // todo unwind frame
+    // Frame is automatically unwinded
 }
 
 static bool pushScriptFunctionArgs(const Function* function, const uint16_t argsCount, const uint16_t* argsSrc) {

@@ -60,7 +60,7 @@ namespace sy {
         const Type* mutRef;
 
         template<typename T>
-        static constexpr const Type* makeType(
+        static const Type* makeType(
             StringSlice inName, 
             Tag inTag, 
             ExtraInfo inExtra, 
@@ -85,7 +85,7 @@ namespace sy {
     private:
 
         template<typename T>
-        static constexpr const Type* createType(
+        static const Type* createType(
             StringSlice inName, 
             Tag inTag, 
             ExtraInfo inExtra, 
