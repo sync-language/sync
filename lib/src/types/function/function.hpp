@@ -15,6 +15,7 @@ namespace sy {
         using SyFunctionCallArgs = SyFunctionCallArgs;
         using SyCFunctionHandler = SyCFunctionHandler;
         using sy_c_function_t = sy_c_function_t;
+        using SyType = SyType;
     }
 
     struct Type;

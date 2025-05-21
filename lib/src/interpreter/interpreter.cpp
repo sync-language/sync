@@ -73,22 +73,7 @@ static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len) {
 
         sy_assert(type->tag != Type::Tag::Reference, "Cannot destruct reference types");
 
-        const Type* mutRefType = type->mutRef;
-        sy_assert(mutRefType != nullptr, "Destructors take mutable references");
-        sy_assert(mutRefType->sizeType == sizeof(void*), 
-            "Mutable reference type should have the same size as void*");
-        sy_assert(mutRefType->alignType == alignof(void*), 
-            "Mutable reference type should have the same align as void*");
-
-        void* value = activeStack.valueMemoryAt(unwindSlots[i]);
-        
-        const Function* destructorFn = type->optionalDestructor;
-        Function::CallArgs callArgs = destructorFn->startCall();
-        const bool pushSuccess = callArgs.push(&value, mutRefType);
-        sy_assert(pushSuccess, "TODO overflow when destructor call"); // TODO decide what to do if destructor overflows
-
-        const ProgramRuntimeError err = callArgs.call(nullptr);
-        sy_assert(err.ok(), "Destructors may not throw/cause errors");
+        type->destroyObject(activeStack.valueMemoryAt(unwindSlots[i]));
     }
 }
 

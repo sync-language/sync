@@ -69,6 +69,14 @@ namespace sy {
             return createType<T>(inName, inTag, inExtra, inOptionalDestructor);      
         }
 
+        template<typename T>
+        void destroyObject(T* obj) const {
+            if constexpr(!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
+            this->destroyObjectImpl(reinterpret_cast<void*>(obj));
+        }
+
         static const Type* const TYPE_BOOL;
         static const Type* const TYPE_I8;
         static const Type* const TYPE_I16;
@@ -141,6 +149,9 @@ namespace sy {
 
             return &concreteType;
         }
+    
+        void assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const;
+        void destroyObjectImpl(void* obj) const;
     };
 }
 

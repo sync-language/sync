@@ -1,5 +1,9 @@
 #include "type_info.h"
+#include "function/function.h"
 #include "type_info.hpp"
+#include "../util/assert.hpp"
+#include "function/function.hpp"
+#include "../program/program.hpp"
 
 using sy::Type;
 
@@ -54,6 +58,39 @@ extern "C" {
     SY_API const SyType* SY_TYPE_F64 = reinterpret_cast<const SyType*>(Type::TYPE_F64);
 }
 
+void sy::Type::assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const
+{
+    sy_assert(this->sizeType == sizeOfType, "Type size mismatch");
+    sy_assert(this->alignType == alignOfType, "Type align mismatch");
+}
+
+void sy::Type::destroyObjectImpl(void *obj) const
+{
+    sy_assert(obj != nullptr, "Cannot destroy null object");
+    if(this->optionalDestructor == nullptr) return;
+
+    switch(this->tag) {
+        case Tag::Bool:
+        case Tag::Int:
+        case Tag::Float:
+        case Tag::Reference: return;
+        default: break;
+    }
+
+    sy_assert(this->mutRef != nullptr, "Destructors take mutable references");
+    sy_assert(this->mutRef->sizeType == sizeof(void*), 
+        "Mutable reference type should have the same size as void*");
+    sy_assert(this->mutRef->alignType == alignof(void*), 
+        "Mutable reference type should have the same align as void*");
+
+    Function::CallArgs callArgs = this->optionalDestructor->startCall();
+    const bool pushSuccess = callArgs.push(&obj, this->mutRef);
+    sy_assert(pushSuccess, "TODO overflow when destructor call"); // TODO decide what to do if destructor overflows
+
+    const ProgramRuntimeError err = callArgs.call(nullptr);
+    sy_assert(err.ok(), "Destructors may not throw/cause errors"); // TODO what do to if error?
+}
+
 #ifdef SYNC_LIB_TEST
 
 #include "../doctest.h"
@@ -62,6 +99,14 @@ TEST_CASE("same object") {
     const size_t cppBoolPtr = reinterpret_cast<size_t>(sy::Type::TYPE_BOOL);
     const size_t cBoolPtr = reinterpret_cast<size_t>(SY_TYPE_BOOL);
     CHECK_EQ(cppBoolPtr, cBoolPtr);
+}
+
+TEST_CASE("destroy object") {
+    size_t n1 = 10;
+    size_t n2 = 40;
+
+    sy::Type::TYPE_USIZE->destroyObject(reinterpret_cast<void*>(&n1));
+    sy::Type::TYPE_USIZE->destroyObject(&n2);
 }
 
 #endif
