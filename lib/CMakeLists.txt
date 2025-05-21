@@ -16,6 +16,7 @@ add_library(SyncLib STATIC
     "src/interpreter/stack.cpp"
     "src/interpreter/bytecode.cpp"
     "src/interpreter/interpreter.cpp"
+    "src/interpreter/primitive_tag.cpp"
     "src/program/program.cpp"
 )
 
@@ -29,6 +30,7 @@ add_executable(SyncLibTests
     "src/interpreter/stack.cpp"
     "src/interpreter/bytecode.cpp"
     "src/interpreter/interpreter.cpp"
+    "src/interpreter/primitive_tag.cpp"
     "src/program/program.cpp"
 )
 
