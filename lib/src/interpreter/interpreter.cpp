@@ -103,7 +103,22 @@ static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
             executeReturnValue(*instructionPointer);
         } break;
         case OpCode::CallImmediateNoReturn: {
-            executeCallImmediateNoReturn(ipChange, instructionPointer);
+            potentialErr = executeCallImmediateNoReturn(ipChange, instructionPointer);
+        } break;
+        case OpCode::LoadDefault: {
+            potentialErr = executeLoadDefault(ipChange, instructionPointer);
+        } break;
+        case OpCode::LoadImmediateScalar: {
+            executeLoadImmediateScalar(ipChange, instructionPointer);
+        } break;
+        case OpCode::MemsetUninitialized: {
+            executeMemsetUninitialized(*instructionPointer);
+        } break;
+        case OpCode::SetType: {
+            executeSetType(ipChange, instructionPointer);
+        } break;
+        case OpCode::SetNullType: {
+            executeSetNullType(*instructionPointer);
         } break;
 
         default: {
