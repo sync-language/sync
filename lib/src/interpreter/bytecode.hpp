@@ -20,12 +20,20 @@ enum class OpCode : uint8_t {
     /// May be 2 wide instruction if loading the default value for non scalar types.
     /// For scalar types, loads zero values.
     LoadDefault,
-    /// May be 2 wide instruction if loading uninitialized memory for non scalar type.
-    /// Loads value 0xAA into all bytes of the memory an object will occupy.
+    /// May be 2 wide instructions, if loading immediate value greater than 32 bits in size.
+    LoadImmediateScalar,
+    /// Loads value 0xAA into all bytes of the memory an object will occupy. Does not take a type, and doesn't set a
+    /// type. Just calls memset.
+    /// TODO memset references or heap allocations?
     /// This is the same as [undefined](https://ziglang.org/documentation/master/#undefined) in zig.
     /// Primarily, this is useful for doing struct and array initialization.
-    LoadUninitialized,
-    LoadImmediate,
+    MemsetUninitialized,
+    /// Forcibly sets the type at `dst` to a type. Overrides the type of whatever was present.
+    /// May be 2 wide instruction, if the type is not a scalar type, thus `isScalar` flag is false.
+    SetType,
+    /// Forcibly sets the type at `dst` to be null, signaling that the memory has no type.
+    /// Useful to set memory as shouldn't be unwinded, or shouldn't be operated on until later specified.
+    SetNullType,
     Jump,
     JumpIfFalse,
     Destruct,
@@ -99,7 +107,7 @@ const sy::Type* scalarTypeFromTag(ScalarTag tag);
 /// `OpCode`, matching the opcode of the operation. This is used for validation.
 /// They are also all expected to have the first `OPCODE_USED_BITS` be a bitfield named `reserveOpcode`.
 /// Lastly, all operand types must be of size `sizeof(Bytecode)`, and align `alignof(Bytecode)`.
-namespace operands {
+namespace operators {
 
     /// Returns from a function without a return value.
     struct Return {
@@ -138,17 +146,43 @@ namespace operands {
         static constexpr OpCode OPCODE = OpCode::LoadDefault;
     };
 
-    /// If `isScalar == false`, this is a wide instruction, with the second "bytecode" being a 
-    /// `const Sy::Type*` instance.
-    struct LoadUninitialized {
+    struct LoadImmediateScalar {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        uint64_t scalarTag: SCALAR_TAG_USED_BITS;
+        uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
+        uint64_t immediate: 32;
+
+        static size_t bytecodeUsed(ScalarTag scalarTag);
+
+        static constexpr OpCode OPCODE = OpCode::LoadImmediateScalar;
+    };
+
+    struct MemsetUninitialized {
         uint64_t reserveOpcode: OPCODE_USED_BITS;
         /// Boolean
+        uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
+        uint64_t slots: 16;
+
+        static constexpr OpCode OPCODE = OpCode::MemsetUninitialized;
+    };
+
+    struct SetType {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        /// Boolean
+        uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
         uint64_t isScalar: 1;
         /// Used if `isScalar == true`
         uint64_t scalarTag: SCALAR_TAG_USED_BITS;
+
+        static constexpr OpCode OPCODE = OpCode::SetType;
+    };
+
+    struct SetNullType {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        /// Boolean
         uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
 
-        static constexpr OpCode OPCODE = OpCode::LoadUninitialized;
+        static constexpr OpCode OPCODE = OpCode::SetNullType;
     };
 
 }

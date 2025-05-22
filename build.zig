@@ -75,6 +75,5 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/interpreter/stack.cpp",
     "lib/src/interpreter/bytecode.cpp",
     "lib/src/interpreter/interpreter.cpp",
-    "lib/src/interpreter/primitive_tag.cpp",
     "lib/src/program/program.cpp",
 };

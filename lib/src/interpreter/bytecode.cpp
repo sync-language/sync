@@ -2,6 +2,7 @@
 #include "../types/type_info.hpp"
 #include "../util/unreachable.hpp"
 #include "../util/assert.hpp"
+#include "../types/type_info.hpp"
 
 OpCode Bytecode::getOpcode() const
 {
@@ -34,7 +35,7 @@ const sy::Type *scalarTypeFromTag(ScalarTag tag)
     return nullptr;
 }
 
-size_t operands::CallImmediateNoReturn::bytecodeUsed(uint16_t argCount)
+size_t operators::CallImmediateNoReturn::bytecodeUsed(uint16_t argCount)
 {
     /// Initial bytecode + immediate function
     size_t used = 1 + 1;
@@ -44,4 +45,16 @@ size_t operands::CallImmediateNoReturn::bytecodeUsed(uint16_t argCount)
         used += (argCount / 4) + 1;
     }
     return used;
+}
+
+size_t operators::LoadImmediateScalar::bytecodeUsed(ScalarTag scalarTag)
+{
+    const sy::Type* scalarType = scalarTypeFromTag(scalarTag);
+    if(scalarType->sizeType <= 4) {
+        // Fits into initial bytecode
+        return 1;
+    } else {
+        // LoadImmediateScalar operands + the memory required for the immediate value
+        return 1 + (1 + scalarType->sizeType / alignof(Bytecode)); 
+    }
 }

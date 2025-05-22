@@ -80,6 +80,11 @@ static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len) {
 static void executeReturn(const Bytecode b);
 static void executeReturnValue(const Bytecode b);
 static ProgramRuntimeError executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static ProgramRuntimeError executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static void executeMemsetUninitialized(const Bytecode bytecode);
+static void executeSetType(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static void executeSetNullType(const Bytecode bytecode);
 
 static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
     (void)program;
@@ -113,7 +118,7 @@ static void executeReturn(const Bytecode b)
 {
     // No meaningful work needs to be done. Compiler should optimize this call away.
     #if _DEBUG
-    const operands::Return operands = b.toOperands<operands::Return>();
+    const operators::Return operands = b.toOperands<operators::Return>();
     (void)operands;
     #endif // _DEBUG
 
@@ -122,7 +127,7 @@ static void executeReturn(const Bytecode b)
 
 static void executeReturnValue(const Bytecode b)
 {
-    const operands::ReturnValue operands = b.toOperands<operands::ReturnValue>();
+    const operators::ReturnValue operands = b.toOperands<operators::ReturnValue>();
 
     Stack& activeStack = Stack::getActiveStack();
 
@@ -172,12 +177,89 @@ static ProgramRuntimeError performCall(const Function* function, void* retDst, c
 }
 
 static ProgramRuntimeError executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
-    const operands::CallImmediateNoReturn operands = bytecodes[0].toOperands<operands::CallImmediateNoReturn>();
+    const operators::CallImmediateNoReturn operands = bytecodes[0].toOperands<operators::CallImmediateNoReturn>();
 
     const Function* function = *reinterpret_cast<const Function* const*>(&bytecodes[1]);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[2]);
 
-    ipChange = static_cast<ptrdiff_t>(operands::CallImmediateNoReturn::bytecodeUsed(operands.argCount));
+    ipChange = static_cast<ptrdiff_t>(operators::CallImmediateNoReturn::bytecodeUsed(operands.argCount));
 
     return performCall(function, nullptr, operands.argCount, argsSrcs);
+}
+
+ProgramRuntimeError executeLoadDefault(ptrdiff_t &ipChange, const Bytecode *bytecodes)
+{
+    const operators::LoadDefault operands = bytecodes[0].toOperands<operators::LoadDefault>();
+
+    Stack& activeStack = Stack::getActiveStack();
+    void* destination = activeStack.valueMemoryAt(operands.dst);
+
+    if(operands.isScalar) {
+        const Type* scalarType = scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
+        memset(destination, 0, scalarType->sizeType);
+    } else {
+        // TODO call default constructors or default initializer
+        sy_assert(false, "Cannot load default for non-scalar types currently");
+    }
+
+    return ProgramRuntimeError();
+}
+
+void executeLoadImmediateScalar(ptrdiff_t &ipChange, const Bytecode *bytecodes)
+{
+    const operators::LoadImmediateScalar operands = bytecodes[0].toOperands<operators::LoadImmediateScalar>();
+    const ScalarTag scalarTag = static_cast<ScalarTag>(operands.scalarTag);
+
+    Stack& activeStack = Stack::getActiveStack();
+    void* destination = activeStack.valueMemoryAt(operands.dst);
+    const Type* type = scalarTypeFromTag(scalarTag);
+    if(type->sizeType <= 4) { // 32 bits
+        uint32_t rawValue = static_cast<uint32_t>(operands.immediate);
+        *reinterpret_cast<uint32_t*>(destination) = rawValue;
+    } else {
+        // All scalar types have alignment less than or equal to alignof(Bytecode), so this is fine.
+        sy_assert(type->alignType <= alignof(Bytecode), 
+            "Scalar types must have less than or equal alignment to Bytecode");
+        const void* valueMemory = reinterpret_cast<const void*>(&bytecodes[1]);
+        memcpy(destination, valueMemory, type->sizeType);
+
+        ipChange = operators::LoadImmediateScalar::bytecodeUsed(scalarTag);
+
+        // TODO how to load immediate string objects? not string slices
+    }
+}
+
+void executeMemsetUninitialized(const Bytecode bytecode)
+{
+    const operators::MemsetUninitialized operands = bytecode.toOperands<operators::MemsetUninitialized>();
+
+    Stack& activeStack = Stack::getActiveStack();
+    void* destination = activeStack.valueMemoryAt(operands.dst);
+    sy_assert(activeStack.currentFrame().frameLength >= (operands.dst + operands.slots), 
+        "Trying to uninitialize memory outside of stack frame");
+    const size_t bytesToSet = sizeof(void*) * static_cast<size_t>(operands.slots);
+    memset(destination, 0xAA, bytesToSet);
+}
+
+void executeSetType(ptrdiff_t &ipChange, const Bytecode *bytecodes)
+{
+    const operators::SetType operands = bytecodes[0].toOperands<operators::SetType>();
+
+    Stack& activeStack = Stack::getActiveStack();
+    const Type* type = nullptr;
+    if(operands.isScalar) {
+        type = scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
+    } else {
+        const Bytecode next = bytecodes[1];
+        type = *reinterpret_cast<const Type* const*>(&next);
+        ipChange = 2;
+    }
+    activeStack.setTypeAt(type, operands.dst);
+}
+
+void executeSetNullType(const Bytecode bytecode)
+{    
+    const operators::SetNullType operands = bytecode.toOperands<operators::SetNullType>();
+    Stack& activeStack = Stack::getActiveStack();
+    activeStack.setNullTypeAt(operands.dst);
 }

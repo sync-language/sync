@@ -115,6 +115,8 @@ public:
     /// @return `true` if the arg was copied successfully copied, or `false` if a stack overflow would occur.
     [[nodiscard]] bool pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset);
 
+    [[nodiscard]] const Frame& currentFrame() const { return this->raw.currentFrame; }
+
     using stack_value_t = void*;
 
     struct Raw {
