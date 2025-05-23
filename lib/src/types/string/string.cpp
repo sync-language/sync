@@ -62,4 +62,10 @@ sy::String::String(String&& s) {
 
 sy::String::String (const String &other){
     this->_length = other._length;
+    if(other.isSso()){
+        //copy as many as the length 
+        //copy each sso manually
+        for(size_t i = 0; i < _length; i++){
+        }
+    }
 }
