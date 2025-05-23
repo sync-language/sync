@@ -12,11 +12,11 @@ namespace sy {
     /// string class. It's a primitive script type.
     class SY_API String final {
     public:
-
-        // Default constructor
-
+    
+        // Default constructor 
+        String()=default;
         // Destructor
-        
+
         // Copy constructor
 
         // Copy assignment
@@ -47,8 +47,10 @@ namespace sy {
         // set sso flag
 
     private:
-
+    //2 members, one is called _length size_t, _data an array of three size_t and set them default to 0
         // members
+        size_t _length=0;
+        size_t _data[3] = {0};
     };
 }
 
