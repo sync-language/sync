@@ -55,3 +55,4 @@ namespace sy {
 }
 
 #endif // SY_TYPES_STRING_HPP_
+
