@@ -10,29 +10,49 @@ namespace sy {
 }
 
 enum class OpCode : uint8_t {
+    /// Does nothing
     Nop = 0,
+    /// Returns from a function without a return value. After this operation, the function stops executing, the stack
+    /// is then unwinded, and the frame is popped. Uses `operands::Return`.
     Return,
+    /// Returns from a function with a return value. After this operation, the function stops executing, the stack is
+    /// then unwinded, and the frame is popped. Uses `operands::ReturnValue`.
     ReturnValue,
+    /// Calls a function whose `const sy::Function*` instance is provided within the bytecode as the one after the
+    /// initial bytecode. The function argument sources started at the bytecode after the immediate function bytecode,
+    /// extending as necessary as an array of `uint16_t` values. The function returns no value.
+    /// Is at least 2 wide, but often more depending on function arguments. Uses `operands::CallImmediateNoReturn`.
     CallImmediateNoReturn,
+    /// Calls a function at `src`. The function argument sources start after the initial bytecode, extending as
+    /// necessary as an array of `uint16_t` values. The function returns no value. Uses `operands::CallSrcNoReturn`.
     CallSrcNoReturn,
+    /// Calls a function whose `const sy::Function*` instance is provided within the bytecode as the one after the
+    /// initial bytecode. The function argument sources started at the bytecode after the immediate function bytecode,
+    /// extending as necessary as an array of `uint16_t` values. The function returns a value.
+    /// Is at least 2 wide, but often more depending on function arguments. Uses `operands::CallImmediateWithReturn`.
     CallImmediateWithReturn,
+    /// Calls a function at `src`. The function argument sources start after the initial bytecode, extending as
+    /// necessary as an array of `uint16_t` values. The function returns a value. Uses `operands::CallSrcWithReturn`.
     CallSrcWithReturn,
     /// May be 2 wide instruction if loading the default value for non scalar types.
-    /// For scalar types, loads zero values.
+    /// For scalar types, loads zero values. Uses `operands::LoadDefault`.
     LoadDefault,
     /// May be 2 wide instructions, if loading immediate value greater than 32 bits in size.
+    /// Uses `operands::LoadImmediateScalar`.
     LoadImmediateScalar,
     /// Loads value 0xAA into all bytes of the memory an object will occupy. Does not take a type, and doesn't set a
     /// type. Just calls memset.
     /// TODO memset references or heap allocations?
     /// This is the same as [undefined](https://ziglang.org/documentation/master/#undefined) in zig.
-    /// Primarily, this is useful for doing struct and array initialization.
+    /// Primarily, this is useful for doing struct and array initialization. Uses `operands::MemsetUninitialized`.
     MemsetUninitialized,
     /// Forcibly sets the type at `dst` to a type. Overrides the type of whatever was present.
     /// May be 2 wide instruction, if the type is not a scalar type, thus `isScalar` flag is false.
+    /// Uses `operands::SetType`.
     SetType,
     /// Forcibly sets the type at `dst` to be null, signaling that the memory has no type.
     /// Useful to set memory as shouldn't be unwinded, or shouldn't be operated on until later specified.
+    /// Uses `operands::SetNullType`.
     SetNullType,
     Jump,
     JumpIfFalse,
@@ -131,6 +151,37 @@ namespace operators {
         static size_t bytecodeUsed(uint16_t argCount);
         
         static constexpr OpCode OPCODE = OpCode::CallImmediateNoReturn;
+    };
+
+    struct CallSrcNoReturn {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        uint64_t src: Stack::BITS_PER_STACK_OPERAND;
+        uint64_t argCount: 16;
+
+        static size_t bytecodeUsed(uint16_t argCount);
+        
+        static constexpr OpCode OPCODE = OpCode::CallSrcNoReturn;
+    };
+
+    struct CallImmediateWithReturn {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        uint64_t argCount: 16;
+        uint64_t retDst: Stack::BITS_PER_STACK_OPERAND;
+
+        static size_t bytecodeUsed(uint16_t argCount);
+        
+        static constexpr OpCode OPCODE = OpCode::CallImmediateWithReturn;
+    };
+
+    struct CallSrcWithReturn {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        uint64_t src: Stack::BITS_PER_STACK_OPERAND;
+        uint64_t argCount: 16;
+        uint64_t retDst: Stack::BITS_PER_STACK_OPERAND;
+
+        static size_t bytecodeUsed(uint16_t argCount);
+        
+        static constexpr OpCode OPCODE = OpCode::CallSrcWithReturn;
     };
     
     /// If `isScalar == false`, this is a wide instruction, with the second "bytecode" being a 

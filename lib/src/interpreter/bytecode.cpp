@@ -47,6 +47,42 @@ size_t operators::CallImmediateNoReturn::bytecodeUsed(uint16_t argCount)
     return used;
 }
 
+size_t operators::CallSrcNoReturn::bytecodeUsed(uint16_t argCount)
+{
+    /// Initial bytecode
+    size_t used = 1;
+    if((argCount % 4) == 0) {
+        used += (argCount / 4);
+    } else {
+        used += (argCount / 4) + 1;
+    }
+    return used;
+}
+
+size_t operators::CallImmediateWithReturn::bytecodeUsed(uint16_t argCount)
+{
+    /// Initial bytecode + immediate function
+    size_t used = 1 + 1;
+    if((argCount % 4) == 0) {
+        used += (argCount / 4);
+    } else {
+        used += (argCount / 4) + 1;
+    }
+    return used;
+}
+
+size_t operators::CallSrcWithReturn::bytecodeUsed(uint16_t argCount)
+{
+    /// Initial bytecode
+    size_t used = 1;
+    if((argCount % 4) == 0) {
+        used += (argCount / 4);
+    } else {
+        used += (argCount / 4) + 1;
+    }
+    return used;
+}
+
 size_t operators::LoadImmediateScalar::bytecodeUsed(ScalarTag scalarTag)
 {
     const sy::Type* scalarType = scalarTypeFromTag(scalarTag);

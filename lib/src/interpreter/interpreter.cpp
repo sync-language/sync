@@ -80,6 +80,9 @@ static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len) {
 static void executeReturn(const Bytecode b);
 static void executeReturnValue(const Bytecode b);
 static ProgramRuntimeError executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static ProgramRuntimeError executeCallSrcNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static ProgramRuntimeError executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static ProgramRuntimeError executeCallSrcWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static ProgramRuntimeError executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeMemsetUninitialized(const Bytecode bytecode);
@@ -135,6 +138,8 @@ static void executeReturn(const Bytecode b)
     #if _DEBUG
     const operators::Return operands = b.toOperands<operators::Return>();
     (void)operands;
+    #else
+    (void)b;
     #endif // _DEBUG
 
     // Frame is automatically unwinded
@@ -202,6 +207,49 @@ static ProgramRuntimeError executeCallImmediateNoReturn(ptrdiff_t& ipChange, con
     return performCall(function, nullptr, operands.argCount, argsSrcs);
 }
 
+static ProgramRuntimeError executeCallSrcNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+    const operators::CallSrcNoReturn operands = bytecodes[0].toOperands<operators::CallSrcNoReturn>();
+
+    Stack& activeStack = Stack::getActiveStack();
+    // TODO validate src is function
+    const Function* function = activeStack.valueAt<const Function*>(operands.src);
+    const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
+
+    ipChange = static_cast<ptrdiff_t>(operators::CallSrcNoReturn::bytecodeUsed(operands.argCount));
+
+    return performCall(function, nullptr, operands.argCount, argsSrcs);
+}
+
+static ProgramRuntimeError executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+    const operators::CallImmediateWithReturn operands = bytecodes[0].toOperands<operators::CallImmediateWithReturn>();
+
+    const Function* function = *reinterpret_cast<const Function* const*>(&bytecodes[1]);
+    const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[2]);
+
+    ipChange = static_cast<ptrdiff_t>(operators::CallImmediateWithReturn::bytecodeUsed(operands.argCount));
+
+    Stack& activeStack = Stack::getActiveStack();
+    void* returnDst = activeStack.valueMemoryAt(operands.retDst);
+
+    return performCall(function, returnDst, operands.argCount, argsSrcs);
+}
+
+static ProgramRuntimeError executeCallSrcWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+    const operators::CallSrcWithReturn operands = bytecodes[0].toOperands<operators::CallSrcWithReturn>();
+
+    Stack& activeStack = Stack::getActiveStack();
+    // TODO validate src is function
+    const Function* function = activeStack.valueAt<const Function*>(operands.src);
+    const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
+
+    ipChange = static_cast<ptrdiff_t>(operators::CallSrcWithReturn::bytecodeUsed(operands.argCount));
+
+    Stack& activeStack = Stack::getActiveStack();
+    void* returnDst = activeStack.valueMemoryAt(operands.retDst);
+
+    return performCall(function, nullptr, operands.argCount, argsSrcs);
+}
+
 ProgramRuntimeError executeLoadDefault(ptrdiff_t &ipChange, const Bytecode *bytecodes)
 {
     const operators::LoadDefault operands = bytecodes[0].toOperands<operators::LoadDefault>();
@@ -213,6 +261,7 @@ ProgramRuntimeError executeLoadDefault(ptrdiff_t &ipChange, const Bytecode *byte
         const Type* scalarType = scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
         memset(destination, 0, scalarType->sizeType);
     } else {
+        (void)ipChange;
         // TODO call default constructors or default initializer
         sy_assert(false, "Cannot load default for non-scalar types currently");
     }
