@@ -108,6 +108,15 @@ static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
         case OpCode::CallImmediateNoReturn: {
             potentialErr = executeCallImmediateNoReturn(ipChange, instructionPointer);
         } break;
+        case OpCode::CallSrcNoReturn: {
+            potentialErr = executeCallSrcNoReturn(ipChange, instructionPointer);
+        } break;
+        case OpCode::CallImmediateWithReturn: {
+            potentialErr = executeCallImmediateWithReturn(ipChange, instructionPointer);
+        } break;
+        case OpCode::CallSrcWithReturn: {
+            potentialErr = executeCallSrcWithReturn(ipChange, instructionPointer);
+        } break;
         case OpCode::LoadDefault: {
             potentialErr = executeLoadDefault(ipChange, instructionPointer);
         } break;
