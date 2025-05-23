@@ -66,6 +66,22 @@ sy::String::String (const String &other){
         //copy as many as the length 
         //copy each sso manually
         for(size_t i = 0; i < _length; i++){
+            _impl.sso.arr[i] = other._impl.sso.arr[i];
         }
+        _impl.sso.arr[_length] = '\0';
+        return;
     }
+    
+    //capacity is length+1 for \0
+    //make a capacity variable 
+    size_t cap = this->_length + 1;
+    char* buffer = mallocHeapBuffer(cap);
+    for(size_t i = 0; i < _length; i++) {
+        buffer[i] = this->_impl.heap.ptr[i];
+    }
+    buffer[this->_length] = '\0';
+    this->_impl.heap = HeapBuffer();
+    setHeapFlag();
+    this->_impl.heap.ptr = buffer;
+    this->_impl.heap.capacity = cap;
 }
