@@ -1,5 +1,6 @@
 #include "string.h"
 #include "string.hpp"
+#include "../../mem/allocator.hpp"
 
 #if defined(__AVX512BW__)
 // _mm512_cmpeq_epi8_mask

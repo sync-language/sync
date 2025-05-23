@@ -27,6 +27,10 @@ namespace sy {
         // String Slice constructor
 
         // const char* constructor
+
+        // Get as string slice
+
+        // Get as const char*
     };
 }
 
