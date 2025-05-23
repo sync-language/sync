@@ -253,10 +253,9 @@ static ProgramRuntimeError executeCallSrcWithReturn(ptrdiff_t& ipChange, const B
 
     ipChange = static_cast<ptrdiff_t>(operators::CallSrcWithReturn::bytecodeUsed(operands.argCount));
 
-    Stack& activeStack = Stack::getActiveStack();
     void* returnDst = activeStack.valueMemoryAt(operands.retDst);
 
-    return performCall(function, nullptr, operands.argCount, argsSrcs);
+    return performCall(function, returnDst, operands.argCount, argsSrcs);
 }
 
 ProgramRuntimeError executeLoadDefault(ptrdiff_t &ipChange, const Bytecode *bytecodes)

@@ -3,6 +3,7 @@
 #define SY_INTERPRETER_STACK_HPP_
 
 #include "../core.h"
+#include <type_traits>
 
 // Developers are allowed to change this value.
 #ifndef SY_MAX_STACK_SIZE
@@ -83,7 +84,8 @@ public:
 
     template<typename T>
     T& valueAt(uint16_t offset) {
-        return reinterpret_cast<T&>(valueMemoryAt(offset));
+        void* valMem = valueMemoryAt(offset);
+        return *reinterpret_cast<typename std::remove_const<T>::type*>(valMem);
     }
 
     /// May return `nullptr`.
