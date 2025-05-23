@@ -18,3 +18,5 @@ constexpr size_t STRING_ALLOC_ALIGN = 16;
 #else
 constexpr size_t STRING_ALLOC_ALIGN = alignof(void*);
 #endif
+
+static_assert(STRING_ALLOC_ALIGN);
