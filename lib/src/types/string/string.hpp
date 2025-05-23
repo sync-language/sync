@@ -39,7 +39,7 @@ namespace sy {
     private:
 
         // allocate buffer
-
+        
         // free buffer
 
         // check if using sso

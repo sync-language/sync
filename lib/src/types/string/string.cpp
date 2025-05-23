@@ -46,3 +46,20 @@ union StringImpl {
     HeapBuffer heap;
     StringImpl() :sso() {};
 };
+
+static char* mallocHeapBuffer(size_t& inCapacity){
+    sy::Allocator alloc{};
+
+    const size_t remainder = inCapacity % STRING_ALLOC_ALIGN;
+    if(remainder!=0){
+        inCapacity = inCapacity + (STRING_ALLOC_ALIGN - remainder);
+    }
+    char* buffer = alloc.allocAlignedArray<char>(inCapacity, STRING_ALLOC_ALIGN).get();
+    return buffer;
+};
+
+static void freeHeapBuffer(char* buff, size_t inCapacity){
+    sy::Allocator alloc{};
+
+    alloc.freeAlignedArray<char>(buff, inCapacity, STRING_ALLOC_ALIGN);
+};
