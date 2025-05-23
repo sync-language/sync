@@ -1,6 +1,7 @@
 #include "string.h"
 #include "string.hpp"
 #include "../../mem/allocator.hpp"
+#include <cstring>
 
 #if defined(__AVX512BW__)
 // _mm512_cmpeq_epi8_mask
@@ -24,28 +25,7 @@ static_assert(STRING_ALLOC_ALIGN);
 //two structs, 1. SsoBuffer will have an array of 3 * size of void pointer, 2. 4 members 
 //1st member character pointer, 2. size_t capacity, 3. array of characters size of void pointer - 1 ,  4. 1 char called flag 
 
-constexpr size_t SSO_CAPACITY = 3 * sizeof(void*);
 
-struct SsoBuffer {
-    char arr[SSO_CAPACITY]={0};
-    SsoBuffer() = default;
-};
-
-struct HeapBuffer {
-    char*   ptr = nullptr;
-    size_t  capacity = 0;
-    char    _unused[sizeof(void*)-1] = {0};
-    char    flag = 0;
-    HeapBuffer() = default;
-};
-
-static_assert(sizeof(SsoBuffer) == sizeof(HeapBuffer));
-union StringImpl {
-    /* data */
-    SsoBuffer sso;
-    HeapBuffer heap;
-    StringImpl() :sso() {};
-};
 
 static char* mallocHeapBuffer(size_t& inCapacity){
     sy::Allocator alloc{};
@@ -63,3 +43,23 @@ static void freeHeapBuffer(char* buff, size_t inCapacity){
 
     alloc.freeAlignedArray<char>(buff, inCapacity, STRING_ALLOC_ALIGN);
 };
+
+
+constexpr char FLAG_BIT = static_cast<char>(0b10000000);
+
+bool sy::String::isSso()const{
+    return !(this->_impl.heap.flag & FLAG_BIT);
+}
+
+void sy::String::setHeapFlag(){
+    this->_impl.heap.flag = FLAG_BIT;
+}
+
+sy::String::String(String&& s) {
+    memcpy(this, &s, sizeof(String));
+    memset(&s, 0, sizeof(String));
+}
+
+sy::String::String (const String &other){
+    this->_length = other._length;
+}

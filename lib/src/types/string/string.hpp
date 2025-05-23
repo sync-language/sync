@@ -18,11 +18,11 @@ namespace sy {
         // Destructor
 
         // Copy constructor
-
+        String (const String &other);
         // Copy assignment
-
+        // String& operator=(const String& other);
         // Move constructor
-
+        String( String&& s);
         // Move assignment
 
         // String Slice constructor
@@ -38,19 +38,38 @@ namespace sy {
 
     private:
 
-        // allocate buffer
-        
-        // free buffer
-
-        // check if using sso
-
-        // set sso flag
+        bool isSso()const;
+        void setHeapFlag();
 
     private:
+
+        static constexpr size_t SSO_CAPACITY = 3 * sizeof(void*);
+
+        struct SsoBuffer {
+            char arr[SSO_CAPACITY]={0};
+            SsoBuffer() = default;
+        };
+
+        struct HeapBuffer {
+            char*   ptr = nullptr;
+            size_t  capacity = 0;
+            char    _unused[sizeof(void*)-1] = {0};
+            char    flag = 0;
+            HeapBuffer() = default;
+        };
+
+        static_assert(sizeof(SsoBuffer) == sizeof(HeapBuffer));
+        union StringImpl {
+            /* data */
+            SsoBuffer sso;
+            HeapBuffer heap;
+            StringImpl() :sso() {};
+        };
+
     //2 members, one is called _length size_t, _data an array of three size_t and set them default to 0
         // members
-        size_t _length=0;
-        size_t _data[3] = {0};
+        size_t      _length=0;
+        StringImpl  _impl;
     };
 }
 
