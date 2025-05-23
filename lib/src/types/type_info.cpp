@@ -3,6 +3,7 @@
 #include "type_info.hpp"
 #include "../util/assert.hpp"
 #include "function/function.hpp"
+#include "string/string_slice.hpp"
 #include "../program/program.hpp"
 
 using sy::Type;
@@ -16,6 +17,7 @@ static_assert(sizeof(Type::ExtraInfo::Reference) == sizeof(SyTypeInfoReference))
 static_assert(alignof(Type::ExtraInfo::Reference) == alignof(SyTypeInfoReference));
 
 const Type* const sy::Type::TYPE_BOOL = Type::makeType<bool>("bool", Type::Tag::Bool, Type::ExtraInfo());
+
 const Type* const sy::Type::TYPE_I8 =
     Type::makeType<int8_t>("i8", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 8}));
 const Type* const sy::Type::TYPE_I16 = 
@@ -41,21 +43,32 @@ const Type* const sy::Type::TYPE_F32 =
 const Type* const sy::Type::TYPE_F64 = 
     Type::makeType<double>("f64", Type::Tag::Float, Type::ExtraInfo(Type::ExtraInfo::Float{64}));
 
+const Type* const sy::Type::TYPE_CHAR = nullptr;
+const Type* const sy::Type::TYPE_STRING_SLICE =
+    Type::makeType<sy::StringSlice>("str", Type::Tag::StringSlice, Type::ExtraInfo());
+const Type* const sy::Type::TYPE_STRING = nullptr;
+
 extern "C" {
     using sy::c::SyType;
 
     SY_API const SyType* SY_TYPE_BOOL = reinterpret_cast<const SyType*>(Type::TYPE_BOOL);
-    SY_API const SyType* SY_TYPE_I8 = reinterpret_cast<const SyType*>(Type::TYPE_I8);
-    SY_API const SyType* SY_TYPE_I16 = reinterpret_cast<const SyType*>(Type::TYPE_I16);
-    SY_API const SyType* SY_TYPE_I32 = reinterpret_cast<const SyType*>(Type::TYPE_I32);
-    SY_API const SyType* SY_TYPE_I64 = reinterpret_cast<const SyType*>(Type::TYPE_I64);
-    SY_API const SyType* SY_TYPE_U8 = reinterpret_cast<const SyType*>(Type::TYPE_U8);
-    SY_API const SyType* SY_TYPE_U16 = reinterpret_cast<const SyType*>(Type::TYPE_U16);
-    SY_API const SyType* SY_TYPE_U32 = reinterpret_cast<const SyType*>(Type::TYPE_U32);
-    SY_API const SyType* SY_TYPE_U64 = reinterpret_cast<const SyType*>(Type::TYPE_U64);
-    SY_API const SyType* SY_TYPE_USIZE = reinterpret_cast<const SyType*>(Type::TYPE_USIZE);
+
+    SY_API const SyType* SY_TYPE_I8     = reinterpret_cast<const SyType*>(Type::TYPE_I8);
+    SY_API const SyType* SY_TYPE_I16    = reinterpret_cast<const SyType*>(Type::TYPE_I16);
+    SY_API const SyType* SY_TYPE_I32    = reinterpret_cast<const SyType*>(Type::TYPE_I32);
+    SY_API const SyType* SY_TYPE_I64    = reinterpret_cast<const SyType*>(Type::TYPE_I64);
+    SY_API const SyType* SY_TYPE_U8     = reinterpret_cast<const SyType*>(Type::TYPE_U8);
+    SY_API const SyType* SY_TYPE_U16    = reinterpret_cast<const SyType*>(Type::TYPE_U16);
+    SY_API const SyType* SY_TYPE_U32    = reinterpret_cast<const SyType*>(Type::TYPE_U32);
+    SY_API const SyType* SY_TYPE_U64    = reinterpret_cast<const SyType*>(Type::TYPE_U64);
+    SY_API const SyType* SY_TYPE_USIZE  = reinterpret_cast<const SyType*>(Type::TYPE_USIZE);
+
     SY_API const SyType* SY_TYPE_F32 = reinterpret_cast<const SyType*>(Type::TYPE_F32);
     SY_API const SyType* SY_TYPE_F64 = reinterpret_cast<const SyType*>(Type::TYPE_F64);
+
+    SY_API const SyType* SY_TYPE_CHAR           = reinterpret_cast<const SyType*>(Type::TYPE_CHAR);
+    SY_API const SyType* SY_TYPE_STRING         = reinterpret_cast<const SyType*>(Type::TYPE_STRING);
+    SY_API const SyType* SY_TYPE_STRING_SLICE   = reinterpret_cast<const SyType*>(Type::TYPE_STRING_SLICE);
 }
 
 void sy::Type::assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const
@@ -73,7 +86,12 @@ void sy::Type::destroyObjectImpl(void *obj) const
         case Tag::Bool:
         case Tag::Int:
         case Tag::Float:
+        case Tag::Char:
+        case Tag::StringSlice:
         case Tag::Reference: return;
+        
+        case Tag::String:
+            // TODO call string destructor
         default: break;
     }
 

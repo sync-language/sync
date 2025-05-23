@@ -98,6 +98,9 @@ typedef union SyTypeExtraInfo {
     _sy_type_extra_info_unused_t    _boolInfo;
     SyTypeInfoInt                   intInfo;
     SyTypeInfoFloat                 floatInfo;
+    _sy_type_extra_info_unused_t    _charInfo;
+    _sy_type_extra_info_unused_t    _stringSliceInfo;
+    _sy_type_extra_info_unused_t    _stringInfo;
     SyTypeInfoReference             referenceInfo;
 } SyTypeExtraInfo;
 
@@ -133,6 +136,9 @@ SY_API extern const SyType* SY_TYPE_U64;
 SY_API extern const SyType* SY_TYPE_USIZE;
 SY_API extern const SyType* SY_TYPE_F32;
 SY_API extern const SyType* SY_TYPE_F64;
+SY_API extern const SyType* SY_TYPE_CHAR;
+SY_API extern const SyType* SY_TYPE_STRING_SLICE;
+SY_API extern const SyType* SY_TYPE_STRING;
 
 #ifdef __cplusplus
 } // extern "C"
