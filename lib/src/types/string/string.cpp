@@ -172,14 +172,105 @@ sy::String& sy::String::operator=(String&& other) noexcept {
     }
     other._length = 0;
     this->asHeap()->flag = 0;
+    return *this;
 }
 
-StringSlice sy::String::asSlice() const
+sy::String::String(const StringSlice &str)
+    : _length(str.len())
+{
+    if(str.len() <= MAX_SSO_LEN) {
+        for(size_t i = 0; i < str.len(); i++){
+            this->asSso()->arr[i] = str[i];
+        }
+        return;
+    }
+
+    //capacity is length + 1 for \0 (null terminator)
+    size_t cap = this->_length + 1;
+    char* buffer = mallocHeapBuffer(cap);
+    for(size_t i = 0; i < _length; i++) {
+        buffer[i] = str[i];
+    }
+    zeroSetLastSIMDElement(buffer, this->_length);
+
+    this->setHeapFlag();
+    HeapBuffer* thisHeap = this->asHeap();
+    thisHeap->ptr = buffer;
+    thisHeap->capacity = cap;
+}
+
+sy::String& sy::String::operator=(const StringSlice& str) {
+    this->_length = str.len();
+    const size_t requiredCapacity = str.len() + 1; // for null terminator
+
+    if(requiredCapacity < SSO_CAPACITY) {
+        if(!isSso()) {
+            // Don't bother keeping large heap allocation unnecessarily
+            HeapBuffer* heap = this->asHeap();
+            freeHeapBuffer(heap->ptr, heap->capacity);
+        }
+
+        for(size_t i = 0; i < str.len(); i++) {
+            this->asSso()->arr[i] = str[i];
+        }
+        // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting the flag bit
+        this->setSsoFlag();
+        return *this;
+    }
+
+    // We have determined now that the string to copy exceeds the sso buffer
+    // If there is enough capacity already in the existing string allocation, we should just use it
+    if(this->hasEnoughCapacity(requiredCapacity)) {
+        HeapBuffer* heap = this->asHeap();
+        for(size_t i = 0; i < str.len(); i++) {
+            heap->ptr[i] = str[i];
+        }
+        zeroSetLastSIMDElement(heap->ptr, str.len());
+    } else {
+        HeapBuffer* heap = asHeap();
+        if(!isSso()) {
+            // The old buffer isn't big enough, so we free it
+            freeHeapBuffer(heap->ptr, heap->capacity);
+        }
+
+        // Allocate for a new buffer that is big enough here
+        size_t newCapacity = requiredCapacity;
+        char* buffer = mallocHeapBuffer(newCapacity);
+        for(size_t i = 0; i < _length; i++) {
+            buffer[i] = str[i];
+        }
+        zeroSetLastSIMDElement(buffer, str.len());
+       
+        this->setHeapFlag();
+        HeapBuffer* thisHeap = this->asHeap();
+        thisHeap->ptr = buffer;
+        thisHeap->capacity = newCapacity;
+    }
+
+    return *this;
+}
+
+sy::String::String(const char* str) 
+    : String(StringSlice(str, std::strlen(str)))
+{}
+
+sy::String& sy::String::operator=(const char* str) {
+    const size_t len = std::strlen(str);
+    StringSlice strSlice(str, len);
+    return String::operator=(strSlice);
+}
+
+sy::StringSlice sy::String::asSlice() const
+{
+    return StringSlice(this->cstr(), this->_length);
+}
+
+const char *sy::String::cstr() const
 {
     if(this->isSso()) {
-        return StringSlice(this->asSso()->arr, this->_length);
+        return this->asSso()->arr;
     }
-    return StringSlice(this->asHeap()->ptr, this->_length);
+    return this->asHeap()->ptr;
 }
 
 bool sy::String::isSso() const
@@ -223,7 +314,6 @@ bool sy::String::hasEnoughCapacity(const size_t requiredCapacity) const
     }
 }
 
-
 #ifdef SYNC_LIB_TEST
 
 #include "../../doctest.h"
@@ -234,6 +324,32 @@ using sy::StringSlice;
 TEST_CASE("Default constructor") {
     String s;
     CHECK_EQ(s.len(), 0);
+}
+
+TEST_SUITE("const char* constructor") {
+    TEST_CASE("small") {
+        String s = String("hello");
+        CHECK_EQ(s.len(), 5);
+        CHECK_EQ(std::strcmp(s.cstr(), "hello"), 0);
+    }
+
+    TEST_CASE("max sso len 64 bit arch") {
+        String s = String("hello world how are you");
+        CHECK_EQ(s.len(), 23);
+        CHECK_EQ(std::strcmp(s.cstr(), "hello world how are you"), 0);
+    }
+
+    TEST_CASE("bigger than sso len") {
+        String s = String("hello world how are you today");
+        CHECK_EQ(s.len(), 29);
+        CHECK_EQ(std::strcmp(s.cstr(), "hello world how are you today"), 0);
+    }
+
+    TEST_CASE("massive string") {
+        String s = String("1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890");
+        CHECK_EQ(s.len(), 130);
+        CHECK_EQ(std::strcmp(s.cstr(), "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"), 0);
+    }
 }
 
 #endif // SYNC_LIB_TEST

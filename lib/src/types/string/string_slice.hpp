@@ -32,6 +32,8 @@ namespace sy {
 
         [[nodiscard]] size_t len() const { return _inner.len; }
 
+        char operator[](const size_t index) const;
+
     private:
         c::SyStringSlice _inner = {0, 0};
     };

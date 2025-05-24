@@ -25,9 +25,13 @@ namespace sy {
 
         String& operator=(String&& other) noexcept;
 
-        // String Slice constructor
+        String(const StringSlice& str);
 
-        // const char* constructor
+        String& operator=(const StringSlice& str);
+
+        String(const char* str);
+
+        String& operator=(const char* str);
 
         /// Length in bytes, not utf8 characters or graphemes.
         size_t len() const { return _length; }
@@ -36,6 +40,7 @@ namespace sy {
         StringSlice asSlice() const;
 
         // Get as const char*
+        const char* cstr() const;
 
     private:
 
