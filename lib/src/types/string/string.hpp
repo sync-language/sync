@@ -13,23 +13,24 @@ namespace sy {
     class SY_API String final {
     public:
     
-        // Default constructor 
-        String()=default;
-        // Destructor
+        String() = default;
+        
+        ~String() noexcept;
 
-        // Copy constructor
-        String (const String &other);
+        String(const String &other);
+
         // Copy assignment
         // String& operator=(const String& other);
-        // Move constructor
-        String( String&& s);
+        
+        String(String&& other) noexcept;
+
         // Move assignment
 
         // String Slice constructor
 
         // const char* constructor
 
-        // Get length
+        size_t len() const { return _length; }
 
         // Get as string slice
 
@@ -58,13 +59,17 @@ namespace sy {
             HeapBuffer() = default;
         };
 
-        static_assert(sizeof(SsoBuffer) == sizeof(HeapBuffer));
         union StringImpl {
             /* data */
-            SsoBuffer sso;
-            HeapBuffer heap;
+            SsoBuffer   sso;
+            HeapBuffer  heap;
+            size_t      raw[3];
             StringImpl() :sso() {};
         };
+
+        static_assert(sizeof(StringImpl) == sizeof(SsoBuffer));
+        static_assert(sizeof(StringImpl) == sizeof(HeapBuffer));
+        static_assert(sizeof(StringImpl) == sizeof(size_t[3]));
 
     //2 members, one is called _length size_t, _data an array of three size_t and set them default to 0
         // members

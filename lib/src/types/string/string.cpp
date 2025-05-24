@@ -55,13 +55,28 @@ void sy::String::setHeapFlag(){
     this->_impl.heap.flag = FLAG_BIT;
 }
 
-sy::String::String(String&& s) {
-    memcpy(this, &s, sizeof(String));
-    memset(&s, 0, sizeof(String));
+sy::String::~String() noexcept {
+    if(this->isSso()) return;
+
+    freeHeapBuffer(this->_impl.heap.ptr, this->_impl.heap.capacity);
+    this->_length = 0;
+    this->_impl.heap.flag = 0;
 }
 
-sy::String::String (const String &other){
-    this->_length = other._length;
+sy::String::String(String&& other) noexcept
+    : _length(other._length)
+{
+    for(size_t i = 0; i < 3; i++) {
+        this->_impl.raw[i] = other._impl.raw[i];
+        
+    }
+    other._length = 0;
+    other._impl.heap.flag = 0;
+}
+
+sy::String::String(const String &other) 
+    : _length(other._length)
+{
     if(other.isSso()){
         //copy as many as the length 
         //copy each sso manually
@@ -85,3 +100,17 @@ sy::String::String (const String &other){
     this->_impl.heap.ptr = buffer;
     this->_impl.heap.capacity = cap;
 }
+
+#ifdef SYNC_LIB_TEST
+
+#include "../../doctest.h"
+
+using sy::String;
+using sy::StringSlice;
+
+TEST_CASE("Default constructor") {
+    String s;
+    CHECK_EQ(s.len(), 0);
+}
+
+#endif // SYNC_LIB_TEST
