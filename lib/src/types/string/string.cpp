@@ -22,84 +22,207 @@ constexpr size_t STRING_ALLOC_ALIGN = alignof(void*);
 
 static_assert(STRING_ALLOC_ALIGN);
 
-//two structs, 1. SsoBuffer will have an array of 3 * size of void pointer, 2. 4 members 
-//1st member character pointer, 2. size_t capacity, 3. array of characters size of void pointer - 1 ,  4. 1 char called flag 
-
-
-
+/// @param inCapacity will be rounded up to the nearest multiple of `STRING_ALLOC_ALIGN`.
+/// @return Non-zeroed memory
 static char* mallocHeapBuffer(size_t& inCapacity){
     sy::Allocator alloc{};
 
     const size_t remainder = inCapacity % STRING_ALLOC_ALIGN;
-    if(remainder!=0){
+    if(remainder != 0){
         inCapacity = inCapacity + (STRING_ALLOC_ALIGN - remainder);
     }
     char* buffer = alloc.allocAlignedArray<char>(inCapacity, STRING_ALLOC_ALIGN).get();
     return buffer;
-};
+}
 
 static void freeHeapBuffer(char* buff, size_t inCapacity){
     sy::Allocator alloc{};
-
     alloc.freeAlignedArray<char>(buff, inCapacity, STRING_ALLOC_ALIGN);
-};
+}
 
+/// Calling `memset` on the ENTIRE memory allocation could be expensive for massive strings, when setting their values
+/// to zero, as is expected of the SIMD operations on `String`, such as equality comparison. As a result, we only zero
+/// out the last bytes required of the SIMD element that will be read up to.
+/// @param buffer 
+/// @param untouchedLength 
+static void zeroSetLastSIMDElement(char* buffer, const size_t untouchedLength) {
+    const size_t remainder = untouchedLength % STRING_ALLOC_ALIGN;
+    if(remainder == 0) {
+        return;
+    }
+
+    const size_t end = untouchedLength + (STRING_ALLOC_ALIGN - remainder);
+    for(size_t i = untouchedLength; i < end; i++) {
+        buffer[i] = '\0';
+    }
+}
 
 constexpr char FLAG_BIT = static_cast<char>(0b10000000);
-
-bool sy::String::isSso()const{
-    return !(this->_impl.heap.flag & FLAG_BIT);
-}
-
-void sy::String::setHeapFlag(){
-    this->_impl.heap.flag = FLAG_BIT;
-}
 
 sy::String::~String() noexcept {
     if(this->isSso()) return;
 
-    freeHeapBuffer(this->_impl.heap.ptr, this->_impl.heap.capacity);
+    HeapBuffer* heap = this->asHeap();
+
+    freeHeapBuffer(heap->ptr, heap->capacity);
     this->_length = 0;
-    this->_impl.heap.flag = 0;
+    heap->flag = 0;
+}
+
+sy::String::String(const String &other) 
+    : _length(other._length)
+{
+    if(other.isSso()) {
+        // This is the same as copying the SSO buffer manually, but with a linear loop, and less copies
+        for(size_t i = 0; i < 3; i++){
+            this->_raw[i] = other._raw[i];
+        }
+        return;
+    }
+    
+    //capacity is length + 1 for \0 (null terminator)
+    size_t cap = this->_length + 1;
+    char* buffer = mallocHeapBuffer(cap);
+    const HeapBuffer* otherHeap = other.asHeap();
+    for(size_t i = 0; i < _length; i++) {
+        buffer[i] = otherHeap->ptr[i];
+    }
+    zeroSetLastSIMDElement(buffer, this->_length);
+
+    this->setHeapFlag();
+    HeapBuffer* thisHeap = this->asHeap();
+    thisHeap->ptr = buffer;
+    thisHeap->capacity = cap;
 }
 
 sy::String::String(String&& other) noexcept
     : _length(other._length)
 {
     for(size_t i = 0; i < 3; i++) {
-        this->_impl.raw[i] = other._impl.raw[i];
-        
+        this->_raw[i] = other._raw[i];
     }
     other._length = 0;
-    other._impl.heap.flag = 0;
+    this->asHeap()->flag = 0;
 }
 
-sy::String::String(const String &other) 
-    : _length(other._length)
-{
-    if(other.isSso()){
-        //copy as many as the length 
-        //copy each sso manually
-        for(size_t i = 0; i < _length; i++){
-            _impl.sso.arr[i] = other._impl.sso.arr[i];
+sy::String& sy::String::operator=(const String& other) {
+    this->_length = other._length;
+    const size_t requiredCapacity = other._length + 1; // for null terminator
+    const StringSlice otherSlice = other.asSlice();
+
+    if(requiredCapacity < SSO_CAPACITY) {
+        if(!isSso()) {
+            // Don't bother keeping large heap allocation unnecessarily
+            HeapBuffer* heap = this->asHeap();
+            freeHeapBuffer(heap->ptr, heap->capacity);
         }
-        _impl.sso.arr[_length] = '\0';
-        return;
+        // All slices returned by a String object have the same alignment as `alignof(size_t)`.
+        // Furthermore all are at least 3 size_t's wide (even if the slice doesn't extend that long).
+        const size_t* asSizeTArr = reinterpret_cast<const size_t*>(otherSlice.data());
+        for(size_t i = 0; i < 3; i++) {
+            this->_raw[i] = asSizeTArr[i];
+        }
+        // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting the flag bit
+        this->setSsoFlag();
+        return *this;
     }
     
-    //capacity is length+1 for \0
-    //make a capacity variable 
-    size_t cap = this->_length + 1;
-    char* buffer = mallocHeapBuffer(cap);
-    for(size_t i = 0; i < _length; i++) {
-        buffer[i] = this->_impl.heap.ptr[i];
+    // We have determined now that the string to copy exceeds the sso buffer
+    // If there is enough capacity already in the existing string allocation, we should just use it
+    if(this->hasEnoughCapacity(requiredCapacity)) {
+        HeapBuffer* heap = this->asHeap();
+        for(size_t i = 0; i < other._length; i++) {
+            heap->ptr[i] = otherSlice.data()[i];
+        }
+        zeroSetLastSIMDElement(heap->ptr, otherSlice.len());
+    } else {
+        HeapBuffer* heap = asHeap();
+        if(!isSso()) {
+            // The old buffer isn't big enough, so we free it
+            freeHeapBuffer(heap->ptr, heap->capacity);
+        }
+
+        // Allocate for a new buffer that is big enough here
+        size_t newCapacity = requiredCapacity;
+        char* buffer = mallocHeapBuffer(newCapacity);
+        const HeapBuffer* otherHeap = other.asHeap();
+        for(size_t i = 0; i < _length; i++) {
+            buffer[i] = otherSlice.data()[i];
+        }
+        zeroSetLastSIMDElement(buffer, otherSlice.len());
+       
+        this->setHeapFlag();
+        HeapBuffer* thisHeap = this->asHeap();
+        thisHeap->ptr = buffer;
+        thisHeap->capacity = newCapacity;
     }
-    buffer[this->_length] = '\0';
-    this->_impl.heap = HeapBuffer();
-    setHeapFlag();
-    this->_impl.heap.ptr = buffer;
-    this->_impl.heap.capacity = cap;
+
+    return *this;
 }
+
+sy::String& sy::String::operator=(String&& other) noexcept {
+    if(!isSso()) {
+        HeapBuffer* heap = asHeap();
+        freeHeapBuffer(heap->ptr, heap->capacity);
+    }
+
+    this->_length = other._length;
+    for(size_t i = 0; i < 3; i++) {
+        this->_raw[i] = other._raw[i];   
+    }
+    other._length = 0;
+    this->asHeap()->flag = 0;
+}
+
+StringSlice sy::String::asSlice() const
+{
+    if(this->isSso()) {
+        return StringSlice(this->asSso()->arr, this->_length);
+    }
+    return StringSlice(this->asHeap()->ptr, this->_length);
+}
+
+bool sy::String::isSso() const
+{
+    return !(this->asHeap()->flag & FLAG_BIT);
+}
+
+void sy::String::setHeapFlag() {
+    HeapBuffer* h = this->asHeap();
+    h->flag = FLAG_BIT;
+}
+
+void sy::String::setSsoFlag()
+{    
+    HeapBuffer* h = this->asHeap();
+    h->flag = 0;
+}
+
+const sy::String::SsoBuffer *sy::String::asSso() const {
+    return reinterpret_cast<const SsoBuffer*>(this->_raw);
+}
+
+sy::String::SsoBuffer *sy::String::asSso() {
+    return reinterpret_cast<SsoBuffer*>(this->_raw);
+}
+
+const sy::String::HeapBuffer *sy::String::asHeap() const {
+    return reinterpret_cast<const HeapBuffer*>(this->_raw);
+}
+
+sy::String::HeapBuffer *sy::String::asHeap() {
+    return reinterpret_cast<HeapBuffer*>(this->_raw);
+}
+
+bool sy::String::hasEnoughCapacity(const size_t requiredCapacity) const
+{
+    if(this->isSso()) {
+        return requiredCapacity <= SSO_CAPACITY;
+    } else {
+        return requiredCapacity <= this->asHeap()->capacity;
+    }
+}
+
 
 #ifdef SYNC_LIB_TEST
 

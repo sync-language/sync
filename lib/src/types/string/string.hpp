@@ -9,7 +9,7 @@
 namespace sy {
 
     /// Dynamic, [Small String Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/) 
-    /// string class. It's a primitive script type.
+    /// utf8 string class. It's a primitive script type.
     class SY_API String final {
     public:
     
@@ -19,62 +19,63 @@ namespace sy {
 
         String(const String &other);
 
-        // Copy assignment
-        // String& operator=(const String& other);
+        String& operator=(const String& other);
         
         String(String&& other) noexcept;
 
-        // Move assignment
+        String& operator=(String&& other) noexcept;
 
         // String Slice constructor
 
         // const char* constructor
 
+        /// Length in bytes, not utf8 characters or graphemes.
         size_t len() const { return _length; }
 
-        // Get as string slice
+        /// Any mutation operations on `this` may invalidate the returned slice.
+        StringSlice asSlice() const;
 
         // Get as const char*
-
 
     private:
 
         bool isSso()const;
+
         void setHeapFlag();
 
-    private:
+        void setSsoFlag();
 
-        static constexpr size_t SSO_CAPACITY = 3 * sizeof(void*);
+        static constexpr size_t SSO_CAPACITY = 3 * sizeof(size_t);
+        // Not including null terminator
+        static constexpr size_t MAX_SSO_LEN = SSO_CAPACITY - 1;
 
         struct SsoBuffer {
-            char arr[SSO_CAPACITY]={0};
+            char arr[SSO_CAPACITY] = { '\0' };
             SsoBuffer() = default;
         };
 
         struct HeapBuffer {
             char*   ptr = nullptr;
             size_t  capacity = 0;
-            char    _unused[sizeof(void*)-1] = {0};
+            char    _unused[sizeof(size_t) - 1] = { 0 };
             char    flag = 0;
             HeapBuffer() = default;
         };
 
-        union StringImpl {
-            /* data */
-            SsoBuffer   sso;
-            HeapBuffer  heap;
-            size_t      raw[3];
-            StringImpl() :sso() {};
-        };
+        const SsoBuffer* asSso() const;
+        SsoBuffer* asSso();
+        const HeapBuffer* asHeap() const;
+        HeapBuffer* asHeap();
 
-        static_assert(sizeof(StringImpl) == sizeof(SsoBuffer));
-        static_assert(sizeof(StringImpl) == sizeof(HeapBuffer));
-        static_assert(sizeof(StringImpl) == sizeof(size_t[3]));
+        bool hasEnoughCapacity(const size_t requiredCapacity) const;
 
-    //2 members, one is called _length size_t, _data an array of three size_t and set them default to 0
-        // members
-        size_t      _length=0;
-        StringImpl  _impl;
+        static_assert(sizeof(SsoBuffer) == sizeof(HeapBuffer));
+        static_assert(sizeof(SsoBuffer) == sizeof(size_t[3]));
+
+    private:
+
+        size_t      _length = 0;
+        size_t      _raw[3] = { 0 };
     };
 }
 
