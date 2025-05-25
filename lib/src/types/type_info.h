@@ -18,7 +18,7 @@ typedef enum SyTypeTag {
     /// Maps to 2 `SyType` instances, depending on bit width. The options are 32 or 64 bits.
     SyTypeTagFloat = 2,
     /// Maps to a singular `SyType` instance.
-    SyTypeTagChar = 3,
+    //SyTypeTagChar = 3,
     /// Maps to a singular `SyType` instance. Is an owned string. For string references, see `SyTypeTagStringSlice`.
     SyTypeTagString = 4,
     /// Maps to a singular `SyType` instance.
@@ -98,7 +98,7 @@ typedef union SyTypeExtraInfo {
     _sy_type_extra_info_unused_t    _boolInfo;
     SyTypeInfoInt                   intInfo;
     SyTypeInfoFloat                 floatInfo;
-    _sy_type_extra_info_unused_t    _charInfo;
+    //_sy_type_extra_info_unused_t    _charInfo;
     _sy_type_extra_info_unused_t    _stringSliceInfo;
     _sy_type_extra_info_unused_t    _stringInfo;
     SyTypeInfoReference             referenceInfo;
@@ -136,7 +136,7 @@ SY_API extern const SyType* SY_TYPE_U64;
 SY_API extern const SyType* SY_TYPE_USIZE;
 SY_API extern const SyType* SY_TYPE_F32;
 SY_API extern const SyType* SY_TYPE_F64;
-SY_API extern const SyType* SY_TYPE_CHAR;
+//SY_API extern const SyType* SY_TYPE_CHAR;
 SY_API extern const SyType* SY_TYPE_STRING_SLICE;
 SY_API extern const SyType* SY_TYPE_STRING;
 

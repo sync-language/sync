@@ -43,7 +43,7 @@ const Type* const sy::Type::TYPE_F32 =
 const Type* const sy::Type::TYPE_F64 = 
     Type::makeType<double>("f64", Type::Tag::Float, Type::ExtraInfo(Type::ExtraInfo::Float{64}));
 
-const Type* const sy::Type::TYPE_CHAR = nullptr;
+//const Type* const sy::Type::TYPE_CHAR = nullptr;
 const Type* const sy::Type::TYPE_STRING_SLICE =
     Type::makeType<sy::StringSlice>("str", Type::Tag::StringSlice, Type::ExtraInfo());
 const Type* const sy::Type::TYPE_STRING = nullptr;
@@ -66,7 +66,7 @@ extern "C" {
     SY_API const SyType* SY_TYPE_F32 = reinterpret_cast<const SyType*>(Type::TYPE_F32);
     SY_API const SyType* SY_TYPE_F64 = reinterpret_cast<const SyType*>(Type::TYPE_F64);
 
-    SY_API const SyType* SY_TYPE_CHAR           = reinterpret_cast<const SyType*>(Type::TYPE_CHAR);
+    //SY_API const SyType* SY_TYPE_CHAR           = reinterpret_cast<const SyType*>(Type::TYPE_CHAR);
     SY_API const SyType* SY_TYPE_STRING         = reinterpret_cast<const SyType*>(Type::TYPE_STRING);
     SY_API const SyType* SY_TYPE_STRING_SLICE   = reinterpret_cast<const SyType*>(Type::TYPE_STRING_SLICE);
 }
@@ -86,7 +86,7 @@ void sy::Type::destroyObjectImpl(void *obj) const
         case Tag::Bool:
         case Tag::Int:
         case Tag::Float:
-        case Tag::Char:
+        //case Tag::Char:
         case Tag::StringSlice:
         case Tag::Reference: return;
         

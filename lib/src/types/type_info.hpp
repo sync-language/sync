@@ -95,7 +95,7 @@ namespace sy {
         static const Type* const TYPE_USIZE;
         static const Type* const TYPE_F32;
         static const Type* const TYPE_F64;
-        static const Type* const TYPE_CHAR;
+        //static const Type* const TYPE_CHAR;
         static const Type* const TYPE_STRING_SLICE;
         static const Type* const TYPE_STRING;
 
