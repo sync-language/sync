@@ -25,11 +25,14 @@ namespace sy {
             Bool = c::SyTypeTag::SyTypeTagBool,
             Int = c::SyTypeTag::SyTypeTagInt,
             Float = c::SyTypeTag::SyTypeTagFloat,
+            Char = c::SyTypeTag::SyTypeTagChar,
+            StringSlice = c::SyTypeTag::SyTypeTagStringSlice,
+            String = c::SyTypeTag::SyTypeTagString,
             Reference = c::SyTypeTag::SyTypeTagReference,
         };
 
         union SY_API ExtraInfo {
-            using unused = void*;
+            using _unused = void*;
             using Int = c::SyTypeInfoInt;
             using Float = c::SyTypeInfoFloat;
             
@@ -38,9 +41,12 @@ namespace sy {
                 const Type* childType;
             };
 
-            unused      _boolInfo;
+            _unused     _boolInfo;
             Int         intInfo;
             Float       floatInfo;
+            _unused     charInfo;
+            _unused     strinSliceInfo;
+            _unused     stringInfo;
             Reference   referenceInfo;
 
             constexpr ExtraInfo() : _boolInfo(nullptr) {}
@@ -89,6 +95,9 @@ namespace sy {
         static const Type* const TYPE_USIZE;
         static const Type* const TYPE_F32;
         static const Type* const TYPE_F64;
+        //static const Type* const TYPE_CHAR;
+        static const Type* const TYPE_STRING_SLICE;
+        static const Type* const TYPE_STRING;
 
     private:
 
