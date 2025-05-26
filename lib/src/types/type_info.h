@@ -94,6 +94,15 @@ typedef struct SyTypeInfoReference {
     const SyType*   childType;
 } SyTypeInfoReference;
 
+typedef struct SyTypeInfoFunction {
+    /// Can be null, meaning has no return type.
+    const struct SyType* retType;
+    /// Can be null, meaning takes no arguments.
+    const struct SyType* const* argTypes;
+    /// Amount of arguments. Is the length of `argTypes`.
+    uint16_t argLen;
+} SyTypeInfoFunction;
+
 typedef union SyTypeExtraInfo {
     _sy_type_extra_info_unused_t    _boolInfo;
     SyTypeInfoInt                   intInfo;
@@ -101,6 +110,7 @@ typedef union SyTypeExtraInfo {
     //_sy_type_extra_info_unused_t    _charInfo;
     _sy_type_extra_info_unused_t    _stringSliceInfo;
     _sy_type_extra_info_unused_t    _stringInfo;
+    SyTypeInfoFunction              functionInfo;
     SyTypeInfoReference             referenceInfo;
 } SyTypeExtraInfo;
 

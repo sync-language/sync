@@ -89,7 +89,7 @@ public:
     }
 
     /// May return `nullptr`.
-    const sy::Type* typeAt(uint16_t offset);
+    const sy::Type* typeAt(uint16_t offset) const;
 
     /// Sets the type at a specific offset within the stack frame to be a valid type.
     /// @param type Non-null pointer.
@@ -106,7 +106,7 @@ public:
     void setNullTypeAt(uint16_t offset);
 
     /// @returns If the type at `offset` is an owned type, and thus would be destroyed when the stack is unwinded.
-    bool isOwnedTypeAt(uint16_t offset);
+    bool isOwnedTypeAt(uint16_t offset) const;
 
     void* returnDst();
 

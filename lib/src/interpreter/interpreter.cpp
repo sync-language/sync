@@ -228,7 +228,8 @@ static ProgramRuntimeError executeCallSrcNoReturn(ptrdiff_t& ipChange, const Byt
     const operators::CallSrcNoReturn operands = bytecodes[0].toOperands<operators::CallSrcNoReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
-    // TODO validate src is function
+    
+    sy_assert(activeStack.typeAt(operands.src)->tag == Type::Tag::Function, "Expected function to call");
     const Function* function = activeStack.valueAt<const Function*>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
 
@@ -255,7 +256,8 @@ static ProgramRuntimeError executeCallSrcWithReturn(ptrdiff_t& ipChange, const B
     const operators::CallSrcWithReturn operands = bytecodes[0].toOperands<operators::CallSrcWithReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
-    // TODO validate src is function
+    
+    sy_assert(activeStack.typeAt(operands.src)->tag == Type::Tag::Function, "Expected function to call");
     const Function* function = activeStack.valueAt<const Function*>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
 

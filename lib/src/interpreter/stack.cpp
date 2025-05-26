@@ -187,7 +187,7 @@ void* Stack::valueMemoryAt(uint16_t offset)
     return &this->raw.values[actualOffset];
 }
 
-const sy::Type* Stack::typeAt(uint16_t offset)
+const sy::Type* Stack::typeAt(uint16_t offset) const
 {
     sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
     sy_assert(this->currentFrameValidated(), "Cannot operate on invalid stack frame");
@@ -217,7 +217,7 @@ void Stack::setNullTypeAt(uint16_t offset)
     this->setOptionalTypeAt(nullptr, offset, false);
 }
 
-bool Stack::isOwnedTypeAt(uint16_t offset)
+bool Stack::isOwnedTypeAt(uint16_t offset) const
 {
     sy_assert(static_cast<size_t>(offset) < this->raw.currentFrame.frameLength, "Cannot access past the frame length");
     sy_assert(this->currentFrameValidated(), "Cannot operate on invalid stack frame");

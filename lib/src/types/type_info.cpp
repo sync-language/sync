@@ -123,7 +123,8 @@ void sy::Type::destroyObjectImpl(void *obj) const
         case Tag::Float:
         //case Tag::Char:
         case Tag::StringSlice:
-        case Tag::Reference: return;
+        case Tag::Reference: 
+        case Tag::Function: return;
         
         case Tag::String: {
             String* objAsString = reinterpret_cast<String*>(obj);

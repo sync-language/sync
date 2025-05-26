@@ -17,6 +17,7 @@ namespace sy {
         using SyTypeInfoInt = SyTypeInfoInt;
         using SyTypeInfoFloat = SyTypeInfoFloat;
         using SyTypeInfoReference = SyTypeInfoReference;
+        using SyTypeInfoFunction = SyTypeInfoFunction;
         using SyType = SyType;
     }
 
@@ -29,12 +30,14 @@ namespace sy {
             StringSlice = c::SyTypeTag::SyTypeTagStringSlice,
             String = c::SyTypeTag::SyTypeTagString,
             Reference = c::SyTypeTag::SyTypeTagReference,
+            Function = c::SyTypeTag::SyTypeTagFunction,
         };
 
         union SY_API ExtraInfo {
             using _unused = void*;
             using Int = c::SyTypeInfoInt;
             using Float = c::SyTypeInfoFloat;
+            using Function = c::SyTypeInfoFunction;
             
             struct Reference {
                 bool        isMutable;
@@ -45,14 +48,16 @@ namespace sy {
             Int         intInfo;
             Float       floatInfo;
             //_unused     charInfo;
-            _unused     strinSliceInfo;
-            _unused     stringInfo;
+            _unused     _strinSliceInfo;
+            _unused     _stringInfo;
             Reference   referenceInfo;
+            Function    functionInfo;
 
             constexpr ExtraInfo() : _boolInfo(nullptr) {}
             constexpr ExtraInfo(Int inIntInfo) : intInfo(inIntInfo) {}
             constexpr ExtraInfo(Float inFloatInfo) : floatInfo(inFloatInfo) {}
             constexpr ExtraInfo(Reference inReferenceInfo) : referenceInfo(inReferenceInfo) {}
+            constexpr ExtraInfo(Function inFunctionInfo) : functionInfo(inFunctionInfo) {}
         };
 
         size_t      sizeType;
