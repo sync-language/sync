@@ -41,6 +41,7 @@ namespace sy {
 
         class CHandler {
             friend class Function;
+        public:
 
             /// Moves a function argument out of the argument buffer, taking ownership of it.
             /// Arguments are numbered and ordered, starting at 0. 
