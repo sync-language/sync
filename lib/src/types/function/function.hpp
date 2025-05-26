@@ -67,7 +67,7 @@ namespace sy {
                 #if _DEBUG
                 validateReturnDstAligned(retDst, alignof(T));
                 #endif
-                T& asRef = *reinterpret_cast<T*>(argMem);
+                T& asRef = *reinterpret_cast<T*>(retDst);
                 asRef = std::move(retValue);
             }
 

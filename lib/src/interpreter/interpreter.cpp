@@ -88,6 +88,8 @@ static void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* byte
 static void executeMemsetUninitialized(const Bytecode bytecode);
 static void executeSetType(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeSetNullType(const Bytecode bytecode);
+static void executeJump(ptrdiff_t& ipChange, const Bytecode bytecode);
+static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode);
 
 static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
     (void)program;
@@ -131,6 +133,12 @@ static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
         } break;
         case OpCode::SetNullType: {
             executeSetNullType(*instructionPointer);
+        } break;
+        case OpCode::Jump: {
+            executeJump(ipChange, *instructionPointer);
+        } break;
+        case OpCode::JumpIfFalse: {
+            executeJumpIfFalse(ipChange, *instructionPointer);
         } break;
 
         default: {
@@ -334,4 +342,23 @@ void executeSetNullType(const Bytecode bytecode)
     const operators::SetNullType operands = bytecode.toOperands<operators::SetNullType>();
     Stack& activeStack = Stack::getActiveStack();
     activeStack.setNullTypeAt(operands.dst);
+}
+
+static void executeJump(ptrdiff_t& ipChange, const Bytecode bytecode) {
+    const operators::Jump operands = bytecode.toOperands<operators::Jump>();
+    int32_t jumpAmount = static_cast<int32_t>(operands.amount);
+    ipChange = jumpAmount;
+}
+
+static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode) {
+    const operators::JumpIfFalse operands = bytecode.toOperands<operators::JumpIfFalse>();
+
+    Stack& activeStack = Stack::getActiveStack();
+    const Type* srcType = activeStack.typeAt(operands.src);
+    sy_assert(srcType == Type::TYPE_BOOL, "Can only conditionally jump on boolean types");
+
+    if(activeStack.valueAt<bool>(operands.src) == false) {
+        int32_t jumpAmount = static_cast<int32_t>(operands.amount);
+        ipChange = jumpAmount;
+    }
 }

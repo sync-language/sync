@@ -54,7 +54,11 @@ enum class OpCode : uint8_t {
     /// Useful to set memory as shouldn't be unwinded, or shouldn't be operated on until later specified.
     /// Uses `operands::SetNullType`.
     SetNullType,
+    /// Unconditionally jumps the instruction pointer by `amount` bytecodes. Can jump by a positive or negative value.
+    /// Is within the range of `int32_t`. Uses `operands::Jump`.
     Jump,
+    /// Conditionally jumps the instruction pointer by `amount` bytecodes, if `src == false`. Can jump by a positive or
+    /// negative value. Is within the range of `int32_t`. Uses `operands::JumpIfFalse`.
     JumpIfFalse,
     Destruct,
     Sync,
@@ -234,6 +238,21 @@ namespace operators {
         uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
 
         static constexpr OpCode OPCODE = OpCode::SetNullType;
+    };
+
+    struct Jump {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        int64_t amount: 32;
+
+        static constexpr OpCode OPCODE = OpCode::Jump;
+    };
+
+    struct JumpIfFalse {
+        uint64_t reserveOpcode: OPCODE_USED_BITS;
+        uint64_t src: Stack::BITS_PER_STACK_OPERAND;
+        int64_t amount: 32;
+
+        static constexpr OpCode OPCODE = OpCode::JumpIfFalse;
     };
 
 }
