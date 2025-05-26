@@ -34,7 +34,7 @@ namespace sy {
 
             /// Pushs an argument onto the the script or C stack for the next function call.
             /// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
-            bool push(const void* argMem, const Type* typeInfo);
+            bool push(void* argMem, const Type* typeInfo);
 
             ProgramRuntimeError call(void* retDst);
         };
@@ -49,13 +49,13 @@ namespace sy {
             /// `argIndex` must be within the bounds of the amount of arguments [0, arg count).
             /// The type `T` must be the correct type (size and alignment).
             template<typename T>
-            T&& takeArg(size_t argIndex) {
+            T takeArg(size_t argIndex) {
                 void* argMem = getArgMem(argIndex);
                 #if _DEBUG
                 validateArgTypeMatches(argMem, getArgType(argIndex), sizeof(T), alignof(T));
                 #endif
-                T& asRef = reinterpret_cast<T&>(argMem);
-                return std::move(asRef);
+                // TODO does this work correctly for everything? avoids extra copies and stuff?
+                return *reinterpret_cast<T*>(argMem);
             }
 
             /// Sets the return value of the function. This cannot be called multiple times.

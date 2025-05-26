@@ -80,6 +80,11 @@ public:
     ArgBuf& bufAt(uint32_t index);
 
     uint32_t pushNewBuf();
+
+    void popBuf() {
+        sy_assert(len > 0, "Cannot pop arg buffer");
+        len -= 1; 
+    }
 private:
     ArgBuf* bufs = nullptr;
     uint32_t len = 0;
@@ -184,6 +189,10 @@ size_t ArgBuf::nextOffset(const size_t sizeType, const size_t alignType) const
     sy_assert(this->values != nullptr, "Cannot get the next offset from an invalid memory address");
 
     const size_t valuesAddr = reinterpret_cast<size_t>(this->values);
+    const size_t remainder = (valuesAddr % alignType);
+    if(this->count == 0 && remainder == 0) {
+        return 0;
+    }
     const size_t requiredShift = alignType - (valuesAddr % alignType);
 
     if (this->count == 0) {
@@ -272,7 +281,7 @@ uint32_t ArgBufArray::pushNewBuf()
         const uint32_t newCapacity = this->capacity == 0 ? 4 : this->capacity * 2;
         ArgBuf* newBufs = alloc.allocArray<ArgBuf>(newCapacity).get();
 
-        if(this->capacity == 0) {
+        if(this->capacity != 0) {
             for(uint32_t i = 0; i < this->len; i++) {
                 newBufs[i] = std::move(this->bufs[i]);
             }
@@ -280,6 +289,7 @@ uint32_t ArgBufArray::pushNewBuf()
         }
         
         this->capacity = newCapacity;
+        this->bufs = newBufs;
     }
 
     const uint32_t handler = this->len;
@@ -297,34 +307,44 @@ extern "C"
     {
         SyFunctionCallArgs args = {0, 0, 0};
         args.func = self;
+        if(self->tag == SyFunctionTypeC) {
+            args._offset = static_cast<uint16_t>(cArgBufs.pushNewBuf());
+        }
         return args;
     }
 
-    SY_API bool sy_function_call_args_push(SyFunctionCallArgs *self, const void *argMem, const SyType *typeInfo)
+    SY_API bool sy_function_call_args_push(SyFunctionCallArgs *self, void *argMem, const SyType *typeInfo)
     {
         const Function *function = reinterpret_cast<const Function *>(self->func);
         sy_assert(typeInfo != nullptr, "Cannot push null typed argument");
         sy_assert(self->pushedCount < function->argsLen, "Cannot push more arguments than the function takes");
-        sy_assert(function->tag == Function::CallType::Script, "Can only do script function calling currently");
 
-        const bool result = Stack::getActiveStack().pushScriptFunctionArg(
-            argMem, reinterpret_cast<const Type *>(typeInfo), self->_offset);
+        if(function->tag == Function::CallType::Script) {
+            const bool result = Stack::getActiveStack().pushScriptFunctionArg(
+                argMem, reinterpret_cast<const Type *>(typeInfo), self->_offset);
 
-        if (result == false) {
-            return false;
+            if (result == false) {
+                return false;
+            }
+
+            const size_t roundedToMultipleOf8 = typeInfo->sizeType % 8 == 0 ? typeInfo->sizeType : typeInfo->sizeType + (8 - (typeInfo->sizeType % 8));
+            const size_t slotsOccupied = roundedToMultipleOf8 / 8;
+            sy_assert(slotsOccupied <= UINT16_MAX, "Cannot push argument. Too big");
+
+            const size_t newOffset = self->_offset + slotsOccupied;
+            sy_assert(newOffset <= UINT16_MAX, "Cannot push argument. Would overflow script stack");
+            const sy::InterpreterFunctionScriptInfo *scriptInfo =
+                reinterpret_cast<const sy::InterpreterFunctionScriptInfo *>(function->fptr);
+            sy_assert(newOffset <= scriptInfo->stackSpaceRequired, "Pushing argument would overflow this function's script stack");
+
+            self->_offset = static_cast<uint16_t>(slotsOccupied);
+        } else if(function->tag == Function::CallType::C) {
+            const ArgBuf::Arg arg = {argMem, reinterpret_cast<const sy::Type*>(typeInfo)};
+            cArgBufs.bufAt(self->_offset).push(arg);
+        } else {
+            sy_assert(false, "Unknown function call type");
         }
-
-        const size_t roundedToMultipleOf8 = typeInfo->sizeType % 8 == 0 ? typeInfo->sizeType : typeInfo->sizeType + (8 - (typeInfo->sizeType % 8));
-        const size_t slotsOccupied = roundedToMultipleOf8 / 8;
-        sy_assert(slotsOccupied <= UINT16_MAX, "Cannot push argument. Too big");
-
-        const size_t newOffset = self->_offset + slotsOccupied;
-        sy_assert(newOffset <= UINT16_MAX, "Cannot push argument. Would overflow script stack");
-        const sy::InterpreterFunctionScriptInfo *scriptInfo =
-            reinterpret_cast<const sy::InterpreterFunctionScriptInfo *>(function->fptr);
-        sy_assert(newOffset <= scriptInfo->stackSpaceRequired, "Pushing argument would overflow this function's script stack");
-
-        self->_offset = static_cast<uint16_t>(slotsOccupied);
+        self->pushedCount += 1;
 
         return true;
     }
@@ -357,7 +377,7 @@ extern "C"
     }
 } // extern "C"
 
-bool sy::Function::CallArgs::push(const void *argMem, const Type *typeInfo)
+bool sy::Function::CallArgs::push(void *argMem, const Type *typeInfo)
 {
     return sy_function_call_args_push(&this->info, argMem, reinterpret_cast<const SyType *>(typeInfo));
 }
@@ -371,11 +391,12 @@ sy::ProgramRuntimeError sy::Function::CallArgs::call(void *retDst)
         return interpreterExecuteScriptFunction(function, retDst);
     }
     else if(function->tag == Function::CallType::C) {
-        const uint32_t handlerIndex = cArgBufs.pushNewBuf();
+        const uint32_t handlerIndex = this->info._offset;
         Function::CHandler handler{handlerIndex};
         const auto func = (c_function_t)(function->fptr);
         const ProgramRuntimeError err = func(handler);
         cArgBufs.bufAt(handlerIndex).clear();
+        cArgBufs.popBuf();
         return err;
     }
     else {
@@ -387,6 +408,9 @@ sy::Function::CallArgs sy::Function::startCall() const
 {
     CallArgs callArgs = {{0, 0, 0}};
     callArgs.info.func = reinterpret_cast<const SyFunction *>(this);
+    if(this->tag == Function::CallType::C) {
+        callArgs.info._offset = static_cast<uint16_t>(cArgBufs.pushNewBuf());
+    }
     return callArgs;
 }
 
@@ -421,3 +445,52 @@ void sy::Function::CHandler::validateReturnDstAligned(void *retDst, size_t align
 {
     sy_assert((reinterpret_cast<uintptr_t>(retDst) % alignType) == 0, "Function return value destination misaligned");
 }
+
+#if SYNC_LIB_TEST
+
+#include "../../doctest.h"
+
+using sy::Function;
+using sy::Type;
+using sy::StringSlice;
+
+TEST_CASE("push and get arg") {
+    (void)cArgBufs.pushNewBuf();
+    ArgBuf& buf = cArgBufs.bufAt(0);
+    int32_t val = 45;
+    const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
+    buf.push(arg);
+    int32_t outVal = 99;
+    buf.take(&outVal, 0);
+    CHECK_EQ(outVal, 45);
+
+    cArgBufs.popBuf();
+}
+
+template<typename T, T expected>
+sy::ProgramRuntimeError simpleFunc1Arg(Function::CHandler handler) {
+    const T arg = handler.takeArg<T>(0);
+    CHECK_EQ(arg, expected);
+    return sy::ProgramRuntimeError();
+}
+
+TEST_SUITE("C 1 arg no return") {
+    TEST_CASE("int32_t") {
+        const Type* argTypes[1] = {Type::TYPE_I32};
+        const Function func = {
+            StringSlice(""), StringSlice(""),
+            nullptr,
+            argTypes, 1,
+            SY_FUNCTION_MIN_ALIGN,
+            Function::CallType::C,
+            reinterpret_cast<const void*>(&simpleFunc1Arg<int32_t, 56>)
+        };
+
+        Function::CallArgs callArgs = func.startCall();
+        int32_t arg = 56;
+        callArgs.push(&arg, Type::TYPE_I32);
+        CHECK(callArgs.call(nullptr).ok());
+    }
+}
+
+#endif // SYNC_LIB_TEST

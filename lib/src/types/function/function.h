@@ -103,7 +103,7 @@ SY_API SyFunctionCallArgs sy_function_start_call(const SyFunction* self);
 
 /// Pushs an argument onto the the script or C stack for the next function call.
 /// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
-SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, const void* argMem, const struct SyType* typeInfo);
+SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, void* argMem, const struct SyType* typeInfo);
 
 SY_API SyProgramRuntimeError sy_function_call(SyFunctionCallArgs self, void* retDst);
 
