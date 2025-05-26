@@ -11,6 +11,7 @@ add_library(SyncLib STATIC
     "src/util/panic.cpp"
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
+    "src/threading/sync_queue.cpp"
     "src/types/type_info.cpp"
     "src/types/function/function.cpp"
     "src/types/string/string_slice.cpp"
