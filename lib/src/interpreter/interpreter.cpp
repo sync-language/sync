@@ -90,6 +90,7 @@ static void executeSetType(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeSetNullType(const Bytecode bytecode);
 static void executeJump(ptrdiff_t& ipChange, const Bytecode bytecode);
 static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode);
+static void executeDestruct(const Bytecode bytecode);
 
 static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
     (void)program;
@@ -363,4 +364,17 @@ static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode) {
         int32_t jumpAmount = static_cast<int32_t>(operands.amount);
         ipChange = jumpAmount;
     }
+}
+
+static void executeDestruct(const Bytecode bytecode) {
+    const operators::Destruct operands = bytecode.toOperands<operators::Destruct>();
+
+    Stack& activeStack = Stack::getActiveStack();
+
+    const Type* srcType = activeStack.typeAt(operands.src);
+    sy_assert(srcType != nullptr, "Cannot destruct null typed object");
+
+    void* src = activeStack.valueMemoryAt(operands.src);
+    srcType->destroyObject(src);
+    activeStack.setNullTypeAt(operands.src);
 }
