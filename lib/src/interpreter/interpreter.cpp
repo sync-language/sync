@@ -141,6 +141,9 @@ static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
         case OpCode::JumpIfFalse: {
             executeJumpIfFalse(ipChange, *instructionPointer);
         } break;
+        case OpCode::Destruct: {
+            executeDestruct(*instructionPointer);
+        } break;
 
         default: {
             sy_assert(static_cast<uint8_t>(opcode) && false, "Unimplemented opcode");
