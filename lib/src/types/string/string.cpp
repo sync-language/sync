@@ -145,9 +145,8 @@ sy::String& sy::String::operator=(const String& other) {
         // Allocate for a new buffer that is big enough here
         size_t newCapacity = requiredCapacity;
         char* buffer = mallocHeapBuffer(newCapacity);
-        const HeapBuffer* otherHeap = other.asHeap();
         for(size_t i = 0; i < _length; i++) {
-            buffer[i] = otherSlice.data()[i];
+            buffer[i] = otherSlice[i];
         }
         zeroSetLastSIMDElement(buffer, otherSlice.len());
        

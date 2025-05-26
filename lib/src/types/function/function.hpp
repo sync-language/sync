@@ -49,13 +49,12 @@ namespace sy {
             /// `argIndex` must be within the bounds of the amount of arguments [0, arg count).
             /// The type `T` must be the correct type (size and alignment).
             template<typename T>
-            T takeArg(size_t argIndex) {
+            T&& takeArg(size_t argIndex) {
                 void* argMem = getArgMem(argIndex);
                 #if _DEBUG
                 validateArgTypeMatches(argMem, getArgType(argIndex), sizeof(T), alignof(T));
                 #endif
-                // TODO does this work correctly for everything? avoids extra copies and stuff?
-                return *reinterpret_cast<T*>(argMem);
+                return std::move(*reinterpret_cast<T*>(argMem));
             }
 
             /// Sets the return value of the function. This cannot be called multiple times.
@@ -68,7 +67,7 @@ namespace sy {
                 #if _DEBUG
                 validateReturnDstAligned(retDst, alignof(T));
                 #endif
-                T& asRef = reinterpret_cast<T&>(retDst);
+                T& asRef = *reinterpret_cast<T*>(argMem);
                 asRef = std::move(retValue);
             }
 
