@@ -28,21 +28,6 @@ namespace detail {
     }
 }
 
-template<typename T>
-const Function* generateDestructorCall(const Type* typeInfo) {
-    auto createFunc = []() {
-        const static const Type* argsArr[1] = {typeInfo};
-
-        Function func {
-            
-        }
-        return func;
-    };
-
-    static const Function globalFunc = createFunc();
-    return &globalFunc;
-}
-
 const Type* const sy::Type::TYPE_BOOL = Type::makeType<bool>("bool", Type::Tag::Bool, Type::ExtraInfo());
 
 const Type* const sy::Type::TYPE_I8 =
