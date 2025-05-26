@@ -25,7 +25,7 @@ namespace sy {
             Bool = c::SyTypeTag::SyTypeTagBool,
             Int = c::SyTypeTag::SyTypeTagInt,
             Float = c::SyTypeTag::SyTypeTagFloat,
-            Char = c::SyTypeTag::SyTypeTagChar,
+            //Char = c::SyTypeTag::SyTypeTagChar,
             StringSlice = c::SyTypeTag::SyTypeTagStringSlice,
             String = c::SyTypeTag::SyTypeTagString,
             Reference = c::SyTypeTag::SyTypeTagReference,
@@ -44,7 +44,7 @@ namespace sy {
             _unused     _boolInfo;
             Int         intInfo;
             Float       floatInfo;
-            _unused     charInfo;
+            //_unused     charInfo;
             _unused     strinSliceInfo;
             _unused     stringInfo;
             Reference   referenceInfo;
