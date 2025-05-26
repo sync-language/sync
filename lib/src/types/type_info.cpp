@@ -79,7 +79,7 @@ static const Function stringDestructorCall = {
 };
 
 const Type* const sy::Type::TYPE_STRING = 
-    Type::makeType<sy::StringSlice>("String", Type::Tag::String, Type::ExtraInfo(), &stringDestructorCall);
+    Type::makeType<sy::String>("String", Type::Tag::String, Type::ExtraInfo(), &stringDestructorCall);
 
 #pragma endregion
 
@@ -125,8 +125,11 @@ void sy::Type::destroyObjectImpl(void *obj) const
         case Tag::StringSlice:
         case Tag::Reference: return;
         
-        case Tag::String:
-            // TODO call string destructor
+        case Tag::String: {
+            String* objAsString = reinterpret_cast<String*>(obj);
+            objAsString->~String();
+        } return;
+            
         default: break;
     }
 
@@ -160,6 +163,12 @@ TEST_CASE("destroy object") {
 
     sy::Type::TYPE_USIZE->destroyObject(reinterpret_cast<void*>(&n1));
     sy::Type::TYPE_USIZE->destroyObject(&n2);
+}
+
+TEST_CASE("string destructor") {
+    // create with new so that destructor doesn't automatically get called 
+    String* s = new String("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    Type::TYPE_STRING->destroyObject(s);
 }
 
 #endif
