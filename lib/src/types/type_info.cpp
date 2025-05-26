@@ -4,9 +4,13 @@
 #include "../util/assert.hpp"
 #include "function/function.hpp"
 #include "string/string_slice.hpp"
+#include "string/string.hpp"
 #include "../program/program.hpp"
 
 using sy::Type;
+using sy::Function;
+using sy::StringSlice;
+using sy::String;
 
 static_assert(sizeof(sy::Type) == sizeof(sy::c::SyType));
 static_assert(alignof(sy::Type) == alignof(sy::c::SyType));
@@ -15,6 +19,14 @@ static_assert(sizeof(double) == 8); // f64
 
 static_assert(sizeof(Type::ExtraInfo::Reference) == sizeof(SyTypeInfoReference));
 static_assert(alignof(Type::ExtraInfo::Reference) == alignof(SyTypeInfoReference));
+
+namespace detail {
+    template<typename T>
+    void destructorCall(Function::CHandler handler) {
+        T obj = handler.takeArg<T>(0);
+        // destructor automatically called
+    }
+}
 
 const Type* const sy::Type::TYPE_BOOL = Type::makeType<bool>("bool", Type::Tag::Bool, Type::ExtraInfo());
 
@@ -38,15 +50,38 @@ const Type* const sy::Type::TYPE_USIZE =
     Type::makeType<size_t>("usize", Type::Tag::Int, Type::ExtraInfo(
             Type::ExtraInfo::Int{false, sizeof(size_t) * 8} // amount of bytes * 8 bits per byte
         ));
+
+#pragma region Float
+
 const Type* const sy::Type::TYPE_F32 = 
     Type::makeType<float>("f32", Type::Tag::Float, Type::ExtraInfo(Type::ExtraInfo::Float{32}));
 const Type* const sy::Type::TYPE_F64 = 
     Type::makeType<double>("f64", Type::Tag::Float, Type::ExtraInfo(Type::ExtraInfo::Float{64}));
 
+#pragma endregion
+
+#pragma region String
+
 //const Type* const sy::Type::TYPE_CHAR = nullptr;
 const Type* const sy::Type::TYPE_STRING_SLICE =
     Type::makeType<sy::StringSlice>("str", Type::Tag::StringSlice, Type::ExtraInfo());
-const Type* const sy::Type::TYPE_STRING = nullptr;
+
+static const Type* stringDestructorArgs[1] = {Type::TYPE_STRING};
+static const Function stringDestructorCall = {
+    StringSlice("sy::String::~String"),
+    StringSlice("~String"),
+    nullptr,
+    stringDestructorArgs,
+    1,
+    SY_FUNCTION_MIN_ALIGN, // fine for now
+    Function::CallType::C,
+    reinterpret_cast<const void*>(&detail::destructorCall<String>)
+};
+
+const Type* const sy::Type::TYPE_STRING = 
+    Type::makeType<sy::String>("String", Type::Tag::String, Type::ExtraInfo(), &stringDestructorCall);
+
+#pragma endregion
 
 extern "C" {
     using sy::c::SyType;
@@ -90,8 +125,11 @@ void sy::Type::destroyObjectImpl(void *obj) const
         case Tag::StringSlice:
         case Tag::Reference: return;
         
-        case Tag::String:
-            // TODO call string destructor
+        case Tag::String: {
+            String* objAsString = reinterpret_cast<String*>(obj);
+            objAsString->~String();
+        } return;
+            
         default: break;
     }
 
@@ -125,6 +163,12 @@ TEST_CASE("destroy object") {
 
     sy::Type::TYPE_USIZE->destroyObject(reinterpret_cast<void*>(&n1));
     sy::Type::TYPE_USIZE->destroyObject(&n2);
+}
+
+TEST_CASE("string destructor") {
+    // create with new so that destructor doesn't automatically get called 
+    String* s = new String("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    Type::TYPE_STRING->destroyObject(s);
 }
 
 #endif

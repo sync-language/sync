@@ -24,9 +24,15 @@ namespace sy {
         template<size_t N>
         constexpr StringSlice(char const (&inStr)[N]) : _inner{inStr, N - 1} {}
 
+        /// @param len Length of the string in bytes, not including null terminator
+        /// @param ptr Valid utf8 string. Does not need to be null terminated.
+        StringSlice(const char* ptr, size_t len);
+
         [[nodiscard]] const char* data() const { return _inner.ptr; }
 
         [[nodiscard]] size_t len() const { return _inner.len; }
+
+        char operator[](const size_t index) const;
 
     private:
         c::SyStringSlice _inner = {0, 0};
