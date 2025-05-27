@@ -1,7 +1,12 @@
 #include "sync_queue.h"
 #include "sync_queue.hpp"
+#include "../util/assert.hpp"
+#include "../util/unreachable.hpp"
+#include "../mem/allocator.hpp"
 #include <utility>
-#include <vector>
+#if _MSC_VER
+#include <new>
+#endif
 
 using sy::sync_queue::SyncObject;
 
@@ -89,6 +94,41 @@ private:
 };
 #endif
 
+    
+#if _MSC_VER
+constexpr size_t STORAGE_ALIGNMENT = std::hardware_destructive_interference_size;
+#else
+constexpr size_t STORAGE_ALIGNMENT = 64;
+#endif
+
+class SyncQueue {
+    SyncQueue() = default;
+
+    //const InQueueSyncObj& operator[](uint16_t index) const;
+
+    uint16_t len() const { return this->_len; }
+    
+    bool isAcquired() const { return _isAcquired; }
+
+    void acquire();
+     
+    bool tryAcquire();
+
+    void release();
+
+    void add(InQueueSyncObj&& obj);
+
+private:
+
+    void addExtraCapacity();
+
+private:
+    InQueueSyncObj* _objects = nullptr;
+    uint16_t        _len = 0;
+    uint16_t        _capacity = 0;
+    bool            _isAcquired = false;
+};
+
 SY_API void sy::sync_queue::lock();
 
 SY_API bool sy::sync_queue::tryLock();
@@ -98,3 +138,148 @@ SY_API void sy::sync_queue::unlock();
 SY_API void sy::sync_queue::addExclusive(SyncObject &&obj);
 
 SY_API void sy::sync_queue::addShared(SyncObject&& obj);
+
+// const InQueueSyncObj &SyncQueue::operator[](uint16_t index) const {     
+//     sy_assert(index < this->_len, "Index out of bounds");
+//     return this->_objects[index]; 
+// }
+
+void SyncQueue::acquire()
+{
+    for(uint16_t i = 0; i < this->_len; i++) {
+        const InQueueSyncObj& inQueue = this->_objects[i];
+        SyncObject obj = inQueue.getObj();
+        switch(inQueue.getAcquireType()) {
+            case LockAcquireType::Exclusive: {
+                obj.vtable->lockExclusive(obj.ptr);
+            } break;
+            case LockAcquireType::Shared: {
+                obj.vtable->lockShared(obj.ptr);
+            } break;
+            default: unreachable();
+        }
+    }
+    this->_isAcquired = true;
+}
+
+bool SyncQueue::tryAcquire()
+{
+    uint16_t i = 0;
+    bool didAcquireAll = true;
+    for(; i < this->_len; i++) {
+        const InQueueSyncObj& inQueue = this->_objects[i];
+        SyncObject obj = inQueue.getObj();
+        switch(inQueue.getAcquireType()) {
+            case LockAcquireType::Exclusive: {
+                if(!obj.vtable->tryLockExclusive(obj.ptr)) {
+                    didAcquireAll = false;
+                    break;
+                }
+            } break;
+            case LockAcquireType::Shared: {
+                if(!obj.vtable->tryLockShared(obj.ptr)) {
+                    didAcquireAll = false;
+                    break;
+                }
+            } break;
+            default: unreachable();
+        }
+    }
+
+    if(didAcquireAll) {
+        this->_isAcquired = true;
+        return true;
+    }
+
+    while(i > 0) {
+        i -= 1;
+      
+        const InQueueSyncObj& inQueue = this->_objects[i];
+        SyncObject obj = inQueue.getObj();
+        switch(inQueue.getAcquireType()) {
+            case LockAcquireType::Exclusive: {
+                obj.vtable->unlockExclusive(obj.ptr);
+            } break;
+            case LockAcquireType::Shared: {
+                obj.vtable->unlockShared(obj.ptr);
+            } break;
+            default: unreachable();
+        }
+    }
+    this->_len = 0; // "Clear" the currently held sync objects
+    return false;
+}
+
+void SyncQueue::release()
+{
+    for(uint16_t i = 0; i < this->_len; i++) {
+        const InQueueSyncObj& inQueue = this->_objects[i];
+        SyncObject obj = inQueue.getObj();
+        switch(inQueue.getAcquireType()) {
+            case LockAcquireType::Exclusive: {
+                obj.vtable->unlockExclusive(obj.ptr);
+            } break;
+            case LockAcquireType::Shared: {
+                obj.vtable->unlockShared(obj.ptr);
+            } break;
+            default: unreachable();
+        }
+    }
+    this->_isAcquired = false;
+    this->_len = 0;
+}
+
+void SyncQueue::add(InQueueSyncObj &&obj)
+{
+    sy_assert(this->_len < UINT16_MAX, "Cannot add any more objects to sync");
+    addExtraCapacity();
+
+    const uintptr_t objPtrVal = reinterpret_cast<uintptr_t>(obj.getObj().ptr);
+    for(uint16_t i = 0; i < this->_len; i++) {
+        const uintptr_t inQueuePtrVal = reinterpret_cast<uintptr_t>(this->_objects[i].getObj().ptr);
+        if(objPtrVal == inQueuePtrVal) {
+            // duplicate entry
+            // todo what happens when mismatch of lock acquire type?
+            return;
+        }
+
+        // The entries are sorted from lowest address to highest address
+
+        if(inQueuePtrVal < objPtrVal) {
+            continue;
+        }
+
+        uint16_t moveIter = this->_len; // guaranteed to be greater than 0
+        while(moveIter > i) {
+            moveIter -= 1;
+            sy_assert(this->_capacity > (moveIter + 1), "Why no capacity?");
+            this->_objects[moveIter + 1] = std::move(this->_objects[moveIter]);
+        }
+
+        this->_objects[this->_len] = std::move(obj);
+        this->_len += 1;
+        return;
+    }
+
+    this->_objects[this->_len] = std::move(obj);
+    this->_len += 1;
+}
+
+void SyncQueue::addExtraCapacity()
+{
+    size_t newCapacity = this->_capacity == 0 ?
+        STORAGE_ALIGNMENT / sizeof(InQueueSyncObj)
+        : this->_capacity * 1.5;
+    sy_assert(newCapacity <= UINT16_MAX, "Sync queue maximum capacity is max uint16");
+
+    sy::Allocator alloc{};
+    InQueueSyncObj* newObjects = alloc.allocAlignedArray<InQueueSyncObj>(newCapacity, STORAGE_ALIGNMENT).get();
+    if(this->_capacity == 0) {
+        for(uint16_t i = 0; i < this->_len; i++) {
+            newObjects[i] = this->_objects[i];
+        }
+        alloc.freeAlignedArray(this->_objects, this->_capacity, STORAGE_ALIGNMENT);
+    }
+    this->_objects = newObjects;
+    this->_capacity = newCapacity;
+}
