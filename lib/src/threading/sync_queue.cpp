@@ -4,9 +4,7 @@
 #include "../util/unreachable.hpp"
 #include "../mem/allocator.hpp"
 #include <utility>
-#if _MSC_VER
 #include <new>
-#endif
 
 using sy::sync_queue::SyncObject;
 
@@ -102,9 +100,11 @@ constexpr size_t STORAGE_ALIGNMENT = 64;
 #endif
 
 class SyncQueue {
+public:
+
     SyncQueue() = default;
 
-    //const InQueueSyncObj& operator[](uint16_t index) const;
+    ~SyncQueue() noexcept;
 
     uint16_t len() const { return this->_len; }
     
@@ -129,20 +129,65 @@ private:
     bool            _isAcquired = false;
 };
 
-SY_API void sy::sync_queue::lock();
+class SyncQueueStack {
+public:
 
-SY_API bool sy::sync_queue::tryLock();
+    SyncQueueStack();
 
-SY_API void sy::sync_queue::unlock();
+    ~SyncQueueStack() noexcept;
 
-SY_API void sy::sync_queue::addExclusive(SyncObject &&obj);
+    SyncQueue& top();
 
-SY_API void sy::sync_queue::addShared(SyncObject&& obj);
+    void push();
 
-// const InQueueSyncObj &SyncQueue::operator[](uint16_t index) const {     
-//     sy_assert(index < this->_len, "Index out of bounds");
-//     return this->_objects[index]; 
-// }
+    void pop();
+
+private:
+
+    void ensureCapacityForCurrent();
+
+private:
+
+    /// All queues up to `capacity` are valid.
+    SyncQueue* queues;
+    size_t current;
+    size_t capacity;
+};
+
+static thread_local SyncQueueStack queues;
+
+SY_API void sy::sync_queue::lock() {
+    queues.top().acquire();
+}
+
+SY_API bool sy::sync_queue::tryLock() {
+    return queues.top().tryAcquire();
+}
+
+SY_API void sy::sync_queue::unlock() {
+    queues.top().release();
+}
+
+SY_API void sy::sync_queue::addExclusive(SyncObject &&obj) {
+    queues.top().add(InQueueSyncObj(std::move(obj), LockAcquireType::Exclusive));
+}
+
+SY_API void sy::sync_queue::addShared(SyncObject&& obj) {
+    queues.top().add(InQueueSyncObj(std::move(obj), LockAcquireType::Shared));
+}
+
+SyncQueue::~SyncQueue() noexcept
+{
+    if(this->_objects == nullptr) return;
+
+    sy::Allocator alloc{};
+    alloc.freeAlignedArray(this->_objects, this->_capacity, STORAGE_ALIGNMENT);
+
+    this->_objects = nullptr;
+    this->_len = 0;
+    this->_capacity = 0;
+    this->_isAcquired = false;
+}
 
 void SyncQueue::acquire()
 {
@@ -274,7 +319,7 @@ void SyncQueue::addExtraCapacity()
 
     sy::Allocator alloc{};
     InQueueSyncObj* newObjects = alloc.allocAlignedArray<InQueueSyncObj>(newCapacity, STORAGE_ALIGNMENT).get();
-    if(this->_capacity == 0) {
+    if(this->_capacity > 0) {
         for(uint16_t i = 0; i < this->_len; i++) {
             newObjects[i] = this->_objects[i];
         }
@@ -282,4 +327,76 @@ void SyncQueue::addExtraCapacity()
     }
     this->_objects = newObjects;
     this->_capacity = newCapacity;
+}
+
+SyncQueueStack::SyncQueueStack()
+    : current(0)
+{
+    constexpr size_t DEFAULT_CAPACITY = STORAGE_ALIGNMENT / sizeof(SyncQueue);
+    sy::Allocator alloc{};
+    SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(DEFAULT_CAPACITY, STORAGE_ALIGNMENT).get();
+    for(size_t i = 0; i < DEFAULT_CAPACITY; i++) {
+        SyncQueue* placed = new (&newQueues[i]) SyncQueue;
+        (void)placed;
+    }
+    this->queues = newQueues;
+    this->capacity = DEFAULT_CAPACITY;
+}
+
+SyncQueueStack::~SyncQueueStack() noexcept
+{
+    if(this->queues == nullptr) return;
+
+    sy::Allocator alloc{};
+    for(size_t i = 0; i < this->capacity; i++) {
+        this->queues[i].~SyncQueue();
+    }
+    alloc.freeAlignedArray(this->queues, this->capacity, STORAGE_ALIGNMENT);
+
+    this->queues = nullptr;
+    this->current = 0;
+    this->capacity = 0;
+}
+
+SyncQueue &SyncQueueStack::top()
+{
+    sy_assert(this->current < this->capacity, "Invalid memory access");
+    return this->queues[this->current];
+}
+
+void SyncQueueStack::push()
+{
+    this->current += 1;
+    this->ensureCapacityForCurrent();
+}
+
+void SyncQueueStack::pop()
+{
+    sy_assert(this->current > 0, "No more queues to pop");
+    this->current -= 1;
+}
+
+void SyncQueueStack::ensureCapacityForCurrent()
+{
+    if(this->current < this->capacity) return;
+
+    const size_t newCapacity = this->capacity == 0 ?
+        STORAGE_ALIGNMENT / sizeof(SyncQueue)
+        : this->capacity * 1.5;
+    
+    sy::Allocator alloc{};
+    SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(newCapacity, STORAGE_ALIGNMENT).get();
+    for(size_t i = 0; i < newCapacity; i++) {
+        SyncQueue* placed = new (&newQueues[i]) SyncQueue;
+        (void)placed;
+    }
+
+    if(this->capacity > 0) {
+        for(size_t i = 0; i < this->current; i++) {
+            newQueues[i] = std::move(this->queues[i]);
+        }
+        alloc.freeAlignedArray(this->queues, this->capacity, STORAGE_ALIGNMENT);
+    }
+    this->queues = newQueues;
+    this->capacity = newCapacity;
 }
