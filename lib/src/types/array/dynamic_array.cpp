@@ -25,7 +25,7 @@ TEST_SUITE("push const T&") {
     }
 
 
-    TEST_CASE("push 1") {
+    TEST_CASE("push 2") {
         DynArray<size_t> arr;
         const size_t element1 = 5;
         const size_t element2 = 10;
@@ -35,6 +35,27 @@ TEST_SUITE("push const T&") {
         CHECK_EQ(arr.len(), 2);
         CHECK_EQ(arr[0], element1);
         CHECK_EQ(arr[1], element2);
+    }
+}
+
+TEST_SUITE("push move T&&") {
+    TEST_CASE("push 1") {
+        DynArray<size_t> arr;
+        arr.push(2); 
+
+        CHECK_EQ(arr.len(), 1);
+        CHECK_EQ(arr[0], 2);
+    }
+
+
+    TEST_CASE("push 2") {
+        DynArray<size_t> arr;
+        arr.push(5); 
+        arr.push(10); 
+
+        CHECK_EQ(arr.len(), 2);
+        CHECK_EQ(arr[0], 5);
+        CHECK_EQ(arr[1], 10);
     }
 }
 

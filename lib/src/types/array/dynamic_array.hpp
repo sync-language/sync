@@ -3,6 +3,7 @@
 #define SY_TYPES_ARRAY_DYNAMIC_ARRAY_HPP_
 
 #include "../../core.h"
+#include <utility>
 
 namespace sy {
     
@@ -26,21 +27,18 @@ namespace sy {
         };
         void push(const T& v){
             if(_length == _capacity){
-                const size_t newCapacity = calculateNewCapacity(_capacity);
-                T* temp = new T[newCapacity];
-                for(size_t i = 0; i<_length; i++){
-                    temp[i] = _data[i];
-                }
-                delete[] _data;
-                _data = temp;
-                _capacity = newCapacity;
+                resize();
             }
-            //just put the element to the end, set the data as new allocation
             _data[_length] = v;
             _length++;
         }
         void push(T&& v){
-            
+            //object has pointer and type t is another dynarray instance
+            if(_length == _capacity){
+                resize();
+            }
+            _data[_length] = std::move(v);
+            _length++;
         };
         const T& operator[](const size_t i) const{
             //return data indiv
@@ -53,7 +51,16 @@ namespace sy {
         size_t len() const { return _length; }
 
     private:
-
+        void resize(){
+            const size_t newCapacity = calculateNewCapacity(_capacity);
+            T* temp = new T[newCapacity];
+            for(size_t i = 0; i<_length; i++){
+                temp[i] = _data[i];
+            }
+            delete[] _data;
+            _data = temp;
+            _capacity = newCapacity;
+        }
         static size_t calculateNewCapacity(size_t currentCapacity) {
             if(currentCapacity == 0){
                 currentCapacity = 1;
