@@ -1,0 +1,7 @@
+//! API
+#ifndef SY_TYPES_ARRAY_DYNAMIC_ARRAY_HPP_
+#define SY_TYPES_ARRAY_DYNAMIC_ARRAY_HPP_
+
+#include "../../core.h"
+
+#endif // SY_TYPES_ARRAY_DYNAMIC_ARRAY_HPP_

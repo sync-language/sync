@@ -30,6 +30,7 @@ add_executable(SyncLibTests
     "src/types/function/function.cpp"
     "src/types/string/string_slice.cpp"
     "src/types/string/string.cpp"
+    "src/types/array/dynamic_array.cpp"
     "src/interpreter/stack.cpp"
     "src/interpreter/bytecode.cpp"
     "src/interpreter/interpreter.cpp"
