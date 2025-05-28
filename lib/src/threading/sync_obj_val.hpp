@@ -9,6 +9,7 @@
 
 namespace sy {
     struct Type;
+    class Function;
 }
 
 class alignas(ALLOC_CACHE_ALIGN) SyncObjVal {
@@ -38,7 +39,9 @@ public:
 
     /// Lock should NOT be acquired
     /// Marks the obj ref as expired.
-    void destroyHeldObject();
+    void destroyHeldObjectCFunction(void(*destruct)(void* ptr), const size_t alignType);
+
+    void destroyHeldObjectScriptFunction(const sy::Function* func, const sy::Type* typeInfo);
 
     const void* valueMem(const size_t alignType) const;
 

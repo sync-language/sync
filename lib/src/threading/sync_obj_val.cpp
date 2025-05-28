@@ -1,5 +1,9 @@
 #include "sync_obj_val.hpp"
 #include "../mem/allocator.hpp"
+#include "../types/type_info.hpp"
+#include "../types/function/function.hpp"
+#include "../program/program.hpp"
+#include "../util/assert.hpp"
 #include <cstring>
 #include <new>
 
@@ -57,6 +61,21 @@ void SyncObjVal::addSharedCount()
 bool SyncObjVal::removeSharedCount()
 {
     return this->sharedCount.fetch_sub(1) == 1;
+}
+
+void SyncObjVal::destroyHeldObjectCFunction(void (*destruct)(void *ptr), const size_t alignType)
+{
+    this->isExpired.store(true);
+    destruct(this->valueMemMut(alignType));
+}
+
+void SyncObjVal::destroyHeldObjectScriptFunction(const sy::Function *func, const sy::Type* typeInfo)
+{
+    this->isExpired.store(true);
+    sy::Function::CallArgs callArgs = func->startCall();
+    callArgs.push(this->valueMemMut(typeInfo->alignType), typeInfo->mutRef);
+    const sy::ProgramRuntimeError err = callArgs.call(nullptr);
+    sy_assert(err.ok(), "Destructors should not fail");
 }
 
 const void *SyncObjVal::valueMem(const size_t alignType) const
