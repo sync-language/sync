@@ -3,6 +3,7 @@
 #include "../util/assert.hpp"
 #include "../util/unreachable.hpp"
 #include "../mem/allocator.hpp"
+#include "alloc_cache_align.hpp"
 #include <utility>
 #include <new>
 
@@ -92,13 +93,6 @@ private:
 };
 #endif
 
-    
-#if _MSC_VER
-constexpr size_t STORAGE_ALIGNMENT = std::hardware_destructive_interference_size;
-#else
-constexpr size_t STORAGE_ALIGNMENT = 64;
-#endif
-
 class SyncQueue {
 public:
 
@@ -181,7 +175,7 @@ SyncQueue::~SyncQueue() noexcept
     if(this->_objects == nullptr) return;
 
     sy::Allocator alloc{};
-    alloc.freeAlignedArray(this->_objects, this->_capacity, STORAGE_ALIGNMENT);
+    alloc.freeAlignedArray(this->_objects, this->_capacity, ALLOC_CACHE_ALIGN);
 
     this->_objects = nullptr;
     this->_len = 0;
@@ -313,17 +307,17 @@ void SyncQueue::add(InQueueSyncObj &&obj)
 void SyncQueue::addExtraCapacity()
 {
     size_t newCapacity = this->_capacity == 0 ?
-        STORAGE_ALIGNMENT / sizeof(InQueueSyncObj)
+        ALLOC_CACHE_ALIGN / sizeof(InQueueSyncObj)
         : this->_capacity * 1.5;
     sy_assert(newCapacity <= UINT16_MAX, "Sync queue maximum capacity is max uint16");
 
     sy::Allocator alloc{};
-    InQueueSyncObj* newObjects = alloc.allocAlignedArray<InQueueSyncObj>(newCapacity, STORAGE_ALIGNMENT).get();
+    InQueueSyncObj* newObjects = alloc.allocAlignedArray<InQueueSyncObj>(newCapacity, ALLOC_CACHE_ALIGN).get();
     if(this->_capacity > 0) {
         for(uint16_t i = 0; i < this->_len; i++) {
             newObjects[i] = this->_objects[i];
         }
-        alloc.freeAlignedArray(this->_objects, this->_capacity, STORAGE_ALIGNMENT);
+        alloc.freeAlignedArray(this->_objects, this->_capacity, ALLOC_CACHE_ALIGN);
     }
     this->_objects = newObjects;
     this->_capacity = newCapacity;
@@ -332,9 +326,9 @@ void SyncQueue::addExtraCapacity()
 SyncQueueStack::SyncQueueStack()
     : current(0)
 {
-    constexpr size_t DEFAULT_CAPACITY = STORAGE_ALIGNMENT / sizeof(SyncQueue);
+    constexpr size_t DEFAULT_CAPACITY = ALLOC_CACHE_ALIGN / sizeof(SyncQueue);
     sy::Allocator alloc{};
-    SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(DEFAULT_CAPACITY, STORAGE_ALIGNMENT).get();
+    SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(DEFAULT_CAPACITY, ALLOC_CACHE_ALIGN).get();
     for(size_t i = 0; i < DEFAULT_CAPACITY; i++) {
         SyncQueue* placed = new (&newQueues[i]) SyncQueue;
         (void)placed;
@@ -351,7 +345,7 @@ SyncQueueStack::~SyncQueueStack() noexcept
     for(size_t i = 0; i < this->capacity; i++) {
         this->queues[i].~SyncQueue();
     }
-    alloc.freeAlignedArray(this->queues, this->capacity, STORAGE_ALIGNMENT);
+    alloc.freeAlignedArray(this->queues, this->capacity, ALLOC_CACHE_ALIGN);
 
     this->queues = nullptr;
     this->current = 0;
@@ -381,11 +375,11 @@ void SyncQueueStack::ensureCapacityForCurrent()
     if(this->current < this->capacity) return;
 
     const size_t newCapacity = this->capacity == 0 ?
-        STORAGE_ALIGNMENT / sizeof(SyncQueue)
+        ALLOC_CACHE_ALIGN / sizeof(SyncQueue)
         : this->capacity * 1.5;
     
     sy::Allocator alloc{};
-    SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(newCapacity, STORAGE_ALIGNMENT).get();
+    SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(newCapacity, ALLOC_CACHE_ALIGN).get();
     for(size_t i = 0; i < newCapacity; i++) {
         SyncQueue* placed = new (&newQueues[i]) SyncQueue;
         (void)placed;
@@ -395,7 +389,7 @@ void SyncQueueStack::ensureCapacityForCurrent()
         for(size_t i = 0; i < this->current; i++) {
             newQueues[i] = std::move(this->queues[i]);
         }
-        alloc.freeAlignedArray(this->queues, this->capacity, STORAGE_ALIGNMENT);
+        alloc.freeAlignedArray(this->queues, this->capacity, ALLOC_CACHE_ALIGN);
     }
     this->queues = newQueues;
     this->capacity = newCapacity;

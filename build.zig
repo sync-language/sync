@@ -71,6 +71,7 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/mem/os_mem.cpp",
     "lib/src/mem/allocator.cpp",
     "lib/src/threading/sync_queue.cpp",
+    "lib/src/threading/sync_obj_val.cpp",
     "lib/src/types/type_info.cpp",
     "lib/src/types/function/function.cpp",
     "lib/src/types/string/string_slice.cpp",

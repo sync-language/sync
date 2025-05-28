@@ -1,4 +1,5 @@
 //! API
+#pragma once
 #ifndef SY_THREADING_SYNC_QUEUE_HPP_
 #define SY_THREADING_SYNC_QUEUE_HPP_
 
