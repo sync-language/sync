@@ -19,7 +19,7 @@ static size_t paddingForType(const size_t alignType)
     return alignType - remainder;
 }
 
-SyncObjVal *SyncObjVal::createNew(const size_t sizeType, const size_t alignType)
+SyncObjVal *SyncObjVal::create(const size_t sizeType, const size_t alignType)
 {
     const size_t allocAlign = alignType < ALLOC_CACHE_ALIGN ? ALLOC_CACHE_ALIGN : alignType;
     const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType(alignType) + sizeType;
@@ -30,6 +30,20 @@ SyncObjVal *SyncObjVal::createNew(const size_t sizeType, const size_t alignType)
     (void)new (self) SyncObjVal;
     memset(self->valueMemMut(alignType), 0, sizeType);
     return self;
+}
+
+void SyncObjVal::destroy(const size_t sizeType, const size_t alignType)
+{
+    // assumes the held object's destructor has already been called
+
+    const size_t allocAlign = alignType < ALLOC_CACHE_ALIGN ? ALLOC_CACHE_ALIGN : alignType;
+    const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType(alignType) + sizeType;
+
+    sy::Allocator alloc{};
+    uint8_t* mem = reinterpret_cast<uint8_t*>(this);
+
+    this->~SyncObjVal();
+    alloc.freeAlignedArray(mem, fullAllocSize, allocAlign);
 }
 
 uintptr_t SyncObjVal::valueMemLocation(const size_t alignType) const

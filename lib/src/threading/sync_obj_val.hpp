@@ -15,6 +15,11 @@ namespace sy {
 class alignas(ALLOC_CACHE_ALIGN) SyncObjVal {
 public:
 
+    /// Does not initialize the object's memory itself, only zero initialized.
+    static SyncObjVal* create(const size_t sizeType, const size_t alignType);
+
+    void destroy(const size_t sizeType, const size_t alignType);
+
     void lockExclusive() { this->lock.lock(); }
 
     bool tryLockExclusive() { return this->lock.try_lock(); }
@@ -47,14 +52,15 @@ public:
 
     void* valueMemMut(const size_t alignType);
 
-private:
+    bool noWeakRefs() const { return this->weakCount.load() == 0; }
 
-    /// Does not initialize the object's memory itself, only zero initialized.
-    static SyncObjVal* createNew(const size_t sizeType, const size_t alignType);
+private:
 
     uintptr_t valueMemLocation(const size_t alignType) const;
 
     SyncObjVal();
+
+    ~SyncObjVal() = default;
 
 private:
     mutable std::shared_mutex lock{};
