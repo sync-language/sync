@@ -308,7 +308,7 @@ void SyncQueue::addExtraCapacity()
 {
     size_t newCapacity = this->_capacity == 0 ?
         ALLOC_CACHE_ALIGN / sizeof(InQueueSyncObj)
-        : this->_capacity * 1.5;
+        : static_cast<size_t>(static_cast<double>(this->_capacity) * 1.5);
     sy_assert(newCapacity <= UINT16_MAX, "Sync queue maximum capacity is max uint16");
 
     sy::Allocator alloc{};
@@ -320,7 +320,7 @@ void SyncQueue::addExtraCapacity()
         alloc.freeAlignedArray(this->_objects, this->_capacity, ALLOC_CACHE_ALIGN);
     }
     this->_objects = newObjects;
-    this->_capacity = newCapacity;
+    this->_capacity = static_cast<uint16_t>(newCapacity);
 }
 
 SyncQueueStack::SyncQueueStack()
@@ -376,7 +376,7 @@ void SyncQueueStack::ensureCapacityForCurrent()
 
     const size_t newCapacity = this->capacity == 0 ?
         ALLOC_CACHE_ALIGN / sizeof(SyncQueue)
-        : this->capacity * 1.5;
+        : static_cast<size_t>(static_cast<double>(this->capacity) * 1.5);
     
     sy::Allocator alloc{};
     SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(newCapacity, ALLOC_CACHE_ALIGN).get();
@@ -394,3 +394,54 @@ void SyncQueueStack::ensureCapacityForCurrent()
     this->queues = newQueues;
     this->capacity = newCapacity;
 }
+
+
+#if SYNC_LIB_TEST
+
+#include "../doctest.h"
+#include <shared_mutex>
+
+using namespace sy;
+using sync_queue::SyncObject;
+
+static const SyncObject::VTable cppRwLockVTable = {
+    [](void* lock){ 
+        reinterpret_cast<std::shared_mutex*>(lock)->lock(); 
+    },
+    [](void* lock){ 
+        return reinterpret_cast<std::shared_mutex*>(lock)->try_lock(); 
+    },
+    [](void* lock){ 
+        reinterpret_cast<std::shared_mutex*>(lock)->unlock(); 
+    },
+    [](const void* lock){ 
+        const_cast<std::shared_mutex*>(reinterpret_cast<const std::shared_mutex*>(lock))->lock_shared(); 
+    },
+    [](const void* lock){ 
+        return const_cast<std::shared_mutex*>(reinterpret_cast<const std::shared_mutex*>(lock))->try_lock_shared(); 
+    },
+    [](const void* lock){ 
+        const_cast<std::shared_mutex*>(reinterpret_cast<const std::shared_mutex*>(lock))->unlock_shared(); 
+    },
+};
+
+TEST_SUITE("one lock") {
+    TEST_CASE("exclusive") {
+        std::shared_mutex rwlock;
+        SyncObject obj{&rwlock, &cppRwLockVTable};
+        sync_queue::addExclusive(std::move(obj));
+        sync_queue::lock();
+        sync_queue::unlock();
+    }
+
+    TEST_CASE("shared") {
+        std::shared_mutex rwlock;
+        SyncObject obj{&rwlock, &cppRwLockVTable};
+        sync_queue::addShared(std::move(obj));
+        sync_queue::lock();
+        sync_queue::unlock();
+    }
+}
+
+#endif
+

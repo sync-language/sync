@@ -43,7 +43,7 @@ void sy::detail::syncObjUnlockShared(const void* inner) {
 }
 
 bool sy::detail::syncObjExpired(const void* inner) {
-    asObj(inner)->expired();
+    return asObj(inner)->expired();
 }
 
 void sy::detail::syncObjAddWeakCount(void* inner) {
@@ -67,14 +67,44 @@ void sy::detail::syncObjDestroyHeldObjectCFunction(void* inner, void(*destruct)(
 }
 
 const void* sy::detail::syncObjValueMem(const void* inner, const size_t alignType) {
-    asObj(inner)->valueMem(alignType);
+    return asObj(inner)->valueMem(alignType);
 }
 
 void* sy::detail::syncObjValueMemMut(void* inner, const size_t alignType) {
-    asObjMut(inner)->valueMemMut(alignType);
+    return asObjMut(inner)->valueMemMut(alignType);
 }
 
 bool sy::detail::syncObjNoWeakRefs(const void *inner)
 {
     return asObj(inner)->noWeakRefs();
 }
+
+static const sy::sync_queue::SyncObject::VTable queueVTable = {
+    &sy::detail::syncObjLockExclusive,
+    &sy::detail::syncObjTryLockExclusive,
+    &sy::detail::syncObjUnlockExclusive,
+    &sy::detail::syncObjLockShared,
+    &sy::detail::syncObjTryLockShared,
+    &sy::detail::syncObjUnlockShared
+};
+
+sy::sync_queue::SyncObject sy::detail::syncObjToQueueObj(const void *inner)
+{
+    const sy::sync_queue::SyncObject obj{const_cast<void*>(inner), &queueVTable};
+    return obj;
+}
+
+#if SYNC_LIB_TEST
+
+#include "../../doctest.h"
+
+using namespace sy;
+
+TEST_CASE("Owned into sync queue") {
+    Owned<int> owned = 5;
+    sync_queue::addExclusive(owned);
+    sync_queue::lock();
+    sync_queue::unlock();
+}
+
+#endif
