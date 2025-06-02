@@ -1,6 +1,7 @@
 #include "sync_obj.h"
 #include "sync_obj.hpp"
 #include "../../threading/sync_obj_val.hpp"
+#include "../../util/assert.hpp"
 
 static const SyncObjVal* asObj(const void* inner) {
     return reinterpret_cast<const SyncObjVal*>(inner);
@@ -123,6 +124,11 @@ sy::detail::BaseSyncObj::operator sync_queue::SyncObject () const
 {
     const sy::sync_queue::SyncObject obj{const_cast<void*>(inner), &queueVTable};
     return obj;
+}
+
+void sy::detail::BaseSyncObj::checkNotExpired()
+{
+    sy_assert(!syncObjExpired(this->inner), "Held sync object is expired");
 }
 
 #if SYNC_LIB_TEST

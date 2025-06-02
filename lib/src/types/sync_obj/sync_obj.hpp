@@ -33,6 +33,8 @@ namespace sy {
         protected:
             BaseSyncObj(void* inInner) : inner(inInner) {}
 
+            void checkNotExpired();
+
             void* inner;
         };
     }
@@ -102,6 +104,20 @@ namespace sy {
         Shared& operator=(Shared&& other);
 
         ~Shared();
+
+        const T* operator->() const { return this->get(); }
+
+        T* operator->() { return this->get(); }
+
+        const T& operator*() const { return *this->get(); }
+
+        T& operator*() { return *this->get(); }
+
+        const T* get() const;
+
+        T* get();
+
+        Weak<T> makeWeak() const;
     };
 
     template<typename T>
@@ -116,6 +132,42 @@ namespace sy {
         Weak& operator=(Weak&& other);
 
         ~Weak();
+
+        /// After acquiring a lock, it's still possible that the held object itself has been destroyed.
+        /// ``` .cpp
+        /// sy::Weak<int> weak = owned->makeWeak();
+        /// // ... Stuff happens
+        /// weak.lockExclusive();
+        /// if(weak.expired()) {
+        ///     *weak += 5;
+        /// }
+        /// weak.unlockExclusive();
+        /// ```
+        bool expired() const;
+
+        /// # Debug Asserts
+        /// `this->expired() == false`
+        const T* operator->() const { return this->get(); }
+
+        /// # Debug Asserts
+        /// `this->expired() == false`
+        T* operator->() { return this->get(); }
+
+        /// # Debug Asserts
+        /// `this->expired() == false`
+        const T& operator*() const { return *this->get(); }
+
+        /// # Debug Asserts
+        /// `this->expired() == false`
+        T& operator*() { return *this->get(); }
+
+        /// # Debug Asserts
+        /// `this->expired() == false`
+        const T* get() const;
+
+        /// # Debug Asserts
+        /// `this->expired() == false`
+        T* get();
 
     private:
 
@@ -354,6 +406,26 @@ namespace sy {
         this->inner = nullptr;
     }
 
+    template<typename T>
+    const T* Shared<T>::get() const 
+    {
+        const void* obj = detail::syncObjValueMem(this->inner, alignof(T));
+        return reinterpret_cast<const T*>(obj);
+    }
+
+    template<typename T>
+    T* Shared<T>::get()  
+    {
+        void* obj = detail::syncObjValueMemMut(this->inner, alignof(T));
+        return reinterpret_cast<T*>(obj);
+    }
+
+    template <typename T>
+    inline Weak<T> Shared<T>::makeWeak() const
+    {
+        return Weak<T>(this->inner);
+    }
+
     template <typename T>
     inline Weak<T>::Weak(const Weak &other)
         : BaseSyncObj(other.inner)
@@ -417,6 +489,28 @@ namespace sy {
         }
         
         this->inner = nullptr;
+    }
+
+    template<typename T>
+    bool Weak<T>::expired() const 
+    {
+        return detail::syncObjExpired(this->inner);
+    }
+
+    template<typename T>
+    const T* Weak<T>::get() const 
+    {
+        this->checkNotExpired();
+        const void* obj = detail::syncObjValueMem(this->inner, alignof(T));
+        return reinterpret_cast<const T*>(obj);
+    }
+
+    template<typename T>
+    T* Weak<T>::get()  
+    {
+        this->checkNotExpired();
+        void* obj = detail::syncObjValueMemMut(this->inner, alignof(T));
+        return reinterpret_cast<T*>(obj);
     }
 
     template<typename T>
