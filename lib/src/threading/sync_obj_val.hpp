@@ -18,7 +18,7 @@ public:
     /// Does not initialize the object's memory itself, only zero initialized.
     static SyncObjVal* create(const size_t sizeType, const size_t alignType);
 
-    void destroy(const size_t sizeType, const size_t alignType);
+    void destroy(const size_t sizeType);
 
     void lockExclusive() { this->lock.lock(); }
 
@@ -44,19 +44,19 @@ public:
 
     /// Lock should NOT be acquired
     /// Marks the obj ref as expired.
-    void destroyHeldObjectCFunction(void(*destruct)(void* ptr), const size_t alignType);
+    void destroyHeldObjectCFunction(void(*destruct)(void* ptr));
 
-    void destroyHeldObjectScriptFunction(const sy::Function* func, const sy::Type* typeInfo);
+    void destroyHeldObjectScriptFunction(const sy::Type* typeInfo);
 
-    const void* valueMem(const size_t alignType) const;
+    const void* valueMem() const;
 
-    void* valueMemMut(const size_t alignType);
+    void* valueMemMut();
 
     bool noWeakRefs() const { return this->weakCount.load() == 0; }
 
 private:
 
-    uintptr_t valueMemLocation(const size_t alignType) const;
+    uintptr_t valueMemLocation() const;
 
     SyncObjVal();
 
@@ -67,6 +67,7 @@ private:
     std::atomic<size_t> sharedCount;
     std::atomic<size_t> weakCount;
     std::atomic<bool> isExpired;
+    uint16_t alignType;
 };
 
 #endif // SY_THREADING_SYNC_OBJ_VAL_HPP_

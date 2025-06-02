@@ -1,9 +1,9 @@
 //! API
+#pragma once
 #ifndef SY_TYPES_SYNC_OBJ_SYNC_OBJ_HPP_
 #define SY_TYPES_SYNC_OBJ_SYNC_OBJ_HPP_
 
 #include "../../core.h"
-#include "../type_info.hpp"
 #include "../../threading/sync_queue.hpp"
 #include <cstddef>
 #include <new>
@@ -179,15 +179,15 @@ namespace sy {
 
     namespace detail {
         void* syncObjCreate(const size_t sizeType, const size_t alignType);
-        void syncObjDestroy(void* inner, const size_t sizeType, const size_t alignType);
+        void syncObjDestroy(void* inner, const size_t sizeType);
         bool syncObjExpired(const void* inner);
         void syncObjAddWeakCount(void* inner);
         bool syncObjRemoveWeakCount(void* inner);
         void syncObjAddSharedCount(void* inner);
         bool syncObjRemoveSharedCount(void* inner);
-        void syncObjDestroyHeldObjectCFunction(void* inner, void(*destruct)(void* ptr), const size_t alignType);
-        const void* syncObjValueMem(const void* inner, const size_t alignType);
-        void* syncObjValueMemMut(void* inner, const size_t alignType);
+        void syncObjDestroyHeldObjectCFunction(void* inner, void(*destruct)(void* ptr));
+        const void* syncObjValueMem(const void* inner);
+        void* syncObjValueMemMut(void* inner);
         bool syncObjNoWeakRefs(const void* inner);
         sync_queue::SyncObject syncObjToQueueObj(const void* inner);
     }
@@ -212,15 +212,14 @@ namespace sy {
                 [](void* obj){
                     T* asT = reinterpret_cast<T*>(obj);
                     asT->~T();
-                }, 
-                alignof(T));
+                });
 
                 shouldFree = detail::syncObjNoWeakRefs(this->inner);
             }
             this->unlockExclusive();
 
             if(shouldFree) {
-                detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+                detail::syncObjDestroy(this->inner, sizeof(T));
             }
         }
 
@@ -245,15 +244,14 @@ namespace sy {
             [](void* obj){
                 T* asT = reinterpret_cast<T*>(obj);
                 asT->~T();
-            }, 
-            alignof(T));
+            });
 
             shouldFree = detail::syncObjNoWeakRefs(this->inner);
         }
         this->unlockExclusive();
 
         if(shouldFree) {
-            detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+            detail::syncObjDestroy(this->inner, sizeof(T));
         }
 
         this->inner = nullptr;
@@ -263,21 +261,21 @@ namespace sy {
     inline Owned<T>::Owned(T value)
         : BaseSyncObj(detail::syncObjCreate(sizeof(T), alignof(T)))
     {
-        void* _ = new (detail::syncObjValueMemMut(this->inner, alignof(T))) T(std::move(value));
+        void* _ = new (detail::syncObjValueMemMut(this->inner)) T(std::move(value));
         (void)_; 
     }
 
     template<typename T>
     const T* Owned<T>::get() const 
     {
-        const void* obj = detail::syncObjValueMem(this->inner, alignof(T));
+        const void* obj = detail::syncObjValueMem(this->inner);
         return reinterpret_cast<const T*>(obj);
     }
 
     template<typename T>
     T* Owned<T>::get()  
     {
-        void* obj = detail::syncObjValueMemMut(this->inner, alignof(T));
+        void* obj = detail::syncObjValueMemMut(this->inner);
         return reinterpret_cast<T*>(obj);
     }
 
@@ -292,7 +290,7 @@ namespace sy {
         : BaseSyncObj(detail::syncObjCreate(sizeof(T), alignof(T)))
     {
         detail::syncObjAddSharedCount(this->inner);
-        void* _ = new (detail::syncObjValueMemMut(this->inner, alignof(T))) T(std::move(value));
+        void* _ = new (detail::syncObjValueMemMut(this->inner)) T(std::move(value));
         (void)_; 
     }
 
@@ -316,15 +314,14 @@ namespace sy {
                 [](void* obj){
                     T* asT = reinterpret_cast<T*>(obj);
                     asT->~T();
-                }, 
-                alignof(T));
+                });
 
                 shouldFree = detail::syncObjNoWeakRefs(this->inner);
             }
             this->unlockExclusive();
 
             if(shouldFree) {
-                detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+                detail::syncObjDestroy(this->inner, sizeof(T));
             }
         }
 
@@ -353,15 +350,14 @@ namespace sy {
                 [](void* obj){
                     T* asT = reinterpret_cast<T*>(obj);
                     asT->~T();
-                }, 
-                alignof(T));
+                });
 
                 shouldFree = detail::syncObjNoWeakRefs(this->inner);
             }
             this->unlockExclusive();
 
             if(shouldFree) {
-                detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+                detail::syncObjDestroy(this->inner, sizeof(T));
             }
         }
 
@@ -392,15 +388,14 @@ namespace sy {
             [](void* obj){
                 T* asT = reinterpret_cast<T*>(obj);
                 asT->~T();
-            }, 
-            alignof(T));
+            });
 
             shouldFree = detail::syncObjNoWeakRefs(this->inner);
         }
         this->unlockExclusive();
 
         if(shouldFree) {
-            detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+            detail::syncObjDestroy(this->inner, sizeof(T));
         }
 
         this->inner = nullptr;
@@ -409,14 +404,14 @@ namespace sy {
     template<typename T>
     const T* Shared<T>::get() const 
     {
-        const void* obj = detail::syncObjValueMem(this->inner, alignof(T));
+        const void* obj = detail::syncObjValueMem(this->inner);
         return reinterpret_cast<const T*>(obj);
     }
 
     template<typename T>
     T* Shared<T>::get()  
     {
-        void* obj = detail::syncObjValueMemMut(this->inner, alignof(T));
+        void* obj = detail::syncObjValueMemMut(this->inner);
         return reinterpret_cast<T*>(obj);
     }
 
@@ -441,7 +436,7 @@ namespace sy {
             const bool isLastWeakRef = detail::syncObjRemoveWeakCount(this->inner);
 
             if(isExpired && isLastWeakRef) {
-                detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+                detail::syncObjDestroy(this->inner, sizeof(T));
             }
         }
 
@@ -465,7 +460,7 @@ namespace sy {
             const bool isLastWeakRef = detail::syncObjRemoveWeakCount(this->inner);
 
             if(isExpired && isLastWeakRef) {
-                detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+                detail::syncObjDestroy(this->inner, sizeof(T));
             }
         }
 
@@ -485,7 +480,7 @@ namespace sy {
         const bool isLastWeakRef = detail::syncObjRemoveWeakCount(this->inner);
 
         if(isExpired && isLastWeakRef) {
-            detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+            detail::syncObjDestroy(this->inner, sizeof(T));
         }
         
         this->inner = nullptr;
@@ -501,7 +496,7 @@ namespace sy {
     const T* Weak<T>::get() const 
     {
         this->checkNotExpired();
-        const void* obj = detail::syncObjValueMem(this->inner, alignof(T));
+        const void* obj = detail::syncObjValueMem(this->inner);
         return reinterpret_cast<const T*>(obj);
     }
 
@@ -509,7 +504,7 @@ namespace sy {
     T* Weak<T>::get()  
     {
         this->checkNotExpired();
-        void* obj = detail::syncObjValueMemMut(this->inner, alignof(T));
+        void* obj = detail::syncObjValueMemMut(this->inner);
         return reinterpret_cast<T*>(obj);
     }
 

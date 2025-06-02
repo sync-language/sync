@@ -21,6 +21,8 @@ static size_t paddingForType(const size_t alignType)
 
 SyncObjVal *SyncObjVal::create(const size_t sizeType, const size_t alignType)
 {
+    sy_assert(alignType <= UINT16_MAX, "Type alignment too big");
+
     const size_t allocAlign = alignType < ALLOC_CACHE_ALIGN ? ALLOC_CACHE_ALIGN : alignType;
     const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType(alignType) + sizeType;
 
@@ -28,11 +30,12 @@ SyncObjVal *SyncObjVal::create(const size_t sizeType, const size_t alignType)
     uint8_t* mem = alloc.allocAlignedArray<uint8_t>(fullAllocSize, allocAlign).get();
     SyncObjVal* self = reinterpret_cast<SyncObjVal*>(mem);
     (void)new (self) SyncObjVal;
-    memset(self->valueMemMut(alignType), 0, sizeType);
+    self->alignType = static_cast<uint16_t>(alignType);
+    memset(self->valueMemMut(), 0, sizeType);
     return self;
 }
 
-void SyncObjVal::destroy(const size_t sizeType, const size_t alignType)
+void SyncObjVal::destroy(const size_t sizeType)
 {
     // assumes the held object's destructor has already been called
 
@@ -46,7 +49,7 @@ void SyncObjVal::destroy(const size_t sizeType, const size_t alignType)
     alloc.freeAlignedArray(mem, fullAllocSize, allocAlign);
 }
 
-uintptr_t SyncObjVal::valueMemLocation(const size_t alignType) const
+uintptr_t SyncObjVal::valueMemLocation() const
 {
     const size_t memOffset = sizeof(SyncObjVal) + paddingForType(alignType);
     const uint8_t* asBytes = reinterpret_cast<const uint8_t*>(this);
@@ -77,27 +80,29 @@ bool SyncObjVal::removeSharedCount()
     return this->sharedCount.fetch_sub(1) == 1;
 }
 
-void SyncObjVal::destroyHeldObjectCFunction(void (*destruct)(void *ptr), const size_t alignType)
+void SyncObjVal::destroyHeldObjectCFunction(void (*destruct)(void *ptr))
 {
     this->isExpired.store(true);
-    destruct(this->valueMemMut(alignType));
+    destruct(this->valueMemMut());
 }
 
-void SyncObjVal::destroyHeldObjectScriptFunction(const sy::Function *func, const sy::Type* typeInfo)
+void SyncObjVal::destroyHeldObjectScriptFunction(const sy::Type* typeInfo)
 {
+    sy_assert(typeInfo->alignType == this->alignType, "Type mismatch");
+    if(typeInfo->optionalDestructor == nullptr) return;
     this->isExpired.store(true);
-    sy::Function::CallArgs callArgs = func->startCall();
-    callArgs.push(this->valueMemMut(typeInfo->alignType), typeInfo->mutRef);
+    sy::Function::CallArgs callArgs = typeInfo->optionalDestructor->startCall();
+    callArgs.push(this->valueMemMut(), typeInfo->mutRef);
     const sy::ProgramRuntimeError err = callArgs.call(nullptr);
     sy_assert(err.ok(), "Destructors should not fail");
 }
 
-const void *SyncObjVal::valueMem(const size_t alignType) const
+const void *SyncObjVal::valueMem() const
 {
-    return reinterpret_cast<const void*>(this->valueMemLocation(alignType));
+    return reinterpret_cast<const void*>(this->valueMemLocation());
 }
 
-void *SyncObjVal::valueMemMut(const size_t alignType)
+void *SyncObjVal::valueMemMut()
 {
-    return reinterpret_cast<void*>(this->valueMemLocation(alignType));
+    return reinterpret_cast<void*>(this->valueMemLocation());
 }
