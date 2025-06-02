@@ -8,10 +8,34 @@
 #include <cstddef>
 #include <new>
 #include <type_traits>
+#include <utility>
 
 namespace sy {
     template<typename T>
     class Weak;
+
+    namespace detail {
+        class BaseSyncObj {
+        public:
+            void lockExclusive();
+
+            bool tryLockExclusive();
+
+            void unlockExclusive();
+
+            void lockShared();
+
+            bool tryLockShared();
+
+            void unlockShared();
+
+            operator sync_queue::SyncObject () const;
+        protected:
+            BaseSyncObj(void* inInner) : inner(inInner) {}
+
+            void* inner;
+        };
+    }
 
     /// Synchronized thread-safe RAII object, supporting weak references and single ownership.
     /// @tparam T Type of the held object
@@ -23,75 +47,87 @@ namespace sy {
     /// sy::sync_queue::addExclusive(owned); // conversion operator
     /// sy::sync_queue::lock();
     ///
-    /// owned.get() += 5;
-    /// assert(owned.get() == 10);
+    /// *owned += 5;
+    /// assert(*owned == 10);
     ///
     /// sy::sync_queue::unlock();
     /// ```
+    ///
+    /// # Outside of Sync Queue Usage
+    ///
+    /// ``` .cpp
+    ///
+    /// ```
     template<typename T>
-    class SY_API Owned final {
+    class SY_API Owned final : public detail::BaseSyncObj {
     public:
-        Owned() = default; // TODO is there an edge case here?
+        Owned(T value);
+
+        Owned(const Owned&) = delete;
+        
+        Owned& operator=(const Owned&) = delete;
+
+        Owned(Owned&& other);
+
+        Owned& operator=(Owned&& other);
 
         ~Owned();
 
-        Owned(T value);
+        const T* operator->() const { return this->get(); }
 
-        void lockExclusive();
+        T* operator->() { return this->get(); }
 
-        bool tryLockExclusive();
+        const T& operator*() const { return *this->get(); }
 
-        void unlockExclusive();
+        T& operator*() { return *this->get(); }
 
-        void lockShared();
+        const T* get() const;
 
-        bool tryLockShared();
+        T* get();
 
-        void unlockShared();
-
-        const T& get() const;
-
-        T& get();
-
-        //Weak<T> makeWeak() const;
-
-        operator sync_queue::SyncObject () const;
-
-    private:
-        void* inner = nullptr;
+        Weak<T> makeWeak() const;
     };
 
     template<typename T>
-    class SY_API Shared final {
+    class SY_API Shared final : public detail::BaseSyncObj {
     public:
-        Shared() = default;
+        Shared(T value);
+
+        Shared(const Shared& other);
+
+        Shared& operator=(const Shared& other);
+
+        Shared(Shared&& other);
+
+        Shared& operator=(Shared&& other);
 
         ~Shared();
-
-    private:
-        void* inner = nullptr;
     };
 
     template<typename T>
-    class SY_API Weak final {
+    class SY_API Weak final : detail::BaseSyncObj {
     public:
-        Weak() = default;
+        Weak(const Weak& other);
+
+        Weak& operator=(const Weak& other);
+
+        Weak(Weak&& other);
+
+        Weak& operator=(Weak&& other);
 
         ~Weak();
 
     private:
-        void* inner = nullptr;
+
+        friend class Owned<T>;
+        friend class Shared<T>;
+
+        Weak(const void* inInner);
     };
 
     namespace detail {
         void* syncObjCreate(const size_t sizeType, const size_t alignType);
         void syncObjDestroy(void* inner, const size_t sizeType, const size_t alignType);
-        void syncObjLockExclusive(void* inner);
-        bool syncObjTryLockExclusive(void* inner);
-        void syncObjUnlockExclusive(void* inner);
-        void syncObjLockShared(const void* inner);
-        bool syncObjTryLockShared(const void* inner);
-        void syncObjUnlockShared(const void* inner);
         bool syncObjExpired(const void* inner);
         void syncObjAddWeakCount(void* inner);
         bool syncObjRemoveWeakCount(void* inner);
@@ -105,6 +141,43 @@ namespace sy {
     }
 
     template <typename T>
+    inline Owned<T>::Owned(Owned &&other)
+        : BaseSyncObj(other.inner)
+    {
+        other.inner = nullptr;
+    }
+
+    template <typename T>
+    inline Owned<T>& Owned<T>::operator=(Owned &&other)
+    {
+        if(this->inner != nullptr) {
+            bool shouldFree = false;
+
+            this->lockExclusive();
+            {
+                detail::syncObjDestroyHeldObjectCFunction(
+                this->inner, 
+                [](void* obj){
+                    T* asT = reinterpret_cast<T*>(obj);
+                    asT->~T();
+                }, 
+                alignof(T));
+
+                shouldFree = detail::syncObjNoWeakRefs(this->inner);
+            }
+            this->unlockExclusive();
+
+            if(shouldFree) {
+                detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+            }
+        }
+
+        this->inner = other.inner;
+        other.inner = nullptr;
+        return *this;
+    }
+
+    template <typename T>
     inline Owned<T>::~Owned()
     {
         if(this->inner == nullptr) {
@@ -113,7 +186,7 @@ namespace sy {
 
         bool shouldFree = false;
 
-        detail::syncObjLockExclusive(this->inner);
+        this->lockExclusive();
         {
             detail::syncObjDestroyHeldObjectCFunction(
             this->inner, 
@@ -125,7 +198,7 @@ namespace sy {
 
             shouldFree = detail::syncObjNoWeakRefs(this->inner);
         }
-        detail::syncObjUnlockExclusive(this->inner);
+        this->unlockExclusive();
 
         if(shouldFree) {
             detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
@@ -136,66 +209,113 @@ namespace sy {
 
     template <typename T>
     inline Owned<T>::Owned(T value)
-        : inner(detail::syncObjCreate(sizeof(T), alignof(T)))
+        : BaseSyncObj(detail::syncObjCreate(sizeof(T), alignof(T)))
     {
         void* _ = new (detail::syncObjValueMemMut(this->inner, alignof(T))) T(std::move(value));
         (void)_; 
     }
 
     template<typename T>
-    inline void Owned<T>::lockExclusive() 
-    {
-        detail::syncObjLockExclusive(this->inner);
-    }
-
-    template<typename T>
-    inline bool Owned<T>::tryLockExclusive() 
-    {
-        return detail::syncObjTryLockExclusive(this->inner);
-    }
-
-    template<typename T>
-    inline void Owned<T>::unlockExclusive() 
-    {
-        detail::syncObjUnlockExclusive(this->inner);
-    }
-
-    template<typename T>
-    inline void Owned<T>::lockShared() 
-    {
-        detail::syncObjLockShared(this->inner);
-    }
-
-    template<typename T>
-    inline bool Owned<T>::tryLockShared() 
-    {
-        return detail::syncObjTryLockShared(this->inner);
-    }
-
-    template<typename T>
-    inline void Owned<T>::unlockShared() 
-    {
-        detail::syncObjUnlockShared(this->inner);
-    }
-
-    template<typename T>
-    const T& Owned<T>::get() const 
+    const T* Owned<T>::get() const 
     {
         const void* obj = detail::syncObjValueMem(this->inner, alignof(T));
-        return *reinterpret_cast<const T*>(obj);
+        return reinterpret_cast<const T*>(obj);
     }
 
     template<typename T>
-    T& Owned<T>::get()  
+    T* Owned<T>::get()  
     {
         void* obj = detail::syncObjValueMemMut(this->inner, alignof(T));
-        return *reinterpret_cast<T*>(obj);
+        return reinterpret_cast<T*>(obj);
     }
 
     template <typename T>
-    inline Owned<T>::operator sync_queue::SyncObject() const
+    inline Weak<T> Owned<T>::makeWeak() const
     {
-        return detail::syncObjToQueueObj(this->inner);
+        return Weak<T>(this->inner);
+    }
+
+    template <typename T>
+    inline Shared<T>::Shared(T value)
+        : BaseSyncObj(detail::syncObjCreate(sizeof(T), alignof(T)))
+    {
+        detail::syncObjAddSharedCount(this->inner);
+        void* _ = new (detail::syncObjValueMemMut(this->inner, alignof(T))) T(std::move(value));
+        (void)_; 
+    }
+
+    template <typename T>
+    inline Shared<T>::Shared(const Shared &other)
+        : BaseSyncObj(other.inner)
+    {
+        detail::syncObjAddSharedCount(this->inner);
+    }
+
+    template <typename T>
+    inline Shared<T>& Shared<T>::operator=(const Shared &other)
+    {
+        if(this->inner != nullptr) {    
+            bool shouldFree = false;
+
+            this->lockExclusive();
+            {
+                detail::syncObjDestroyHeldObjectCFunction(
+                this->inner, 
+                [](void* obj){
+                    T* asT = reinterpret_cast<T*>(obj);
+                    asT->~T();
+                }, 
+                alignof(T));
+
+                shouldFree = detail::syncObjNoWeakRefs(this->inner);
+            }
+            this->unlockExclusive();
+
+            if(shouldFree) {
+                detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+            }
+        }
+
+        this->inner = other.inner;
+        detail::syncObjAddSharedCount(this->inner);
+        return *this;
+    }
+
+    template <typename T>
+    inline Shared<T>::Shared(Shared &&other)
+        : BaseSyncObj(other.inner)
+    {
+        other.inner = nullptr;
+    }
+
+    template <typename T>
+    inline Shared<T>& Shared<T>::operator=(Shared &&other)
+    {
+        if(this->inner != nullptr) {    
+            bool shouldFree = false;
+
+            this->lockExclusive();
+            {
+                detail::syncObjDestroyHeldObjectCFunction(
+                this->inner, 
+                [](void* obj){
+                    T* asT = reinterpret_cast<T*>(obj);
+                    asT->~T();
+                }, 
+                alignof(T));
+
+                shouldFree = detail::syncObjNoWeakRefs(this->inner);
+            }
+            this->unlockExclusive();
+
+            if(shouldFree) {
+                detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+            }
+        }
+
+        this->inner = other.inner;
+        other.inner = nullptr;
+        return *this;
     }
 
     template <typename T>
@@ -213,7 +333,7 @@ namespace sy {
         
         bool shouldFree = false;
 
-        detail::syncObjLockExclusive(this->inner);
+        this->lockExclusive();
         {
             detail::syncObjDestroyHeldObjectCFunction(
             this->inner, 
@@ -225,7 +345,7 @@ namespace sy {
 
             shouldFree = detail::syncObjNoWeakRefs(this->inner);
         }
-        detail::syncObjUnlockExclusive(this->inner);
+        this->unlockExclusive();
 
         if(shouldFree) {
             detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
@@ -235,9 +355,57 @@ namespace sy {
     }
 
     template <typename T>
+    inline Weak<T>::Weak(const Weak &other)
+        : BaseSyncObj(other.inner)
+    {
+        detail::syncObjAddWeakCount(this->inner);
+    }
+
+    template <typename T>
+    inline Weak<T>& Weak<T>::operator=(const Weak &other)
+    {
+        if(this->inner != nullptr) {
+            const bool isExpired = detail::syncObjExpired(this->inner);
+            const bool isLastWeakRef = detail::syncObjRemoveWeakCount(this->inner);
+
+            if(isExpired && isLastWeakRef) {
+                detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+            }
+        }
+
+        this->inner = other.inner;
+        detail::syncObjAddWeakCount(this->inner);
+        return *this;
+    }
+
+    template <typename T>
+    inline Weak<T>::Weak(Weak &&other)
+        : BaseSyncObj(other.inner)
+    {
+        other.inner = nullptr;
+    }
+
+    template <typename T>
+    inline Weak<T>& Weak<T>::operator=(Weak &&other)
+    {
+        if(this->inner != nullptr) {
+            const bool isExpired = detail::syncObjExpired(this->inner);
+            const bool isLastWeakRef = detail::syncObjRemoveWeakCount(this->inner);
+
+            if(isExpired && isLastWeakRef) {
+                detail::syncObjDestroy(this->inner, sizeof(T), alignof(T));
+            }
+        }
+
+        this->inner = other.inner;
+        other.inner = nullptr;
+        return *this;
+    }
+
+    template <typename T>
     inline Weak<T>::~Weak()
     {
-        if(this->inner = nullptr) {
+        if(this->inner == nullptr) {
             return;
         }
 
@@ -249,6 +417,13 @@ namespace sy {
         }
         
         this->inner = nullptr;
+    }
+
+    template<typename T>
+    inline Weak<T>::Weak(const void* inInner) 
+        : BaseSyncObj(const_cast<void*>(inInner))
+    {
+        detail::syncObjAddWeakCount(this->inner);
     }
 }
 

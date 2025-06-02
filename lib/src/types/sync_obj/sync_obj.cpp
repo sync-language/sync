@@ -18,30 +18,6 @@ void sy::detail::syncObjDestroy(void* inner, const size_t sizeType, const size_t
     asObjMut(inner)->destroy(sizeType, alignType);
 }
 
-void sy::detail::syncObjLockExclusive(void* inner) {
-    asObjMut(inner)->lockExclusive();
-}
-
-bool sy::detail::syncObjTryLockExclusive(void* inner) {
-    return asObjMut(inner)->tryLockExclusive();
-}
-
-void sy::detail::syncObjUnlockExclusive(void* inner) {
-    asObjMut(inner)->unlockExclusive();
-}
-
-void sy::detail::syncObjLockShared(const void* inner) {
-    asObj(inner)->lockShared();
-}
-
-bool sy::detail::syncObjTryLockShared(const void* inner) {
-    return asObj(inner)->tryLockShared();
-}
-
-void sy::detail::syncObjUnlockShared(const void* inner) {
-    asObj(inner)->unlockShared();
-}
-
 bool sy::detail::syncObjExpired(const void* inner) {
     return asObj(inner)->expired();
 }
@@ -79,16 +55,71 @@ bool sy::detail::syncObjNoWeakRefs(const void *inner)
     return asObj(inner)->noWeakRefs();
 }
 
+static void syncObjLockExclusive(void* inner) {
+    asObjMut(inner)->lockExclusive();
+}
+
+static bool syncObjTryLockExclusive(void* inner) {
+    return asObjMut(inner)->tryLockExclusive();
+}
+
+static void syncObjUnlockExclusive(void* inner) {
+    asObjMut(inner)->unlockExclusive();
+}
+
+static void syncObjLockShared(const void* inner) {
+    asObj(inner)->lockShared();
+}
+
+static bool syncObjTryLockShared(const void* inner) {
+    return asObj(inner)->tryLockShared();
+}
+
+static void syncObjUnlockShared(const void* inner) {
+    asObj(inner)->unlockShared();
+}
+
 static const sy::sync_queue::SyncObject::VTable queueVTable = {
-    &sy::detail::syncObjLockExclusive,
-    &sy::detail::syncObjTryLockExclusive,
-    &sy::detail::syncObjUnlockExclusive,
-    &sy::detail::syncObjLockShared,
-    &sy::detail::syncObjTryLockShared,
-    &sy::detail::syncObjUnlockShared
+    &syncObjLockExclusive,
+    &syncObjTryLockExclusive,
+    &syncObjUnlockExclusive,
+    &syncObjLockShared,
+    &syncObjTryLockShared,
+    &syncObjUnlockShared
 };
 
 sy::sync_queue::SyncObject sy::detail::syncObjToQueueObj(const void *inner)
+{
+    const sy::sync_queue::SyncObject obj{const_cast<void*>(inner), &queueVTable};
+    return obj;
+}
+
+void sy::detail::BaseSyncObj::lockExclusive() 
+{
+    asObjMut(this->inner)->lockExclusive();
+}
+
+bool sy::detail::BaseSyncObj::tryLockExclusive() {
+    return asObjMut(this->inner)->tryLockExclusive();
+}
+
+void sy::detail::BaseSyncObj::unlockExclusive() {
+    asObjMut(this->inner)->unlockExclusive();
+}
+
+void sy::detail::BaseSyncObj::lockShared() {
+    asObj(this->inner)->lockShared();
+}
+
+bool sy::detail::BaseSyncObj::tryLockShared() {
+    return asObj(this->inner)->tryLockShared();
+}
+
+void sy::detail::BaseSyncObj::unlockShared() {
+    asObj(this->inner)->unlockShared();
+}
+
+sy::detail::BaseSyncObj::operator sync_queue::SyncObject () const 
 {
     const sy::sync_queue::SyncObject obj{const_cast<void*>(inner), &queueVTable};
     return obj;
@@ -105,6 +136,12 @@ TEST_CASE("Owned into sync queue") {
     sync_queue::addExclusive(owned);
     sync_queue::lock();
     sync_queue::unlock();
+}
+
+TEST_CASE("Owned lock normally") {
+    Owned<int> owned = 5;
+    owned.lockExclusive();
+    owned.unlockExclusive();
 }
 
 #endif

@@ -271,8 +271,10 @@ void SyncQueue::release()
 void SyncQueue::add(InQueueSyncObj &&obj)
 {
     sy_assert(this->_len < UINT16_MAX, "Cannot add any more objects to sync");
-    addExtraCapacity();
-
+    if(this->_len == this->_capacity) {
+        addExtraCapacity();
+    }
+    
     const uintptr_t objPtrVal = reinterpret_cast<uintptr_t>(obj.getObj().ptr);
     for(uint16_t i = 0; i < this->_len; i++) {
         const uintptr_t inQueuePtrVal = reinterpret_cast<uintptr_t>(this->_objects[i].getObj().ptr);

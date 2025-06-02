@@ -32,7 +32,9 @@ extern "C" {
         if(align <= sizeof(void*)) {
             mem = std::malloc(len);
         } else {
-            const size_t allocSize = len < align ? align : len;
+            size_t allocSize = len;
+            if(len < align) allocSize = align;
+            if(allocSize % align != 0) allocSize += align - (allocSize % align);
             mem = aligned_alloc(align, allocSize);
         }
         return mem;
