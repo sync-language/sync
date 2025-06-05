@@ -7,7 +7,7 @@
 
 namespace sy {
     namespace sync_queue {
-        class SyncObject {
+        class SY_API SyncObject {
         public:
             class VTable {
             public:

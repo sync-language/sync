@@ -47,107 +47,270 @@ static const sy::sync_queue::SyncObject::VTable queueVTable = {
     &syncObjUnlockShared
 };
 
+void sy::detail::syncObjDestroyAndFreeOwned(void* inner, void(*destruct)(void* ptr), const size_t sizeType) 
+{
+    bool shouldFree = false;
+
+    syncObjLockExclusive(inner);
+    {
+        detail::syncObjDestroyHeldObjectCFunction(
+        inner, destruct);
+        shouldFree = detail::syncObjNoWeakRefs(inner);
+    }
+    syncObjUnlockExclusive(inner);
+
+    if(shouldFree) {
+        detail::syncObjDestroy(inner, sizeType);
+    }
+}
+
+static void  syncObjDestroyAndFreeOwnedScript(void* inner, const sy::Type* typeInfo) 
+{
+    bool shouldFree = false;
+
+    syncObjLockExclusive(inner);
+    {
+        asObjMut(inner)->destroyHeldObjectScriptFunction(typeInfo);
+        shouldFree = sy::detail::syncObjNoWeakRefs(inner);
+    }
+    syncObjUnlockExclusive(inner);
+
+    if(shouldFree) {
+        sy::detail::syncObjDestroy(inner, typeInfo->sizeType);
+    }
+}
+
+void sy::detail::syncObjDestroyAndFreeShared(void* inner, void(*destruct)(void* ptr), const size_t sizeType) 
+{
+    const bool lastRef = detail::syncObjRemoveSharedCount(inner);
+    if(!lastRef) {
+        return;
+    }
+
+    bool shouldFree = false;
+
+    syncObjLockExclusive(inner);
+    {
+        detail::syncObjDestroyHeldObjectCFunction(
+        inner, destruct);
+        shouldFree = detail::syncObjNoWeakRefs(inner);
+    }
+    syncObjUnlockExclusive(inner);
+
+    if (shouldFree) {
+        detail::syncObjDestroy(inner, sizeType);
+    }
+}
+
+static void syncObjDestroyAndFreeSharedScript(void* inner, const sy::Type* typeInfo) 
+{
+    const bool lastRef = sy::detail::syncObjRemoveSharedCount(inner);
+    if(!lastRef) {
+        return;
+    }
+
+    bool shouldFree = false;
+
+    syncObjLockExclusive(inner);
+    {
+        asObjMut(inner)->destroyHeldObjectScriptFunction(typeInfo);
+        shouldFree = sy::detail::syncObjNoWeakRefs(inner);
+    }
+    syncObjUnlockExclusive(inner);
+
+    if (shouldFree) {
+        sy::detail::syncObjDestroy(inner, typeInfo->sizeType);
+    }
+}
+
+void sy::detail::syncObjDestroyAndFreeWeak(void* inner, const size_t sizeType) 
+{
+    const bool isExpired = syncObjExpired(inner);
+    const bool isLastWeakRef = syncObjRemoveWeakCount(inner);
+
+    if(isExpired && isLastWeakRef) {
+        detail::syncObjDestroy(inner, sizeType);
+    }
+}
+
 extern "C" {
-    SyOwned sy_owned_init(void* value, const size_t sizeType, const size_t alignType) 
+    SY_API SyOwned sy_owned_init(void* value, const size_t sizeType, const size_t alignType) 
     {
         SyOwned self = {sy::detail::syncObjCreate(sizeType, alignType)};
         memcpy(sy::detail::syncObjValueMemMut(self.inner), value, sizeType);
         return self;
     }
 
-    SyOwned sy_owned_init_script_typed(void* value, const struct SyType* typeInfo) 
+    SY_API SyOwned sy_owned_init_script_typed(void* value, const struct SyType* typeInfo) 
     {
         return sy_owned_init(value, typeInfo->sizeType, typeInfo->alignType);
     }
 
-    void sy_owned_destroy(SyOwned* self, void (*destruct)(void* ptr), const size_t sizeType) 
+    SY_API void sy_owned_destroy(SyOwned* self, void (*destruct)(void* ptr), const size_t sizeType) 
     {
         if(self->inner == nullptr) {
             return;
         }
 
-        bool shouldFree = false;
-
-        sy_owned_lock_exclusive(self);
-        {
-            sy::detail::syncObjDestroyHeldObjectCFunction(self->inner, destruct);
-
-            shouldFree = sy::detail::syncObjNoWeakRefs(self->inner);
-        }
-        sy_owned_unlock_exclusive(self);
-
-        if(shouldFree) {
-            sy::detail::syncObjDestroy(self->inner, sizeType);
-        }
+        sy::detail::syncObjDestroyAndFreeOwned(self->inner, destruct, sizeType);
 
         self->inner = nullptr; 
     }
 
-    void sy_owned_destroy_script_typed(SyOwned* self, const struct SyType* typeInfo) 
+    SY_API void sy_owned_destroy_script_typed(SyOwned* self, const struct SyType* typeInfo) 
     {
         if(self->inner == nullptr) {
             return;
         }
 
-        bool shouldFree = false;
-
-        sy_owned_lock_exclusive(self);
-        {
-            if(typeInfo->optionalDestructor != nullptr) {
-                asObjMut(self->inner)->destroyHeldObjectScriptFunction(reinterpret_cast<const sy::Type*>(typeInfo));
-            }
-            shouldFree = sy::detail::syncObjNoWeakRefs(self->inner);
-        }
-        sy_owned_unlock_exclusive(self);
-
-        if(shouldFree) {
-            sy::detail::syncObjDestroy(self->inner, typeInfo->sizeType);
-        }
+        syncObjDestroyAndFreeOwnedScript(self->inner, reinterpret_cast<const sy::Type*>(typeInfo));
 
         self->inner = nullptr; 
     }
 
-    void sy_owned_lock_exclusive(SyOwned* self) 
+    SY_API SyWeak sy_owned_make_weak(const SyOwned *self)
+    {
+        SyWeak weak = {const_cast<void*>(self->inner)};
+        sy::detail::syncObjAddWeakCount(weak.inner);
+        return weak;
+    }
+
+    SY_API void sy_owned_lock_exclusive(SyOwned* self) 
     {
         syncObjLockExclusive(self->inner);
     }
 
-    bool sy_owned_try_lock_exclusive(SyOwned* self) 
+    SY_API bool sy_owned_try_lock_exclusive(SyOwned* self) 
     {
         return syncObjTryLockExclusive(self->inner);
     }
 
-    void sy_owned_unlock_exclusive(SyOwned* self) 
+    SY_API void sy_owned_unlock_exclusive(SyOwned* self) 
     {
         syncObjUnlockExclusive(self->inner);
     }
 
-    void sy_owned_lock_shared(const SyOwned* self) 
+    SY_API void sy_owned_lock_shared(const SyOwned* self) 
     {
         syncObjLockShared(self->inner);
     }
 
-    bool sy_owned_try_lock_shared(const SyOwned* self) 
+    SY_API bool sy_owned_try_lock_shared(const SyOwned* self) 
     {
         return syncObjTryLockShared(self->inner);
     }
 
-    void sy_owned_unlock_shared(const SyOwned* self) 
+    SY_API void sy_owned_unlock_shared(const SyOwned* self) 
     {
         syncObjUnlockShared(self->inner);
     }
 
-    const void* sy_owned_get(const SyOwned* self) 
+    SY_API const void* sy_owned_get(const SyOwned* self) 
     {
         return asObj(self->inner)->valueMem();
     }
 
-    void* sy_owned_get_mut(SyOwned* self) 
+    SY_API void* sy_owned_get_mut(SyOwned* self) 
     {
         return asObjMut(self->inner)->valueMemMut();
     }
 
-    SySyncObject sy_owned_to_queue_obj(const SyOwned* self) 
+    SY_API SySyncObject sy_owned_to_queue_obj(const SyOwned* self) 
+    {
+        const SySyncObject obj{const_cast<void*>(self->inner), reinterpret_cast<const SySyncObjectVTable*>(&queueVTable)};
+        return obj;
+    }
+
+    SY_API SyShared sy_shared_init(void* value, const size_t sizeType, const size_t alignType) 
+    {
+        SyShared self = {sy::detail::syncObjCreate(sizeType, alignType)};
+        sy::detail::syncObjAddSharedCount(self.inner);
+        memcpy(sy::detail::syncObjValueMemMut(self.inner), value, sizeType);
+        return self;
+    }
+
+    SY_API SyShared sy_shared_init_script_typed(void* value, const struct SyType* typeInfo) 
+    {
+        return sy_shared_init(value, typeInfo->sizeType, typeInfo->alignType);
+    }
+
+    SY_API SyShared sy_shared_clone(const SyShared* self) 
+    {
+        SyShared newObj = {const_cast<void*>(self->inner)};
+        sy::detail::syncObjAddSharedCount(newObj.inner);
+        return newObj;
+    }
+
+    SY_API void sy_shared_destroy(SyShared* self, void (*destruct)(void* ptr), const size_t sizeType) 
+    {
+        if(self->inner == nullptr) {
+            return;
+        }
+
+        sy::detail::syncObjDestroyAndFreeShared(self->inner, destruct, sizeType);
+
+        self->inner = nullptr; 
+    }
+
+    SY_API void sy_shared_destroy_script_typed(SyShared* self, const struct SyType* typeInfo) 
+    {
+        if(self->inner == nullptr) {
+            return;
+        }
+
+        syncObjDestroyAndFreeSharedScript(self->inner, reinterpret_cast<const sy::Type*>(typeInfo));
+
+        self->inner = nullptr; 
+    }
+
+    SY_API SyWeak sy_shared_make_weak(const SyShared *self)
+    {
+        SyWeak weak = {const_cast<void*>(self->inner)};
+        sy::detail::syncObjAddWeakCount(weak.inner);
+        return weak;
+    }
+
+    SY_API void sy_shared_lock_exclusive(SyShared* self) 
+    {
+        syncObjLockExclusive(self->inner);
+    }
+
+    SY_API bool sy_shared_try_lock_exclusive(SyShared* self) 
+    {
+        return syncObjTryLockExclusive(self->inner);
+    }
+
+    SY_API void sy_shared_unlock_exclusive(SyShared* self) 
+    {
+        syncObjUnlockExclusive(self->inner);
+    }
+
+    SY_API void sy_shared_lock_shared(const SyShared* self) 
+    {
+        syncObjLockShared(self->inner);
+    }
+
+    SY_API bool sy_shared_try_lock_shared(const SyShared* self) 
+    {
+        return syncObjTryLockShared(self->inner);
+    }
+
+    SY_API void sy_shared_unlock_shared(const SyShared* self) 
+    {
+        syncObjUnlockShared(self->inner);
+    }
+
+    SY_API const void* sy_shared_get(const SyShared* self) 
+    {
+        return asObj(self->inner)->valueMem();
+    }
+
+    SY_API void* sy_shared_get_mut(SyShared* self) 
+    {
+        return asObjMut(self->inner)->valueMemMut();
+    }
+
+    SY_API SySyncObject sy_shared_to_queue_obj(const SyShared* self) 
     {
         const SySyncObject obj{const_cast<void*>(self->inner), reinterpret_cast<const SySyncObjectVTable*>(&queueVTable)};
         return obj;

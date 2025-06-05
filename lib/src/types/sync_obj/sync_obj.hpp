@@ -15,7 +15,7 @@ namespace sy {
     class Weak;
 
     namespace detail {
-        class BaseSyncObj {
+        class SY_API BaseSyncObj {
         public:
             void lockExclusive();
 
@@ -121,7 +121,7 @@ namespace sy {
     };
 
     template<typename T>
-    class SY_API Weak final : detail::BaseSyncObj {
+    class SY_API Weak final : public detail::BaseSyncObj {
     public:
         Weak(const Weak& other);
 
@@ -190,6 +190,9 @@ namespace sy {
         void* syncObjValueMemMut(void* inner);
         bool syncObjNoWeakRefs(const void* inner);
         sync_queue::SyncObject syncObjToQueueObj(const void* inner);
+        void syncObjDestroyAndFreeOwned(void* inner, void(*destruct)(void* ptr), const size_t sizeType);
+        void syncObjDestroyAndFreeShared(void* inner, void(*destruct)(void* ptr), const size_t sizeType);
+        void syncObjDestroyAndFreeWeak(void* inner, const size_t sizeType);
     }
 
     template <typename T>
@@ -203,24 +206,13 @@ namespace sy {
     inline Owned<T>& Owned<T>::operator=(Owned &&other)
     {
         if(this->inner != nullptr) {
-            bool shouldFree = false;
-
-            this->lockExclusive();
-            {
-                detail::syncObjDestroyHeldObjectCFunction(
-                this->inner, 
-                [](void* obj){
-                    T* asT = reinterpret_cast<T*>(obj);
-                    asT->~T();
-                });
-
-                shouldFree = detail::syncObjNoWeakRefs(this->inner);
-            }
-            this->unlockExclusive();
-
-            if(shouldFree) {
-                detail::syncObjDestroy(this->inner, sizeof(T));
-            }
+            detail::syncObjDestroyAndFreeOwned(
+            this->inner, 
+            [](void* obj){
+                T* asT = reinterpret_cast<T*>(obj);
+                asT->~T();
+            },
+            sizeof(T));
         }
 
         this->inner = other.inner;
@@ -235,24 +227,13 @@ namespace sy {
             return;
         }
 
-        bool shouldFree = false;
-
-        this->lockExclusive();
-        {
-            detail::syncObjDestroyHeldObjectCFunction(
+        detail::syncObjDestroyAndFreeOwned(
             this->inner, 
             [](void* obj){
                 T* asT = reinterpret_cast<T*>(obj);
                 asT->~T();
-            });
-
-            shouldFree = detail::syncObjNoWeakRefs(this->inner);
-        }
-        this->unlockExclusive();
-
-        if(shouldFree) {
-            detail::syncObjDestroy(this->inner, sizeof(T));
-        }
+            },
+            sizeof(T));
 
         this->inner = nullptr;
     }
@@ -304,25 +285,14 @@ namespace sy {
     template <typename T>
     inline Shared<T>& Shared<T>::operator=(const Shared &other)
     {
-        if(this->inner != nullptr) {    
-            bool shouldFree = false;
-
-            this->lockExclusive();
-            {
-                detail::syncObjDestroyHeldObjectCFunction(
+        if(this->inner != nullptr) {   
+            detail::syncObjDestroyAndFreeShared(
                 this->inner, 
                 [](void* obj){
                     T* asT = reinterpret_cast<T*>(obj);
                     asT->~T();
-                });
-
-                shouldFree = detail::syncObjNoWeakRefs(this->inner);
-            }
-            this->unlockExclusive();
-
-            if(shouldFree) {
-                detail::syncObjDestroy(this->inner, sizeof(T));
-            }
+                },
+                sizeof(T));
         }
 
         this->inner = other.inner;
@@ -341,24 +311,13 @@ namespace sy {
     inline Shared<T>& Shared<T>::operator=(Shared &&other)
     {
         if(this->inner != nullptr) {    
-            bool shouldFree = false;
-
-            this->lockExclusive();
-            {
-                detail::syncObjDestroyHeldObjectCFunction(
+            detail::syncObjDestroyAndFreeShared(
                 this->inner, 
                 [](void* obj){
                     T* asT = reinterpret_cast<T*>(obj);
                     asT->~T();
-                });
-
-                shouldFree = detail::syncObjNoWeakRefs(this->inner);
-            }
-            this->unlockExclusive();
-
-            if(shouldFree) {
-                detail::syncObjDestroy(this->inner, sizeof(T));
-            }
+                },
+                sizeof(T));
         }
 
         this->inner = other.inner;
@@ -373,30 +332,13 @@ namespace sy {
             return;
         }
 
-        const bool lastRef = detail::syncObjRemoveSharedCount(this->inner);
-        if(!lastRef) {
-            this->inner = nullptr;
-            return;
-        }
-        
-        bool shouldFree = false;
-
-        this->lockExclusive();
-        {
-            detail::syncObjDestroyHeldObjectCFunction(
+        detail::syncObjDestroyAndFreeShared(
             this->inner, 
             [](void* obj){
                 T* asT = reinterpret_cast<T*>(obj);
                 asT->~T();
-            });
-
-            shouldFree = detail::syncObjNoWeakRefs(this->inner);
-        }
-        this->unlockExclusive();
-
-        if(shouldFree) {
-            detail::syncObjDestroy(this->inner, sizeof(T));
-        }
+            },
+            sizeof(T));
 
         this->inner = nullptr;
     }
@@ -432,12 +374,7 @@ namespace sy {
     inline Weak<T>& Weak<T>::operator=(const Weak &other)
     {
         if(this->inner != nullptr) {
-            const bool isExpired = detail::syncObjExpired(this->inner);
-            const bool isLastWeakRef = detail::syncObjRemoveWeakCount(this->inner);
-
-            if(isExpired && isLastWeakRef) {
-                detail::syncObjDestroy(this->inner, sizeof(T));
-            }
+            detail::syncObjDestroyAndFreeWeak(this->inner, sizeof(T));
         }
 
         this->inner = other.inner;
@@ -456,12 +393,7 @@ namespace sy {
     inline Weak<T>& Weak<T>::operator=(Weak &&other)
     {
         if(this->inner != nullptr) {
-            const bool isExpired = detail::syncObjExpired(this->inner);
-            const bool isLastWeakRef = detail::syncObjRemoveWeakCount(this->inner);
-
-            if(isExpired && isLastWeakRef) {
-                detail::syncObjDestroy(this->inner, sizeof(T));
-            }
+            detail::syncObjDestroyAndFreeWeak(this->inner, sizeof(T));
         }
 
         this->inner = other.inner;
@@ -476,12 +408,7 @@ namespace sy {
             return;
         }
 
-        const bool isExpired = detail::syncObjExpired(this->inner);
-        const bool isLastWeakRef = detail::syncObjRemoveWeakCount(this->inner);
-
-        if(isExpired && isLastWeakRef) {
-            detail::syncObjDestroy(this->inner, sizeof(T));
-        }
+        detail::syncObjDestroyAndFreeWeak(this->inner, sizeof(T));
         
         this->inner = nullptr;
     }
