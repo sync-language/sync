@@ -29,6 +29,8 @@ extern "C" {
 
 SY_API SyOwned sy_owned_init(void* value, const size_t sizeType, const size_t alignType);
 
+SY_API SyOwned sy_owned_init_empty(const size_t sizeType, const size_t alignType);
+
 SY_API SyOwned sy_owned_init_script_typed(void* value, const struct SyType* typeInfo);
 
 SY_API void sy_owned_destroy(SyOwned* self, void (*destruct)(void* ptr), const size_t sizeType);
@@ -56,6 +58,8 @@ SY_API void* sy_owned_get_mut(SyOwned* self);
 SY_API SySyncObject sy_owned_to_queue_obj(const SyOwned* self);
 
 SY_API SyShared sy_shared_init(void* value, const size_t sizeType, const size_t alignType);
+
+SY_API SyShared sy_shared_init_empty(const size_t sizeType, const size_t alignType);
 
 SY_API SyShared sy_shared_init_script_typed(void* value, const struct SyType* typeInfo);
 

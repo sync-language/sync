@@ -136,8 +136,14 @@ void sy::detail::syncObjDestroyAndFreeWeak(void* inner, const size_t sizeType)
 extern "C" {
     SY_API SyOwned sy_owned_init(void* value, const size_t sizeType, const size_t alignType) 
     {
-        SyOwned self = {sy::detail::syncObjCreate(sizeType, alignType)};
+        SyOwned self = sy_owned_init_empty(sizeType, alignType);
         memcpy(sy::detail::syncObjValueMemMut(self.inner), value, sizeType);
+        return self;
+    }
+
+    SY_API SyOwned sy_owned_init_empty(const size_t sizeType, const size_t alignType)
+    {
+        SyOwned self = {sy::detail::syncObjCreate(sizeType, alignType)};
         return self;
     }
 
@@ -223,9 +229,15 @@ extern "C" {
 
     SY_API SyShared sy_shared_init(void* value, const size_t sizeType, const size_t alignType) 
     {
+        SyShared self = sy_shared_init_empty(sizeType, alignType);
+        memcpy(sy::detail::syncObjValueMemMut(self.inner), value, sizeType);
+        return self;
+    }
+
+    SY_API SyShared sy_shared_init_empty(const size_t sizeType, const size_t alignType)
+    {
         SyShared self = {sy::detail::syncObjCreate(sizeType, alignType)};
         sy::detail::syncObjAddSharedCount(self.inner);
-        memcpy(sy::detail::syncObjValueMemMut(self.inner), value, sizeType);
         return self;
     }
 
