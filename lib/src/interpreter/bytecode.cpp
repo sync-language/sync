@@ -32,7 +32,6 @@ const sy::Type *scalarTypeFromTag(ScalarTag tag)
         case ScalarTag::F64: return sy::Type::TYPE_F64;
     }
     unreachable();
-    return nullptr;
 }
 
 size_t operators::CallImmediateNoReturn::bytecodeUsed(uint16_t argCount)

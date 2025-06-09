@@ -12,6 +12,10 @@ namespace sy {
     class Function;
 }
 
+// Supress warning for struct padding due to alignment specifier
+// https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warning-level-4-c4324?view=msvc-170
+#pragma warning(push)
+#pragma warning(disable: 4324)
 class alignas(ALLOC_CACHE_ALIGN) SyncObjVal {
 public:
 
@@ -69,5 +73,6 @@ private:
     std::atomic<bool> isExpired;
     uint16_t alignType;
 };
+#pragma warning(pop)
 
 #endif // SY_THREADING_SYNC_OBJ_VAL_HPP_

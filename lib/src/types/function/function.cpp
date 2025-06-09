@@ -9,6 +9,7 @@
 #include "../../program/program_internal.hpp"
 #include "../../mem/allocator.hpp"
 #include "../../util/unreachable.hpp"
+#include "../../threading/alloc_cache_align.hpp"
 #include <utility>
 #include <cstring>
 #include <new>
@@ -22,8 +23,12 @@ using sy::Type;
     static constexpr size_t ALLOC_ALIGNMENT = 64;
 #endif
 
+// Supress warning for struct padding due to alignment specifier
+// https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warning-level-4-c4324?view=msvc-170
+#pragma warning(push)
+#pragma warning(disable: 4324)
 /// Stores arguments for a C function call.
-class alignas(64) ArgBuf {
+class alignas(ALLOC_CACHE_ALIGN) ArgBuf {
 public:
     ArgBuf() = default;
 
@@ -51,7 +56,7 @@ public:
     void setReturnValue(const void* value, const size_t sizeOfType);
 
 private:
-    static constexpr size_t INVALID_OFFSET = -1;
+    static constexpr size_t INVALID_OFFSET = static_cast<size_t>(-1);
 
     /// May return INVALID_OFFSET, in which case reallocation is required.
     size_t nextOffset(const size_t sizeType, const size_t alignType) const;
@@ -61,7 +66,7 @@ private:
 private:
     uint8_t *values = nullptr;
     const Type **types = nullptr;
-    size_t *offsets;
+    size_t *offsets = nullptr;
     size_t count = 0;
     size_t valuesCapacity = 0;
     size_t typesAndOffsetsCapacity = 0;
@@ -69,9 +74,10 @@ private:
 
     // False sharing must be avoided, since arg buffers are intended to be threadlocal.
 };
+#pragma warning(pop)
 
 /// Stores multiple argument buffers. Useful for having many "active" C calls.
-class alignas(64) ArgBufArray {
+class ArgBufArray {
 public:
     ArgBufArray() = default;
 
@@ -299,7 +305,7 @@ uint32_t ArgBufArray::pushNewBuf()
     return handler;
 }
 
-static thread_local ArgBufArray cArgBufs;
+static thread_local alignas(ALLOC_CACHE_ALIGN) ArgBufArray cArgBufs;
 
 extern "C"
 {
