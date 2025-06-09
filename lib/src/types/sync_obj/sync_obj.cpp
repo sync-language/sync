@@ -548,6 +548,15 @@ TEST_CASE("Shared clone") {
     s2.unlockExclusive();
 }
 
+TEST_CASE("Weak into sync queue") {
+    Owned<int> owned = 9;
+    Weak<int> weak = owned.makeWeak();
+
+    sync_queue::addExclusive(weak);
+    sync_queue::lock();
+    sync_queue::unlock();
+}
+
 TEST_CASE("Weak clone") {
     Owned<int> owned = 9;
     Weak<int> w1 = owned.makeWeak();
