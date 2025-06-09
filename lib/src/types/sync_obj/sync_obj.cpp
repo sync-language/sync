@@ -315,6 +315,57 @@ extern "C" {
         const SySyncObject obj{const_cast<void*>(self->inner), reinterpret_cast<const SySyncObjectVTable*>(&queueVTable)};
         return obj;
     }
+
+    SY_API void sy_weak_lock_exclusive(SyWeak* self)
+    {
+        syncObjLockExclusive(self->inner);
+    }
+
+    SY_API bool sy_weak_try_lock_exclusive(SyWeak* self)
+    {
+        return syncObjTryLockExclusive(self->inner);
+    }
+
+    SY_API void sy_weak_unlock_exclusive(SyWeak* self)
+    {
+        syncObjUnlockExclusive(self->inner);
+    }
+
+    SY_API void sy_weak_lock_shared(const SyWeak* self)
+    {
+        syncObjLockShared(self->inner);
+    }
+
+    SY_API bool sy_weak_try_lock_shared(const SyWeak* self)
+    {
+        return syncObjTryLockShared(self->inner);
+    }
+
+    SY_API void sy_weak_unlock_shared(const SyWeak* self)
+    {
+        syncObjUnlockShared(self->inner);
+    }
+
+    SY_API bool sy_weak_expired(const SyWeak* self)
+    {
+        return asObj(self->inner)->expired();
+    }
+
+    SY_API const void* sy_weak_get(const SyWeak* self)
+    {
+        return asObj(self->inner)->valueMem();
+    }
+
+    SY_API void* sy_weak_get_mut(SyWeak* self)
+    {
+        return asObjMut(self->inner)->valueMemMut();
+    }
+
+    SY_API SySyncObject sy_weak_to_queue_obj(const SyWeak* self)
+    {
+        const SySyncObject obj{ const_cast<void*>(self->inner), reinterpret_cast<const SySyncObjectVTable*>(&queueVTable) };
+        return obj;
+    }
 } // extern "C"
 
 void* sy::detail::syncObjCreate(const size_t sizeType, const size_t alignType) {
@@ -393,7 +444,7 @@ void sy::detail::BaseSyncObj::unlockShared() {
     asObj(this->inner)->unlockShared();
 }
 
-sy::detail::BaseSyncObj::operator sync_queue::SyncObject () const 
+sy::detail::BaseSyncObj::operator sy::sync_queue::SyncObject () const 
 {
     const sy::sync_queue::SyncObject obj{const_cast<void*>(inner), &queueVTable};
     return obj;

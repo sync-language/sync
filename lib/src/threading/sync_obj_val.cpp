@@ -19,19 +19,19 @@ static size_t paddingForType(const size_t alignType)
     return alignType - remainder;
 }
 
-SyncObjVal *SyncObjVal::create(const size_t sizeType, const size_t alignType)
+SyncObjVal *SyncObjVal::create(const size_t inSizeType, const size_t inAlignType)
 {
-    sy_assert(alignType <= UINT16_MAX, "Type alignment too big");
+    sy_assert(inAlignType <= UINT16_MAX, "Type alignment too big");
 
-    const size_t allocAlign = alignType < ALLOC_CACHE_ALIGN ? ALLOC_CACHE_ALIGN : alignType;
-    const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType(alignType) + sizeType;
+    const size_t allocAlign = inAlignType < ALLOC_CACHE_ALIGN ? ALLOC_CACHE_ALIGN : inAlignType;
+    const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType(inAlignType) + inSizeType;
 
     sy::Allocator alloc{};
     uint8_t* mem = alloc.allocAlignedArray<uint8_t>(fullAllocSize, allocAlign).get();
     SyncObjVal* self = reinterpret_cast<SyncObjVal*>(mem);
-    (void)new (self) SyncObjVal;
-    self->alignType = static_cast<uint16_t>(alignType);
-    memset(self->valueMemMut(), 0, sizeType);
+    (void)new (self) SyncObjVal(static_cast<uint16_t>(inAlignType));
+    self->alignType = static_cast<uint16_t>(inAlignType);
+    memset(self->valueMemMut(), 0, inSizeType);
     return self;
 }
 
@@ -56,8 +56,8 @@ uintptr_t SyncObjVal::valueMemLocation() const
     return reinterpret_cast<uintptr_t>(&asBytes[memOffset]);
 }
 
-SyncObjVal::SyncObjVal()
-    : sharedCount(0), weakCount(0), isExpired(false)
+SyncObjVal::SyncObjVal(uint16_t inAlignType)
+    : sharedCount(0), weakCount(0), isExpired(false), alignType(inAlignType)
 {}
 
 void SyncObjVal::addWeakCount()
@@ -82,8 +82,9 @@ bool SyncObjVal::removeSharedCount()
 
 void SyncObjVal::destroyHeldObjectCFunction(void (*destruct)(void *ptr))
 {
+    void* value = this->valueMemMut();
     this->isExpired.store(true);
-    destruct(this->valueMemMut());
+    destruct(value);
 }
 
 void SyncObjVal::destroyHeldObjectScriptFunction(const sy::Type* typeInfo)
@@ -99,10 +100,12 @@ void SyncObjVal::destroyHeldObjectScriptFunction(const sy::Type* typeInfo)
 
 const void *SyncObjVal::valueMem() const
 {
+    sy_assert(this->isExpired.load() == false, "The weak referenced value is expired");
     return reinterpret_cast<const void*>(this->valueMemLocation());
 }
 
 void *SyncObjVal::valueMemMut()
 {
+    sy_assert(this->isExpired.load() == false, "The weak referenced value is expired");
     return reinterpret_cast<void*>(this->valueMemLocation());
 }

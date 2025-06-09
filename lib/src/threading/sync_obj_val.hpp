@@ -16,7 +16,7 @@ class alignas(ALLOC_CACHE_ALIGN) SyncObjVal {
 public:
 
     /// Does not initialize the object's memory itself, only zero initialized.
-    static SyncObjVal* create(const size_t sizeType, const size_t alignType);
+    static SyncObjVal* create(const size_t inSizeType, const size_t inAlignType);
 
     void destroy(const size_t sizeType);
 
@@ -58,7 +58,7 @@ private:
 
     uintptr_t valueMemLocation() const;
 
-    SyncObjVal();
+    SyncObjVal(uint16_t inAlignType);
 
     ~SyncObjVal() = default;
 

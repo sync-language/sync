@@ -85,6 +85,26 @@ SY_API void* sy_shared_get_mut(SyShared* self);
 
 SY_API SySyncObject sy_shared_to_queue_obj(const SyShared* self);
 
+SY_API void sy_weak_lock_exclusive(SyWeak* self);
+
+SY_API bool sy_weak_try_lock_exclusive(SyWeak* self);
+
+SY_API void sy_weak_unlock_exclusive(SyWeak* self);
+
+SY_API void sy_weak_lock_shared(const SyWeak* self);
+
+SY_API bool sy_weak_try_lock_shared(const SyWeak* self);
+
+SY_API void sy_weak_unlock_shared(const SyWeak* self);
+
+SY_API bool sy_weak_expired(const SyWeak* self);
+
+SY_API const void* sy_weak_get(const SyWeak* self);
+
+SY_API void* sy_weak_get_mut(SyWeak* self);
+
+SY_API SySyncObject sy_weak_to_queue_obj(const SyWeak* self);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
