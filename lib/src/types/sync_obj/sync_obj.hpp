@@ -23,17 +23,17 @@ namespace sy {
 
             void unlockExclusive();
 
-            void lockShared();
+            void lockShared() const;
 
-            bool tryLockShared();
+            bool tryLockShared() const;
 
-            void unlockShared();
+            void unlockShared() const;
 
             operator sync_queue::SyncObject () const;
         protected:
             BaseSyncObj(void* inInner) : inner(inInner) {}
 
-            void checkNotExpired();
+            void checkNotExpired() const;
 
             void* inner;
         };
@@ -138,7 +138,7 @@ namespace sy {
         /// sy::Weak<int> weak = owned->makeWeak();
         /// // ... Stuff happens
         /// weak.lockExclusive();
-        /// if(weak.expired()) {
+        /// if(!weak.expired()) {
         ///     *weak += 5;
         /// }
         /// weak.unlockExclusive();

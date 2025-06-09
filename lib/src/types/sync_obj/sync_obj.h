@@ -85,6 +85,8 @@ SY_API void* sy_shared_get_mut(SyShared* self);
 
 SY_API SySyncObject sy_shared_to_queue_obj(const SyShared* self);
 
+SY_API SyWeak sy_weak_clone(const SyWeak* self);
+
 SY_API void sy_weak_lock_exclusive(SyWeak* self);
 
 SY_API bool sy_weak_try_lock_exclusive(SyWeak* self);

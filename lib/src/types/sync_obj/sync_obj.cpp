@@ -316,6 +316,13 @@ extern "C" {
         return obj;
     }
 
+    SY_API SyWeak sy_weak_clone(const SyWeak* self)
+    {
+        SyWeak weak = *self; // make a copy
+        sy::detail::syncObjAddWeakCount(weak.inner);
+        return weak;
+    }
+
     SY_API void sy_weak_lock_exclusive(SyWeak* self)
     {
         syncObjLockExclusive(self->inner);
@@ -432,15 +439,15 @@ void sy::detail::BaseSyncObj::unlockExclusive() {
     asObjMut(this->inner)->unlockExclusive();
 }
 
-void sy::detail::BaseSyncObj::lockShared() {
+void sy::detail::BaseSyncObj::lockShared() const {
     asObj(this->inner)->lockShared();
 }
 
-bool sy::detail::BaseSyncObj::tryLockShared() {
+bool sy::detail::BaseSyncObj::tryLockShared() const {
     return asObj(this->inner)->tryLockShared();
 }
 
-void sy::detail::BaseSyncObj::unlockShared() {
+void sy::detail::BaseSyncObj::unlockShared() const {
     asObj(this->inner)->unlockShared();
 }
 
@@ -450,7 +457,7 @@ sy::detail::BaseSyncObj::operator sy::sync_queue::SyncObject () const
     return obj;
 }
 
-void sy::detail::BaseSyncObj::checkNotExpired()
+void sy::detail::BaseSyncObj::checkNotExpired() const
 {
     sy_assert(!syncObjExpired(this->inner), "Held sync object is expired");
 }
@@ -472,6 +479,86 @@ TEST_CASE("Owned lock normally") {
     Owned<int> owned = 5;
     owned.lockExclusive();
     owned.unlockExclusive();
+}
+
+TEST_CASE("Owned make weak") {
+    Owned<int> owned = 5;
+    Weak<int> weak = owned.makeWeak();
+
+    weak.lockExclusive();
+    CHECK_FALSE(weak.expired());
+    CHECK_EQ(*weak, 5);
+    CHECK_EQ(weak.get(), owned.get());
+    weak.unlockExclusive();
+}
+
+TEST_CASE("Owned make weak, then expire") {
+    Owned<int>* owned = new Owned<int>(5);
+    Weak<int> weak = owned->makeWeak();
+    delete owned;
+
+    weak.lockExclusive();
+    CHECK(weak.expired());
+    weak.unlockExclusive();
+}
+
+TEST_CASE("Shared into sync queue") {
+    Shared<int> shared = 5;
+    sync_queue::addExclusive(shared);
+    sync_queue::lock();
+    sync_queue::unlock();
+}
+
+TEST_CASE("Shared lock normally") {
+    Shared<int> shared = 5;
+    shared.lockExclusive();
+    shared.unlockExclusive();
+}
+
+TEST_CASE("Shared make weak") {
+    Shared<int> shared = 5;
+    Weak<int> weak = shared.makeWeak();
+
+    weak.lockExclusive();
+    CHECK_FALSE(weak.expired());
+    CHECK_EQ(*weak, 5);
+    CHECK_EQ(weak.get(), shared.get());
+    weak.unlockExclusive();
+}
+
+TEST_CASE("Shared make weak, then expire") {
+    Shared<int>* shared = new Shared<int>(5);
+    Weak<int> weak = shared->makeWeak();
+    delete shared;
+
+    weak.lockExclusive();
+    CHECK(weak.expired());
+    weak.unlockExclusive();
+}
+
+TEST_CASE("Shared clone") {
+    Shared<int> s1 = 9;
+    Shared<int> s2 = s1;
+    
+    s2.lockExclusive();
+
+    CHECK_EQ(*s2, 9);
+    CHECK_EQ(s1.get(), s2.get());
+
+    s2.unlockExclusive();
+}
+
+TEST_CASE("Weak clone") {
+    Owned<int> owned = 9;
+    Weak<int> w1 = owned.makeWeak();
+    Weak<int> w2 = w1;
+    
+    w2.lockExclusive();
+
+    CHECK_EQ(*w2, 9);
+    CHECK_EQ(w1.get(), w2.get());
+
+    w2.unlockExclusive();
 }
 
 #endif
