@@ -11,11 +11,18 @@ namespace sy {
     /// Interface for C++ specific allocators
     class IAllocator {
         friend class Allocator;
+    public:
+        virtual ~IAllocator() {}
+
+        Allocator asAllocator();
     protected:
-        /// NOTE when overriding, the `this` needs to be free'd, or else a memory leak will occur.
-        virtual ~IAllocator() {};
         virtual void* alloc(size_t len, size_t align) = 0;
+
         virtual void free(void* buf, size_t len, size_t align) = 0;
+    
+    private:
+        static void* allocImpl(IAllocator* self, size_t len, size_t align);
+        static void freeImpl(IAllocator* self, void* buf, size_t len, size_t align);
     };
 
     namespace detail {
@@ -35,7 +42,7 @@ namespace sy {
         };
 
         template<typename T>
-        class Result {
+        class Result final {
             friend class Allocator;
         public:
             Result() : _mem(nullptr) {}
@@ -51,9 +58,8 @@ namespace sy {
             T* _mem;
         };
 
+        /// Default initializes to the global allocator.
         Allocator();
-
-        //Allocator(c::SyAllocator&& ownedAllocator);
 
         // Does nothing
         ~Allocator() = default;
@@ -63,11 +69,6 @@ namespace sy {
 
         Allocator(Allocator&& other) = default;
         Allocator& operator=(Allocator&& other) = default;
-
-        template<typename T, typename ...AllocatorConstructArgs>
-        static Allocator initWith(AllocatorConstructArgs&&... args) {
-            return Allocator(new T(args...));
-        }
 
         /// Allocate memory for a single instance of T. Does not call constructor.
         template<typename T>
@@ -127,16 +128,11 @@ namespace sy {
 
         void* allocImpl(size_t len, size_t align);
 
-        void freeImpl(void* buf, size_t len, size_t align);
-
-        // Allocator(IAllocator* ownedAllocator);
-
-        // static void* cppAllocFn(void* self, size_t len, size_t align);
-        // static void cppFreeFn(void* self, void* buf, size_t len, size_t align);
-
-        // static VTable cppVTable;    
+        void freeImpl(void* buf, size_t len, size_t align);  
 
     private:
+
+        friend class IAllocator;
 
         void* ptr;
         const VTable* vtable;
