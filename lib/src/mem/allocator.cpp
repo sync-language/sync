@@ -1,21 +1,25 @@
-#include <cstdlib>
+#include "allocator.h"
+#include "allocator.hpp"
+#include "../util/assert.hpp"
 #include "os_mem.hpp"
+#include <cstdlib>
 #include <utility>
 #include <iostream>
 
-extern "C" {
-    #include "allocator.h"
+static_assert(sizeof(sy::Allocator) == sizeof(SyAllocator));
+static_assert(alignof(sy::Allocator) == alignof(SyAllocator));
+static_assert(sizeof(sy::Allocator::VTable) == sizeof(SyAllocatorVTable));
+static_assert(alignof(sy::Allocator::VTable) == alignof(SyAllocatorVTable));
+static_assert(offsetof(sy::Allocator::VTable, allocFn) == offsetof(SyAllocatorVTable, allocFn));
+static_assert(offsetof(sy::Allocator::VTable, freeFn) == offsetof(SyAllocatorVTable, freeFn));
 
+extern "C" {
     SY_API void* sy_allocator_alloc(SyAllocator* self, size_t len, size_t align) {
         return self->vtable->allocFn(self->ptr, len, align);
     }
 
     SY_API void sy_allocator_free(SyAllocator* self, void* buf, size_t len, size_t align) {
         self->vtable->freeFn(self->ptr, buf, len, align);
-    }
-
-    SY_API void sy_allocator_destructor(SyAllocator *self) {
-        self->vtable->destructorFn(self->ptr);
     }
 
     static void* default_alloc(void* self, size_t len, size_t align) {
@@ -30,89 +34,63 @@ extern "C" {
         aligned_free(buf);
     }
 
-    static void default_destructor(void* self) {
-        (void)self;
-    }
-
 #ifndef SY_CUSTOM_DEFAULT_ALLOCATOR
-    static SyAllocatorVTable defaultVTable = {&default_alloc, &default_free, &default_destructor};
+    static SyAllocatorVTable defaultVTable = {&default_alloc, &default_free};
     static SyAllocator defaultAllocator = {nullptr, &defaultVTable};
     SyAllocator* const sy_defaultAllocator = &defaultAllocator;
 #endif
 }
-
-#include "allocator.hpp"
-#include "../util/assert.hpp"
 
 void sy::detail::allocator_result_ensure_non_null(void *ptr) {
     sy_assert(ptr != nullptr, "Expected non-null pointer");
 }
 
 
-sy::Allocator::Allocator() : _allocator(*sy_defaultAllocator) {}
-
-sy::Allocator::Allocator(sy::IAllocator* ownedAllocator) {
-    this->_allocator.ptr = reinterpret_cast<void*>(ownedAllocator);
-    this->_allocator.vtable = &cppVTable;
-}
-
-sy::Allocator::Allocator(c::SyAllocator &&ownedAllocator) : _allocator(std::move(ownedAllocator)) 
-{}
-
-sy::Allocator::~Allocator()
+sy::Allocator::Allocator() 
 {
-    if(this->_allocator.ptr == nullptr) {
-        return;
-    }
+    static_assert(offsetof(Allocator, ptr) == offsetof(SyAllocator, ptr));
+    static_assert(offsetof(Allocator, vtable) == offsetof(SyAllocator, vtable));
 
-    sy_allocator_destructor(&this->_allocator);
-    this->_allocator.ptr = nullptr;
-    this->_allocator.vtable = nullptr;
+    *this = *reinterpret_cast<Allocator*>(sy_defaultAllocator);
 }
 
-sy::Allocator::Allocator(Allocator &&other) : _allocator(other._allocator)
+// sy::Allocator::Allocator(sy::IAllocator *ownedAllocator)
+// {
+//     this->_allocator.ptr = reinterpret_cast<void*>(ownedAllocator);
+//     this->_allocator.vtable = &cppVTable;
+// }
+
+// sy::Allocator::Allocator(c::SyAllocator &&ownedAllocator) : _allocator(std::move(ownedAllocator)) 
+// {}
+
+void* sy::Allocator::allocImpl(size_t len, size_t align)
 {
-    other._allocator.ptr = nullptr;
-    other._allocator.vtable = nullptr;
+    return sy_allocator_alloc(reinterpret_cast<SyAllocator*>(this), len, align);
 }
 
-sy::Allocator &sy::Allocator::operator=(Allocator &&other)
+void sy::Allocator::freeImpl(void *buf, size_t len, size_t align)
 {
-    if(this->_allocator.ptr != nullptr) {
-        sy_allocator_destructor(&this->_allocator);
-    }
-
-    this->_allocator = other._allocator;
-    other._allocator.ptr = nullptr;
-    other._allocator.vtable = nullptr;
-    return *this;
+    sy_allocator_free(reinterpret_cast<SyAllocator*>(this), buf, len, align);
 }
 
-void* sy::Allocator::cppAllocFn(void* self, size_t len, size_t align) {
-    IAllocator* ialloc = reinterpret_cast<IAllocator*>(self);
-    return ialloc->alloc(len, align);
-}
+// void* sy::Allocator::cppAllocFn(void* self, size_t len, size_t align) {
+//     IAllocator* ialloc = reinterpret_cast<IAllocator*>(self);
+//     return ialloc->alloc(len, align);
+// }
 
-void sy::Allocator::cppFreeFn(void *self, void *buf, size_t len, size_t align)
-{
-    IAllocator* ialloc = reinterpret_cast<IAllocator*>(self);
-    ialloc->free(buf, len, align);
-}
+// void sy::Allocator::cppFreeFn(void *self, void *buf, size_t len, size_t align)
+// {
+//     IAllocator* ialloc = reinterpret_cast<IAllocator*>(self);
+//     ialloc->free(buf, len, align);
+// }
 
-void sy::Allocator::cppDestructorFn(void *self)
-{
-    IAllocator* ialloc = reinterpret_cast<IAllocator*>(self);
-    ialloc->~IAllocator();
-}
-
-sy::c::SyAllocatorVTable sy::Allocator::cppVTable = {&cppAllocFn, &cppFreeFn, &cppDestructorFn};
+// static const sy::Allocator::VTable cppVTable = {&cppAllocFn, &cppFreeFn};
 
 #ifdef SYNC_LIB_TEST
 
 #include "../doctest.h"
 
 using namespace sy;
-using namespace sy::c;
 
 TEST_CASE("C default alloc/free object") {
     Allocator a;
@@ -167,17 +145,12 @@ static void* customAlloc(CustomCAllocator* self, size_t len, size_t align) {
 static void customFree(CustomCAllocator* self, void* buf, size_t len, size_t align) {
     sy_allocator_free(sy_defaultAllocator, buf, len, align);
     self->freed = true;
-}
-
-static void customDestructor(CustomCAllocator* self) {
-    CHECK(self->freed);
     self->ptr = nullptr;
 }
 
 static SyAllocatorVTable customVTable = {
     (sy_allocator_alloc_fn)&customAlloc, 
-    (sy_allocator_free_fn)&customFree, 
-    (sy_allocator_destructor_fn)&customDestructor
+    (sy_allocator_free_fn)&customFree
 };
 
 TEST_CASE("C custom allocator") {
@@ -190,12 +163,8 @@ TEST_CASE("C custom allocator") {
     *p = 10;
     sy_allocator_free(&a, (void*)p, sizeof(int), alignof(int));
     
-    CHECK_NE(obj.ptr, nullptr);
-    CHECK(obj.freed);
-
-    sy_allocator_destructor(&a);
-    
     CHECK_EQ(obj.ptr, nullptr);
+    CHECK(obj.freed);
 }
 
 TEST_CASE("C++ default alloc/free object") {
@@ -268,30 +237,30 @@ public:
     int some = 0;
 };
 
-TEST_CASE("C++ custom allocator") {
-    Allocator a = Allocator::initWith<CustomCppAllocator>();
-    CustomCppAllocator* ref = reinterpret_cast<CustomCppAllocator*>(a.cAllocator().ptr);
+// TEST_CASE("C++ custom allocator") {
+//     Allocator a = Allocator::initWith<CustomCppAllocator>();
+//     CustomCppAllocator* ref = reinterpret_cast<CustomCppAllocator*>(a.cAllocator().ptr);
 
-    CHECK_EQ(ref->ptr, nullptr);
-    CHECK_EQ(ref->freed, false);
-    CHECK_EQ(ref->some, 0);
+//     CHECK_EQ(ref->ptr, nullptr);
+//     CHECK_EQ(ref->freed, false);
+//     CHECK_EQ(ref->some, 0);
     
-    int* p = a.allocObject<int>().get();
-    CHECK_NE(p, nullptr);
-    CHECK_NE(ref->ptr, nullptr);
-    *p = 10;
-    a.freeObject(p);
-    CHECK_EQ(p, nullptr);  
-    CHECK(ref->freed);
-}
+//     int* p = a.allocObject<int>().get();
+//     CHECK_NE(p, nullptr);
+//     CHECK_NE(ref->ptr, nullptr);
+//     *p = 10;
+//     a.freeObject(p);
+//     CHECK_EQ(p, nullptr);  
+//     CHECK(ref->freed);
+// }
 
-TEST_CASE("C++ custom allocator with constructor args") {
-    Allocator a = Allocator::initWith<CustomCppAllocator>(5);
-    CustomCppAllocator* ref = reinterpret_cast<CustomCppAllocator*>(a.cAllocator().ptr);
+// TEST_CASE("C++ custom allocator with constructor args") {
+//     Allocator a = Allocator::initWith<CustomCppAllocator>(5);
+//     CustomCppAllocator* ref = reinterpret_cast<CustomCppAllocator*>(a.cAllocator().ptr);
 
-    CHECK_EQ(ref->ptr, nullptr);
-    CHECK_EQ(ref->freed, false);
-    CHECK_EQ(ref->some, 5);
-}
+//     CHECK_EQ(ref->ptr, nullptr);
+//     CHECK_EQ(ref->freed, false);
+//     CHECK_EQ(ref->some, 5);
+// }
 
 #endif // SYNC_LIB_TEST

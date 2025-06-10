@@ -6,25 +6,6 @@
 #include "../core.h"
 
 namespace sy {
-    namespace c {
-        #include "allocator.h"
-
-        using SyAllocator = SyAllocator;
-        using SyAllocatorVTable = SyAllocatorVTable;
-        using sy_allocator_alloc_fn = sy_allocator_alloc_fn;
-        using sy_allocator_free_fn = sy_allocator_free_fn;
-        using sy_allocator_destructor_fn = sy_allocator_destructor_fn;
-
-        // What the flip
-        extern "C" {
-            SY_API void* sy_allocator_alloc(SyAllocator* self, size_t len, size_t align);
-                        /// @param `buf` Non-null. 
-            SY_API void sy_allocator_free(SyAllocator* self, void* buf, size_t len, size_t align);
-
-            SY_API void sy_allocator_destructor(SyAllocator* self);
-        }
-    }
-
     class Allocator;
 
     /// Interface for C++ specific allocators
@@ -45,6 +26,14 @@ namespace sy {
     class SY_API Allocator final {
     public:
 
+        struct VTable {
+            using alloc_fn = void*(*)(void* self, size_t len, size_t align);
+            using free_fn = void(*)(void* self, void* buf, size_t len, size_t align);
+
+            alloc_fn    allocFn;
+            free_fn     freeFn;
+        };
+
         template<typename T>
         class Result {
             friend class Allocator;
@@ -64,15 +53,16 @@ namespace sy {
 
         Allocator();
 
-        Allocator(c::SyAllocator&& ownedAllocator);
+        //Allocator(c::SyAllocator&& ownedAllocator);
 
-        ~Allocator();
+        // Does nothing
+        ~Allocator() = default;
 
-        Allocator(const Allocator&) = delete;
-        Allocator& operator=(const Allocator&) = delete;
+        Allocator(const Allocator&) = default;
+        Allocator& operator=(const Allocator&) = default;
 
-        Allocator(Allocator&& other);
-        Allocator& operator=(Allocator&& other);
+        Allocator(Allocator&& other) = default;
+        Allocator& operator=(Allocator&& other) = default;
 
         template<typename T, typename ...AllocatorConstructArgs>
         static Allocator initWith(AllocatorConstructArgs&&... args) {
@@ -83,13 +73,13 @@ namespace sy {
         template<typename T>
         Result<T> allocObject() {
             return reinterpret_cast<T*>(
-                c::sy_allocator_alloc(&this->_allocator, sizeof(T), alignof(T)));      
+                this->allocImpl(sizeof(T), alignof(T)));      
         }
 
         template<typename T>
         Result<T> allocArray(size_t len) {
             return reinterpret_cast<T*>(
-                c::sy_allocator_alloc(&this->_allocator, sizeof(T) * len, alignof(T)));    
+                this->allocImpl(sizeof(T) * len, alignof(T)));    
         }
 
         /// Allocate memory for a single instance of T. Does not call constructor.
@@ -97,58 +87,59 @@ namespace sy {
         Result<T> allocAlignedObject(size_t align) {
             const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
             return reinterpret_cast<T*>(
-                c::sy_allocator_alloc(&this->_allocator, sizeof(T), actualAlign));      
+                this->allocImpl(sizeof(T), actualAlign));      
         }
 
         template<typename T>
         Result<T> allocAlignedArray(size_t len, size_t align) {
             const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
             return reinterpret_cast<T*>(
-                c::sy_allocator_alloc(&this->_allocator, sizeof(T) * len, actualAlign));    
+                this->allocImpl(sizeof(T) * len, actualAlign));    
         }
 
         template<typename T>
         void freeObject(T*& obj) {
-            c::sy_allocator_free(&this->_allocator, obj, sizeof(T), alignof(T));
+            this->freeImpl(obj, sizeof(T), alignof(T));
             obj = nullptr;
         }
 
         template<typename T>
         void freeArray(T*& obj, size_t len) {
-            c::sy_allocator_free(&this->_allocator, obj, sizeof(T) * len, alignof(T));
+            this->freeImpl(obj, sizeof(T) * len, alignof(T));
             obj = nullptr;
         }
 
         template<typename T>
         void freeAlignedObject(T*& obj, size_t align) {
             const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
-            c::sy_allocator_free(&this->_allocator, obj, sizeof(T), actualAlign);
+            this->freeImpl(obj, sizeof(T), actualAlign);
             obj = nullptr;
         }
 
         template<typename T>
         void freeAlignedArray(T*& obj, size_t len, size_t align) {
             const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
-            c::sy_allocator_free(&this->_allocator, obj, sizeof(T) * len, actualAlign);
+            this->freeImpl(obj, sizeof(T) * len, actualAlign);
             obj = nullptr;
         }
 
-        c::SyAllocator& cAllocator() { return this->_allocator; }
+    private:
+
+        void* allocImpl(size_t len, size_t align);
+
+        void freeImpl(void* buf, size_t len, size_t align);
+
+        // Allocator(IAllocator* ownedAllocator);
+
+        // static void* cppAllocFn(void* self, size_t len, size_t align);
+        // static void cppFreeFn(void* self, void* buf, size_t len, size_t align);
+
+        // static VTable cppVTable;    
 
     private:
 
-        Allocator(IAllocator* ownedAllocator);
-
-        static void* cppAllocFn(void* self, size_t len, size_t align);
-        static void cppFreeFn(void* self, void* buf, size_t len, size_t align);
-        static void cppDestructorFn(void* self);
-
-        static c::SyAllocatorVTable cppVTable;    
-
-    private:
-
-        c::SyAllocator _allocator;
-        
+        void* ptr;
+        const VTable* vtable;
     };
 }
 
