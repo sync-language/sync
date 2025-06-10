@@ -9,7 +9,7 @@ namespace sy {
     class Allocator;
 
     /// Interface for C++ specific allocators
-    class IAllocator {
+    class SY_API IAllocator {
         friend class Allocator;
     public:
         virtual ~IAllocator() {}
@@ -24,10 +24,6 @@ namespace sy {
         static void* allocImpl(IAllocator* self, size_t len, size_t align);
         static void freeImpl(IAllocator* self, void* buf, size_t len, size_t align);
     };
-
-    namespace detail {
-        void allocator_result_ensure_non_null(void* ptr);
-    }
 
     /// Can be bitcast to `c::SyAllocator`.
     class SY_API Allocator final {
@@ -49,7 +45,7 @@ namespace sy {
             
             T* get() const {
                 T* mem = const_cast<T*>(this->_mem);
-                detail::allocator_result_ensure_non_null(reinterpret_cast<void*>(mem));
+                Allocator::debugAssertNonNull(reinterpret_cast<void*>(mem));
                 return mem;
             }
         private:
@@ -128,11 +124,15 @@ namespace sy {
 
         void* allocImpl(size_t len, size_t align);
 
-        void freeImpl(void* buf, size_t len, size_t align);  
+        void freeImpl(void* buf, size_t len, size_t align);
+
+        static void debugAssertNonNull(void* ptr);
 
     private:
 
         friend class IAllocator;
+        template<typename T>
+        friend class Allocator::Result;
 
         void* ptr;
         const VTable* vtable;

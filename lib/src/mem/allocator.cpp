@@ -63,10 +63,6 @@ void sy::IAllocator::freeImpl(IAllocator *self, void *buf, size_t len, size_t al
     self->free(buf, len, align);
 }
 
-void sy::detail::allocator_result_ensure_non_null(void *ptr) {
-    sy_assert(ptr != nullptr, "Expected non-null pointer");
-}
-
 sy::Allocator::Allocator() 
 {
     static_assert(offsetof(Allocator, ptr) == offsetof(SyAllocator, ptr));
@@ -83,6 +79,11 @@ void* sy::Allocator::allocImpl(size_t len, size_t align)
 void sy::Allocator::freeImpl(void *buf, size_t len, size_t align)
 {
     sy_allocator_free(reinterpret_cast<SyAllocator*>(this), buf, len, align);
+}
+
+void sy::Allocator::debugAssertNonNull(void *ptr)
+{
+    sy_assert(ptr != nullptr, "Expected non-null pointer");
 }
 
 #ifdef SYNC_LIB_TEST
