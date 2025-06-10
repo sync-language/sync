@@ -36,6 +36,11 @@ namespace sy {
                 uint8_t bits;
             };
 
+            struct Reference {
+                bool        isMutable;
+                const Type* childType;
+            };
+
             struct Function {
                 /// Can be null, meaning has no return type.
                 const Type*         retType;
@@ -43,12 +48,7 @@ namespace sy {
                 const Type* const*  argTypes;
                 /// Amount of arguments. Is the length of `argTypes`.
                 uint16_t            argLen;
-            };
-            
-            struct Reference {
-                bool        isMutable;
-                const Type* childType;
-            };
+            };  
 
             void*       _boolInfo;
             Int         intInfo;
