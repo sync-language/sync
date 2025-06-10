@@ -25,12 +25,15 @@ namespace sy {
     public:
 
         enum class CallType : int32_t {
-            C = c::SyFunctionType::SyFunctionTypeC,
-            Script = c::SyFunctionType::SyFunctionTypeScript,            
+            C = 0,
+            Script = 1,            
         };
 
         struct CallArgs {
-            c::SyFunctionCallArgs info;
+            const Function* func;
+            uint16_t        pushedCount;
+            /// Internal use only.
+            uint16_t        _offset;
 
             /// Pushs an argument onto the the script or C stack for the next function call.
             /// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
@@ -73,7 +76,7 @@ namespace sy {
 
         private:
 
-            CHandler(uint32_t index) : inner{index} {}
+            CHandler(uint32_t index) : handle(index) {}
             
             void* getArgMem(size_t argIndex);
             const Type* getArgType(size_t argIndex);
@@ -81,7 +84,7 @@ namespace sy {
             void* getRetDst();
             void validateReturnDstAligned(void* retDst, size_t alignType);
 
-            c::SyCFunctionHandler inner;
+            uint32_t handle;
         };
 
         using c_function_t = ProgramRuntimeError(*)(CHandler);

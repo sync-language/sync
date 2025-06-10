@@ -2,6 +2,8 @@
 #include "string_slice.hpp"
 #include "../../util/assert.hpp"
 
+using sy::StringSlice;
+
 extern "C" {
     bool sliceValidUtf8(const sy::StringSlice slice) {
         const char* str = slice.data();
@@ -61,13 +63,17 @@ extern "C" {
     }
 }
 
-sy::StringSlice::StringSlice(const char *ptr, size_t len)
-    : _inner{ptr, len}
+sy::StringSlice::StringSlice(const char *inPtr, size_t inLen)
+    : _ptr(inPtr), _len(inLen)
 {
+    // Annoying private member stuff
+    static_assert(offsetof(StringSlice, _ptr) == offsetof(SyStringSlice, ptr));
+    static_assert(offsetof(StringSlice, _len) == offsetof(SyStringSlice, len));
+
     sy_assert(sliceValidUtf8(*this), "Invalid utf8 string slice");
 }
 
 char sy::StringSlice::operator[](const size_t index) const {
-    sy_assert(index < this->_inner.len, "Index out of bounds");
-    return this->_inner.ptr[index];
+    sy_assert(index < this->_len, "Index out of bounds");
+    return this->_ptr[index];
 }
