@@ -87,6 +87,10 @@ private:
 };
 #pragma warning(pop)
 
+// Supress warning for struct padding due to alignment specifier
+// https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warning-level-4-c4324?view=msvc-170
+#pragma warning(push)
+#pragma warning(disable: 4324)
 /// Stores multiple argument buffers. Useful for having many "active" C calls.
 class ArgBufArray {
 public:
@@ -110,6 +114,7 @@ private:
     // Use uint32_t not for memory savings within this class (is 64 byte aligned anyways),
     // but for memory savings in SyCFunctionHandler
 };
+#pragma warning(pop)
 
 ArgBuf::~ArgBuf()
 {
@@ -316,7 +321,7 @@ uint32_t ArgBufArray::pushNewBuf()
     return handler;
 }
 
-static thread_local alignas(ALLOC_CACHE_ALIGN) ArgBufArray cArgBufs;
+static thread_local ArgBufArray cArgBufs;
 
 extern "C"
 {

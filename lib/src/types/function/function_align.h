@@ -55,4 +55,4 @@ constexpr uint16_t SY_FUNCTION_MIN_ALIGN = sizeof(void*);
 
 #endif // defined X86_64 or ARM64
 
-#endif SY_TYPES_FUNCTION_FUNCTION_ALIGN_H_
+#endif // SY_TYPES_FUNCTION_FUNCTION_ALIGN_H_
