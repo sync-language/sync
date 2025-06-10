@@ -4,21 +4,12 @@
 #define SY_TYPES_FUNCTION_FUNCTION_HPP_
 
 #include "../../core.h"
+#include "function_align.h"
 #include "../string/string_slice.hpp"
 #include <utility>
 
 namespace sy {
-    namespace c {
-        #include "function.h"
-
-        using SyFunctionType = SyFunctionType;
-        using SyFunctionCallArgs = SyFunctionCallArgs;
-        using SyCFunctionHandler = SyCFunctionHandler;
-        using sy_c_function_t = sy_c_function_t;
-        using SyType = SyType;
-    }
-
-    struct Type;
+    class Type;
     class ProgramRuntimeError;
 
     class Function {

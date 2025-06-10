@@ -9,47 +9,53 @@
 
 namespace sy {
     class Function;
-
-    namespace c {
-        #include "type_info.h"
-
-        using SyTypeTag = SyTypeTag;
-        using SyTypeInfoInt = SyTypeInfoInt;
-        using SyTypeInfoFloat = SyTypeInfoFloat;
-        using SyTypeInfoReference = SyTypeInfoReference;
-        using SyTypeInfoFunction = SyTypeInfoFunction;
-        using SyType = SyType;
-    }
-
-    struct SY_API Type {
+    
+    class SY_API Type {
+    public:
         enum class Tag : int32_t {
-            Bool = c::SyTypeTag::SyTypeTagBool,
-            Int = c::SyTypeTag::SyTypeTagInt,
-            Float = c::SyTypeTag::SyTypeTagFloat,
+            Bool = 0,
+            Int = 1,
+            Float = 2,
             //Char = c::SyTypeTag::SyTypeTagChar,
-            StringSlice = c::SyTypeTag::SyTypeTagStringSlice,
-            String = c::SyTypeTag::SyTypeTagString,
-            Reference = c::SyTypeTag::SyTypeTagReference,
-            Function = c::SyTypeTag::SyTypeTagFunction,
+            String = 4,
+            StringSlice = 5,
+            Reference = 7,
+            Function = 17,
         };
 
         union SY_API ExtraInfo {
-            using _unused = void*;
-            using Int = c::SyTypeInfoInt;
-            using Float = c::SyTypeInfoFloat;
-            using Function = c::SyTypeInfoFunction;
+            struct Int {
+                /// If `true`, this is a signed integer, otherwise unsigned.
+                bool    isSigned;
+                /// Must be one of `8`, `16`, `32`, or `64`.
+                uint8_t bits;
+            };
+
+            struct Float {
+                /// Must be `32` or `64`.
+                uint8_t bits;
+            };
+
+            struct Function {
+                /// Can be null, meaning has no return type.
+                const Type*         retType;
+                /// Can be null, meaning takes no arguments.
+                const Type* const*  argTypes;
+                /// Amount of arguments. Is the length of `argTypes`.
+                uint16_t            argLen;
+            };
             
             struct Reference {
                 bool        isMutable;
                 const Type* childType;
             };
 
-            _unused     _boolInfo;
+            void*       _boolInfo;
             Int         intInfo;
             Float       floatInfo;
             //_unused     charInfo;
-            _unused     _strinSliceInfo;
-            _unused     _stringInfo;
+            void*       _strinSliceInfo;
+            void*       _stringInfo;
             Reference   referenceInfo;
             Function    functionInfo;
 
@@ -60,15 +66,15 @@ namespace sy {
             constexpr ExtraInfo(Function inFunctionInfo) : functionInfo(inFunctionInfo) {}
         };
 
-        size_t      sizeType;
+        size_t          sizeType;
         /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported. 
-        uint16_t    alignType;
-        StringSlice name;
+        uint16_t        alignType;
+        StringSlice     name;
         const Function* optionalDestructor = nullptr;
-        Tag         tag;
-        ExtraInfo   extra;
-        const Type* constRef;
-        const Type* mutRef;
+        Tag             tag;
+        ExtraInfo       extra;
+        const Type*     constRef;
+        const Type*     mutRef;
 
         template<typename T>
         static const Type* makeType(

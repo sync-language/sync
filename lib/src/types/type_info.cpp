@@ -1,8 +1,8 @@
 #include "type_info.h"
 #include "function/function.h"
 #include "type_info.hpp"
-#include "../util/assert.hpp"
 #include "function/function.hpp"
+#include "../util/assert.hpp"
 #include "string/string_slice.hpp"
 #include "string/string.hpp"
 #include "../program/program.hpp"
@@ -12,13 +12,22 @@ using sy::Function;
 using sy::StringSlice;
 using sy::String;
 
-static_assert(sizeof(sy::Type) == sizeof(sy::c::SyType));
-static_assert(alignof(sy::Type) == alignof(sy::c::SyType));
+
 static_assert(sizeof(float) == 4); // f32
 static_assert(sizeof(double) == 8); // f64
 
 static_assert(sizeof(Type::ExtraInfo::Reference) == sizeof(SyTypeInfoReference));
 static_assert(alignof(Type::ExtraInfo::Reference) == alignof(SyTypeInfoReference));
+
+static_assert(sizeof(Type::Tag) == sizeof(SyTypeTag));
+static_assert(alignof(Type::Tag) == alignof(SyTypeTag));
+static_assert(static_cast<int>(Type::Tag::Bool) == static_cast<int>(SyTypeTagBool));
+static_assert(static_cast<int>(Type::Tag::Int) == static_cast<int>(SyTypeTagInt));
+static_assert(static_cast<int>(Type::Tag::Float) == static_cast<int>(SyTypeTagFloat));
+static_assert(static_cast<int>(Type::Tag::StringSlice) == static_cast<int>(SyTypeTagStringSlice));
+static_assert(static_cast<int>(Type::Tag::String) == static_cast<int>(SyTypeTagString));
+static_assert(static_cast<int>(Type::Tag::Reference) == static_cast<int>(SyTypeTagReference));
+static_assert(static_cast<int>(Type::Tag::Function) == static_cast<int>(SyTypeTagFunction));
 
 namespace detail {
     template<typename T>
@@ -84,8 +93,6 @@ const Type* const sy::Type::TYPE_STRING =
 #pragma endregion
 
 extern "C" {
-    using sy::c::SyType;
-
     SY_API const SyType* SY_TYPE_BOOL = reinterpret_cast<const SyType*>(Type::TYPE_BOOL);
 
     SY_API const SyType* SY_TYPE_I8     = reinterpret_cast<const SyType*>(Type::TYPE_I8);

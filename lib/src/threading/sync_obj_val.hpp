@@ -8,7 +8,7 @@
 #include <shared_mutex>
 
 namespace sy {
-    struct Type;
+    class Type;
     class Function;
 }
 
