@@ -12,8 +12,8 @@ typedef struct SyProgram {
 } SyProgram;
 
 typedef enum SyProgramRuntimeErrorKind {
-    syProgramRuntimeErrorKindNone = 0,
-    syProgramRuntimeErrorKindStackOverflow = 1,
+    SyProgramRuntimeErrorKindNone = 0,
+    SyProgramRuntimeErrorKindStackOverflow = 1,
 
     _SY_PROGRAM_RUNTIME_ERROR_KIND_MAX_VALUE = 0x7FFFFFFF,
 } SyProgramRuntimeErrorKind;
