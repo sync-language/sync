@@ -21,7 +21,7 @@ namespace sy {
     class Program {
 
     private:
-        void* _inner;
+        //void* _inner;
     };
 
     class ProgramRuntimeError {
@@ -44,7 +44,7 @@ namespace sy {
 
     private:
         Kind    _kind;
-        void*   _inner;
+        //void*   _inner;
     };
 }
 

@@ -8,7 +8,7 @@
 struct SyFunction;
 
 typedef struct SyProgram {
-    void* _inner;
+    //void* _inner;
 } SyProgram;
 
 typedef enum SyProgramRuntimeErrorKind {
@@ -20,7 +20,7 @@ typedef enum SyProgramRuntimeErrorKind {
 
 typedef struct SyProgramRuntimeError {
     SyProgramRuntimeErrorKind   kind;
-    void*                       _inner;
+    //void*                       _inner;
 } SyProgramRuntimeError;
 
 typedef struct SyCallStack {

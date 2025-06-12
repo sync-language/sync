@@ -34,10 +34,12 @@ static_assert(offsetof(Function::CallArgs, _offset) == offsetof(SyFunctionCallAr
     static constexpr size_t ALLOC_ALIGNMENT = 64;
 #endif
 
+#if defined(_MSC_VER)
 // Supress warning for struct padding due to alignment specifier
 // https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warning-level-4-c4324?view=msvc-170
 #pragma warning(push)
 #pragma warning(disable: 4324)
+#endif
 /// Stores arguments for a C function call.
 class alignas(ALLOC_CACHE_ALIGN) ArgBuf {
 public:
@@ -85,12 +87,16 @@ private:
 
     // False sharing must be avoided, since arg buffers are intended to be threadlocal.
 };
+#if defined(_MSC_VER)
 #pragma warning(pop)
+#endif
 
+#if defined(_MSC_VER)
 // Supress warning for struct padding due to alignment specifier
 // https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warning-level-4-c4324?view=msvc-170
 #pragma warning(push)
 #pragma warning(disable: 4324)
+#endif
 /// Stores multiple argument buffers. Useful for having many "active" C calls.
 class ArgBufArray {
 public:
@@ -114,7 +120,9 @@ private:
     // Use uint32_t not for memory savings within this class (is 64 byte aligned anyways),
     // but for memory savings in SyCFunctionHandler
 };
+#if defined(_MSC_VER)
 #pragma warning(pop)
+#endif
 
 ArgBuf::~ArgBuf()
 {
