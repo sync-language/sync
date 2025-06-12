@@ -1,7 +1,7 @@
 //! API
 #pragma once
-#ifndef SY_TYPES_STRING_HPP_
-#define SY_TYPES_STRING_HPP_
+#ifndef SY_TYPES_STRING_STRING_HPP_
+#define SY_TYPES_STRING_STRING_HPP_
 
 #include "../../core.h"
 #include "string_slice.hpp"
@@ -84,5 +84,5 @@ namespace sy {
     };
 }
 
-#endif // SY_TYPES_STRING_HPP_
+#endif // SY_TYPES_STRING_STRING_HPP_
 
