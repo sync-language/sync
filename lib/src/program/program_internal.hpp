@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _SY_PROGRAM_PROGRAM_INTERNAL_HPP_
-#define _SY_PROGRAM_PROGRAM_INTERNAL_HPP_
+#ifndef SY_PROGRAM_PROGRAM_INTERNAL_HPP_
+#define SY_PROGRAM_PROGRAM_INTERNAL_HPP_
 
 #include "program.hpp"
 

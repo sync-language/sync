@@ -1,7 +1,7 @@
 //! API
 #pragma once
-#ifndef _SY_PROGRAM_PROGRAM_HPP_
-#define _SY_PROGRAM_PROGRAM_HPP_
+#ifndef SY_PROGRAM_PROGRAM_HPP_
+#define SY_PROGRAM_PROGRAM_HPP_
 
 #include "../core.h"
 
