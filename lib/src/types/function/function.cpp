@@ -422,8 +422,8 @@ sy::ProgramRuntimeError sy::Function::CallArgs::call(void *retDst)
     else if(this->func->tag == Function::CallType::C) {
         const uint32_t handlerIndex = this->_offset;
         Function::CHandler handler{handlerIndex};
-        const auto func = (c_function_t)(this->func->fptr);
-        const ProgramRuntimeError err = func(handler);
+        const auto cfunc = (c_function_t)(this->func->fptr);
+        const ProgramRuntimeError err = cfunc(handler);
         cArgBufs.bufAt(handlerIndex).clear();
         cArgBufs.popBuf();
         return err;

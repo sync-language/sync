@@ -25,6 +25,10 @@ namespace sy {
         static void freeImpl(IAllocator* self, void* buf, size_t len, size_t align);
     };
 
+    namespace detail {
+        void debugAssertNonNull(void* ptr);
+    }
+
     /// Can be bitcast to `c::SyAllocator`.
     class SY_API Allocator final {
     public:
@@ -45,7 +49,7 @@ namespace sy {
             
             T* get() const {
                 T* mem = const_cast<T*>(this->_mem);
-                Allocator::debugAssertNonNull(reinterpret_cast<void*>(mem));
+                detail::debugAssertNonNull(reinterpret_cast<void*>(mem));
                 return mem;
             }
         private:
@@ -126,13 +130,9 @@ namespace sy {
 
         void freeImpl(void* buf, size_t len, size_t align);
 
-        static void debugAssertNonNull(void* ptr);
-
     private:
 
         friend class IAllocator;
-        template<typename T>
-        friend class Allocator::Result;
 
         void* ptr;
         const VTable* vtable;

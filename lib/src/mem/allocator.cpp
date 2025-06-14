@@ -81,7 +81,7 @@ void sy::Allocator::freeImpl(void *buf, size_t len, size_t align)
     sy_allocator_free(reinterpret_cast<SyAllocator*>(this), buf, len, align);
 }
 
-void sy::Allocator::debugAssertNonNull(void *ptr)
+void sy::detail::debugAssertNonNull(void *ptr)
 {
     sy_assert(ptr != nullptr, "Expected non-null pointer");
 }
