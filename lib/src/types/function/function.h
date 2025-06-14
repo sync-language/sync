@@ -5,42 +5,8 @@
 
 #include "../../core.h"
 #include "../string/string_slice.h"
+#include "function_align.h"
 #include "../../program/program.h"
-
-#if defined(__x86_64__) || defined (_M_AMD64)
-
-#ifdef SY_FUNCTION_MIN_ALIGN
-#error "Do not override default minimum function alignment for X86_64
-#endif
-
-/// For X86_64, function alignment must be at least 16-byte aligned for their call stacks. As a result, the minimum
-/// required alignment for `SyFunction` calls must be 16. It's possible that functions will have special alignment,
-/// for example when using specially aligned types or some implementation specific SIMD operations.
-/// # Sources
-/// http://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-optimization-manual.pdf 
-/// https://learn.microsoft.com/en-us/cpp/build/stack-usage?view=msvc-170
-#define SY_FUNCTION_MIN_ALIGN 16
-
-#elif defined(__aarch64__) || defined(_M_ARM64)
-
-#ifdef SY_FUNCTION_MIN_ALIGN
-#error "Do not override default minimum function alignment for ARM64
-#endif
-
-/// For ARM64, function alignment must be at least 16-byte aligned for their call stacks. As a result, the minimum
-/// required alignment for `SyFunction` calls must be 16. It's possible that functions will have special alignment,
-/// for example when using specially aligned types or some implementation specific SIMD operations.
-/// https://learn.microsoft.com/en-us/cpp/build/arm64-windows-abi-conventions?view=msvc-170
-#define SY_FUNCTION_MIN_ALIGN 16
-
-#else
-
-#ifndef SY_FUNCTION_MIN_ALIGN
-/// For unknown targets, the minimum function alignment is simply set as the target's pointer alignment (same as size)
-#define SY_FUNCTION_MIN_ALIGN sizeof(void*)
-#endif // SY_FUNCTION_MIN_ALIGN
-
-#endif // defined X86_64 or ARM64
 
 struct SyType;
 

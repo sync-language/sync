@@ -17,7 +17,7 @@ namespace detail {
 }
 
 namespace sy {
-    struct Type;
+    class Type;
     class Function;
     class CallStack;
 }

@@ -1,15 +1,41 @@
 const std = @import("std");
 
 pub const Allocator = extern struct {
-    _allocator: SyAllocator = defaultAllocator,
-
     const Self = @This();
     const Error = std.mem.Allocator.Error;
+
+    ptr: ?*anyopaque,
+    vtable: *const VTable,
+
+    pub const VTable = extern struct {
+        allocFn: *const fn (self: *anyopaque, len: usize, alignment: usize) ?*anyopaque,
+        freeFn: *const fn (self: *anyopaque, buf: *anyopaque, len: usize, alignment: usize) void,
+
+        pub fn comptimeZigAllocatorToVTable(comptime vtable: std.mem.Allocator.VTable) *const VTable {
+            const Generated = struct {
+                fn alloc(ctx: *anyopaque, len: usize, alignment: usize) callconv(.C) ?*anyopaque {
+                    const logAlign: u6 = @intCast(std.math.log2(alignment));
+                    const mem = vtable.alloc(ctx, len, logAlign, @returnAddress());
+                    return @ptrCast(mem);
+                }
+
+                fn free(ctx: *anyopaque, buf: *anyopaque, len: usize, alignment: usize) void {
+                    const logAlign: u6 = @intCast(std.math.log2(alignment));
+                    const mem: [*]u8 = @ptrCast(buf);
+                    vtable.free(ctx, mem[0..len], logAlign, @returnAddress());
+                }
+
+                const syVTable: *const VTable = &.{ .allocFn = &@This().alloc, .freeFn = &@This().free };
+            };
+
+            return Generated.syVTable;
+        }
+    };
 
     pub fn comptimeInit(comptime zigAllocator: std.mem.Allocator) Self {
         return Self{ ._allocator = .{
             .ptr = zigAllocator.ptr,
-            .vtable = SyAllocatorVTable.comptimeZigAllocatorToVTable(zigAllocator.vtable),
+            .vtable = VTable.comptimeZigAllocatorToVTable(zigAllocator.vtable),
         } };
     }
 
@@ -20,12 +46,6 @@ pub const Allocator = extern struct {
             .ptr = @ptrCast(allocatorPtr),
             .vtable = DynamicVTable.vtable,
         } };
-    }
-
-    pub fn deinit(self: Self) void {
-        if (self._allocator.ptr) |ptr| {
-            self._allocator.vtable.destructorFn(ptr);
-        }
     }
 
     // TODO revise all these allocation functions.
@@ -104,7 +124,7 @@ pub const Allocator = extern struct {
             allocator.destroy(a);
         }
 
-        const vtable: *const SyAllocatorVTable = &.{
+        const vtable: *const Allocator.VTable = &.{
             .allocFn = @ptrCast(&DynamicVTable.alloc),
             .freeFn = @ptrCast(&DynamicVTable.free),
             .destructorFn = @ptrCast(&DynamicVTable.deinit),
@@ -124,45 +144,11 @@ const globalAllocator: std.mem.Allocator = blk: {
     }
 };
 
-var defaultAllocator: SyAllocator = .{
+var defaultAllocator: Allocator = .{
     .ptr = null,
-    .vtable = SyAllocatorVTable.comptimeZigAllocatorToVTable(globalAllocator),
+    .vtable = Allocator.VTable.comptimeZigAllocatorToVTable(globalAllocator),
 };
-pub export var sy_defaultAllocator: *SyAllocator = &defaultAllocator;
+pub export var sy_defaultAllocator: *Allocator = &defaultAllocator;
 
-pub const SyAllocatorVTable = extern struct {
-    allocFn: *const fn (self: *anyopaque, len: usize, alignment: usize) ?*anyopaque,
-    freeFn: *const fn (self: *anyopaque, buf: *anyopaque, len: usize, alignment: usize) void,
-    destructorFn: *const fn (self: *anyopaque) void,
-
-    pub fn comptimeZigAllocatorToVTable(comptime vtable: std.mem.Allocator.VTable) *const SyAllocatorVTable {
-        const Generated = struct {
-            fn alloc(ctx: *anyopaque, len: usize, alignment: usize) callconv(.C) ?*anyopaque {
-                const logAlign: u6 = @intCast(std.math.log2(alignment));
-                const mem = vtable.alloc(ctx, len, logAlign, @returnAddress());
-                return @ptrCast(mem);
-            }
-
-            fn free(ctx: *anyopaque, buf: *anyopaque, len: usize, alignment: usize) void {
-                const logAlign: u6 = @intCast(std.math.log2(alignment));
-                const mem: [*]u8 = @ptrCast(buf);
-                vtable.free(ctx, mem[0..len], logAlign, @returnAddress());
-            }
-
-            fn deinit(_: *anyopaque) void {}
-
-            const syVTable: *const SyAllocatorVTable = &.{ .allocFn = &alloc, .freeFn = &free, .deinitFn = &deinit };
-        };
-
-        return Generated.syVTable;
-    }
-};
-
-pub const SyAllocator = extern struct {
-    ptr: ?*anyopaque,
-    vtable: *const SyAllocatorVTable,
-};
-
-pub extern fn sy_allocator_alloc(self: *anyopaque, len: usize, alignment: usize) callconv(.C) ?*anyopaque;
-pub extern fn sy_allocator_free(self: *anyopaque, buf: *anyopaque, len: usize, alignment: usize) callconv(.C) void;
-pub extern fn sy_allocator_destructor(self: *anyopaque) callconv(.C) void;
+pub extern fn sy_allocator_alloc(self: *Allocator, len: usize, alignment: usize) callconv(.C) ?*anyopaque;
+pub extern fn sy_allocator_free(self: *Allocator, buf: *anyopaque, len: usize, alignment: usize) callconv(.C) void;

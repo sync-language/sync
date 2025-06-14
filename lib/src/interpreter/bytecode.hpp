@@ -6,7 +6,7 @@
 #include "stack.hpp"
 
 namespace sy {
-    struct Type;
+    class Type;
 }
 
 enum class OpCode : uint8_t {
