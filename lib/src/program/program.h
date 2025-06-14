@@ -1,26 +1,26 @@
 //! API
 #pragma once
-#ifndef _SY_PROGRAM_PROGRAM_H_
-#define _SY_PROGRAM_PROGRAM_H_
+#ifndef SY_PROGRAM_PROGRAM_H_
+#define SY_PROGRAM_PROGRAM_H_
 
 #include "../core.h"
 
 struct SyFunction;
 
 typedef struct SyProgram {
-    void* _inner;
+    //void* _inner;
 } SyProgram;
 
 typedef enum SyProgramRuntimeErrorKind {
-    syProgramRuntimeErrorKindNone = 0,
-    syProgramRuntimeErrorKindStackOverflow = 1,
+    SyProgramRuntimeErrorKindNone = 0,
+    SyProgramRuntimeErrorKindStackOverflow = 1,
 
     _SY_PROGRAM_RUNTIME_ERROR_KIND_MAX_VALUE = 0x7FFFFFFF,
 } SyProgramRuntimeErrorKind;
 
 typedef struct SyProgramRuntimeError {
     SyProgramRuntimeErrorKind   kind;
-    void*                       _inner;
+    //void*                       _inner;
 } SyProgramRuntimeError;
 
 typedef struct SyCallStack {

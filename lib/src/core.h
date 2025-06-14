@@ -19,14 +19,26 @@
 #if (__STDC_VERSION__ >= 201112L) // C11
 #include <stdbool.h>
 #elif (__STDC_VERSION__ == 199901L) // C99
+
+#ifndef bool
 #define bool  _Bool
+#endif
+#ifndef false
 #define false 0
+#endif
+#ifndef true
 #define true  1
+#endif
+
 #else // __STDC_VERSION__ some other
 #error C99 or higher compiler required. Need _Bool.
 #endif // __STDC_VERSION__
 
 #else // __cplusplus
+
+#undef bool
+#undef true
+#undef false
 
 #include <cstddef>
 #include <cstdint>

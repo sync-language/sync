@@ -214,7 +214,6 @@ static ProgramRuntimeError performCall(const Function* function, void* retDst, c
     }
     
     unreachable();
-    return ProgramRuntimeError();
 }
 
 static ProgramRuntimeError executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {

@@ -74,9 +74,6 @@ typedef enum SyTypeTag {
     _SY_TYPE_TAG_MAX_ENUM = 0x7FFFFFFF
 } SyTypeTag;
 
-/// Internal use only. Used for type requirements on C unions.
-typedef void* _sy_type_extra_info_unused_t;
-
 typedef struct SyTypeInfoInt {
     /// If `true`, this is a signed integer, otherwise unsigned.
     bool    isSigned;
@@ -104,14 +101,14 @@ typedef struct SyTypeInfoFunction {
 } SyTypeInfoFunction;
 
 typedef union SyTypeExtraInfo {
-    _sy_type_extra_info_unused_t    _boolInfo;
-    SyTypeInfoInt                   intInfo;
-    SyTypeInfoFloat                 floatInfo;
-    //_sy_type_extra_info_unused_t    _charInfo;
-    _sy_type_extra_info_unused_t    _stringSliceInfo;
-    _sy_type_extra_info_unused_t    _stringInfo;
-    SyTypeInfoFunction              functionInfo;
-    SyTypeInfoReference             referenceInfo;
+    void*               _boolInfo;
+    SyTypeInfoInt       intInfo;
+    SyTypeInfoFloat     floatInfo;
+    //void*    _charInfo;
+    void*               _stringSliceInfo;
+    void*               _stringInfo;
+    SyTypeInfoFunction  functionInfo;
+    SyTypeInfoReference referenceInfo;
 } SyTypeExtraInfo;
 
 typedef struct SyType {

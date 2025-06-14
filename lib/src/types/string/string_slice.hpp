@@ -6,12 +6,6 @@
 #include "../../core.h"
 
 namespace sy {
-    namespace c {
-        #include "string_slice.h"
-
-        using SyStringSlice = SyStringSlice;
-    }
-
     class SY_API StringSlice {
     public:
         StringSlice() = default;
@@ -22,20 +16,23 @@ namespace sy {
         StringSlice& operator=(StringSlice&&) = default;
 
         template<size_t N>
-        constexpr StringSlice(char const (&inStr)[N]) : _inner{inStr, N - 1} {}
+        constexpr StringSlice(char const (&inStr)[N]) : _ptr(inStr), _len(N - 1) {}
 
-        /// @param len Length of the string in bytes, not including null terminator
-        /// @param ptr Valid utf8 string. Does not need to be null terminated.
+        /// @param inLen Length of the string in bytes, not including null terminator
+        /// @param inPtr Valid utf8 string. Does not need to be null terminated.
         StringSlice(const char* ptr, size_t len);
 
-        [[nodiscard]] const char* data() const { return _inner.ptr; }
+        [[nodiscard]] const char* data() const { return _ptr; }
 
-        [[nodiscard]] size_t len() const { return _inner.len; }
+        [[nodiscard]] size_t len() const { return _len; }
 
         char operator[](const size_t index) const;
 
     private:
-        c::SyStringSlice _inner = {0, 0};
+        /// Must be UTF8. Does not have to be null terminated. Is not read from if `len == 0`.
+        const char* _ptr;
+        /// Does not include possible null terminator. Is measured in bytes.
+        size_t _len;
     };
 }
 

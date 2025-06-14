@@ -9,6 +9,7 @@
 #include "../../program/program_internal.hpp"
 #include "../../mem/allocator.hpp"
 #include "../../util/unreachable.hpp"
+#include "../../threading/alloc_cache_align.hpp"
 #include <utility>
 #include <cstring>
 #include <new>
@@ -16,14 +17,31 @@
 using sy::Function;
 using sy::Type;
 
+static_assert(static_cast<int>(Function::CallType::C) == static_cast<int>(SyFunctionTypeC));
+static_assert(static_cast<int>(Function::CallType::C) == static_cast<int>(SyFunctionTypeC));
+static_assert(sizeof(Function::CallType) == sizeof(int));
+static_assert(sizeof(SyFunctionType) == sizeof(int));
+
+static_assert(sizeof(Function::CallArgs) == sizeof(SyFunctionCallArgs));
+static_assert(alignof(Function::CallArgs) == alignof(SyFunctionCallArgs));
+static_assert(offsetof(Function::CallArgs, func) == offsetof(SyFunctionCallArgs, func));
+static_assert(offsetof(Function::CallArgs, pushedCount) == offsetof(SyFunctionCallArgs, pushedCount));
+static_assert(offsetof(Function::CallArgs, _offset) == offsetof(SyFunctionCallArgs, _offset));
+
 #if _MSC_VER
     static constexpr size_t ALLOC_ALIGNMENT = std::hardware_destructive_interference_size;
 #else
     static constexpr size_t ALLOC_ALIGNMENT = 64;
 #endif
 
+#if defined(_MSC_VER)
+// Supress warning for struct padding due to alignment specifier
+// https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warning-level-4-c4324?view=msvc-170
+#pragma warning(push)
+#pragma warning(disable: 4324)
+#endif
 /// Stores arguments for a C function call.
-class alignas(64) ArgBuf {
+class alignas(ALLOC_CACHE_ALIGN) ArgBuf {
 public:
     ArgBuf() = default;
 
@@ -51,7 +69,7 @@ public:
     void setReturnValue(const void* value, const size_t sizeOfType);
 
 private:
-    static constexpr size_t INVALID_OFFSET = -1;
+    static constexpr size_t INVALID_OFFSET = static_cast<size_t>(-1);
 
     /// May return INVALID_OFFSET, in which case reallocation is required.
     size_t nextOffset(const size_t sizeType, const size_t alignType) const;
@@ -61,7 +79,7 @@ private:
 private:
     uint8_t *values = nullptr;
     const Type **types = nullptr;
-    size_t *offsets;
+    size_t *offsets = nullptr;
     size_t count = 0;
     size_t valuesCapacity = 0;
     size_t typesAndOffsetsCapacity = 0;
@@ -69,9 +87,18 @@ private:
 
     // False sharing must be avoided, since arg buffers are intended to be threadlocal.
 };
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
+#if defined(_MSC_VER)
+// Supress warning for struct padding due to alignment specifier
+// https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warning-level-4-c4324?view=msvc-170
+#pragma warning(push)
+#pragma warning(disable: 4324)
+#endif
 /// Stores multiple argument buffers. Useful for having many "active" C calls.
-class alignas(64) ArgBufArray {
+class ArgBufArray {
 public:
     ArgBufArray() = default;
 
@@ -93,6 +120,9 @@ private:
     // Use uint32_t not for memory savings within this class (is 64 byte aligned anyways),
     // but for memory savings in SyCFunctionHandler
 };
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 ArgBuf::~ArgBuf()
 {
@@ -315,38 +345,8 @@ extern "C"
 
     SY_API bool sy_function_call_args_push(SyFunctionCallArgs *self, void *argMem, const SyType *typeInfo)
     {
-        const Function *function = reinterpret_cast<const Function *>(self->func);
-        sy_assert(typeInfo != nullptr, "Cannot push null typed argument");
-        sy_assert(self->pushedCount < function->argsLen, "Cannot push more arguments than the function takes");
-
-        if(function->tag == Function::CallType::Script) {
-            const bool result = Stack::getActiveStack().pushScriptFunctionArg(
-                argMem, reinterpret_cast<const Type *>(typeInfo), self->_offset);
-
-            if (result == false) {
-                return false;
-            }
-
-            const size_t roundedToMultipleOf8 = typeInfo->sizeType % 8 == 0 ? typeInfo->sizeType : typeInfo->sizeType + (8 - (typeInfo->sizeType % 8));
-            const size_t slotsOccupied = roundedToMultipleOf8 / 8;
-            sy_assert(slotsOccupied <= UINT16_MAX, "Cannot push argument. Too big");
-
-            const size_t newOffset = self->_offset + slotsOccupied;
-            sy_assert(newOffset <= UINT16_MAX, "Cannot push argument. Would overflow script stack");
-            const sy::InterpreterFunctionScriptInfo *scriptInfo =
-                reinterpret_cast<const sy::InterpreterFunctionScriptInfo *>(function->fptr);
-            sy_assert(newOffset <= scriptInfo->stackSpaceRequired, "Pushing argument would overflow this function's script stack");
-
-            self->_offset = static_cast<uint16_t>(slotsOccupied);
-        } else if(function->tag == Function::CallType::C) {
-            const ArgBuf::Arg arg = {argMem, reinterpret_cast<const sy::Type*>(typeInfo)};
-            cArgBufs.bufAt(self->_offset).push(arg);
-        } else {
-            sy_assert(false, "Unknown function call type");
-        }
-        self->pushedCount += 1;
-
-        return true;
+        Function::CallArgs* asCpp = reinterpret_cast<Function::CallArgs*>(self);
+        return asCpp->push(argMem, reinterpret_cast<const sy::Type*>(typeInfo));
     }
 
     union ErrContain {
@@ -358,7 +358,7 @@ extern "C"
 
     SY_API SyProgramRuntimeError sy_function_call(SyFunctionCallArgs self, void *retDst)
     {
-        Function::CallArgs callArgs = {self};
+        Function::CallArgs callArgs = *reinterpret_cast<Function::CallArgs*>(&self);
         ErrContain err;
         err.cppErr = callArgs.call(retDst);
         return err.cErr;
@@ -379,22 +379,51 @@ extern "C"
 
 bool sy::Function::CallArgs::push(void *argMem, const Type *typeInfo)
 {
-    return sy_function_call_args_push(&this->info, argMem, reinterpret_cast<const SyType *>(typeInfo));
+    sy_assert(typeInfo != nullptr, "Cannot push null typed argument");
+    sy_assert(this->pushedCount < this->func->argsLen, "Cannot push more arguments than the function takes");
+
+    if(this->func->tag == Function::CallType::Script) {
+        const bool result = Stack::getActiveStack().pushScriptFunctionArg(
+            argMem, reinterpret_cast<const Type *>(typeInfo), this->_offset);
+
+        if (result == false) {
+            return false;
+        }
+
+        const size_t roundedToMultipleOf8 = typeInfo->sizeType % 8 == 0 ? typeInfo->sizeType : typeInfo->sizeType + (8 - (typeInfo->sizeType % 8));
+        const size_t slotsOccupied = roundedToMultipleOf8 / 8;
+        sy_assert(slotsOccupied <= UINT16_MAX, "Cannot push argument. Too big");
+
+        const size_t newOffset = this->_offset + slotsOccupied;
+        sy_assert(newOffset <= UINT16_MAX, "Cannot push argument. Would overflow script stack");
+        const sy::InterpreterFunctionScriptInfo *scriptInfo =
+            reinterpret_cast<const sy::InterpreterFunctionScriptInfo *>(this->func->fptr);
+        sy_assert(newOffset <= scriptInfo->stackSpaceRequired, "Pushing argument would overflow this function's script stack");
+
+        this->_offset = static_cast<uint16_t>(slotsOccupied);
+    } else if(this->func->tag == Function::CallType::C) {
+        const ArgBuf::Arg arg = {argMem, reinterpret_cast<const sy::Type*>(typeInfo)};
+        cArgBufs.bufAt(this->_offset).push(arg);
+    } else {
+        sy_assert(false, "Unknown function call type");
+    }
+    this->pushedCount += 1;
+
+    return true;
 }
 
 sy::ProgramRuntimeError sy::Function::CallArgs::call(void *retDst)
 {
-    const Function *function = reinterpret_cast<const Function *>(this->info.func);
-    sy_assert(this->info.pushedCount == function->argsLen, "Did not push enough arguments for function");
+    sy_assert(this->pushedCount == this->func->argsLen, "Did not push enough arguments for function");
 
-    if(function->tag == Function::CallType::Script) {
-        return interpreterExecuteScriptFunction(function, retDst);
+    if(this->func->tag == Function::CallType::Script) {
+        return interpreterExecuteScriptFunction(this->func, retDst);
     }
-    else if(function->tag == Function::CallType::C) {
-        const uint32_t handlerIndex = this->info._offset;
+    else if(this->func->tag == Function::CallType::C) {
+        const uint32_t handlerIndex = this->_offset;
         Function::CHandler handler{handlerIndex};
-        const auto func = (c_function_t)(function->fptr);
-        const ProgramRuntimeError err = func(handler);
+        const auto cfunc = (c_function_t)(this->func->fptr);
+        const ProgramRuntimeError err = cfunc(handler);
         cArgBufs.bufAt(handlerIndex).clear();
         cArgBufs.popBuf();
         return err;
@@ -406,24 +435,24 @@ sy::ProgramRuntimeError sy::Function::CallArgs::call(void *retDst)
 
 sy::Function::CallArgs sy::Function::startCall() const
 {
-    CallArgs callArgs = {{0, 0, 0}};
-    callArgs.info.func = reinterpret_cast<const SyFunction *>(this);
+    CallArgs callArgs = {0, 0, 0};
+    callArgs.func = this;
     if(this->tag == Function::CallType::C) {
-        callArgs.info._offset = static_cast<uint16_t>(cArgBufs.pushNewBuf());
+        callArgs._offset = static_cast<uint16_t>(cArgBufs.pushNewBuf());
     }
     return callArgs;
 }
 
 void* sy::Function::CHandler::getArgMem(size_t argIndex)
 {
-    ArgBuf& buf = cArgBufs.bufAt(this->inner._handle);
+    ArgBuf& buf = cArgBufs.bufAt(this->handle);
     ArgBuf::Arg arg = buf.at(argIndex);
     return arg.mem;
 }
 
 const Type *sy::Function::CHandler::getArgType(size_t argIndex)
 {
-    ArgBuf& buf = cArgBufs.bufAt(this->inner._handle);
+    ArgBuf& buf = cArgBufs.bufAt(this->handle);
     ArgBuf::Arg arg = buf.at(argIndex);
     return arg.type;
 }
@@ -437,7 +466,7 @@ void sy::Function::CHandler::validateArgTypeMatches(void *arg, const Type *store
 
 void *sy::Function::CHandler::getRetDst()
 {
-    ArgBuf& buf = cArgBufs.bufAt(this->inner._handle);
+    ArgBuf& buf = cArgBufs.bufAt(this->handle);
     return buf.getReturnDestination();
 }
 
