@@ -118,6 +118,7 @@ FrameGuard Stack::pushFrame(size_t frameLength, uint16_t alignment, void *retVal
         this->raw.nextBaseOffset + OLD_FRAME_INFO_RESERVED_SLOTS,
         frameLength,
         retValDst,
+        nullptr,
         #if _DEBUG
         false // flag
         #endif
