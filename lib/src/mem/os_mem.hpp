@@ -14,5 +14,6 @@ extern "C" {
     extern void page_free(void* pagesStart, size_t len);
 }
 
+size_t page_size();
 
 #endif // SY_MEM_OS_MEM_H_
