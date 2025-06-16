@@ -50,10 +50,10 @@ std::optional<uint32_t> Stack::Frame::frameExtendAmountForAlignment(
 Stack::Frame Stack::Frame::readFromMemory(const size_t *valuesMem, const size_t *typesMem)
 {
     const uint32_t frameLengthAndFunctionIndex = 
-        *reinterpret_cast<const uint32_t*>(valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX]);
-    void* oldRetDst = const_cast<void*>(reinterpret_cast<const void*>(typesMem[OLD_RETURN_VALUE_DST]));
+        *reinterpret_cast<const uint32_t*>(&valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX]);
+    void* oldRetDst = const_cast<void*>(reinterpret_cast<const void*>(&typesMem[OLD_RETURN_VALUE_DST]));
     const uint32_t oldBasePointerOffset = 
-        *reinterpret_cast<const uint32_t*>(valuesMem[OLD_BASE_POINTER_OFFSET]);
+        *reinterpret_cast<const uint32_t*>(&valuesMem[OLD_BASE_POINTER_OFFSET]);
 
     const Frame oldFrame = {
         oldBasePointerOffset,
@@ -67,7 +67,7 @@ Stack::Frame Stack::Frame::readFromMemory(const size_t *valuesMem, const size_t 
 void Stack::Frame::storeInMemory(size_t *valuesMem, size_t *typesMem) const
 {
     uint32_t* frameLengthAndFunctionIndex = 
-        reinterpret_cast<uint32_t*>(valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX]);
+        reinterpret_cast<uint32_t*>(&valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX]);
     *frameLengthAndFunctionIndex = 
         static_cast<uint32_t>(this->frameLengthMinusOne) |
         (static_cast<uint32_t>(this->functionIndex) << 16);
@@ -75,7 +75,7 @@ void Stack::Frame::storeInMemory(size_t *valuesMem, size_t *typesMem) const
     void** oldRetDst = reinterpret_cast<void**>(&typesMem[OLD_RETURN_VALUE_DST]);
     *oldRetDst = const_cast<void*>(this->retValueDst);
 
-    uint32_t* oldBasePointerOffset = reinterpret_cast<uint32_t*>(valuesMem[OLD_BASE_POINTER_OFFSET]);
+    uint32_t* oldBasePointerOffset = reinterpret_cast<uint32_t*>(&valuesMem[OLD_BASE_POINTER_OFFSET]);
     *oldBasePointerOffset = this->basePointerOffset;
 }
 
@@ -150,6 +150,7 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void *retV
 
             Node* _ = new (&this->nodes[0]) Node(frameLength * 4); // TODO evaluate this default
             (void)_;
+            this->nodesLen = 1;
         }
 
         if(this->callstackFunctions == nullptr) {
@@ -165,7 +166,7 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void *retV
         if(this->currentNode != 0 || this->nodes[0].nextBaseOffset != 0) {
             return std::optional<Frame*>(&this->currentFrame);
         } else {
-            std::optional<Frame*>();
+            return std::optional<Frame*>();
         }
     }();
     std::optional<Frame> optFrame = this->nodes[currentNode].pushFrame(
@@ -325,6 +326,12 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
         sy_assert(asNum % actualAlignment == 0, "The stack values must be aligned to the required frame alignment");
     }
 
+    { // check if fits
+        if ((this->nextBaseOffset + frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS) > this->slots) {
+            return std::optional<Frame>();
+        }
+    }
+
     { // extend frame
         uint32_t actualNextBaseOffset = this->nextBaseOffset;
         if(currentFrame.has_value()) actualNextBaseOffset += Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
@@ -332,14 +339,17 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
 
         std::optional<uint32_t> optExtendAmount = Frame::frameExtendAmountForAlignment(
             this->slots, actualNextBaseOffset, alignment);
-        if(!optExtendAmount.has_value()) {
-            return std::optional<Stack::Frame>();
+        if (!optExtendAmount.has_value()) {
+            return std::optional<Frame>();
         }
-        this->nextBaseOffset = actualNextBaseOffset + optExtendAmount.value();
-        const uint32_t currentFrameLengthMinusOne = currentFrame.value()->frameLengthMinusOne;
-        const uint32_t newFrameLenMinusOne = currentFrameLengthMinusOne + optExtendAmount.value();
-        sy_assert(newFrameLenMinusOne < MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
-        currentFrame.value()->frameLengthMinusOne = static_cast<uint16_t>(newFrameLenMinusOne);
+
+        if(currentFrame.has_value()) {
+            this->nextBaseOffset = actualNextBaseOffset + optExtendAmount.value();
+            const uint32_t currentFrameLengthMinusOne = currentFrame.value()->frameLengthMinusOne;
+            const uint32_t newFrameLenMinusOne = currentFrameLengthMinusOne + optExtendAmount.value();
+            sy_assert(newFrameLenMinusOne < MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
+            currentFrame.value()->frameLengthMinusOne = static_cast<uint16_t>(newFrameLenMinusOne);
+        }
     }
 
     if(currentFrame.has_value()) {
