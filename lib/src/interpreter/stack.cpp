@@ -10,10 +10,14 @@
 #include <iostream>
 #if _MSC_VER
 #include <new>
+#elif __GNUC__
+#include <sys/mman.h>
 #endif
 
 static_assert(sizeof(Stack) == sizeof(Stack::Raw));
 static_assert(alignof(Stack) == alignof(Stack::Raw));
+static_assert(sizeof(size_t) == sizeof(void*));
+static_assert(alignof(size_t) == alignof(void*));
 
 namespace detail {
     
@@ -411,6 +415,40 @@ const Bytecode *Stack::previousInstructionPointer() const
 
     const Bytecode* const oldInstructionPtr = reinterpret_cast<Bytecode*>(beforeCurrentFrameStart1[OLD_INSTRUCTION_POINTER]);
     return oldInstructionPtr;
+}
+
+Stack::Node::Node(const size_t minSlotSize)
+{
+    const size_t pageSize = page_size();
+    size_t bytesToAllocate = minSlotSize * sizeof(size_t);
+    {
+        const size_t remainder = bytesToAllocate % pageSize;
+        if(remainder != 0) {
+            bytesToAllocate += pageSize - remainder;
+        }
+    }
+
+    sy_assert((bytesToAllocate % pageSize) == 0, "Invalid math");
+
+    
+    void* valuesMem = page_malloc(bytesToAllocate);
+    void* typesMem = page_malloc(bytesToAllocate);
+
+    // TODO Maybe more information from errors
+    
+    // https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
+    #if _MSC_VER
+    sy_assert(valuesMem != nullptr, "Failed to allocate pages");
+    sy_assert(typesMem != nullptr, "Failed to allocate pages");
+    #elif __GNUC__
+    sy_assert(valuesMem != MAP_FAILED, "Failed to allocate pages");
+    sy_assert(typesMem != MAP_FAILED, "Failed to allocate pages");
+    #endif
+    
+    this->values = reinterpret_cast<size_t*>(valuesMem);
+    this->types = reinterpret_cast<size_t*>(typesMem);
+    this->slots = bytesToAllocate / sizeof(size_t);
+    
 }
 
 FrameGuard::~FrameGuard()

@@ -28,7 +28,6 @@ class FrameGuard;
 
 class Stack {
 public:
-
     static constexpr size_t BITS_PER_STACK_OPERAND = 16;
     static constexpr size_t MAX_FRAME_LEN = 1 << BITS_PER_STACK_OPERAND;
 
@@ -120,6 +119,20 @@ public:
     [[nodiscard]] const Frame& currentFrame() const { return this->raw.currentFrame; }
 
     using stack_value_t = void*;
+
+    struct Node {
+        /// Allocates as pages
+        size_t* values;
+        /// Allocates as pages
+        size_t* types;
+        /// `slots * sizeof(size_t)` is the amount of bytes occupied by all of the pages allocated for both
+        /// `values` and `types`.
+        size_t  slots;
+
+        Node(const size_t minSlotSize);
+
+        ~Node();
+    };
 
     struct Raw {
         const Bytecode* instructionPointer;
