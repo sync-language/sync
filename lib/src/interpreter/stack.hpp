@@ -33,52 +33,11 @@ public:
     static constexpr size_t BITS_PER_STACK_OPERAND = 16;
     static constexpr size_t MAX_FRAME_LEN = 1 << BITS_PER_STACK_OPERAND;
 
-    struct Frame {    
-        uint32_t basePointerOffset;
-        void*    retValueDst;
-        uint16_t frameLengthMinusOne;
-        uint16_t functionIndex;
-        #if _DEBUG
-        bool validated = false;
-        #endif
+    struct Frame;
 
-        static std::optional<uint32_t> frameExtendAmountForAlignment(
-            const uint32_t totalSlots, const uint32_t nextBaseOffset, const uint16_t alignment);
+    Stack() = default;
 
-        static Frame readFromMemory(const size_t* valuesMem, const size_t* typesMem);
-
-        void storeInMemory(size_t* valuesMem, size_t* typesMem) const;
-
-        static const Bytecode* readOldInstructionPointer(const size_t* valuesMem);
-
-        static void storeOldInstructionPointer(size_t* valuesMem, const Bytecode* instructionPointer);
-        
-        /// The amount of slots the old stack frame info needs to store itself within the bounds of the new frame.
-        static constexpr size_t OLD_FRAME_INFO_RESERVED_SLOTS = 2;
-
-    private:
-
-        /// The index used to read the instruction pointer of the previous frame.
-        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::values`.
-        static constexpr size_t OLD_INSTRUCTION_POINTER = 0;
-        /// The index used to read the frame length of the previous frame.
-        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::values`.
-        static constexpr size_t OLD_FRAME_LENGTH_AND_FUNCTION_INDEX = 1;
-        /// The index used to read the return value destination of the previous frame. 
-        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
-        static constexpr size_t OLD_RETURN_VALUE_DST = 0;
-        /// The index used to read the function of the previous frame. 
-        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
-        static constexpr size_t OLD_BASE_POINTER_OFFSET = 1;
-    };
-
-    Stack();
-
-    /// @param slots Must be at least 3, as that's the minimum amount required to store previous (empty) frame info,
-    /// and a singular value up to 8 bytes in size.
-    Stack(size_t slots);
-
-    ~Stack();
+    ~Stack() noexcept;
 
     static Stack& getThisThreadDefaultStack();
 
@@ -92,18 +51,11 @@ public:
     /// @param retValDst Memory address where the return value of a function should be copied to. Can be `nullptr`,
     /// meaning no return value destination.
     /// @return `true` if successful, otherwise `false` in which pushing the frame would overflow the stack.
-    [[nodiscard]] FrameGuard pushFrame(size_t frameLength, uint16_t alignment, void* retValDst);
-
-    /// Sets the function of the current stack frame.
-    void setFrameFunction(const sy::Function* function);
+    [[nodiscard]] FrameGuard pushFrame(uint32_t frameLength, uint16_t alignment, void* retValDst);
 
     [[nodiscard]] FrameGuard pushFunctionFrame(const sy::Function* function, void* retValDst);
 
     [[nodiscard]] sy::CallStack callStack() const;
-
-    [[nodiscard]] size_t slots() const { return this->raw.slots; }
-
-    [[nodiscard]] size_t bytesUsed() const { return this->slots() * sizeof(void*); }
 
     [[nodiscard]] const Bytecode* getInstructionPointer();
 
@@ -147,10 +99,45 @@ public:
     /// @return `true` if the arg was copied successfully copied, or `false` if a stack overflow would occur.
     [[nodiscard]] bool pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset);
 
-    [[nodiscard]] const Frame& currentFrame() const { return this->raw.currentFrame; }
+    [[nodiscard]] const Frame& getCurrentFrame() const { return this->currentFrame; }
 
-    using stack_value_t = void*;
+    struct Frame {    
+        uint32_t basePointerOffset;
+        void*    retValueDst;
+        uint16_t frameLengthMinusOne;
+        uint16_t functionIndex;
 
+        static std::optional<uint32_t> frameExtendAmountForAlignment(
+            const uint32_t totalSlots, const uint32_t nextBaseOffset, const uint16_t alignment);
+
+        static Frame readFromMemory(const size_t* valuesMem, const size_t* typesMem);
+
+        void storeInMemory(size_t* valuesMem, size_t* typesMem) const;
+
+        static const Bytecode* readOldInstructionPointer(const size_t* valuesMem);
+
+        static void storeOldInstructionPointer(size_t* valuesMem, const Bytecode* instructionPointer);
+        
+        /// The amount of slots the old stack frame info needs to store itself within the bounds of the new frame.
+        static constexpr size_t OLD_FRAME_INFO_RESERVED_SLOTS = 2;
+
+    private:
+
+        /// The index used to read the instruction pointer of the previous frame.
+        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::values`.
+        static constexpr size_t OLD_INSTRUCTION_POINTER = 0;
+        /// The index used to read the frame length of the previous frame.
+        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::values`.
+        static constexpr size_t OLD_FRAME_LENGTH_AND_FUNCTION_INDEX = 1;
+        /// The index used to read the return value destination of the previous frame. 
+        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
+        static constexpr size_t OLD_RETURN_VALUE_DST = 0;
+        /// The index used to read the function of the previous frame. 
+        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
+        static constexpr size_t OLD_BASE_POINTER_OFFSET = 1;
+    };
+
+    /// Always allocates in pages
     struct Node {
         /// Allocates as pages
         size_t*     values;
@@ -178,36 +165,19 @@ public:
             uint32_t frameLength, 
             uint16_t alignment,
             void* retValDst, 
-            std::optional<Frame&> currentFrame, 
+            std::optional<Frame*> currentFrame, 
             const Bytecode* instructionPointer
         );
 
-        std::optional<std::tuple<Frame, const Bytecode*>> popFrame(
-            const uint16_t currentFrameLenMinusOne);
-    };
-
-    struct Raw {
-        const Bytecode* instructionPointer;
-        /// Offset from `values` and `types` indicated where the next frame should start
-        size_t                  nextBaseOffset;
-        Frame                   currentFrame;
-        /// Allocated as pages
-        stack_value_t*          values;
-        /// Allocates as pages
-        uintptr_t*           types;
-        /// Does not need to be the amount of pages, or total number of bytes in the pages for `stack` and `types.
-        /// For both `mmap` and `VirtualAlloc`, the length argument does not need to be a page multiple, as the C
-        /// runtime library will handle it accordingly.
-        size_t                  slots;
-        const sy::Function**    callstackFunctions;
-        uint16_t                callstackLen;
-        uint16_t                callstackCapacity;
+        std::optional<std::tuple<Frame, const Bytecode*, bool>> popFrame(const uint16_t currentFrameLenMinusOne);
     };
 
 private:
     /// Instances of `sy::Type` are required to have alignment of `alignof(void*)`, therefore on all target platforms,
     /// the lowest bit will be zeroed, and thus can be used as a flag bit, conserving memory.
     static constexpr uintptr_t TYPE_NOT_OWNED_FLAG = 0b1;
+
+    void addOneNode(const uint32_t requiredFrameLength);
 
     // Maybe good idea to not store the instruction pointer itself, but the offset within the bytecode.
     // That way it can occupy 48 bits rather than a full pointer, and then the other 16 bits can be the frame length.
@@ -216,10 +186,6 @@ private:
     bool extendCurrentFrameForNextFrameAlignment(uint16_t alignment);
 
     void setOptionalTypeAt(const sy::Type* type, uint16_t offset, bool isRef);
-
-    void storeCurrentFrameInfoInNext();
-
-    Frame previousFrame() const;
 
     const Bytecode* previousInstructionPointer() const;
 
@@ -230,12 +196,18 @@ private:
     /// Expects there to be an old stack to restore. For example, calling `pushFrame(...)` once, and then calling
     /// `popFrame(...)` twice is an error. The first pop is fine, but the second has no frame to restore.
     void popFrame();
-
-    bool currentFrameValidated() const;
     
 private:
 
-    Raw raw;
+    const Bytecode*         instructionPointer = nullptr;
+    Frame                   currentFrame = {0};
+    Node*                   nodes = nullptr;
+    size_t                  nodesLen = 0;
+    size_t                  nodesCapacity = 0;
+    size_t                  currentNode = 0;
+    const sy::Function**    callstackFunctions = nullptr;
+    uint16_t                callstackLen = 0;
+    uint16_t                callstackCapacity = 0;
 };
 
 /// An RAII guard over a stack frame, to automatically handle popping the frame, and checking for stack overflow.
@@ -250,16 +222,11 @@ public:
     FrameGuard(const FrameGuard&) = delete;
     FrameGuard& operator=(const FrameGuard&) = delete;
 
-    /// This must be called. If not, the stack frame will not be validated. See `Stack::Frame::validated`
-    /// @returns `true` if the push operation would have overflowed the stack (for early return), otherwise `false`.
-    bool checkOverflow() const;
-
 private:
     friend class Stack;
-    FrameGuard() = default;
     FrameGuard(Stack* inStack) : stack(inStack) {}
 private:
-    Stack* stack = nullptr;
+    Stack* stack;
 };
 
 #endif // SY_INTERPRETER_STACK_HPP_

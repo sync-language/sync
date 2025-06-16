@@ -31,9 +31,6 @@ ProgramRuntimeError sy::interpreterExecuteScriptFunction(const Function *scriptF
 
     Stack& activeStack = Stack::getActiveStack();
     FrameGuard guard = activeStack.pushFunctionFrame(scriptFunction, outReturnValue);
-    if(guard.checkOverflow()) {
-        return ProgramRuntimeError::initStackOverflow();
-    }
 
     const sy::InterpreterFunctionScriptInfo* scriptInfo
         = reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(scriptFunction->fptr);
@@ -320,8 +317,10 @@ void executeMemsetUninitialized(const Bytecode bytecode)
 
     Stack& activeStack = Stack::getActiveStack();
     void* destination = activeStack.valueMemoryAt(operands.dst);
-    sy_assert(activeStack.currentFrame().frameLength >= (operands.dst + operands.slots), 
-        "Trying to uninitialize memory outside of stack frame");
+    #if _DEBUG
+    const uint32_t frameLength = static_cast<uint32_t>(activeStack.getCurrentFrame().frameLengthMinusOne) + 1;
+    sy_assert(frameLength >= (operands.dst + operands.slots), "Trying to uninitialize memory outside of stack frame");
+    #endif
     const size_t bytesToSet = sizeof(void*) * static_cast<size_t>(operands.slots);
     memset(destination, 0xAA, bytesToSet);
 }

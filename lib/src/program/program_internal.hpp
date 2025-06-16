@@ -13,7 +13,7 @@ namespace sy {
     struct InterpreterFunctionScriptInfo {
         const Program*  program;
         /// Less than or equal to `Stack::MAX_FRAME_LEN`
-        size_t          stackSpaceRequired;
+        uint32_t        stackSpaceRequired;
         size_t          bytecodeCount;
         const Bytecode* bytecode;
         /// When this script function is getting unwinded, it will unwind this array of slots in their specific order.
