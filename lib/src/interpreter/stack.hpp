@@ -4,6 +4,7 @@
 
 #include "../core.h"
 #include <type_traits>
+#include <optional>
 
 // Developers are allowed to change this value.
 #ifndef SY_MAX_STACK_SIZE
@@ -31,14 +32,43 @@ public:
     static constexpr size_t BITS_PER_STACK_OPERAND = 16;
     static constexpr size_t MAX_FRAME_LEN = 1 << BITS_PER_STACK_OPERAND;
 
-    struct Frame {
-        size_t basePointerOffset = 0;
-        size_t frameLength = 0; // TODO maybe should be size_t or uint32_t, as UINT16_MAX should probably be a valid index
-        void* retValueDst = nullptr;
-        const sy::Function* function = nullptr;
+    struct Frame {    
+        uint32_t basePointerOffset;
+        void*    retValueDst;
+        uint16_t frameLengthMinusOne;
+        uint16_t functionIndex;
         #if _DEBUG
         bool validated = false;
         #endif
+
+        static std::optional<uint32_t> frameExtendAmountForAlignment(
+            const uint32_t totalSlots, const uint32_t nextBaseOffset, const uint16_t alignment);
+
+        static Frame readFromMemory(const size_t* valuesMem, const size_t* typesMem);
+
+        void storeInMemory(size_t* valuesMem, size_t* typesMem) const;
+
+        static const Bytecode* readOldInstructionPointer(const size_t* valuesMem);
+
+        static void storeOldInstructionPointer(size_t* valuesMem, const Bytecode* instructionPointer);
+        
+        /// The amount of slots the old stack frame info needs to store itself within the bounds of the new frame.
+        static constexpr size_t OLD_FRAME_INFO_RESERVED_SLOTS = 2;
+
+    private:
+
+        /// The index used to read the instruction pointer of the previous frame.
+        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::values`.
+        static constexpr size_t OLD_INSTRUCTION_POINTER = 0;
+        /// The index used to read the frame length of the previous frame.
+        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::values`.
+        static constexpr size_t OLD_FRAME_LENGTH_AND_FUNCTION_INDEX = 1;
+        /// The index used to read the return value destination of the previous frame. 
+        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
+        static constexpr size_t OLD_RETURN_VALUE_DST = 0;
+        /// The index used to read the function of the previous frame. 
+        /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
+        static constexpr size_t OLD_BASE_POINTER_OFFSET = 1;
     };
 
     Stack();
@@ -122,16 +152,34 @@ public:
 
     struct Node {
         /// Allocates as pages
-        size_t* values;
+        size_t*     values;
         /// Allocates as pages
-        size_t* types;
+        size_t*     types;
         /// `slots * sizeof(size_t)` is the amount of bytes occupied by all of the pages allocated for both
         /// `values` and `types`.
-        size_t  slots;
+        uint32_t    slots;
+        ///
+        uint32_t    nextBaseOffset;
 
-        Node(const size_t minSlotSize);
+        Node(const uint32_t minSlotSize);
 
-        ~Node();
+        ~Node() noexcept;
+
+        Node(Node&& other) noexcept;
+
+        Node& operator=(Node&& other) noexcept;
+
+        Node(const Node& other) = delete;
+
+        Node& operator=(const Node& other) = delete;
+
+        std::optional<Frame> pushFrame(uint32_t frameLength, uint16_t alignment, void* retValDst, Frame& currentFrame);
+
+        void popFrame();
+
+        void storeCurrentFrameInfoInNext(const Frame& currentFrame, const Bytecode* instructionPointer);
+
+        Frame previousFrame(const Frame& currentFrame) const;
     };
 
     struct Raw {
@@ -148,27 +196,11 @@ public:
         /// runtime library will handle it accordingly.
         size_t                  slots;
         const sy::Function**    callstackFunctions;
-        size_t                  callstackLen;
-        size_t                  callstackCapacity;
+        uint16_t                callstackLen;
+        uint16_t                callstackCapacity;
     };
 
 private:
-
-    /// The index used to read the instruction pointer of the previous frame.
-    /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::values`.
-    static constexpr size_t OLD_INSTRUCTION_POINTER = 0;
-    /// The index used to read the frame length of the previous frame.
-    /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::values`.
-    static constexpr size_t OLD_FRAME_LENGTH = 1;
-    /// The index used to read the return value destination of the previous frame. 
-    /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
-    static constexpr size_t OLD_RETURN_VALUE_DST = 0;
-    /// The index used to read the function of the previous frame. 
-    /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
-    static constexpr size_t OLD_FUNCTION = 1;
-    /// The amount of slots the old stack frame info needs to store itself within the bounds of the new frame.
-    static constexpr size_t OLD_FRAME_INFO_RESERVED_SLOTS = 2;
-
     /// Instances of `sy::Type` are required to have alignment of `alignof(void*)`, therefore on all target platforms,
     /// the lowest bit will be zeroed, and thus can be used as a flag bit, conserving memory.
     static constexpr uintptr_t TYPE_NOT_OWNED_FLAG = 0b1;

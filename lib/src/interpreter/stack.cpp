@@ -50,6 +50,76 @@ namespace detail {
     static thread_local Stack* activeStack = reinterpret_cast<Stack*>(&threadLocalRawStack);
 }
 
+std::optional<uint32_t> Stack::Frame::frameExtendAmountForAlignment(
+    const uint32_t totalSlots, const uint32_t nextBaseOffset, const uint16_t alignment)
+{
+    sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
+    sy_assert(alignment >= 16, "Alignment should be greater than or equal to 16");
+
+    const uint16_t normalizedAlignment = alignment / sizeof(void*);
+    const uint16_t remainder = nextBaseOffset % normalizedAlignment;
+    if(remainder == 0) {
+        return std::optional<uint32_t>(0); // Does not need to extend at all because is aligned
+    }
+
+    const uint32_t offset = normalizedAlignment - remainder;
+    const uint32_t newBaseOffset = nextBaseOffset + static_cast<uint32_t>(normalizedAlignment - remainder);
+    if(newBaseOffset >= totalSlots) {
+        return std::optional<uint32_t>(); // empty cause would stack overflow
+    }
+
+    sy_assert((newBaseOffset * sizeof(void*)) % alignment == 0, 
+        "Adjusted base offset must satisfy alignment requirements");
+
+    return std::optional<uint32_t>(offset);
+}
+
+Stack::Frame Stack::Frame::readFromMemory(const size_t *valuesMem, const size_t *typesMem)
+{
+    const uint32_t frameLengthAndFunctionIndex = 
+        *reinterpret_cast<const uint32_t*>(valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX]);
+    void* oldRetDst = const_cast<void*>(reinterpret_cast<const void*>(typesMem[OLD_RETURN_VALUE_DST]));
+    const uint32_t oldBasePointerOffset = 
+        *reinterpret_cast<const uint32_t*>(valuesMem[OLD_BASE_POINTER_OFFSET]);
+
+    const Frame oldFrame = {
+        oldBasePointerOffset,
+        oldRetDst,
+        static_cast<uint16_t>(frameLengthAndFunctionIndex & 0xFFFF),
+        static_cast<uint16_t>(frameLengthAndFunctionIndex >> 16),
+        #if _DEBUG
+        true // flag
+        #endif
+    };
+    return oldFrame;
+}
+
+void Stack::Frame::storeInMemory(size_t *valuesMem, size_t *typesMem) const
+{
+    uint32_t* frameLengthAndFunctionIndex = 
+        reinterpret_cast<uint32_t*>(valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX]);
+    *frameLengthAndFunctionIndex = 
+        static_cast<uint32_t>(this->frameLengthMinusOne) |
+        (static_cast<uint32_t>(this->functionIndex) << 16);
+
+    void** oldRetDst = reinterpret_cast<void**>(&typesMem[OLD_RETURN_VALUE_DST]);
+    *oldRetDst = const_cast<void*>(this->retValueDst);
+
+    uint32_t* oldBasePointerOffset = reinterpret_cast<uint32_t*>(valuesMem[OLD_BASE_POINTER_OFFSET]);
+    *oldBasePointerOffset = this->basePointerOffset;
+}
+
+const Bytecode *Stack::Frame::readOldInstructionPointer(const size_t *valuesMem)
+{
+    return reinterpret_cast<const Bytecode*>(valuesMem[OLD_INSTRUCTION_POINTER]);
+}
+
+void Stack::Frame::storeOldInstructionPointer(size_t *valuesMem, const Bytecode *instructionPointer)
+{
+    auto oldinstructionPointer = reinterpret_cast<const Bytecode**>(&valuesMem[OLD_INSTRUCTION_POINTER]);
+    *oldinstructionPointer = instructionPointer;
+}
+
 Stack::Stack() : Stack(detail::DEFAULT_STACK_SLOT_SIZE)
 {}
 
@@ -258,6 +328,38 @@ bool Stack::pushScriptFunctionArg(const void *argMem, const sy::Type *type, uint
     return true;
 }
 
+std::optional<Stack::Frame> Stack::Node::pushFrame(
+    uint32_t frameLength, uint16_t alignment, void *retValDst, Frame& currentFrame)
+{
+    sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
+    sy_assert(frameLength > 0, "Frame length of 0 is useless");
+    sy_assert(frameLength <= MAX_FRAME_LEN, "Frame length cannot exceed maximum");
+
+    const uint16_t actualAlignment = alignment < 16 ? 16 : alignment;
+
+    { // validate values are properly aligned
+        const size_t asNum = reinterpret_cast<size_t>(this->values);
+        sy_assert(asNum % actualAlignment == 0, "The stack values must be aligned to the required frame alignment");
+    }
+
+    { // extend frame
+        std::optional<uint32_t> optExtendAmount = Frame::frameExtendAmountForAlignment(
+            this->slots, this->nextBaseOffset, alignment);
+        if(!optExtendAmount.has_value()) {
+            return std::optional<Stack::Frame>();
+        }
+        this->nextBaseOffset += optExtendAmount.value();
+        currentFrame.frameLength += optExtendAmount.value();
+    }
+
+    if(this->nextBaseOffset != 0) {
+        sy_assert(this->nextBaseOffset >= OLD_FRAME_INFO_RESERVED_SLOTS, 
+            "Trying to set out of bounds memory before the stack memory allocations");
+
+        
+    }
+}
+
 void Stack::popFrame()
 {
     sy_assert(this->raw.nextBaseOffset != 0, "No more frames to pop");
@@ -287,6 +389,33 @@ void Stack::popFrame()
     this->raw.instructionPointer = oldInstructionPtr;
     this->raw.currentFrame = oldFrame;
     this->raw.nextBaseOffset = oldNextBaseOffset;
+}
+
+void Stack::Node::storeCurrentFrameInfoInNext(const Frame &currentFrame, const Bytecode* instructionPointer)
+{
+    size_t* const beforeFrameStart1 = &this->values[this->nextBaseOffset];
+    size_t* const beforeFrameStart2 = &this->types[this->nextBaseOffset];
+
+    const Bytecode*& oldInstructionPtr =
+        const_cast<const Bytecode*&>(reinterpret_cast<Bytecode*&>(beforeFrameStart1[OLD_INSTRUCTION_POINTER]));
+    size_t& oldFrameLengthAndBpo =
+        reinterpret_cast<size_t&>(beforeFrameStart1[OLD_FRAME_LENGTH]);
+    void*& oldRetValDst =
+        reinterpret_cast<void*&>(beforeFrameStart2[OLD_RETURN_VALUE_DST]);
+    const sy::Function*& oldFunction =
+        const_cast<const sy::Function*&>(reinterpret_cast<sy::Function*&>(beforeFrameStart2[OLD_RETURN_VALUE_DST]));
+
+    oldInstructionPtr = instructionPointer;
+    oldFrameLengthAndBpo = 
+        static_cast<size_t>(currentFrame.frameLength) | 
+        (static_cast<size_t>(currentFrame.basePointerOffset) << 32);
+    oldRetValDst = currentFrame.retValueDst;
+    oldFunction = currentFrame.function;
+}
+
+Stack::Frame Stack::Node::previousFrame(const Frame &currentFrame) const
+{
+    return Frame();
 }
 
 bool Stack::currentFrameValidated() const
@@ -417,10 +546,11 @@ const Bytecode *Stack::previousInstructionPointer() const
     return oldInstructionPtr;
 }
 
-Stack::Node::Node(const size_t minSlotSize)
+Stack::Node::Node(const uint32_t minSlotSize)
+    : nextBaseOffset(0)
 {
     const size_t pageSize = page_size();
-    size_t bytesToAllocate = minSlotSize * sizeof(size_t);
+    size_t bytesToAllocate = static_cast<size_t>(minSlotSize) * sizeof(size_t);
     {
         const size_t remainder = bytesToAllocate % pageSize;
         if(remainder != 0) {
@@ -447,8 +577,44 @@ Stack::Node::Node(const size_t minSlotSize)
     
     this->values = reinterpret_cast<size_t*>(valuesMem);
     this->types = reinterpret_cast<size_t*>(typesMem);
-    this->slots = bytesToAllocate / sizeof(size_t);
+    this->slots = static_cast<uint32_t>(bytesToAllocate / sizeof(size_t));
     
+}
+
+Stack::Node::~Node() noexcept
+{
+    if(this->slots == 0) return;
+
+    const size_t bytesAllocated = static_cast<size_t>(this->slots) * sizeof(size_t);
+    page_free(this->values, bytesAllocated);
+    page_free(this->types, bytesAllocated);
+
+    this->values = nullptr;
+    this->types = nullptr;
+    this->slots = 0;
+    this->nextBaseOffset = 0;
+}
+
+Stack::Node::Node(Node &&other) noexcept
+    : values(other.values), types(other.types), slots(other.slots), nextBaseOffset(other.nextBaseOffset)
+{
+    other.values = nullptr;
+    other.types = nullptr;
+    other.slots = 0;
+    other.nextBaseOffset = 0;
+}
+
+Stack::Node& Stack::Node::operator=(Node &&other) noexcept
+{
+    this->values = other.values;
+    this->types = other.types;
+    this->slots = other.slots;
+    this->nextBaseOffset = other.nextBaseOffset;
+    other.values = nullptr;
+    other.types = nullptr;
+    other.slots = 0;
+    other.nextBaseOffset = 0;
+    return *this;
 }
 
 FrameGuard::~FrameGuard()
