@@ -329,8 +329,12 @@ bool Stack::pushScriptFunctionArg(const void *argMem, const sy::Type *type, uint
 }
 
 std::optional<Stack::Frame> Stack::Node::pushFrame(
-    uint32_t frameLength, uint16_t alignment, void *retValDst, std::optional<Frame&> currentFrame)
-{
+    uint32_t frameLength, 
+    uint16_t alignment, 
+    void *retValDst, 
+    std::optional<Frame&> currentFrame,
+    const Bytecode* instructionPointer
+) {
     sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
     sy_assert(frameLength > 0, "Frame length of 0 is useless");
     sy_assert(frameLength <= MAX_FRAME_LEN, "Frame length cannot exceed maximum");
@@ -343,12 +347,16 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
     }
 
     { // extend frame
+        uint32_t actualNextBaseOffset = this->nextBaseOffset;
+        if(currentFrame.has_value()) actualNextBaseOffset += Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+        // TODO integer overflow checks
+
         std::optional<uint32_t> optExtendAmount = Frame::frameExtendAmountForAlignment(
-            this->slots, this->nextBaseOffset, alignment);
+            this->slots, actualNextBaseOffset, alignment);
         if(!optExtendAmount.has_value()) {
             return std::optional<Stack::Frame>();
         }
-        this->nextBaseOffset += optExtendAmount.value();
+        this->nextBaseOffset = actualNextBaseOffset + optExtendAmount.value();
         const uint32_t currentFrameLengthMinusOne = currentFrame.value().frameLengthMinusOne;
         const uint32_t newFrameLenMinusOne = currentFrameLengthMinusOne + optExtendAmount.value();
         sy_assert(newFrameLenMinusOne < MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
@@ -360,6 +368,7 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
         size_t* const typesBefore   = &this->types[this->nextBaseOffset];
 
         currentFrame.value().storeInMemory(valuesBefore, typesBefore);
+        Frame::storeOldInstructionPointer(valuesBefore, instructionPointer);
     }
 
     const Frame newFrame = {
@@ -374,6 +383,33 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
 
     this->nextBaseOffset += frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
     return std::optional<Frame>(newFrame);
+}
+
+std::optional<std::tuple<Stack::Frame, const Bytecode*>> Stack::Node::popFrame(const uint16_t currentFrameLenMinusOne)
+{
+    sy_assert(this->nextBaseOffset != 0, "No frames to pop");
+
+    const uint32_t currentFrameLength = static_cast<uint32_t>(currentFrameLenMinusOne) + 1;
+    sy_assert(currentFrameLength <= this->nextBaseOffset, "Stack was corrupted");
+
+    const uint32_t oldNextBaseOffset 
+        = this->nextBaseOffset - (currentFrameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS);
+
+    if(oldNextBaseOffset == 0) {
+        this->nextBaseOffset = 0;
+        return std::optional<std::tuple<Frame, const Bytecode*>>();
+    }
+    
+    const size_t oldInfoStartOffset = this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+    const size_t* const valuesMem   = &this->values[oldInfoStartOffset];
+    const size_t* const typesMem    = &this->types[oldInfoStartOffset];
+
+    Frame oldFrame = Frame::readFromMemory(valuesMem, typesMem);
+    const Bytecode* oldInstructionPointer = Frame::readOldInstructionPointer(valuesMem);
+
+    this->nextBaseOffset = oldNextBaseOffset;
+    auto tuple = std::make_tuple(oldFrame, oldInstructionPointer);
+    return std::optional<std::tuple<Frame, const Bytecode*>>(tuple);
 }
 
 void Stack::popFrame()
@@ -405,28 +441,6 @@ void Stack::popFrame()
     this->raw.instructionPointer = oldInstructionPtr;
     this->raw.currentFrame = oldFrame;
     this->raw.nextBaseOffset = oldNextBaseOffset;
-}
-
-void Stack::Node::storeCurrentFrameInfoInNext(const Frame &currentFrame, const Bytecode* instructionPointer)
-{
-    size_t* const beforeFrameStart1 = &this->values[this->nextBaseOffset];
-    size_t* const beforeFrameStart2 = &this->types[this->nextBaseOffset];
-
-    const Bytecode*& oldInstructionPtr =
-        const_cast<const Bytecode*&>(reinterpret_cast<Bytecode*&>(beforeFrameStart1[OLD_INSTRUCTION_POINTER]));
-    size_t& oldFrameLengthAndBpo =
-        reinterpret_cast<size_t&>(beforeFrameStart1[OLD_FRAME_LENGTH]);
-    void*& oldRetValDst =
-        reinterpret_cast<void*&>(beforeFrameStart2[OLD_RETURN_VALUE_DST]);
-    const sy::Function*& oldFunction =
-        const_cast<const sy::Function*&>(reinterpret_cast<sy::Function*&>(beforeFrameStart2[OLD_RETURN_VALUE_DST]));
-
-    oldInstructionPtr = instructionPointer;
-    oldFrameLengthAndBpo = 
-        static_cast<size_t>(currentFrame.frameLength) | 
-        (static_cast<size_t>(currentFrame.basePointerOffset) << 32);
-    oldRetValDst = currentFrame.retValueDst;
-    oldFunction = currentFrame.function;
 }
 
 Stack::Frame Stack::Node::previousFrame(const Frame &currentFrame) const

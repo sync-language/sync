@@ -5,6 +5,7 @@
 #include "../core.h"
 #include <type_traits>
 #include <optional>
+#include <tuple>
 
 // Developers are allowed to change this value.
 #ifndef SY_MAX_STACK_SIZE
@@ -174,13 +175,15 @@ public:
         Node& operator=(const Node& other) = delete;
 
         std::optional<Frame> pushFrame(
-            uint32_t frameLength, uint16_t alignment, void* retValDst, std::optional<Frame&> currentFrame);
+            uint32_t frameLength, 
+            uint16_t alignment,
+            void* retValDst, 
+            std::optional<Frame&> currentFrame, 
+            const Bytecode* instructionPointer
+        );
 
-        void popFrame();
-
-        void storeCurrentFrameInfoInNext(const Frame& currentFrame, const Bytecode* instructionPointer);
-
-        Frame previousFrame(const Frame& currentFrame) const;
+        std::optional<std::tuple<Frame, const Bytecode*>> popFrame(
+            const uint16_t currentFrameLenMinusOne);
     };
 
     struct Raw {
