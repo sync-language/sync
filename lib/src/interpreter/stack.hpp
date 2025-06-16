@@ -173,7 +173,8 @@ public:
 
         Node& operator=(const Node& other) = delete;
 
-        std::optional<Frame> pushFrame(uint32_t frameLength, uint16_t alignment, void* retValDst, Frame& currentFrame);
+        std::optional<Frame> pushFrame(
+            uint32_t frameLength, uint16_t alignment, void* retValDst, std::optional<Frame&> currentFrame);
 
         void popFrame();
 

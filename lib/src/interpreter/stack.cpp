@@ -329,7 +329,7 @@ bool Stack::pushScriptFunctionArg(const void *argMem, const sy::Type *type, uint
 }
 
 std::optional<Stack::Frame> Stack::Node::pushFrame(
-    uint32_t frameLength, uint16_t alignment, void *retValDst, Frame& currentFrame)
+    uint32_t frameLength, uint16_t alignment, void *retValDst, std::optional<Frame&> currentFrame)
 {
     sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
     sy_assert(frameLength > 0, "Frame length of 0 is useless");
@@ -349,15 +349,31 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
             return std::optional<Stack::Frame>();
         }
         this->nextBaseOffset += optExtendAmount.value();
-        currentFrame.frameLength += optExtendAmount.value();
+        const uint32_t currentFrameLengthMinusOne = currentFrame.value().frameLengthMinusOne;
+        const uint32_t newFrameLenMinusOne = currentFrameLengthMinusOne + optExtendAmount.value();
+        sy_assert(newFrameLenMinusOne < MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
+        currentFrame.value().frameLengthMinusOne = static_cast<uint16_t>(newFrameLenMinusOne);
     }
 
-    if(this->nextBaseOffset != 0) {
-        sy_assert(this->nextBaseOffset >= OLD_FRAME_INFO_RESERVED_SLOTS, 
-            "Trying to set out of bounds memory before the stack memory allocations");
+    if(currentFrame.has_value()) {
+        size_t* const valuesBefore  = &this->values[this->nextBaseOffset];
+        size_t* const typesBefore   = &this->types[this->nextBaseOffset];
 
-        
+        currentFrame.value().storeInMemory(valuesBefore, typesBefore);
     }
+
+    const Frame newFrame = {
+        this->nextBaseOffset + Frame::OLD_FRAME_INFO_RESERVED_SLOTS,
+        retValDst,
+        static_cast<uint16_t>(frameLength - 1),
+        UINT16_MAX - 1,
+        #if _DEBUG
+        false // flag
+        #endif
+    };
+
+    this->nextBaseOffset += frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+    return std::optional<Frame>(newFrame);
 }
 
 void Stack::popFrame()
