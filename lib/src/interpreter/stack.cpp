@@ -57,9 +57,9 @@ Stack::Frame Stack::Frame::readFromMemory(const size_t *valuesMem, const size_t 
 
     const Frame oldFrame = {
         oldBasePointerOffset,
-        oldRetDst,
         static_cast<uint16_t>(frameLengthAndFunctionIndex & 0xFFFF),
-        static_cast<uint16_t>(frameLengthAndFunctionIndex >> 16)
+        static_cast<uint16_t>(frameLengthAndFunctionIndex >> 16),
+        oldRetDst
     };
     return oldFrame;
 }
@@ -362,9 +362,9 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
 
     const Frame newFrame = {
         this->nextBaseOffset + Frame::OLD_FRAME_INFO_RESERVED_SLOTS,
-        retValDst,
         static_cast<uint16_t>(frameLength - 1),
-        UINT16_MAX - 1
+        UINT16_MAX - 1,
+        retValDst
     };
 
     this->nextBaseOffset += frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;

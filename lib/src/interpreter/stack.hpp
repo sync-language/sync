@@ -101,11 +101,11 @@ public:
 
     [[nodiscard]] const Frame& getCurrentFrame() const { return this->currentFrame; }
 
-    struct Frame {    
+    struct Frame {
         uint32_t basePointerOffset;
-        void*    retValueDst;
         uint16_t frameLengthMinusOne;
         uint16_t functionIndex;
+        void*    retValueDst;
 
         static std::optional<uint32_t> frameExtendAmountForAlignment(
             const uint32_t totalSlots, const uint32_t nextBaseOffset, const uint16_t alignment);
