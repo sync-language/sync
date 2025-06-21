@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_library(SyncLib STATIC
     "src/util/panic.cpp"
+    "src/util/os_callstack.cpp"
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
     "src/threading/sync_queue.cpp"
@@ -27,6 +28,7 @@ add_library(SyncLib STATIC
 add_executable(SyncLibTests
     "src/test.cpp"
     "src/util/panic.cpp"
+    "src/util/os_callstack.cpp"
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
     "src/threading/sync_queue.cpp"
