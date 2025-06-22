@@ -23,7 +23,7 @@
 extern "C" {
     SY_API void test_backtrace_stuff()
     {
-        Backtrace bt = Backtrace::getBacktrace();
+        Backtrace bt = Backtrace::generate();
         //std::cerr << bt.frames.size() << " num frames" << std::endl;
         for(size_t i = 0; i < bt.frames.size(); i++) {
             std::cerr << i << ' ';
@@ -40,7 +40,7 @@ extern "C" {
 
 // TODO maybe get function signature too?
 
-Backtrace Backtrace::getBacktrace()
+Backtrace Backtrace::generate()
 {
     // https://stackoverflow.com/a/50208684
 
@@ -304,7 +304,7 @@ static Backtrace::StackFrameInfo addr2lineInfo(void* const address, const char* 
 }
 #endif
 
-Backtrace Backtrace::getBacktrace()
+Backtrace Backtrace::generate()
 {
     BacktraceAddresses btAddr;
 
@@ -369,7 +369,7 @@ Backtrace Backtrace::getBacktrace()
 template<typename T>
 struct Example {
     void doThing() {
-        Backtrace bt = Backtrace::getBacktrace();
+        Backtrace bt = Backtrace::generate();
         for(size_t i = 0; i < bt.frames.size(); i++) {
             auto& frame = bt.frames[i];
             std::cout << frame.obj << " | " << frame.functionName << " | " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
@@ -378,7 +378,7 @@ struct Example {
 };
 
 TEST_CASE("back trace example") {
-    // Backtrace bt = Backtrace::getBacktrace();
+    // Backtrace bt = Backtrace::generate();
     // for(size_t i = 0; i < bt.frames.size(); i++) {
     //     auto& frame = bt.frames[i];
     //     std::cout << frame.obj << " | " << frame.functionName << " | " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;

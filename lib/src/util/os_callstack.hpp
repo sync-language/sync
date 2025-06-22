@@ -20,7 +20,7 @@ public:
 
     std::vector<StackFrameInfo> frames;
 
-    static Backtrace getBacktrace();
+    static Backtrace generate();
 };
 
 extern "C" {
