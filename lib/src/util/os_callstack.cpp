@@ -338,6 +338,26 @@ Backtrace Backtrace::generate()
 
 #endif // defined __APPLE__ || defined __GNUC__
 
+void Backtrace::print() const
+{
+    if(this->frames.size() == 0) return;
+
+    std::cerr << "Stack trace (most recent call first):\n";
+    size_t i = 0;
+    const size_t width = (this->frames.size() / 10) + 1;
+    for(const auto& frame : this->frames) {
+        std::cerr << '#';
+        std::cerr.width(width);
+        std::cerr.setf(std::ios_base::left);
+        std::cerr << i;
+        std::cerr.unsetf(std::ios_base::left);
+        std::cerr.width(-1);
+        std::cerr << ' ' << frame.address << " in " << frame.functionName;
+        std::cerr << " at " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
+        i += 1;
+    }
+}
+
 #if SYNC_LIB_TEST
 
 #include "../doctest.h"
@@ -355,7 +375,8 @@ struct Example {
 };
 
 TEST_CASE("back trace example") {
-    sy_assert(false, "");
+    auto trace = Backtrace::generate();
+    trace.print();
 }
 
 #endif

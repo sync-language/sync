@@ -21,6 +21,9 @@ public:
     std::vector<StackFrameInfo> frames;
 
     static Backtrace generate();
+
+    /// Prints to stderr
+    void print() const;
 };
 
 extern "C" {
