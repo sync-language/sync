@@ -2,6 +2,7 @@
 #ifndef SY_UTIL_OS_CALLSTACK_HPP_
 #define SY_UTIL_OS_CALLSTACK_HPP_
 
+#include "../core.h"
 #include <string>
 #include <vector>
 
@@ -21,5 +22,9 @@ public:
 
     static Backtrace getBacktrace();
 };
+
+extern "C" {
+    SY_API void test_backtrace_stuff();
+}
 
 #endif // SY_UTIL_OS_CALLSTACK_HPP_

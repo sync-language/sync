@@ -8,19 +8,179 @@
 #include <charconv>
 #include <string_view>
 #include <string>
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined (_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <process.h>
 #include <Windows.h>
 #include <dbghelp.h>
-#elif defined __APPLE || defined __GNUC__
+#elif defined(__APPLE) || defined (__GNUC__)
 #include <dlfcn.h>
 #include <execinfo.h>
 #include <stdio.h>
 #include <unistd.h>
 #endif // MSVC APPLE GCC
 
-#if defined __APPLE || defined __GNUC__
+extern "C" {
+    SY_API void test_backtrace_stuff()
+    {
+        std::cerr << "wuh\n";
+        Backtrace bt = Backtrace::getBacktrace();
+        for(size_t i = 0; i < bt.frames.size(); i++) {
+            std::cerr << i;
+            std::cerr.flush();
+            auto& frame = bt.frames[i];
+            std::cerr << frame.obj << " | " << frame.functionName << " | " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
+        }
+    }
+}
+
+#if defined(_MSC_VER) || defined(_WIN32)
+
+#pragma comment(lib,"Dbghelp.lib")
+
+// TODO maybe get function signature too?
+
+Backtrace Backtrace::getBacktrace()
+{
+    // https://stackoverflow.com/a/50208684
+
+    BOOL    result;
+    HANDLE  process;
+    HANDLE  thread;
+    HMODULE hModule;
+
+    STACKFRAME64        stack;
+    ULONG               frame;    
+    DWORD64             displacement;
+
+    DWORD disp;
+    IMAGEHLP_LINE64 *line;
+
+    char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
+    char module[1024];
+    PSYMBOL_INFO pSymbol = (PSYMBOL_INFO)buffer;
+
+    // On x64, StackWalk64 modifies the context record, that could
+    // cause crashes, so we create a copy to prevent it
+    CONTEXT ctxCopy;
+    RtlCaptureContext(&ctxCopy);
+
+    memset( &stack, 0, sizeof( STACKFRAME64 ) );
+
+    process                = GetCurrentProcess();
+    thread                 = GetCurrentThread();
+    displacement           = 0;
+#if !defined(_M_AMD64)
+    stack.AddrPC.Offset    = (*ctx).Eip;
+    stack.AddrPC.Mode      = AddrModeFlat;
+    stack.AddrStack.Offset = (*ctx).Esp;
+    stack.AddrStack.Mode   = AddrModeFlat;
+    stack.AddrFrame.Offset = (*ctx).Ebp;
+    stack.AddrFrame.Mode   = AddrModeFlat;
+#endif
+
+    Backtrace self;
+
+    SymInitialize( process, NULL, TRUE ); //load symbols
+
+    std::cout << "hmjj\n";
+
+    // We don't care about this function being called
+    (void)StackWalk64(
+#if defined(_M_AMD64)
+        IMAGE_FILE_MACHINE_AMD64,
+#else
+        IMAGE_FILE_MACHINE_I386,
+#endif
+        process,
+        thread,
+        &stack,
+        &ctxCopy,
+        NULL,
+        SymFunctionTableAccess64,
+        SymGetModuleBase64,
+        NULL
+    );
+
+    std::cout << "hmjj\n";
+    
+    for( frame = 0; ; frame++ )
+    {
+        //get next call from stack
+        result = StackWalk64(
+#if defined(_M_AMD64)
+            IMAGE_FILE_MACHINE_AMD64,
+#else
+            IMAGE_FILE_MACHINE_I386,
+#endif
+            process,
+            thread,
+            &stack,
+            &ctxCopy,
+            NULL,
+            SymFunctionTableAccess64,
+            SymGetModuleBase64,
+            NULL
+        );
+
+        if( !result ) {
+            std::cout << "uh oh\n";
+            break;
+        }        
+
+        //get symbol name for address
+        pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+        pSymbol->MaxNameLen = MAX_SYM_NAME;
+        SymFromAddr(process, ( ULONG64 )stack.AddrPC.Offset, &displacement, pSymbol);
+
+        line = (IMAGEHLP_LINE64 *)malloc(sizeof(IMAGEHLP_LINE64));
+        line->SizeOfStruct = sizeof(IMAGEHLP_LINE64);       
+
+        //try to get line
+        if (SymGetLineFromAddr64(process, stack.AddrPC.Offset, &disp, line))
+        {
+            hModule = NULL;
+            lstrcpyA(module,""); 
+            GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
+                (LPCTSTR)(stack.AddrPC.Offset), &hModule);
+            if(hModule != NULL)GetModuleFileNameA(hModule,module, 1024);
+
+            const size_t moduleNameLen = std::strlen(module);
+            const char* moduleName = &module[moduleNameLen - 1];
+            while(*moduleName != '\\') moduleName--;
+
+            Backtrace::StackFrameInfo info{
+                &moduleName[1],
+                pSymbol->Name,
+                line->FileName,
+                static_cast<int>(line->LineNumber),
+                reinterpret_cast<void*>(pSymbol->Address)
+            };
+            self.frames.push_back(std::move(info));
+        }
+        else
+        { 
+            //failed to get line
+            // printf("\tat %s, address 0x%0X.\n", pSymbol->Name, pSymbol->Address);
+            // hModule = NULL;
+            // lstrcpyA(module,"");        
+            // GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
+            //     (LPCTSTR)(stack.AddrPC.Offset), &hModule);
+
+            // //at least print module name
+            // if(hModule != NULL)GetModuleFileNameA(hModule,module, 1024);       
+
+            // printf ("in %s\n",module);
+        }       
+
+        free(line);
+        line = NULL;
+    }
+
+    return self;
+}
+
+#elif defined(__APPLE) || defined (__GNUC__)
 
 // Reasonable default
 constexpr int defaultBacktraceDepth = 64;
@@ -255,147 +415,6 @@ Backtrace Backtrace::getBacktrace()
 
 #endif // defined __APPLE || defined __GNUC__
 
-#ifdef _MSC_VER
-
-#pragma comment(lib,"Dbghelp.lib")
-
-// TODO maybe get function signature too?
-
-Backtrace Backtrace::getBacktrace()
-{
-    // https://stackoverflow.com/a/50208684
-
-    BOOL    result;
-    HANDLE  process;
-    HANDLE  thread;
-    HMODULE hModule;
-
-    STACKFRAME64        stack;
-    ULONG               frame;    
-    DWORD64             displacement;
-
-    DWORD disp;
-    IMAGEHLP_LINE64 *line;
-
-    char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
-    char module[1024];
-    PSYMBOL_INFO pSymbol = (PSYMBOL_INFO)buffer;
-
-    // On x64, StackWalk64 modifies the context record, that could
-    // cause crashes, so we create a copy to prevent it
-    CONTEXT ctxCopy;
-    RtlCaptureContext(&ctxCopy);
-
-    memset( &stack, 0, sizeof( STACKFRAME64 ) );
-
-    process                = GetCurrentProcess();
-    thread                 = GetCurrentThread();
-    displacement           = 0;
-#if !defined(_M_AMD64)
-    stack.AddrPC.Offset    = (*ctx).Eip;
-    stack.AddrPC.Mode      = AddrModeFlat;
-    stack.AddrStack.Offset = (*ctx).Esp;
-    stack.AddrStack.Mode   = AddrModeFlat;
-    stack.AddrFrame.Offset = (*ctx).Ebp;
-    stack.AddrFrame.Mode   = AddrModeFlat;
-#endif
-
-    Backtrace self;
-
-    SymInitialize( process, NULL, TRUE ); //load symbols
-
-    // We don't care about this function being called
-    (void)StackWalk64(
-#if defined(_M_AMD64)
-        IMAGE_FILE_MACHINE_AMD64,
-#else
-        IMAGE_FILE_MACHINE_I386,
-#endif
-        process,
-        thread,
-        &stack,
-        &ctxCopy,
-        NULL,
-        SymFunctionTableAccess64,
-        SymGetModuleBase64,
-        NULL
-    );
-    
-    for( frame = 0; ; frame++ )
-    {
-        //get next call from stack
-        result = StackWalk64(
-#if defined(_M_AMD64)
-            IMAGE_FILE_MACHINE_AMD64,
-#else
-            IMAGE_FILE_MACHINE_I386,
-#endif
-            process,
-            thread,
-            &stack,
-            &ctxCopy,
-            NULL,
-            SymFunctionTableAccess64,
-            SymGetModuleBase64,
-            NULL
-        );
-
-        if( !result ) break;        
-
-        //get symbol name for address
-        pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-        pSymbol->MaxNameLen = MAX_SYM_NAME;
-        SymFromAddr(process, ( ULONG64 )stack.AddrPC.Offset, &displacement, pSymbol);
-
-        line = (IMAGEHLP_LINE64 *)malloc(sizeof(IMAGEHLP_LINE64));
-        line->SizeOfStruct = sizeof(IMAGEHLP_LINE64);       
-
-        //try to get line
-        if (SymGetLineFromAddr64(process, stack.AddrPC.Offset, &disp, line))
-        {
-            hModule = NULL;
-            lstrcpyA(module,""); 
-            GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-                (LPCTSTR)(stack.AddrPC.Offset), &hModule);
-            if(hModule != NULL)GetModuleFileNameA(hModule,module, 1024);
-
-            const size_t moduleNameLen = std::strlen(module);
-            const char* moduleName = &module[moduleNameLen - 1];
-            while(*moduleName != '\\') moduleName--;
-
-            Backtrace::StackFrameInfo info{
-                &moduleName[1],
-                pSymbol->Name,
-                line->FileName,
-                static_cast<int>(line->LineNumber),
-                reinterpret_cast<void*>(pSymbol->Address)
-            };
-            self.frames.push_back(std::move(info));
-        }
-        else
-        { 
-            //failed to get line
-            // printf("\tat %s, address 0x%0X.\n", pSymbol->Name, pSymbol->Address);
-            // hModule = NULL;
-            // lstrcpyA(module,"");        
-            // GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-            //     (LPCTSTR)(stack.AddrPC.Offset), &hModule);
-
-            // //at least print module name
-            // if(hModule != NULL)GetModuleFileNameA(hModule,module, 1024);       
-
-            // printf ("in %s\n",module);
-        }       
-
-        free(line);
-        line = NULL;
-    }
-
-    return self;
-}
-
-#endif // _MSC_VER
-
 #if SYNC_LIB_TEST
 
 #include "../doctest.h"
@@ -445,3 +464,5 @@ TEST_CASE("back trace example") {
 }
 
 #endif
+
+

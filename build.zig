@@ -33,6 +33,10 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         });
         lib.root_module.addImport(moduleName, syncModule);
+        if (@import("builtin").os.tag == .windows) {
+            lib.linkSystemLibrary("dbghelp");
+        }
+
         b.installArtifact(lib);
     }
     { // Tests
@@ -44,6 +48,9 @@ pub fn build(b: *std.Build) void {
         libUnitTests.addIncludePath(b.path("lib/src"));
         libUnitTests.linkLibC();
         libUnitTests.linkLibCpp();
+        if (@import("builtin").os.tag == .windows) {
+            libUnitTests.linkSystemLibrary("dbghelp");
+        }
 
         const c_flags = [_][]const u8{};
         libUnitTests.addCSourceFiles(.{
