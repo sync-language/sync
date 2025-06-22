@@ -165,16 +165,18 @@ static Backtrace::StackFrameInfo parseStackFrameInfo(const char* const buffer)
     size_t i = 0;
     { // extract function name
         bool foundStartParenthesis = false;
-        bool foundEndParenthesis = false;
+        int parenDiff = 0;
         for(; i < slen; i++) {
-            if(buffer[i] == '(') {
+            if(buffer[i] == '(' && buffer[i - 1] == ' ') {
+                if(buffer[i - 1] == ' ') break;
                 foundStartParenthesis = true;
+                parenDiff += 1;
             }
-            else if(buffer[i] == ')' && foundStartParenthesis) {
-                foundEndParenthesis = true;
+            else if(buffer[i] == ')') {
+                parenDiff -= 1;
             }
             // either both parenthesis were found, or neither
-            else if(buffer[i] == ' ' && (foundStartParenthesis == foundEndParenthesis)) {
+            else if(buffer[i] == ' ' && (parenDiff == 0) && foundStartParenthesis == true) {
                 break;
             }
         }
@@ -183,7 +185,7 @@ static Backtrace::StackFrameInfo parseStackFrameInfo(const char* const buffer)
         self.functionName = sv;
     }
 
-    i += std::strlen(" (in ");
+    i += std::strlen(" (in");
 
     { // extract object name
         const size_t start = i;
@@ -360,7 +362,7 @@ void Backtrace::print() const
         std::cerr << i;
         std::cerr.unsetf(std::ios_base::left);
         std::cerr.width(-1);
-        std::cerr << ' ' << frame.address << " in " << frame.functionName;
+        std::cerr << ' ' << frame.obj << ' ' << frame.address << " in " << frame.functionName;
         std::cerr << " at " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
         i += 1;
     }
@@ -393,7 +395,7 @@ TEST_CASE("backtrace simple function call") {
     CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
     CHECK_NE(frame.functionName.find("backtraceFunction1"), std::string::npos);
     CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
-    if(frame.lineNumber != 386 && frame.lineNumber != 387) { // line executing, or next executing line
+    if(frame.lineNumber != 388 && frame.lineNumber != 389) { // line executing, or next executing line
         FAIL("Incorrect line number from backtrace");
     }
 }
@@ -410,7 +412,7 @@ TEST_CASE("backtrace template function call") {
     CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
     CHECK_NE(frame.functionName.find("backtraceFunction2<int>"), std::string::npos);
     CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
-    if(frame.lineNumber != 403 && frame.lineNumber != 404) { // line executing, or next executing line
+    if(frame.lineNumber != 405 && frame.lineNumber != 406) { // line executing, or next executing line
         FAIL("Incorrect line number from backtrace");
     }
 }
