@@ -14,8 +14,11 @@ public:
         std::string functionName;
         std::string fullFilePath;
         int lineNumber;
+        void* address;
 
+        #if defined __APPLE || defined __GNUC__
         static StackFrameInfo parse(const char* const buffer);
+        #endif
     };
 
     std::vector<StackFrameInfo> frames;

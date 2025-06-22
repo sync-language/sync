@@ -47,6 +47,8 @@ add_executable(SyncLibTests
 # Ensure all warnings are caught
 if(MSVC)
   target_compile_options(SyncLib PRIVATE /W4 /WX)
+  target_link_libraries(SyncLib PRIVATE dbghelp)
+  target_link_libraries(SyncLibTests PRIVATE dbghelp)
   # C++ exceptions and unwind semantics. Necessary for Rust
   target_compile_options(SyncLib PRIVATE /EHsc) 
 else()
