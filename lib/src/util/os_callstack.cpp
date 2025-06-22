@@ -393,7 +393,9 @@ TEST_CASE("backtrace simple function call") {
     CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
     CHECK_NE(frame.functionName.find("backtraceFunction1"), std::string::npos);
     CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
-    CHECK_EQ(frame.lineNumber, 386);
+    if(frame.lineNumber != 386 && frame.lineNumber != 387) { // line executing, or next executing line
+        FAIL("Incorrect line number from backtrace");
+    }
 }
 
 template<typename T>
@@ -408,7 +410,9 @@ TEST_CASE("backtrace template function call") {
     CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
     CHECK_NE(frame.functionName.find("backtraceFunction2<int>"), std::string::npos);
     CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
-    CHECK_EQ(frame.lineNumber, 401);
+    if(frame.lineNumber != 403 && frame.lineNumber != 404) { // line executing, or next executing line
+        FAIL("Incorrect line number from backtrace");
+    }
 }
 
 #endif
