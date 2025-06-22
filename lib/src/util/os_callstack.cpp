@@ -82,7 +82,8 @@ Backtrace Backtrace::generate()
 
     Backtrace self;
 
-    for(decltype(traceSize) i = 0; i < traceSize; i++ ) {
+    // We don't care about this function being called
+    for(decltype(traceSize) i = 1; i < traceSize; i++ ) {
         //get symbol name for address
         pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
         pSymbol->MaxNameLen = MAX_SYM_NAME;
@@ -381,9 +382,33 @@ struct Example {
     }
 };
 
-TEST_CASE("back trace example") {
-    auto trace = Backtrace::generate();
-    trace.print();
+static Backtrace backtraceFunction1() {
+    return Backtrace::generate();
+}
+
+TEST_CASE("backtrace simple function call") {
+    auto bt = backtraceFunction1();
+    CHECK_GT(bt.frames.size(), 0);
+    auto& frame = bt.frames.at(0);
+    CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
+    CHECK_NE(frame.functionName.find("backtraceFunction1"), std::string::npos);
+    CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
+    CHECK_EQ(frame.lineNumber, 386);
+}
+
+template<typename T>
+static Backtrace backtraceFunction2() {
+    return Backtrace::generate();
+}
+
+TEST_CASE("backtrace template function call") {
+    auto bt = backtraceFunction2<int>();
+    CHECK_GT(bt.frames.size(), 0);
+    auto& frame = bt.frames.at(0);
+    CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
+    CHECK_NE(frame.functionName.find("backtraceFunction2<int>"), std::string::npos);
+    CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
+    CHECK_EQ(frame.lineNumber, 401);
 }
 
 #endif
