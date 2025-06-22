@@ -8,7 +8,7 @@
 #if defined(__x86_64__) || defined (_M_AMD64)
 
 #ifdef SY_FUNCTION_MIN_ALIGN
-#error "Do not override default minimum function alignment for X86_64
+#error "Do not override default minimum function alignment for X86_64"
 #endif
 
 // For X86_64, function alignment must be at least 16-byte aligned for their call stacks. As a result, the minimum
@@ -27,7 +27,7 @@ constexpr uint16_t SY_FUNCTION_MIN_ALIGN = 16;
 #elif defined(__aarch64__) || defined(_M_ARM64)
 
 #ifdef SY_FUNCTION_MIN_ALIGN
-#error "Do not override default minimum function alignment for ARM64
+#error "Do not override default minimum function alignment for ARM64"
 #endif
 
 // For ARM64, function alignment must be at least 16-byte aligned for their call stacks. As a result, the minimum

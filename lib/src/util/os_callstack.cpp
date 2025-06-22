@@ -1,17 +1,24 @@
 #include "os_callstack.hpp"
 #include "assert.hpp"
+#include "../core.h"
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include <cstring>
 #include <charconv>
 #include <string_view>
+#include <string>
 #if defined(_MSC_VER)
 #define WIN32_LEAN_AND_MEAN
 #include <process.h>
 #include <Windows.h>
 #include <dbghelp.h>
-#endif
+#elif defined __APPLE || defined __GNUC__
+#include <dlfcn.h>
+#include <execinfo.h>
+#include <stdio.h>
+#include <unistd.h>
+#endif // MSVC APPLE GCC
 
 #if defined __APPLE || defined __GNUC__
 
@@ -31,9 +38,12 @@ struct BacktraceAddresses {
     }
 };
 
-Backtrace::StackFrameInfo Backtrace::StackFrameInfo::parse(const char* const buffer)
+#if defined __APPLE
+static Backtrace::StackFrameInfo parseStackFrameInfo(const char* const buffer)
 {
     Backtrace::StackFrameInfo self{};
+
+    std::cout << buffer << std::endl;
 
     #ifdef __APPLE__
     const size_t slen = std::strlen(buffer) - 1; // ends with null terminator
@@ -105,12 +115,88 @@ Backtrace::StackFrameInfo Backtrace::StackFrameInfo::parse(const char* const buf
 
     return self;
 }
-#endif // defined __APPLE || defined __GNUC__
+#endif
 
-#ifdef __APPLE__
-#include <dlfcn.h>
-#include <execinfo.h>
-#include <stdio.h>
+#if defined __GNUC__ && !defined(__APPLE)
+static Backtrace::StackFrameInfo addr2lineInfo(void* const address, const char* const message) {
+    // Dl_info info;
+    // dladdr(address, &info);
+
+    size_t exeNameLen = 0;
+    while(message[exeNameLen] != '(' && message[exeNameLen] != ' ' && message[exeNameLen] != '\0')
+        exeNameLen += 1;
+
+    const char* const exeOffsetAddr = &message[exeNameLen + std::strlen("(+")];
+    size_t exeOffsetLen = 0;
+    while(exeOffsetAddr[exeOffsetLen] != ')')
+        exeOffsetLen += 1;
+
+    std::stringstream cmd(std::ios_base::out);
+    cmd << "addr2line ";
+    cmd.write(exeOffsetAddr, exeOffsetLen);
+    cmd << " -e ";
+    cmd.write(message, exeNameLen);
+
+    FILE* addr2line = popen(cmd.str().c_str(), "r");
+
+    constexpr int kBufferSize = 256;
+    char buffer[kBufferSize];
+
+    fgets(buffer, kBufferSize, addr2line);
+    pclose(addr2line);
+
+    Backtrace::StackFrameInfo frameInfo{};
+    frameInfo.address = address;
+    frameInfo.obj = [&]() -> std::string {
+        size_t i = exeNameLen;
+        while(message[i] != '/') {
+            i -= 1;
+        }
+        return std::string(&message[i + 1], exeNameLen - i - 1);
+    }();
+
+    if(std::strcmp(buffer, "??:?\n") != 0) { // line and file
+        const size_t slen = std::strlen(buffer) - 1; // ends with null terminator
+
+        const char* start = &buffer[slen - 1];
+        {
+            const std::string_view fullBufferSv{buffer, slen};
+            const size_t found = fullBufferSv.rfind(" (discriminator");
+            if(found != std::string_view::npos) {
+                start = &buffer[found];
+            }
+        }
+
+        while(!isdigit(*start)) {
+            start--; // any trailing characters like ')'
+        }
+        
+        const char* const end = start;
+        while(isdigit(*start)) {
+            start--;
+        }
+        std::string_view sv{&start[1], static_cast<size_t>(end - start)};
+        auto result = std::from_chars(sv.data(), sv.data() + sv.size(), frameInfo.lineNumber);
+        sy_assert(result.ptr == (sv.data() + sv.size()), "Couldn't parse for some reason");
+        const char* endOfFileName = start; // include ':' character that seperates file and line name
+
+        frameInfo.fullFilePath = std::string(buffer, static_cast<size_t>(endOfFileName - buffer));
+    } else {
+        frameInfo.fullFilePath = "??";
+    }
+
+    cmd << " -f -C"; // function names and demangle
+
+    addr2line = popen(cmd.str().c_str(), "r");
+
+    fgets(buffer, kBufferSize, addr2line);
+    pclose(addr2line);
+
+    frameInfo.functionName = std::string(buffer, std::strlen(buffer) - 1); // includes new line
+
+    return frameInfo;
+}
+#endif
 
 Backtrace Backtrace::getBacktrace()
 {
@@ -127,6 +213,8 @@ Backtrace Backtrace::getBacktrace()
 
     Backtrace self;
 
+    #if __APPLE
+
     // We don't care about this function being called
     for (int i = 1; i < trace_size; ++i) {
         Dl_info info;
@@ -140,20 +228,32 @@ Backtrace Backtrace::getBacktrace()
 
         FILE* atos = popen(cmd.str().c_str(), "r");
 
-        constexpr int kBufferSize = 200;
+        constexpr int kBufferSize = 256;
         char buffer[kBufferSize];
 
         fgets(buffer, kBufferSize, atos);
         pclose(atos);
 
-        self.frames.push_back(Backtrace::StackFrameInfo::parse(buffer));
+        self.frames.push_back(parseStackFrameInfo(buffer));
         self.frames[self.frames.size() - 1].address = btAddr.addresses[i];
     }
+
+    #elif __GNUC__
+
+    char **messages = (char **)NULL;
+    messages = backtrace_symbols(btAddr.addresses, trace_size);
+
+    // We don't care about this function being called
+    for(int i = 1; i < trace_size; i++) {
+        self.frames.push_back(addr2lineInfo(btAddr.addresses, messages[i]));
+    }  
+
+    #endif
 
     return self;
 }
 
-#endif // __APPLE__
+#endif // defined __APPLE || defined __GNUC__
 
 #ifdef _MSC_VER
 
@@ -302,13 +402,15 @@ Backtrace Backtrace::getBacktrace()
 #include <iostream>
 
 template<typename T>
-void doThing() {
-    Backtrace bt = Backtrace::getBacktrace();
-    for(size_t i = 0; i < bt.frames.size(); i++) {
-        auto& frame = bt.frames[i];
-        std::cout << frame.obj << " | " << frame.functionName << " | " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
+struct Example {
+    void doThing() {
+        Backtrace bt = Backtrace::getBacktrace();
+        for(size_t i = 0; i < bt.frames.size(); i++) {
+            auto& frame = bt.frames[i];
+            std::cout << frame.obj << " | " << frame.functionName << " | " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
+        }
     }
-}
+};
 
 TEST_CASE("back trace example") {
     // Backtrace bt = Backtrace::getBacktrace();
@@ -316,7 +418,8 @@ TEST_CASE("back trace example") {
     //     auto& frame = bt.frames[i];
     //     std::cout << frame.obj << " | " << frame.functionName << " | " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
     // }
-    doThing<int32_t>();
+    Example<int> e;
+    e.doThing();
 
     //print_backtrace(nullptr, 0);
     // void* buf[1000];
