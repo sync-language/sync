@@ -371,18 +371,6 @@ void Backtrace::print() const
 #if SYNC_LIB_TEST
 
 #include "../doctest.h"
-#include <iostream>
-
-template<typename T>
-struct Example {
-    void doThing() {
-        Backtrace bt = Backtrace::generate();
-        for(size_t i = 0; i < bt.frames.size(); i++) {
-            auto& frame = bt.frames[i];
-            std::cout << frame.obj << " | " << frame.functionName << " | " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
-        }
-    }
-};
 
 static Backtrace backtraceFunction1() {
     return Backtrace::generate();
@@ -395,7 +383,7 @@ TEST_CASE("backtrace simple function call") {
     CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
     CHECK_NE(frame.functionName.find("backtraceFunction1"), std::string::npos);
     CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
-    if(frame.lineNumber != 388 && frame.lineNumber != 389) { // line executing, or next executing line
+    if(frame.lineNumber != 376 && frame.lineNumber != 377) { // line executing, or next executing line
         FAIL("Incorrect line number from backtrace");
     }
 }
@@ -412,7 +400,7 @@ TEST_CASE("backtrace template function call") {
     CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
     CHECK_NE(frame.functionName.find("backtraceFunction2<int>"), std::string::npos);
     CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
-    if(frame.lineNumber != 405 && frame.lineNumber != 406) { // line executing, or next executing line
+    if(frame.lineNumber != 393 && frame.lineNumber != 394) { // line executing, or next executing line
         FAIL("Incorrect line number from backtrace");
     }
 }
