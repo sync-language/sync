@@ -125,8 +125,6 @@ Backtrace Backtrace::getBacktrace()
         line = NULL;
     }
 
-    std::cerr << self.frames.size() << std::endl;
-
     return self;
 }
 
