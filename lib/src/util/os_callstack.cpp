@@ -13,7 +13,7 @@
 #include <process.h>
 #include <Windows.h>
 #include <dbghelp.h>
-#elif defined(__APPLE) || defined (__GNUC__)
+#elif defined(__APPLE__) || defined (__GNUC__)
 #include <dlfcn.h>
 #include <execinfo.h>
 #include <stdio.h>
@@ -180,7 +180,7 @@ Backtrace Backtrace::getBacktrace()
     return self;
 }
 
-#elif defined(__APPLE) || defined (__GNUC__)
+#elif defined(__APPLE__) || defined (__GNUC__)
 
 // Reasonable default
 constexpr int defaultBacktraceDepth = 64;
@@ -198,12 +198,10 @@ struct BacktraceAddresses {
     }
 };
 
-#if defined __APPLE
+#if defined __APPLE__
 static Backtrace::StackFrameInfo parseStackFrameInfo(const char* const buffer)
 {
     Backtrace::StackFrameInfo self{};
-
-    std::cout << buffer << std::endl;
 
     #ifdef __APPLE__
     const size_t slen = std::strlen(buffer) - 1; // ends with null terminator
@@ -277,7 +275,7 @@ static Backtrace::StackFrameInfo parseStackFrameInfo(const char* const buffer)
 }
 #endif
 
-#if defined __GNUC__ && !defined(__APPLE)
+#if defined __GNUC__ && !defined(__APPLE__)
 static Backtrace::StackFrameInfo addr2lineInfo(void* const address, const char* const message) {
     // Dl_info info;
     // dladdr(address, &info);
@@ -373,7 +371,7 @@ Backtrace Backtrace::getBacktrace()
 
     Backtrace self;
 
-    #if __APPLE
+    #if __APPLE__
 
     // We don't care about this function being called
     for (int i = 1; i < trace_size; ++i) {
@@ -413,7 +411,7 @@ Backtrace Backtrace::getBacktrace()
     return self;
 }
 
-#endif // defined __APPLE || defined __GNUC__
+#endif // defined __APPLE__ || defined __GNUC__
 
 #if SYNC_LIB_TEST
 
