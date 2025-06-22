@@ -12,7 +12,7 @@
 #include <cstring>
 #if _MSC_VER
 #include <new>
-#if __GNUC__
+#elif __GNUC__
 #include <sys/mman.h>
 #endif
 
