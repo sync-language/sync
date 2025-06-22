@@ -88,6 +88,7 @@
         "shared_mutex": "cpp",
         "condition_variable": "cpp",
         "memory_resource": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "print": "cpp"
     }
 }

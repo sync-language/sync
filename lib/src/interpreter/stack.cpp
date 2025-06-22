@@ -9,6 +9,8 @@
 #include "../threading/alloc_cache_align.hpp"
 #include <utility>
 #include <iostream>
+#include <cstring>
+#if _MSC_VER
 #include <new>
 #if __GNUC__
 #include <sys/mman.h>
