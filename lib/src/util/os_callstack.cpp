@@ -23,10 +23,10 @@
 extern "C" {
     SY_API void test_backtrace_stuff()
     {
-        std::cerr << "wuh\n";
         Backtrace bt = Backtrace::getBacktrace();
+        //std::cerr << bt.frames.size() << " num frames" << std::endl;
         for(size_t i = 0; i < bt.frames.size(); i++) {
-            std::cerr << i;
+            std::cerr << i << ' ';
             std::cerr.flush();
             auto& frame = bt.frames[i];
             std::cerr << frame.obj << " | " << frame.functionName << " | " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
@@ -44,14 +44,22 @@ Backtrace Backtrace::getBacktrace()
 {
     // https://stackoverflow.com/a/50208684
 
-    BOOL    result;
     HANDLE  process;
     HANDLE  thread;
-    HMODULE hModule;
+    process                = GetCurrentProcess();
+    thread                 = GetCurrentThread();
+    SymInitialize( process, NULL, TRUE ); //load symbols
 
-    STACKFRAME64        stack;
-    ULONG               frame;    
-    DWORD64             displacement;
+    void* traces[100];
+    auto traceSize = CaptureStackBackTrace(0, 100, traces, NULL);
+    // std::cerr << "found " << traceSize << " frames: ";
+    // for(auto i = 0; i < traceSize; i++) {
+    //     std::cerr << traces[i] << " | ";
+    // }
+    // std::cerr << std::endl;
+
+    HMODULE hModule;
+    DWORD64 displacement;
 
     DWORD disp;
     IMAGEHLP_LINE64 *line;
@@ -62,87 +70,28 @@ Backtrace Backtrace::getBacktrace()
 
     // On x64, StackWalk64 modifies the context record, that could
     // cause crashes, so we create a copy to prevent it
-    CONTEXT ctxCopy;
-    RtlCaptureContext(&ctxCopy);
+    // CONTEXT ctxCopy;
+    // RtlCaptureContext(&ctxCopy);
 
-    memset( &stack, 0, sizeof( STACKFRAME64 ) );
-
-    process                = GetCurrentProcess();
-    thread                 = GetCurrentThread();
     displacement           = 0;
-#if !defined(_M_AMD64)
-    stack.AddrPC.Offset    = (*ctx).Eip;
-    stack.AddrPC.Mode      = AddrModeFlat;
-    stack.AddrStack.Offset = (*ctx).Esp;
-    stack.AddrStack.Mode   = AddrModeFlat;
-    stack.AddrFrame.Offset = (*ctx).Ebp;
-    stack.AddrFrame.Mode   = AddrModeFlat;
-#endif
 
     Backtrace self;
 
-    SymInitialize( process, NULL, TRUE ); //load symbols
-
-    std::cout << "hmjj\n";
-
-    // We don't care about this function being called
-    (void)StackWalk64(
-#if defined(_M_AMD64)
-        IMAGE_FILE_MACHINE_AMD64,
-#else
-        IMAGE_FILE_MACHINE_I386,
-#endif
-        process,
-        thread,
-        &stack,
-        &ctxCopy,
-        NULL,
-        SymFunctionTableAccess64,
-        SymGetModuleBase64,
-        NULL
-    );
-
-    std::cout << "hmjj\n";
-    
-    for( frame = 0; ; frame++ )
-    {
-        //get next call from stack
-        result = StackWalk64(
-#if defined(_M_AMD64)
-            IMAGE_FILE_MACHINE_AMD64,
-#else
-            IMAGE_FILE_MACHINE_I386,
-#endif
-            process,
-            thread,
-            &stack,
-            &ctxCopy,
-            NULL,
-            SymFunctionTableAccess64,
-            SymGetModuleBase64,
-            NULL
-        );
-
-        if( !result ) {
-            std::cout << "uh oh\n";
-            break;
-        }        
-
+    for(decltype(traceSize) i = 0; i < traceSize; i++ ) {
         //get symbol name for address
         pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
         pSymbol->MaxNameLen = MAX_SYM_NAME;
-        SymFromAddr(process, ( ULONG64 )stack.AddrPC.Offset, &displacement, pSymbol);
+        SymFromAddr(process, ( ULONG64 )traces[i], &displacement, pSymbol);
 
         line = (IMAGEHLP_LINE64 *)malloc(sizeof(IMAGEHLP_LINE64));
         line->SizeOfStruct = sizeof(IMAGEHLP_LINE64);       
 
         //try to get line
-        if (SymGetLineFromAddr64(process, stack.AddrPC.Offset, &disp, line))
-        {
+        if (SymGetLineFromAddr64(process, ( DWORD64 )traces[i], &disp, line)) {
             hModule = NULL;
             lstrcpyA(module,""); 
             GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-                (LPCTSTR)(stack.AddrPC.Offset), &hModule);
+                (LPCTSTR)(traces[i]), &hModule);
             if(hModule != NULL)GetModuleFileNameA(hModule,module, 1024);
 
             const size_t moduleNameLen = std::strlen(module);
@@ -158,10 +107,9 @@ Backtrace Backtrace::getBacktrace()
             };
             self.frames.push_back(std::move(info));
         }
-        else
-        { 
+        else { 
             //failed to get line
-            // printf("\tat %s, address 0x%0X.\n", pSymbol->Name, pSymbol->Address);
+            // fprintf(stderr, "\tat %s, address 0x%0X.\n", pSymbol->Name, pSymbol->Address);
             // hModule = NULL;
             // lstrcpyA(module,"");        
             // GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
@@ -176,6 +124,8 @@ Backtrace Backtrace::getBacktrace()
         free(line);
         line = NULL;
     }
+
+    std::cerr << self.frames.size() << std::endl;
 
     return self;
 }
