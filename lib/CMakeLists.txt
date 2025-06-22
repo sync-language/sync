@@ -7,7 +7,7 @@ endif()
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_library(SyncLib STATIC
+set(SyncLibSources 
     "src/util/panic.cpp"
     "src/util/os_callstack.cpp"
     "src/mem/allocator.cpp"
@@ -25,24 +25,9 @@ add_library(SyncLib STATIC
     "src/program/program.cpp"
 )
 
-add_executable(SyncLibTests
-    "src/test.cpp"
-    "src/util/panic.cpp"
-    "src/util/os_callstack.cpp"
-    "src/mem/allocator.cpp"
-    "src/mem/os_mem.cpp"
-    "src/threading/sync_queue.cpp"
-    "src/threading/sync_obj_val.cpp"
-    "src/types/type_info.cpp"
-    "src/types/function/function.cpp"
-    "src/types/string/string_slice.cpp"
-    "src/types/string/string.cpp"
-    "src/types/sync_obj/sync_obj.cpp"
-    "src/interpreter/stack.cpp"
-    "src/interpreter/bytecode.cpp"
-    "src/interpreter/interpreter.cpp"
-    "src/program/program.cpp"
-)
+add_library(SyncLib STATIC ${SyncLibSources})
+
+add_executable(SyncLibTests "src/test.cpp" ${SyncLibSources})
 
 # Ensure all warnings are caught
 if(MSVC)

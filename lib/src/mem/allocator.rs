@@ -1,3 +1,5 @@
+#![allow(improper_ctypes)]
+
 use std::{ffi::c_void, mem::MaybeUninit, num::NonZero, ptr::{slice_from_raw_parts_mut, NonNull}};
 
 #[repr(C)]
