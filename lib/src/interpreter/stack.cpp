@@ -8,6 +8,7 @@
 #include "../types/type_info.hpp"
 #include <utility>
 #include <iostream>
+#include <cstring>
 #if _MSC_VER
 #include <new>
 #endif
