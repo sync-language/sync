@@ -11,11 +11,11 @@ public:
 
     class StackFrameInfo {
     public:
-        std::string obj;
-        std::string functionName;
-        std::string fullFilePath;
-        int lineNumber;
-        void* address;
+        std::string obj{};
+        std::string functionName{};
+        std::string fullFilePath{};
+        int lineNumber{};
+        void* address{};
     };
 
     std::vector<StackFrameInfo> frames;

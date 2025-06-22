@@ -130,22 +130,6 @@ Backtrace Backtrace::generate()
 
 #elif defined(__APPLE__) || defined (__GNUC__)
 
-// Reasonable default
-constexpr int defaultBacktraceDepth = 64;
-
-struct BacktraceAddresses {
-    void** addresses = nullptr;
-    int capacity = 0;
-
-    void alloc(const int inCapacity) {
-        if(this->addresses != nullptr) {
-            free(this->addresses);
-        }
-        this->addresses = reinterpret_cast<void**>(malloc(sizeof(void*) * capacity));
-        this->capacity = inCapacity;
-    }
-};
-
 #if defined __APPLE__
 static Backtrace::StackFrameInfo parseStackFrameInfo(const char* const buffer)
 {
@@ -306,16 +290,9 @@ static Backtrace::StackFrameInfo addr2lineInfo(void* const address, const char* 
 
 Backtrace Backtrace::generate()
 {
-    BacktraceAddresses btAddr;
-
-    // https://stackoverflow.com/a/78676617
-    // https://www.manpagez.com/man/1/atos/osx-10.12.6.php
-    
-    int trace_size = 0;
-    while(btAddr.capacity == trace_size || btAddr.addresses == nullptr) {
-        btAddr.alloc(btAddr.capacity + defaultBacktraceDepth);
-        trace_size = backtrace(btAddr.addresses, btAddr.capacity);
-    }
+    constexpr int defaultBacktraceDepth = 512;
+    void* addresses[defaultBacktraceDepth];
+    int trace_size = backtrace(addresses, defaultBacktraceDepth);
 
     Backtrace self;
 
@@ -324,12 +301,12 @@ Backtrace Backtrace::generate()
     // We don't care about this function being called
     for (int i = 1; i < trace_size; ++i) {
         Dl_info info;
-        dladdr(btAddr.addresses[i], &info);
+        dladdr(addresses[i], &info);
 
         std::stringstream cmd(std::ios_base::out);
         cmd << "atos -o " << info.dli_fname << " -l " << std::hex
         << reinterpret_cast<uint64_t>(info.dli_fbase) << ' '
-        << reinterpret_cast<uint64_t>(btAddr.addresses[i])
+        << reinterpret_cast<uint64_t>(addresses[i])
         << " -fullPath";
 
         FILE* atos = popen(cmd.str().c_str(), "r");
@@ -341,17 +318,17 @@ Backtrace Backtrace::generate()
         pclose(atos);
 
         self.frames.push_back(parseStackFrameInfo(buffer));
-        self.frames[self.frames.size() - 1].address = btAddr.addresses[i];
+        self.frames[self.frames.size() - 1].address = addresses[i];
     }
 
     #elif __GNUC__
 
     char **messages = (char **)NULL;
-    messages = backtrace_symbols(btAddr.addresses, trace_size);
+    messages = backtrace_symbols(addresses, trace_size);
 
     // We don't care about this function being called
     for(int i = 1; i < trace_size; i++) {
-        self.frames.push_back(addr2lineInfo(btAddr.addresses, messages[i]));
+        self.frames.push_back(addr2lineInfo(addresses, messages[i]));
     }  
 
     #endif
@@ -378,35 +355,7 @@ struct Example {
 };
 
 TEST_CASE("back trace example") {
-    // Backtrace bt = Backtrace::generate();
-    // for(size_t i = 0; i < bt.frames.size(); i++) {
-    //     auto& frame = bt.frames[i];
-    //     std::cout << frame.obj << " | " << frame.functionName << " | " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
-    // }
-    Example<int> e;
-    e.doThing();
-
-    //print_backtrace(nullptr, 0);
-    // void* buf[1000];
-    // const int bt = backtrace(buf, 1000);
-    // std::cerr << "back trace returned " << bt << " addresses\n";
-
-    // char** strings = backtrace_symbols(buf, bt);
-    // for(int i = 1; i < bt; i++) {
-    //     std::cerr << strings[i] << std::endl;
-    //     #ifdef __APPLE__
-
-    //     #endif
-
-    //     // char syscom[256];
-    //     // (void)sprintf(syscom,"addr2line %p -e sighandler", buf[i]); //last parameter is the name of this app
-    //     // (void)system(syscom);
-    // }
-
-    // // https://stackoverflow.com/a/15130037
-
-
-    // std::cerr << "hello\n"; 
+    sy_assert(false, "");
 }
 
 #endif
