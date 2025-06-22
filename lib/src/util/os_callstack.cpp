@@ -8,6 +8,7 @@
 #include <charconv>
 #include <string_view>
 #include <string>
+#include <mutex>
 #if defined(_MSC_VER) || defined (_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <process.h>
@@ -34,6 +35,8 @@ extern "C" {
     }
 }
 
+static std::mutex generateBacktraceMutex{};
+
 #if defined(_MSC_VER) || defined(_WIN32)
 
 #pragma comment(lib,"Dbghelp.lib")
@@ -42,6 +45,8 @@ extern "C" {
 
 Backtrace Backtrace::generate()
 {
+    std::scoped_lock lock(generateBacktraceMutex);
+
     // https://stackoverflow.com/a/50208684
 
     HANDLE  process;
@@ -290,6 +295,8 @@ static Backtrace::StackFrameInfo addr2lineInfo(void* const address, const char* 
 
 Backtrace Backtrace::generate()
 {
+    std::scoped_lock lock(generateBacktraceMutex);
+
     constexpr int defaultBacktraceDepth = 512;
     void* addresses[defaultBacktraceDepth];
     int trace_size = backtrace(addresses, defaultBacktraceDepth);
