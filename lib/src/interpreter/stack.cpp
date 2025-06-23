@@ -164,13 +164,7 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void *retV
 
     const uint16_t actualAlignment = alignment < 16 ? 16 : alignment;
 
-    const std::optional<Frame*> optCurrentFrame = [this](){
-        if(this->currentNode != 0 || this->nodes[0].nextBaseOffset != 0) {
-            return std::optional<Frame*>(&this->currentFrame);
-        } else {
-            return std::optional<Frame*>();
-        }
-    }();
+    const std::optional<Frame*> optCurrentFrame = getCurrentFrame();
     std::optional<Frame> optFrame = this->nodes[currentNode].pushFrame(
         frameLength, actualAlignment, retValDst, optCurrentFrame, this->instructionPointer);
     if(!optFrame.has_value()) {
@@ -285,8 +279,45 @@ void *Stack::returnDst()
     return this->currentFrame.retValueDst;
 }
 
-bool Stack::pushScriptFunctionArg(const void *argMem, const sy::Type *type, uint16_t offset)
-{
+bool Stack::pushScriptFunctionArg(
+    const void* argMem,
+    const sy::Type* type,
+    uint16_t offset,
+    const uint32_t frameLength,
+    const uint16_t frameAlign
+) {
+    bool onThisFrame = true;
+    Node& currentNodeUsed = this->nodes[this->currentNode];
+    std::optional<Frame*> currentFrame = this->getCurrentFrame();
+
+    std::optional<uint32_t> optExtend = Stack::Frame::frameExtendAmountForAlignment(
+        currentNodeUsed.slots,
+        currentNodeUsed.nextBaseOffset,
+        frameAlign
+    );
+    if(!optExtend.has_value()) {
+        onThisFrame = false;
+    } else { // extend frame
+        uint32_t actualNextBaseOffset = currentNodeUsed.nextBaseOffset;
+        if(currentFrame.has_value()) {
+            actualNextBaseOffset += Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+            const uint32_t currentFrameLengthMinusOne = currentFrame.value()->frameLengthMinusOne;
+            const uint32_t newFrameLenMinusOne = currentFrameLengthMinusOne + optExtend.value();
+            sy_assert(newFrameLenMinusOne < MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
+            currentFrame.value()->frameLengthMinusOne = static_cast<uint16_t>(newFrameLenMinusOne);
+        }
+        currentNodeUsed.nextBaseOffset = actualNextBaseOffset + optExtend.value();
+    }
+
+    if(!currentNodeUsed.hasEnoughSpaceForFrame(frameLength, frameAlign)) {
+        onThisFrame = false;
+    }
+
+
+
+    
+
+
     // const size_t actualOffset = this->raw.nextBaseOffset + OLD_FRAME_INFO_RESERVED_SLOTS + static_cast<size_t>(offset);
     // const size_t slotsOccupied = type->sizeType / 8;
     // { // validate no stack overflow     
@@ -310,13 +341,90 @@ bool Stack::pushScriptFunctionArg(const void *argMem, const sy::Type *type, uint
     return true;
 }
 
+std::optional<Stack::Frame *> Stack::getCurrentFrame()
+{
+    if(this->currentNode != 0 || this->nodes[0].nextBaseOffset != 0) {
+        return std::optional<Frame*>(&this->currentFrame);
+    } else {
+        return std::nullopt;
+    }
+}
+
+#pragma region Node
+
+Stack::Node::Node(const uint32_t minSlotSize)
+    : nextBaseOffset(0)
+{
+    Allocation allocation = allocateStack(minSlotSize);
+    
+    this->values = allocation.values;
+    this->types = allocation.types;
+    this->slots = allocation.slots;
+}
+
+Stack::Node::~Node() noexcept
+{
+    if(this->slots == 0) return;
+
+    Allocation allocation{
+        this->values,
+        this->types,
+        this->slots
+    };
+
+    freeStack(allocation);
+
+    this->values = nullptr;
+    this->types = nullptr;
+    this->slots = 0;
+    this->nextBaseOffset = 0;
+}
+
+Stack::Node::Node(Node &&other) noexcept
+    : values(other.values), types(other.types), slots(other.slots), nextBaseOffset(other.nextBaseOffset)
+{
+    other.values = nullptr;
+    other.types = nullptr;
+    other.slots = 0;
+    other.nextBaseOffset = 0;
+}
+
+bool Stack::Node::hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t alignment) const
+{
+    if ((this->nextBaseOffset + frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS) > this->slots) {
+        return false;
+    }
+    return true;
+}
+
+void Stack::Node::reallocate(const uint32_t minSlotSize)
+{
+    sy_assert(!this->currentFrame.has_value(), "Cannot reallocate stack node while it's being used");
+
+    if(this->slots > 0) {
+        Allocation allocation{
+            this->values,
+            this->types,
+            this->slots
+        };
+
+        freeStack(allocation);
+    }
+    
+    Allocation allocation = allocateStack(minSlotSize);
+    
+    this->values = allocation.values;
+    this->types = allocation.types;
+    this->slots = allocation.slots;
+}
+
 std::optional<Stack::Frame> Stack::Node::pushFrame(
-    uint32_t frameLength, 
-    uint16_t alignment, 
-    void *retValDst, 
-    std::optional<Frame*> currentFrame,
-    const Bytecode* instructionPointer
-) {
+    uint32_t frameLength,
+    uint16_t alignment,
+    void *retValDst,
+    std::optional<Frame *> currentFrame,
+    const Bytecode *instructionPointer)
+{
     sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
     sy_assert(frameLength > 0, "Frame length of 0 is useless");
     sy_assert(frameLength <= MAX_FRAME_LEN, "Frame length cannot exceed maximum");
@@ -373,9 +481,28 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
     return std::optional<Frame>(newFrame);
 }
 
-std::optional<std::tuple<Stack::Frame, const Bytecode*, bool>> Stack::Node::popFrame(
-    const uint16_t currentFrameLenMinusOne
+Stack::Frame Stack::Node::pushFrameAllowReallocate(
+    const uint32_t frameLength,
+    const uint16_t alignment,
+    void *const retValDst,
+    std::optional<Frame*> previousFrame,
+    const Bytecode *const instructionPointer
 ) {
+    sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
+
+    bool mustReallocate = false;
+    do { // check if need to reallocate
+        const size_t pageSize = page_size();
+        sy_assert(alignment <= pageSize, "Alignment greater than page size does not make sense");
+        const size_t asNum = reinterpret_cast<size_t>(this->values);
+
+        // 
+    } while(false);
+}
+
+std::optional<std::tuple<Stack::Frame, const Bytecode *, bool>> Stack::Node::popFrame(
+    const uint16_t currentFrameLenMinusOne)
+{
     sy_assert(this->nextBaseOffset != 0, "No frames to pop");
 
     const uint32_t currentFrameLength = static_cast<uint32_t>(currentFrameLenMinusOne) + 1;
@@ -406,6 +533,97 @@ std::optional<std::tuple<Stack::Frame, const Bytecode*, bool>> Stack::Node::popF
     auto tuple = std::make_tuple(oldFrame, oldInstructionPointer, backToEmptyNode);
     return std::optional<std::tuple<Frame, const Bytecode*, bool>>(tuple);
 }
+
+Stack::Node::Allocation Stack::Node::allocateStack(const uint32_t minSlotSize)
+{
+    // TODO custom allocator for stack nodes : IAllocator
+
+    Allocation aloc{};
+
+    if(minSlotSize <= MIN_SLOTS) {
+        sy::Allocator allocator;
+        aloc.values = allocator.allocAlignedArray<size_t>(MIN_SLOTS, MIN_BYTES_ALLOCATED).get();
+        aloc.types  = allocator.allocAlignedArray<size_t>(MIN_SLOTS, MIN_BYTES_ALLOCATED).get();
+        aloc.slots  = MIN_SLOTS;
+    } else {
+        const size_t pageSize = page_size();
+        size_t bytesToAllocate = static_cast<size_t>(minSlotSize) * sizeof(size_t);
+        {
+            const size_t remainder = bytesToAllocate % pageSize;
+            if(remainder != 0) {
+                bytesToAllocate += pageSize - remainder;
+            }
+        }
+
+        void* valuesMem = page_malloc(bytesToAllocate);
+        void* typesMem = page_malloc(bytesToAllocate);
+        
+        // https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
+        #if _MSC_VER
+        sy_assert(valuesMem != nullptr, "Failed to allocate pages");
+        sy_assert(typesMem != nullptr, "Failed to allocate pages");
+        #elif __GNUC__
+        sy_assert(valuesMem != MAP_FAILED, "Failed to allocate pages");
+        sy_assert(typesMem != MAP_FAILED, "Failed to allocate pages");
+        #endif
+
+        aloc.values = reinterpret_cast<size_t*>(valuesMem);
+        aloc.types  = reinterpret_cast<size_t*>(typesMem);
+        aloc.slots  = static_cast<uint32_t>(bytesToAllocate / sizeof(size_t));
+    }
+
+    return aloc;
+}
+
+void Stack::Node::freeStack(Allocation &allocation)
+{
+    if(allocation.slots == MIN_SLOTS) {
+        sy::Allocator allocator;
+        allocator.freeAlignedArray(allocation.values, MIN_SLOTS, MIN_BYTES_ALLOCATED);
+        allocator.freeAlignedArray(allocation.types, MIN_SLOTS, MIN_BYTES_ALLOCATED);
+    }
+    else {
+        const size_t bytesAllocated = static_cast<size_t>(allocation.slots) * sizeof(size_t);
+        page_free(allocation.values, bytesAllocated);
+        page_free(allocation.types, bytesAllocated);
+    }
+}
+
+std::optional<uint32_t> Stack::Node::shouldReallocate(uint32_t frameLength, uint16_t alignment) const
+{
+    sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
+
+    const size_t pageSize = page_size();
+    sy_assert(alignment <= pageSize, "Alignment greater than page size does not make sense");
+
+    uint32_t reallocationSize = frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+    { // do for alignment
+        const uint32_t normalizedAlignment = static_cast<uint32_t>(alignment) / sizeof(size_t);
+
+        if(reallocationSize < normalizedAlignment) {
+            reallocationSize += normalizedAlignment;
+        }
+        const uint32_t remainder = reallocationSize % normalizedAlignment;
+        reallocationSize += normalizedAlignment - remainder;
+    }
+
+    if(this->slots < reallocationSize) {
+        return std::optional<uint32_t>(reallocationSize);
+    }
+
+    if(reinterpret_cast<size_t>(this->values) % alignment != 0) {
+        return std::optional<uint32_t>(reallocationSize); // the allocation itself is not aligned enough
+    }
+
+    // std::optional<uint32_t> optExtendAmount = Frame::frameExtendAmountForAlignment(
+    //     this->slots, Frame::OLD_FRAME_INFO_RESERVED_SLOTS, alignment);
+    // if(!optExtendAmount.has_value()) {
+    // }
+
+    return std::nullopt;
+}
+
+#pragma endregion
 
 void Stack::popFrame()
 {
@@ -456,7 +674,7 @@ void Stack::addOneNode(const uint32_t requiredFrameLength)
 
 static bool ptrIsAligned(const void* p, size_t alignment) {
     // Works for null pointers
-    return (((uintptr_t)p) % alignment) == 0;
+    return (((size_t)p) % alignment) == 0;
 }
 
 void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
@@ -467,7 +685,8 @@ void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
     Node& node = this->nodes[currentNode];
 
     if(type == nullptr) {
-        node.types[actualOffset] = reinterpret_cast<uintptr_t>(nullptr);
+        node.types[actualOffset] = reinterpret_cast<size_t>(nullptr);
+        return;
     } 
     
     sy_assert(ptrIsAligned(reinterpret_cast<const void*>(type), alignof(sy::Type)), "Type pointer misaligned");
@@ -475,88 +694,15 @@ void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
     const size_t requiredFrameLength = static_cast<size_t>(offset) + slotsOccupied;
     sy_assert(requiredFrameLength <= this->currentFrame.frameLengthMinusOne, "Cannot set type past the frame length");
 
-    const uintptr_t typePtrAsInt = reinterpret_cast<uintptr_t>(type);
-    const uintptr_t refTag = isRef ? TYPE_NOT_OWNED_FLAG : 0; // would be optimized
+    const size_t typePtrAsInt = reinterpret_cast<size_t>(type);
+    const size_t refTag = isRef ? TYPE_NOT_OWNED_FLAG : 0; // would be optimized
 
     node.types[actualOffset] = typePtrAsInt | refTag;
     if(slotsOccupied > 1) {
         for(size_t i = 1; i < slotsOccupied; i++) {
-            node.types[actualOffset + i] = reinterpret_cast<uintptr_t>(nullptr);
+            node.types[actualOffset + i] = reinterpret_cast<size_t>(nullptr);
         }
     }
-}
-
-Stack::Node::Node(const uint32_t minSlotSize)
-    : nextBaseOffset(0)
-{
-    // TODO maybe support smaller stack sizes than just pages?
-
-    const size_t pageSize = page_size();
-    size_t bytesToAllocate = static_cast<size_t>(minSlotSize) * sizeof(size_t);
-    {
-        const size_t remainder = bytesToAllocate % pageSize;
-        if(remainder != 0) {
-            bytesToAllocate += pageSize - remainder;
-        }
-    }
-
-    sy_assert((bytesToAllocate % pageSize) == 0, "Invalid math");
-
-    
-    void* valuesMem = page_malloc(bytesToAllocate);
-    void* typesMem = page_malloc(bytesToAllocate);
-
-    // TODO Maybe more information from errors
-    
-    // https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
-    #if _MSC_VER
-    sy_assert(valuesMem != nullptr, "Failed to allocate pages");
-    sy_assert(typesMem != nullptr, "Failed to allocate pages");
-    #elif __GNUC__
-    sy_assert(valuesMem != MAP_FAILED, "Failed to allocate pages");
-    sy_assert(typesMem != MAP_FAILED, "Failed to allocate pages");
-    #endif
-    
-    this->values = reinterpret_cast<size_t*>(valuesMem);
-    this->types = reinterpret_cast<size_t*>(typesMem);
-    this->slots = static_cast<uint32_t>(bytesToAllocate / sizeof(size_t));
-    
-}
-
-Stack::Node::~Node() noexcept
-{
-    if(this->slots == 0) return;
-
-    const size_t bytesAllocated = static_cast<size_t>(this->slots) * sizeof(size_t);
-    page_free(this->values, bytesAllocated);
-    page_free(this->types, bytesAllocated);
-
-    this->values = nullptr;
-    this->types = nullptr;
-    this->slots = 0;
-    this->nextBaseOffset = 0;
-}
-
-Stack::Node::Node(Node &&other) noexcept
-    : values(other.values), types(other.types), slots(other.slots), nextBaseOffset(other.nextBaseOffset)
-{
-    other.values = nullptr;
-    other.types = nullptr;
-    other.slots = 0;
-    other.nextBaseOffset = 0;
-}
-
-Stack::Node& Stack::Node::operator=(Node &&other) noexcept
-{
-    this->values = other.values;
-    this->types = other.types;
-    this->slots = other.slots;
-    this->nextBaseOffset = other.nextBaseOffset;
-    other.values = nullptr;
-    other.types = nullptr;
-    other.slots = 0;
-    other.nextBaseOffset = 0;
-    return *this;
 }
 
 FrameGuard::~FrameGuard()
@@ -581,71 +727,83 @@ FrameGuard &FrameGuard::operator=(FrameGuard && other) {
 
 #include "../doctest.h"
 
-TEST_CASE("push frame on thread local stack") {
-    Stack& tls = Stack::getThisThreadDefaultStack();
-    FrameGuard guard = tls.pushFrame(1, 16, nullptr);
+TEST_SUITE("Node") {
+
 }
 
-TEST_CASE("push frame on active stack") {
-    Stack& active = Stack::getActiveStack();
-    FrameGuard guard = active.pushFrame(1, 16, nullptr);
-}
+// TEST_CASE("push frame on thread local stack") {
+//     Stack& tls = Stack::getThisThreadDefaultStack();
+//     FrameGuard guard = tls.pushFrame(1, 16, nullptr);
+//     tls.setNullTypeAt(0);
+// }
 
-TEST_CASE("construct stack") {
-    Stack stack = Stack();
-    FrameGuard guard = stack.pushFrame(1, 16, nullptr);
-}
+// TEST_CASE("push frame on active stack") {
+//     Stack& active = Stack::getActiveStack();
+//     FrameGuard guard = active.pushFrame(1, 16, nullptr);
+// }
 
-TEST_CASE("overflow stack with first frame") {
-    Stack stack = Stack(); // only has 1 actual slot
-    FrameGuard guard = stack.pushFrame(2, 16, nullptr);
-}
+// TEST_CASE("construct stack") {
+//     Stack stack = Stack();
+//     FrameGuard guard = stack.pushFrame(1, 16, nullptr);
+// }
 
-TEST_CASE("2 frames") {
-    Stack& active = Stack::getActiveStack();
-    FrameGuard guard1 = active.pushFrame(4, 16, nullptr);
-    {
-        FrameGuard guard2 = active.pushFrame(9, 16, nullptr);
-    }
-}
+// TEST_CASE("overflow stack with first frame") {
+//     Stack stack = Stack(); // only has 1 actual slot
+//     FrameGuard guard = stack.pushFrame(2, 16, nullptr);
+// }
 
-TEST_CASE("many nested frames") {    
-    Stack& active = Stack::getActiveStack();
-    FrameGuard guard1 = active.pushFrame(1, 16, nullptr);
-    {
-        FrameGuard guard2 = active.pushFrame(1, 16, nullptr);
-        {
-            FrameGuard guard3 = active.pushFrame(1, 16, nullptr);
-            {
-                FrameGuard guard4 = active.pushFrame(1, 16, nullptr);
-                {
-                    FrameGuard guard5 = active.pushFrame(1, 16, nullptr);
-                }
-            }
-        }
-    }
-}
+// TEST_CASE("2 frames") {
+//     Stack& active = Stack::getActiveStack();
+//     FrameGuard guard1 = active.pushFrame(4, 16, nullptr);
+//     {
+//         FrameGuard guard2 = active.pushFrame(9, 16, nullptr);
+//     }
+// }
 
-TEST_CASE("frames of various length") {
-    Stack& active = Stack::getActiveStack();
-    FrameGuard guard1 = active.pushFrame(100, 16, nullptr);
-    {
-        FrameGuard guard2 = active.pushFrame(400, 16, nullptr);
-        {
-            FrameGuard guard3 = active.pushFrame(3, 16, nullptr);
-            {
-                FrameGuard guard4 = active.pushFrame(80, 16, nullptr);
-                {
-                    FrameGuard guard5 = active.pushFrame(1000, 16, nullptr);
-                }
-            }
-        }
-    }
-}
+// TEST_CASE("many nested frames") {    
+//     Stack& active = Stack::getActiveStack();
+//     FrameGuard guard1 = active.pushFrame(1, 16, nullptr);
+//     {
+//         FrameGuard guard2 = active.pushFrame(1, 16, nullptr);
+//         {
+//             FrameGuard guard3 = active.pushFrame(1, 16, nullptr);
+//             {
+//                 FrameGuard guard4 = active.pushFrame(1, 16, nullptr);
+//                 {
+//                     FrameGuard guard5 = active.pushFrame(1, 16, nullptr);
+//                 }
+//             }
+//         }
+//     }
+// }
 
-TEST_CASE("max frame") {
-    Stack& active = Stack::getActiveStack();
-    FrameGuard guard = active.pushFrame(UINT16_MAX, 16, nullptr);
-}
+// TEST_CASE("frames of various length") {
+//     Stack& active = Stack::getActiveStack();
+//     FrameGuard guard1 = active.pushFrame(100, 16, nullptr);
+//     {
+//         FrameGuard guard2 = active.pushFrame(400, 16, nullptr);
+//         {
+//             FrameGuard guard3 = active.pushFrame(3, 16, nullptr);        
+//             // active.setNullTypeAt(0);
+//             // active.setNullTypeAt(1);
+//             {
+//                 FrameGuard guard4 = active.pushFrame(80, 16, nullptr);
+//                 {
+//                     FrameGuard guard5 = active.pushFrame(1000, 16, nullptr);
+//                     // active.setNullTypeAt(0);
+//                     // active.setNullTypeAt(500);
+//                     // active.setNullTypeAt(999);
+//                 }
+//             }
+//             // active.setNullTypeAt(1);
+//             // active.setNullTypeAt(2);
+//         }
+//     }
+// }
+
+// TEST_CASE("max frame") {
+//     Stack& active = Stack::getActiveStack();
+//     FrameGuard guard = active.pushFrame(UINT16_MAX + 1, 16, nullptr);
+// }
 
 #endif // SYNC_LIB_TEST

@@ -92,14 +92,21 @@ public:
 
     void* returnDst();
 
-    /// @brief Attempts to push an argument to the stack frame after the current one.
+    /// @brief Pushes the argument onto the script stack. Potentially adds another stack node if the frame
+    /// and arguments wouldn't fit within the current node.
     /// @param argMem Memory to copy the argument data from.
     /// @param type The type of the argument.
     /// @param offset The offset within the next stack frame to set it at.
-    /// @return `true` if the arg was copied successfully copied, or `false` if a stack overflow would occur.
-    [[nodiscard]] bool pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset);
+    /// @return `true` if the argument was pushed into the current stack node. `false` if pushed to one after.
+    [[nodiscard]] bool pushScriptFunctionArg(
+        const void* argMem,
+        const sy::Type* type,
+        uint16_t offset,
+        const uint32_t frameLength,
+        const uint16_t frameAlign
+    );
 
-    [[nodiscard]] const Frame& getCurrentFrame() const { return this->currentFrame; }
+    [[nodiscard]] std::optional<Frame*> getCurrentFrame();
 
     struct Frame {
         uint32_t basePointerOffset;
@@ -137,17 +144,20 @@ public:
         static constexpr size_t OLD_BASE_POINTER_OFFSET = 1;
     };
 
-    /// Always allocates in pages
+    
     struct Node {
-        /// Allocates as pages
+        /// Allocates as either 1KB chunk or pages
         size_t*     values;
-        /// Allocates as pages
+        /// Allocates as either 1KB chunk or pages
         size_t*     types;
-        /// `slots * sizeof(size_t)` is the amount of bytes occupied by all of the pages allocated for both
-        /// `values` and `types`.
+        /// `slots * sizeof(size_t)` is the amount of bytes occupied by all of the memory allocated for
+        /// each of `values` and `types`.
         uint32_t    slots;
         ///
         uint32_t    nextBaseOffset;
+        /// If `currentFrame.has_value() == true`, then this node is currently in use,
+        /// preventing certain operations such as `reallocate(...)`.
+        std::optional<Frame> currentFrame;
 
         Node(const uint32_t minSlotSize);
 
@@ -155,11 +165,17 @@ public:
 
         Node(Node&& other) noexcept;
 
-        Node& operator=(Node&& other) noexcept;
+        Node& operator=(Node&& other) = delete;
 
         Node(const Node& other) = delete;
 
         Node& operator=(const Node& other) = delete;
+
+        /// @brief Forcibly reallocates this node to either grow or shrink it's allocation size
+        /// @param minSlotSize Can be less than `this->slots`.
+        void reallocate(const uint32_t minSlotSize);
+
+        bool hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t alignment) const;
 
         std::optional<Frame> pushFrame(
             uint32_t frameLength, 
@@ -169,7 +185,44 @@ public:
             const Bytecode* instructionPointer
         );
 
+        /// @brief Pushes a frame onto this node from a previous node. Expects this node to not be in use,
+        /// allowing reallocation.
+        /// @return 
+        /// # Debug Asserts
+        /// `this->currentFrame.has_value() == false`.
+        Frame pushFrameAllowReallocate(
+            const uint32_t frameLength,
+            const uint16_t alignment,
+            void* const retValDst,
+            std::optional<Frame*> previousFrame,
+            const Bytecode* const instructionPointer
+        );
+
         std::optional<std::tuple<Frame, const Bytecode*, bool>> popFrame(const uint16_t currentFrameLenMinusOne);
+
+    private:
+
+        struct Allocation {
+            size_t*     values;
+            size_t*     types;
+            uint32_t    slots;
+        };
+
+        static Allocation allocateStack(const uint32_t minSlotSize);
+
+        static void freeStack(Allocation& allocation);
+        
+        /// Checks if this node needs reallocation for the new frame length and alignment.
+        /// If it does, returns a valid option with the new reallocation minimum size.
+        /// If it does not need reallocation, returns a null option.
+        /// # Debug Asserts
+        /// `this->currentFrame.has_value() == false`.
+        std::optional<uint32_t> shouldReallocate(uint32_t frameLength, uint16_t alignment) const;
+
+        static constexpr size_t MIN_BYTES_ALLOCATED = 1024;
+        /// Stack default is 2KB (1KB for values, 1KB for types)
+        static constexpr size_t MIN_SLOTS = MIN_BYTES_ALLOCATED / sizeof(void*);
+
     };
 
 private:
@@ -182,8 +235,6 @@ private:
     // Maybe good idea to not store the instruction pointer itself, but the offset within the bytecode.
     // That way it can occupy 48 bits rather than a full pointer, and then the other 16 bits can be the frame length.
     // This allows storing the previous function, while saving room for 1 more another old frame data store.
-
-    bool extendCurrentFrameForNextFrameAlignment(uint16_t alignment);
 
     void setOptionalTypeAt(const sy::Type* type, uint16_t offset, bool isRef);
 
