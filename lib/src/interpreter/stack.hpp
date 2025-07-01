@@ -200,6 +200,17 @@ public:
 
         std::optional<std::tuple<Frame, const Bytecode*, bool>> popFrame(const uint16_t currentFrameLenMinusOne);
 
+        /// Checks if this node needs reallocation for the new frame length and alignment.
+        /// If it does, returns a valid option with the new reallocation minimum size.
+        /// If it does not need reallocation, returns a null option.
+        /// # Debug Asserts
+        /// `this->currentFrame.has_value() == false`.
+        std::optional<uint32_t> shouldReallocate(uint32_t frameLength, uint16_t alignment) const;
+        
+        static constexpr size_t MIN_BYTES_ALLOCATED = 1024;
+        /// Stack default is 2KB (1KB for values, 1KB for types)
+        static constexpr size_t MIN_SLOTS = MIN_BYTES_ALLOCATED / sizeof(void*);
+
     private:
 
         struct Allocation {
@@ -211,17 +222,6 @@ public:
         static Allocation allocateStack(const uint32_t minSlotSize);
 
         static void freeStack(Allocation& allocation);
-        
-        /// Checks if this node needs reallocation for the new frame length and alignment.
-        /// If it does, returns a valid option with the new reallocation minimum size.
-        /// If it does not need reallocation, returns a null option.
-        /// # Debug Asserts
-        /// `this->currentFrame.has_value() == false`.
-        std::optional<uint32_t> shouldReallocate(uint32_t frameLength, uint16_t alignment) const;
-
-        static constexpr size_t MIN_BYTES_ALLOCATED = 1024;
-        /// Stack default is 2KB (1KB for values, 1KB for types)
-        static constexpr size_t MIN_SLOTS = MIN_BYTES_ALLOCATED / sizeof(void*);
 
     };
 

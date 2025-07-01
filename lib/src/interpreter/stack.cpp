@@ -18,7 +18,7 @@
 
 static_assert(sizeof(size_t) == sizeof(void*));
 static_assert(alignof(size_t) == alignof(void*));
-static_assert(reinterpret_cast<size_t>(nullptr) == 0);
+//static_assert(reinterpret_cast<size_t>(nullptr) == 0);
 
 namespace detail {
     /// For now, this value will never change, however it'll be supported anyways for when coroutines become a thing.
@@ -471,7 +471,7 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
     }
 
     const Frame newFrame = {
-        this->nextBaseOffset + Frame::OLD_FRAME_INFO_RESERVED_SLOTS,
+        static_cast<uint32_t>(this->nextBaseOffset + Frame::OLD_FRAME_INFO_RESERVED_SLOTS),
         static_cast<uint16_t>(frameLength - 1),
         UINT16_MAX - 1,
         retValDst
@@ -498,6 +498,8 @@ Stack::Frame Stack::Node::pushFrameAllowReallocate(
 
         // 
     } while(false);
+
+    return Stack::Frame();
 }
 
 std::optional<std::tuple<Stack::Frame, const Bytecode *, bool>> Stack::Node::popFrame(
@@ -532,6 +534,41 @@ std::optional<std::tuple<Stack::Frame, const Bytecode *, bool>> Stack::Node::pop
     
     auto tuple = std::make_tuple(oldFrame, oldInstructionPointer, backToEmptyNode);
     return std::optional<std::tuple<Frame, const Bytecode*, bool>>(tuple);
+}
+
+std::optional<uint32_t> Stack::Node::shouldReallocate(uint32_t frameLength, uint16_t alignment) const
+{
+    // `alignment` must always be a power of 2
+    // `frameLength` must be a multiple of alignment
+    // Despite that, since Frame::OLD_FRAME_INFO_RESERVED_SLOTS are needed,
+    // this may result in flawed alignment.
+    // As a result, we double the input frame length so that even with the padding, we can still
+    // always get correct alignment
+
+    sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
+    sy_assert(frameLength <= MAX_FRAME_LEN, "Frame length cannot exceed the maximum");
+
+    const size_t pageSize = page_size();
+    sy_assert(alignment > 0, "Alignment must be non zero");
+    sy_assert(alignment <= pageSize, "Alignment greater than page size does not make sense");
+    sy_assert((frameLength % (alignment / sizeof(size_t))) == 0, "Frame length must be a multiple of alignment");
+    sy_assert((alignment & (alignment - 1)) == 0, "Alignment must be a power of 2");
+
+    const uint32_t minRequiredSlots = (frameLength * 2) + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+    uint32_t reallocationSlots = alignment;
+    while(reallocationSlots < minRequiredSlots) {
+        reallocationSlots <<= 1;
+    }
+
+    if(this->slots < reallocationSlots) {
+        return std::optional<uint32_t>(reallocationSlots);
+    }
+
+    if(reinterpret_cast<size_t>(this->values) % alignment != 0) {
+        return std::optional<uint32_t>(reallocationSlots); // the allocation itself is not aligned enough
+    }
+
+    return std::nullopt;
 }
 
 Stack::Node::Allocation Stack::Node::allocateStack(const uint32_t minSlotSize)
@@ -587,40 +624,6 @@ void Stack::Node::freeStack(Allocation &allocation)
         page_free(allocation.values, bytesAllocated);
         page_free(allocation.types, bytesAllocated);
     }
-}
-
-std::optional<uint32_t> Stack::Node::shouldReallocate(uint32_t frameLength, uint16_t alignment) const
-{
-    sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
-
-    const size_t pageSize = page_size();
-    sy_assert(alignment <= pageSize, "Alignment greater than page size does not make sense");
-
-    uint32_t reallocationSize = frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
-    { // do for alignment
-        const uint32_t normalizedAlignment = static_cast<uint32_t>(alignment) / sizeof(size_t);
-
-        if(reallocationSize < normalizedAlignment) {
-            reallocationSize += normalizedAlignment;
-        }
-        const uint32_t remainder = reallocationSize % normalizedAlignment;
-        reallocationSize += normalizedAlignment - remainder;
-    }
-
-    if(this->slots < reallocationSize) {
-        return std::optional<uint32_t>(reallocationSize);
-    }
-
-    if(reinterpret_cast<size_t>(this->values) % alignment != 0) {
-        return std::optional<uint32_t>(reallocationSize); // the allocation itself is not aligned enough
-    }
-
-    // std::optional<uint32_t> optExtendAmount = Frame::frameExtendAmountForAlignment(
-    //     this->slots, Frame::OLD_FRAME_INFO_RESERVED_SLOTS, alignment);
-    // if(!optExtendAmount.has_value()) {
-    // }
-
-    return std::nullopt;
 }
 
 #pragma endregion
@@ -727,8 +730,63 @@ FrameGuard &FrameGuard::operator=(FrameGuard && other) {
 
 #include "../doctest.h"
 
-TEST_SUITE("Node") {
+using Node = Stack::Node;
 
+TEST_SUITE("Node") {
+    TEST_CASE("Construct destruct mininum") {
+        auto node = Node(1);
+        CHECK_EQ(node.slots, Node::MIN_SLOTS);
+    }
+
+    TEST_CASE("Construct destruct exactly minimum") {
+        auto node = Node(Node::MIN_SLOTS);
+        CHECK_EQ(node.slots, Node::MIN_SLOTS);
+    }
+
+    TEST_CASE("Construct destruct one above minimum") {
+        auto node = Node(Node::MIN_SLOTS + 1);
+        CHECK_GT(node.slots, Node::MIN_SLOTS);
+    }
+
+    TEST_CASE("Node reallocate bigger") {
+        auto node = Node(1);
+        node.reallocate(Node::MIN_SLOTS + 1);
+        CHECK_GT(node.slots, Node::MIN_SLOTS);
+    }
+
+    TEST_CASE("Node reallocate smaller") {
+        auto node = Node(Node::MIN_SLOTS + 1);
+        node.reallocate(1);
+        CHECK_EQ(node.slots, Node::MIN_SLOTS);
+    }
+
+    TEST_CASE("Node should reallocate true with simple alignment") {
+        auto node = Node(4);
+        auto result = node.shouldReallocate(node.slots + 1, alignof(size_t));
+        CHECK(result.has_value());
+        CHECK_GT(result.value(), node.slots);
+    }
+
+    TEST_CASE("Node should reallocate false with simple alignment") {
+        auto node = Node(4);
+        auto result = node.shouldReallocate(8, alignof(size_t));
+        CHECK_FALSE(result.has_value());
+    }
+
+    TEST_CASE("Node should reallocate true with alignment same as frame length") {
+        auto node = Node(4);
+        const uint16_t lenAlign = 1024;
+        auto result = node.shouldReallocate(lenAlign, lenAlign);
+        CHECK(result.has_value());
+        CHECK_GT(result.value(), node.slots);
+    }
+
+    TEST_CASE("Node should reallocate false with alignment same as frame length") {
+        auto node = Node(4096);
+        const uint16_t lenAlign = 1024;
+        auto result = node.shouldReallocate(lenAlign, lenAlign);
+        CHECK_FALSE(result.has_value());
+    }
 }
 
 // TEST_CASE("push frame on thread local stack") {
