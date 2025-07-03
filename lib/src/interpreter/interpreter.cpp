@@ -318,7 +318,7 @@ void executeMemsetUninitialized(const Bytecode bytecode)
     Stack& activeStack = Stack::getActiveStack();
     void* destination = activeStack.valueMemoryAt(operands.dst);
     #if _DEBUG
-    const uint32_t frameLength = static_cast<uint32_t>(activeStack.getCurrentFrame().frameLengthMinusOne) + 1;
+    const uint32_t frameLength = activeStack.getCurrentFrame().value()->frameLength;
     sy_assert(frameLength >= (operands.dst + operands.slots), "Trying to uninitialize memory outside of stack frame");
     #endif
     const size_t bytesToSet = sizeof(void*) * static_cast<size_t>(operands.slots);

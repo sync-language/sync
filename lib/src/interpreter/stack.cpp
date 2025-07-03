@@ -49,36 +49,48 @@ std::optional<uint32_t> Stack::Frame::frameExtendAmountForAlignment(
     return std::optional<uint32_t>(offset);
 }
 
-Stack::Frame Stack::Frame::readFromMemory(const size_t *valuesMem, const size_t *typesMem)
+std::optional<std::tuple<Stack::Frame, const Bytecode*>> Stack::Frame::readFromMemory(
+    const uint64_t* valuesMem, const uint64_t* typesMem)
 {
-    const uint32_t frameLengthAndFunctionIndex = 
-        *reinterpret_cast<const uint32_t*>(&valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX]);
+    const Bytecode* oldInstructionPointer = reinterpret_cast<const Bytecode*>(valuesMem[OLD_INSTRUCTION_POINTER]);
+    if(oldInstructionPointer == nullptr) {
+        return std::nullopt;
+    }
+
+    const uint64_t frameLengthAndFunctionIndex = valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX];
     void* oldRetDst = const_cast<void*>(reinterpret_cast<const void*>(&typesMem[OLD_RETURN_VALUE_DST]));
     const uint32_t oldBasePointerOffset = 
         *reinterpret_cast<const uint32_t*>(&valuesMem[OLD_BASE_POINTER_OFFSET]);
 
     const Frame oldFrame = {
         oldBasePointerOffset,
-        static_cast<uint16_t>(frameLengthAndFunctionIndex & 0xFFFF),
-        static_cast<uint16_t>(frameLengthAndFunctionIndex >> 16),
+        static_cast<uint32_t>(frameLengthAndFunctionIndex & 0xFFFFFFFF),    // frame length
+        static_cast<uint16_t>(frameLengthAndFunctionIndex >> 32),           // function index
         oldRetDst
     };
-    return oldFrame;
+    return std::make_tuple(oldFrame, oldInstructionPointer);
 }
 
-void Stack::Frame::storeInMemory(size_t *valuesMem, size_t *typesMem) const
+void Stack::Frame::storeInMemory(uint64_t* valuesMem, uint64_t* typesMem, const Bytecode* instructionPointer) const
 {
-    uint32_t* frameLengthAndFunctionIndex = 
-        reinterpret_cast<uint32_t*>(&valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX]);
+    uint64_t* frameLengthAndFunctionIndex = &valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX];
     *frameLengthAndFunctionIndex = 
-        static_cast<uint32_t>(this->frameLengthMinusOne) |
-        (static_cast<uint32_t>(this->functionIndex) << 16);
+        static_cast<uint64_t>(this->frameLength) |
+        (static_cast<uint64_t>(this->functionIndex) << 32);
 
     void** oldRetDst = reinterpret_cast<void**>(&typesMem[OLD_RETURN_VALUE_DST]);
     *oldRetDst = const_cast<void*>(this->retValueDst);
 
     uint32_t* oldBasePointerOffset = reinterpret_cast<uint32_t*>(&valuesMem[OLD_BASE_POINTER_OFFSET]);
     *oldBasePointerOffset = this->basePointerOffset;
+}
+
+void Stack::Frame::storeNullFrameInMemory(uint64_t *valueMem, uint64_t *typesMem)
+{
+    valueMem[OLD_INSTRUCTION_POINTER] = 0;
+    valueMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX] = 0;
+    typesMem[OLD_RETURN_VALUE_DST] = 0;
+    typesMem[OLD_BASE_POINTER_OFFSET] = 0;
 }
 
 const Bytecode *Stack::Frame::readOldInstructionPointer(const size_t *valuesMem)
@@ -231,7 +243,7 @@ void Stack::setInstructionPointer(const Bytecode *bytecode)
 
 void* Stack::valueMemoryAt(uint16_t offset)
 {
-    sy_assert(offset <= this->currentFrame.frameLengthMinusOne, "Cannot access past the frame length");
+    sy_assert(offset < this->currentFrame.frameLength, "Cannot access past the frame length");
     const uint32_t actualOffset = this->currentFrame.basePointerOffset + static_cast<uint32_t>(offset);
     Node& node = this->nodes[currentNode];
     return &node.values[actualOffset];
@@ -239,7 +251,7 @@ void* Stack::valueMemoryAt(uint16_t offset)
 
 const sy::Type* Stack::typeAt(uint16_t offset) const
 {
-    sy_assert(offset <= this->currentFrame.frameLengthMinusOne, "Cannot access past the frame length");
+    sy_assert(offset < this->currentFrame.frameLength, "Cannot access past the frame length");
     const uint32_t actualOffset = this->currentFrame.basePointerOffset + static_cast<uint32_t>(offset);
     Node& node = this->nodes[currentNode];
     const uintptr_t typeMemAsInt = node.types[actualOffset];
@@ -266,7 +278,7 @@ void Stack::setNullTypeAt(uint16_t offset)
 
 bool Stack::isOwnedTypeAt(uint16_t offset) const
 {
-    sy_assert(offset <= this->currentFrame.frameLengthMinusOne, "Cannot access past the frame length");
+    sy_assert(offset < this->currentFrame.frameLength, "Cannot access past the frame length");
     const uint32_t actualOffset = this->currentFrame.basePointerOffset + static_cast<uint32_t>(offset);
     Node& node = this->nodes[currentNode];
     const uintptr_t typeMemAsInt = node.types[actualOffset];
@@ -301,10 +313,10 @@ bool Stack::pushScriptFunctionArg(
         uint32_t actualNextBaseOffset = currentNodeUsed.nextBaseOffset;
         if(currentFrame.has_value()) {
             actualNextBaseOffset += Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
-            const uint32_t currentFrameLengthMinusOne = currentFrame.value()->frameLengthMinusOne;
-            const uint32_t newFrameLenMinusOne = currentFrameLengthMinusOne + optExtend.value();
-            sy_assert(newFrameLenMinusOne < MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
-            currentFrame.value()->frameLengthMinusOne = static_cast<uint16_t>(newFrameLenMinusOne);
+            const uint32_t currentFrameLength = currentFrame.value()->frameLength;
+            const uint32_t newFrameLen = currentFrameLength + optExtend.value();
+            sy_assert(newFrameLen < MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
+            currentFrame.value()->frameLength = static_cast<uint16_t>(newFrameLen);
         }
         currentNodeUsed.nextBaseOffset = actualNextBaseOffset + optExtend.value();
     }
@@ -455,19 +467,19 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
 
         if(currentFrame.has_value()) {
             this->nextBaseOffset = actualNextBaseOffset + optExtendAmount.value();
-            const uint32_t currentFrameLengthMinusOne = currentFrame.value()->frameLengthMinusOne;
-            const uint32_t newFrameLenMinusOne = currentFrameLengthMinusOne + optExtendAmount.value();
-            sy_assert(newFrameLenMinusOne < MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
-            currentFrame.value()->frameLengthMinusOne = static_cast<uint16_t>(newFrameLenMinusOne);
+            const uint32_t currentFrameLength = currentFrame.value()->frameLength;
+            const uint32_t newFrameLen = currentFrameLength + optExtendAmount.value();
+            sy_assert(newFrameLen < MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
+            currentFrame.value()->frameLength = static_cast<uint16_t>(newFrameLen);
         }
     }
 
+    size_t* const valuesBefore  = &this->values[this->nextBaseOffset];
+    size_t* const typesBefore   = &this->types[this->nextBaseOffset];
     if(currentFrame.has_value()) {
-        size_t* const valuesBefore  = &this->values[this->nextBaseOffset];
-        size_t* const typesBefore   = &this->types[this->nextBaseOffset];
-
-        currentFrame.value()->storeInMemory(valuesBefore, typesBefore);
-        Frame::storeOldInstructionPointer(valuesBefore, instructionPointer);
+        currentFrame.value()->storeInMemory(valuesBefore, typesBefore, instructionPointer);
+    } else {
+        Frame::storeNullFrameInMemory(valuesBefore, typesBefore);
     }
 
     const Frame newFrame = {
@@ -522,18 +534,20 @@ std::optional<std::tuple<Stack::Frame, const Bytecode *, bool>> Stack::Node::pop
     const size_t* const valuesMem   = &this->values[oldInfoStartOffset];
     const size_t* const typesMem    = &this->types[oldInfoStartOffset];
 
-    Frame oldFrame = Frame::readFromMemory(valuesMem, typesMem);
-    const Bytecode* oldInstructionPointer = Frame::readOldInstructionPointer(valuesMem);
+    return std::nullopt;
 
-    const bool backToEmptyNode = oldNextBaseOffset == Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
-    if(backToEmptyNode) {
-        this->nextBaseOffset = 0;
-    } else {
-        this->nextBaseOffset = oldNextBaseOffset;
-    }
+    // Frame oldFrame = Frame::readFromMemory(valuesMem, typesMem);
+    // const Bytecode* oldInstructionPointer = Frame::readOldInstructionPointer(valuesMem);
+
+    // const bool backToEmptyNode = oldNextBaseOffset == Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+    // if(backToEmptyNode) {
+    //     this->nextBaseOffset = 0;
+    // } else {
+    //     this->nextBaseOffset = oldNextBaseOffset;
+    // }
     
-    auto tuple = std::make_tuple(oldFrame, oldInstructionPointer, backToEmptyNode);
-    return std::optional<std::tuple<Frame, const Bytecode*, bool>>(tuple);
+    // auto tuple = std::make_tuple(oldFrame, oldInstructionPointer, backToEmptyNode);
+    // return std::optional<std::tuple<Frame, const Bytecode*, bool>>(tuple);
 }
 
 std::optional<uint32_t> Stack::Node::shouldReallocate(uint32_t frameLength, uint16_t alignment) const
@@ -579,12 +593,12 @@ Stack::Node::Allocation Stack::Node::allocateStack(const uint32_t minSlotSize)
 
     if(minSlotSize <= MIN_SLOTS) {
         sy::Allocator allocator;
-        aloc.values = allocator.allocAlignedArray<size_t>(MIN_SLOTS, MIN_BYTES_ALLOCATED).get();
-        aloc.types  = allocator.allocAlignedArray<size_t>(MIN_SLOTS, MIN_BYTES_ALLOCATED).get();
+        aloc.values = allocator.allocAlignedArray<uint64_t>(MIN_SLOTS, MIN_BYTES_ALLOCATED).get();
+        aloc.types  = allocator.allocAlignedArray<uint64_t>(MIN_SLOTS, MIN_BYTES_ALLOCATED).get();
         aloc.slots  = MIN_SLOTS;
     } else {
         const size_t pageSize = page_size();
-        size_t bytesToAllocate = static_cast<size_t>(minSlotSize) * sizeof(size_t);
+        size_t bytesToAllocate = static_cast<size_t>(minSlotSize) * sizeof(uint64_t);
         {
             const size_t remainder = bytesToAllocate % pageSize;
             if(remainder != 0) {
@@ -604,9 +618,9 @@ Stack::Node::Allocation Stack::Node::allocateStack(const uint32_t minSlotSize)
         sy_assert(typesMem != MAP_FAILED, "Failed to allocate pages");
         #endif
 
-        aloc.values = reinterpret_cast<size_t*>(valuesMem);
-        aloc.types  = reinterpret_cast<size_t*>(typesMem);
-        aloc.slots  = static_cast<uint32_t>(bytesToAllocate / sizeof(size_t));
+        aloc.values = reinterpret_cast<uint64_t*>(valuesMem);
+        aloc.types  = reinterpret_cast<uint64_t*>(typesMem);
+        aloc.slots  = static_cast<uint32_t>(bytesToAllocate / sizeof(uint64_t));
     }
 
     return aloc;
@@ -620,7 +634,7 @@ void Stack::Node::freeStack(Allocation &allocation)
         allocator.freeAlignedArray(allocation.types, MIN_SLOTS, MIN_BYTES_ALLOCATED);
     }
     else {
-        const size_t bytesAllocated = static_cast<size_t>(allocation.slots) * sizeof(size_t);
+        const size_t bytesAllocated = static_cast<size_t>(allocation.slots) * sizeof(uint64_t);
         page_free(allocation.values, bytesAllocated);
         page_free(allocation.types, bytesAllocated);
     }
@@ -630,7 +644,7 @@ void Stack::Node::freeStack(Allocation &allocation)
 
 void Stack::popFrame()
 {
-    auto popResult = this->nodes[this->currentNode].popFrame(this->currentFrame.frameLengthMinusOne);
+    auto popResult = this->nodes[this->currentNode].popFrame(this->currentFrame.frameLength);
     if(!popResult.has_value()) {
         sy_assert(this->currentNode == 0, "Node incorrectly reported having no previous frame");
         return;
@@ -683,7 +697,7 @@ static bool ptrIsAligned(const void* p, size_t alignment) {
 void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
 {
     static_assert(alignof(sy::Type) > 1, "Lowest bit must be reserved");    
-    sy_assert(offset <= this->currentFrame.frameLengthMinusOne, "Cannot access past the frame length");
+    sy_assert(offset < this->currentFrame.frameLength, "Cannot access past the frame length");
     const uint32_t actualOffset = this->currentFrame.basePointerOffset + static_cast<uint32_t>(offset);
     Node& node = this->nodes[currentNode];
 
@@ -695,7 +709,7 @@ void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
     sy_assert(ptrIsAligned(reinterpret_cast<const void*>(type), alignof(sy::Type)), "Type pointer misaligned");
     const size_t slotsOccupied = type->sizeType / 8;
     const size_t requiredFrameLength = static_cast<size_t>(offset) + slotsOccupied;
-    sy_assert(requiredFrameLength <= this->currentFrame.frameLengthMinusOne, "Cannot set type past the frame length");
+    sy_assert(requiredFrameLength < this->currentFrame.frameLength, "Cannot set type past the frame length");
 
     const size_t typePtrAsInt = reinterpret_cast<size_t>(type);
     const size_t refTag = isRef ? TYPE_NOT_OWNED_FLAG : 0; // would be optimized

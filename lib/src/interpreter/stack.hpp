@@ -109,17 +109,28 @@ public:
     [[nodiscard]] std::optional<Frame*> getCurrentFrame();
 
     struct Frame {
+        // Sync only compiles on targets with full support for 64 bit integers (not necessarily 64 bit architectures
+        // due to the existence of wasm32). As a result, frame metadata is stored as 4, 64 bit integer (2 + 2).
+
         uint32_t basePointerOffset;
-        uint16_t frameLengthMinusOne;
+        uint32_t frameLength;
         uint16_t functionIndex;
         void*    retValueDst;
 
         static std::optional<uint32_t> frameExtendAmountForAlignment(
             const uint32_t totalSlots, const uint32_t nextBaseOffset, const uint16_t alignment);
 
-        static Frame readFromMemory(const size_t* valuesMem, const size_t* typesMem);
+        /// @brief Attempts to read the frame metadata of the previous stack frame.
+        /// @param valuesMem The memory region that contains the first half of the frame metadata
+        /// @param typesMem The memory region that contains the second half of the frame metadata
+        /// @return A valid frame if there is a frame to return to (has a valid instruction pointer to return to)
+        /// along with the corresponding instruction pointer, otherwise an empty optional.
+        static std::optional<std::tuple<Frame, const Bytecode*>> readFromMemory(
+            const uint64_t* valuesMem, const uint64_t* typesMem);
 
-        void storeInMemory(size_t* valuesMem, size_t* typesMem) const;
+        void storeInMemory(uint64_t* valuesMem, uint64_t* typesMem, const Bytecode* instructionPointer) const;
+
+        static void storeNullFrameInMemory(uint64_t* valueMem, uint64_t* typesMem);
 
         static const Bytecode* readOldInstructionPointer(const size_t* valuesMem);
 
@@ -147,10 +158,10 @@ public:
     
     struct Node {
         /// Allocates as either 1KB chunk or pages
-        size_t*     values;
+        uint64_t*     values;
         /// Allocates as either 1KB chunk or pages
-        size_t*     types;
-        /// `slots * sizeof(size_t)` is the amount of bytes occupied by all of the memory allocated for
+        uint64_t*     types;
+        /// `slots * sizeof(uint64_t)` is the amount of bytes occupied by all of the memory allocated for
         /// each of `values` and `types`.
         uint32_t    slots;
         ///
@@ -214,8 +225,8 @@ public:
     private:
 
         struct Allocation {
-            size_t*     values;
-            size_t*     types;
+            uint64_t*   values;
+            uint64_t*   types;
             uint32_t    slots;
         };
 
