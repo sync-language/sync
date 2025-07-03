@@ -474,8 +474,8 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
         }
     }
 
-    size_t* const valuesBefore  = &this->values[this->nextBaseOffset];
-    size_t* const typesBefore   = &this->types[this->nextBaseOffset];
+    uint64_t* const valuesBefore = &this->values[this->nextBaseOffset];
+    uint64_t* const typesBefore = &this->types[this->nextBaseOffset];
     if(currentFrame.has_value()) {
         currentFrame.value()->storeInMemory(valuesBefore, typesBefore, instructionPointer);
     } else {
@@ -531,8 +531,8 @@ std::optional<std::tuple<Stack::Frame, const Bytecode *, bool>> Stack::Node::pop
     }
     
     const size_t oldInfoStartOffset = this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
-    const size_t* const valuesMem   = &this->values[oldInfoStartOffset];
-    const size_t* const typesMem    = &this->types[oldInfoStartOffset];
+    const uint64_t* const valuesMem = &this->values[oldInfoStartOffset];
+    const uint64_t* const typesMem  = &this->types[oldInfoStartOffset];
 
     return std::nullopt;
 
