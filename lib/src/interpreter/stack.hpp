@@ -158,17 +158,20 @@ public:
     
     struct Node {
         /// Allocates as either 1KB chunk or pages
-        uint64_t*     values;
+        uint64_t*               values = nullptr;
         /// Allocates as either 1KB chunk or pages
-        uint64_t*     types;
+        uint64_t*               types = nullptr;
         /// `slots * sizeof(uint64_t)` is the amount of bytes occupied by all of the memory allocated for
         /// each of `values` and `types`.
-        uint32_t    slots;
+        uint32_t                slots = 0;
         ///
-        uint32_t    nextBaseOffset;
+        uint32_t                nextBaseOffset = Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
         /// If `currentFrame.has_value() == true`, then this node is currently in use,
         /// preventing certain operations such as `reallocate(...)`.
-        std::optional<Frame> currentFrame;
+        std::optional<Frame>    currentFrame{};
+        /// How many frames this node has. If `frameDepth > 0`, then this node is in use,
+        /// preventing certain operations such as `reallocate(...)`.
+        uint16_t                frameDepth = 0;
 
         Node(const uint32_t minSlotSize);
 
@@ -212,11 +215,23 @@ public:
         std::optional<std::tuple<Frame, const Bytecode*, bool>> popFrame(const uint16_t currentFrameLenMinusOne);
 
         /// Checks if this node needs reallocation for the new frame length and alignment.
-        /// If it does, returns a valid option with the new reallocation minimum size.
+        /// If it does, returns a valid option with the new reallocation minimum size, that is guaranteed to fit
+        /// the frame length at the specified alignment including with having to shift the base offset for alignment
+        /// requirements.
         /// If it does not need reallocation, returns a null option.
         /// # Debug Asserts
         /// `this->currentFrame.has_value() == false`.
         std::optional<uint32_t> shouldReallocate(uint32_t frameLength, uint16_t alignment) const;
+
+        /// @brief Calculates what the next base offset needs to be to satisfy the byte alignment of a new
+        /// stack frame. The difference between the return value and `Node::nextBaseOffset` member variable can be used
+        /// to calculate how much the current frame needs to increase it's length by.
+        /// @param currentNextBaseOffset Typically is `this->nextBaseOffset`, 
+        /// however is passed as an argument for testing
+        /// @param byteAlign Byte alignment of the next base offset
+        /// @return The aligned next base offset, which is always greater than or equal to 
+        /// `Stack::Frame::OLD_FRAME_INFO_RESERVED_SLOTS`
+        static uint32_t requiredBaseOffsetForByteAlignment(uint32_t currentNextBaseOffset, uint16_t byteAlign);
         
         static constexpr size_t MIN_BYTES_ALLOCATED = 1024;
         /// Stack default is 2KB (1KB for values, 1KB for types)

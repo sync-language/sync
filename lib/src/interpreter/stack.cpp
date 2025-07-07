@@ -365,7 +365,6 @@ std::optional<Stack::Frame *> Stack::getCurrentFrame()
 #pragma region Node
 
 Stack::Node::Node(const uint32_t minSlotSize)
-    : nextBaseOffset(0)
 {
     Allocation allocation = allocateStack(minSlotSize);
     
@@ -412,6 +411,7 @@ bool Stack::Node::hasEnoughSpaceForFrame(const uint32_t frameLength, const uint1
 void Stack::Node::reallocate(const uint32_t minSlotSize)
 {
     sy_assert(!this->currentFrame.has_value(), "Cannot reallocate stack node while it's being used");
+    sy_assert(this->frameDepth == 0, "Cannot reallocate stack node while it's being used");
 
     if(this->slots > 0) {
         Allocation allocation{
@@ -502,14 +502,12 @@ Stack::Frame Stack::Node::pushFrameAllowReallocate(
 ) {
     sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
 
-    bool mustReallocate = false;
-    do { // check if need to reallocate
-        const size_t pageSize = page_size();
-        sy_assert(alignment <= pageSize, "Alignment greater than page size does not make sense");
-        const size_t asNum = reinterpret_cast<size_t>(this->values);
+    std::optional<uint32_t> optReallocSize = this->shouldReallocate(frameLength, alignment);
+    if(optReallocSize.has_value()) {
+        this->reallocate(optReallocSize.value());
+    }
 
-        // 
-    } while(false);
+
 
     return Stack::Frame();
 }
@@ -583,6 +581,25 @@ std::optional<uint32_t> Stack::Node::shouldReallocate(uint32_t frameLength, uint
     }
 
     return std::nullopt;
+}
+
+uint32_t Stack::Node::requiredBaseOffsetForByteAlignment(uint32_t currentNextBaseOffset, uint16_t byteAlign)
+{
+    // The 2 slots BEFORE the base offset (for both the values and types, totaling 4 used slots)
+    // must be used for storing the previous frame data.
+    // For consistency purposes, even if no frame is supplied, the reserve slots are still used.
+    sy_assert(currentNextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 
+        "Next base offset should always be greater than or equal to the default");
+
+    const uint32_t normalizedAlign = (byteAlign / sizeof(uint64_t)) < Frame::OLD_FRAME_INFO_RESERVED_SLOTS 
+        ? Frame::OLD_FRAME_INFO_RESERVED_SLOTS : (byteAlign / sizeof(uint64_t));
+
+    const uint32_t remainder = currentNextBaseOffset % normalizedAlign;
+    if(remainder == 0) {
+        return currentNextBaseOffset;
+    }
+
+    return currentNextBaseOffset + (normalizedAlign - remainder);
 }
 
 Stack::Node::Allocation Stack::Node::allocateStack(const uint32_t minSlotSize)
@@ -800,6 +817,50 @@ TEST_SUITE("Node") {
         const uint16_t lenAlign = 1024;
         auto result = node.shouldReallocate(lenAlign, lenAlign);
         CHECK_FALSE(result.has_value());
+    }
+
+    TEST_CASE("requiredBaseOffsetForByteAlignment") {
+        const uint32_t RESERVED = Stack::Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+        { // 1 byte align from default next base offset
+            uint32_t res = Node::requiredBaseOffsetForByteAlignment(RESERVED, 1);
+            CHECK_EQ(res, RESERVED);
+        }
+        { // 8 byte align from default next base offset
+            uint32_t res = Node::requiredBaseOffsetForByteAlignment(RESERVED, 8);
+            CHECK_EQ(res, RESERVED);
+        }
+        { // 16 byte align (two slots) from default next base offset
+            uint32_t res = Node::requiredBaseOffsetForByteAlignment(RESERVED, 16);
+            CHECK_EQ(res, RESERVED);
+        }
+        { // 64 byte align (two slots) from default next base offset
+            uint32_t res = Node::requiredBaseOffsetForByteAlignment(RESERVED, 64);
+            CHECK_EQ(res, 8);
+        }
+        { // 1 byte align from non-default but already aligned
+            uint32_t res = Node::requiredBaseOffsetForByteAlignment(32, 1);
+            CHECK_EQ(res, 32);
+        }
+        { // 8 byte align from non-default but already aligned
+            uint32_t res = Node::requiredBaseOffsetForByteAlignment(32, 8);
+            CHECK_EQ(res, 32);
+        }
+        { // 16 byte align (two slots) from non-default but already aligned
+            uint32_t res = Node::requiredBaseOffsetForByteAlignment(32, 16);
+            CHECK_EQ(res, 32);
+        }
+        { // 64 byte align (two slots) from non-default but already aligned
+            uint32_t res = Node::requiredBaseOffsetForByteAlignment(32, 64);
+            CHECK_EQ(res, 32);
+        }
+        { // 16 byte align (two slots) from non-default and not aligned
+            uint32_t res = Node::requiredBaseOffsetForByteAlignment(33, 16);
+            CHECK_EQ(res, 34);
+        }
+        { // 64 byte align (two slots) from non-default and not aligned
+            uint32_t res = Node::requiredBaseOffsetForByteAlignment(33, 64);
+            CHECK_EQ(res, 40);
+        }
     }
 }
 
