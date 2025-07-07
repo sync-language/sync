@@ -3,7 +3,7 @@
 #define SY_INTERPRETER_BYTECODE_HPP_
 
 #include "../core.h"
-#include "stack.hpp"
+#include "stack/stack.hpp"
 
 namespace sy {
     class Type;

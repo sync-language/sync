@@ -3,7 +3,7 @@
 #include "../type_info.h"
 #include "../type_info.hpp"
 #include "../../util/assert.hpp"
-#include "../../interpreter/stack.hpp"
+#include "../../interpreter/stack/stack.hpp"
 #include "../../interpreter/interpreter.hpp"
 #include "../../program/program.h"
 #include "../../program/program_internal.hpp"

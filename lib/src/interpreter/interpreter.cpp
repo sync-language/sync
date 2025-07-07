@@ -2,7 +2,7 @@
 #include "../program/program.hpp"
 #include "../program/program_internal.hpp"
 #include "../util/assert.hpp"
-#include "stack.hpp"
+#include "stack/stack.hpp"
 #include "bytecode.hpp"
 #include "../types/function/function.hpp"
 #include "../types/type_info.hpp"
