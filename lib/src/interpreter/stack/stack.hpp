@@ -19,7 +19,7 @@ class Node;
 
 class FrameGuard;
 
-class Stack {
+class Stack SY_CLASS_FINAL {
 public:
     static constexpr size_t BITS_PER_STACK_OPERAND = 16;
     static constexpr size_t MAX_FRAME_LEN = 1 << BITS_PER_STACK_OPERAND;
@@ -136,7 +136,7 @@ private:
 /// An RAII guard over a stack frame, to automatically handle popping the frame, and checking for stack overflow.
 /// The `checkOverflow(...)` member function MUST be called. Upon calling, it signals to the stack that the frame
 /// has been validated, and thus can be used.
-class FrameGuard {
+class FrameGuard final {
 public:
     ~FrameGuard();
     FrameGuard(FrameGuard&& other);

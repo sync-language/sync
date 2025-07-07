@@ -1,12 +1,13 @@
 
-#include "../mem/allocator.hpp"
+#include "../../mem/allocator.hpp"
 #include "stack.hpp"
-#include "../util/assert.hpp"
-#include "../mem/os_mem.hpp"
-#include "../types/function/function.hpp"
-#include "../program/program_internal.hpp"
-#include "../types/type_info.hpp"
-#include "../threading/alloc_cache_align.hpp"
+#include "../../util/assert.hpp"
+#include "../../mem/os_mem.hpp"
+#include "../../types/function/function.hpp"
+#include "../../program/program_internal.hpp"
+#include "../../types/type_info.hpp"
+#include "../../threading/alloc_cache_align.hpp"
+#include "node.hpp"
 #include <utility>
 #include <iostream>
 #include <cstring>
@@ -24,8 +25,6 @@ namespace detail {
     /// For now, this value will never change, however it'll be supported anyways for when coroutines become a thing.
     static thread_local Stack activeStack{};
 }
-
-
 
 Stack::~Stack() noexcept
 {
@@ -55,11 +54,11 @@ Stack &Stack::getActiveStack()
 }
 
 static constexpr size_t minNodeCapacityForCacheAlign() {
-    size_t bytes = sizeof(Stack::Node);
+    size_t bytes = sizeof(Node);
     while((bytes % ALLOC_CACHE_ALIGN) != 0) {
-        bytes += sizeof(Stack::Node);
+        bytes += sizeof(Node);
     }
-    return bytes / sizeof(Stack::Node);
+    return bytes / sizeof(Node);
 }
 
 static constexpr size_t minCallstackFunctionCapacityForCacheAlign() {
@@ -225,7 +224,7 @@ bool Stack::pushScriptFunctionArg(
     Node& currentNodeUsed = this->nodes[this->currentNode];
     std::optional<Frame*> currentFrame = this->getCurrentFrame();
 
-    std::optional<uint32_t> optExtend = Stack::Frame::frameExtendAmountForAlignment(
+    std::optional<uint32_t> optExtend = Frame::frameExtendAmountForAlignment(
         currentNodeUsed.slots,
         currentNodeUsed.nextBaseOffset,
         frameAlign
@@ -276,7 +275,7 @@ bool Stack::pushScriptFunctionArg(
     return true;
 }
 
-std::optional<Stack::Frame *> Stack::getCurrentFrame()
+std::optional<Frame*> Stack::getCurrentFrame()
 {
     if(this->currentNode != 0 || this->nodes[0].nextBaseOffset != 0) {
         return std::optional<Frame*>(&this->currentFrame);
@@ -284,12 +283,6 @@ std::optional<Stack::Frame *> Stack::getCurrentFrame()
         return std::nullopt;
     }
 }
-
-#pragma region Node
-
-
-
-#pragma endregion
 
 void Stack::popFrame()
 {

@@ -7,7 +7,7 @@
 
 struct Bytecode;
 
-class Frame {
+class Frame SY_CLASS_FINAL {
 public:
     // Sync only compiles on targets with full support for 64 bit integers (not necessarily 64 bit architectures
     // due to the existence of wasm32). As a result, frame metadata is stored as 4, 64 bit integer (2 + 2).

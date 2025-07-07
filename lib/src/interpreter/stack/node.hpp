@@ -8,7 +8,7 @@
 
 struct Bytecode;
 
-class Node {
+class Node SY_CLASS_FINAL {
 public:
     /// See `Node::MIN_SLOTS`. Is aligned to `Node::MIN_VALUES_ALIGNMENT` or page alignment.
     uint64_t*               values = nullptr;
@@ -75,25 +75,6 @@ public:
     /// # Debug Asserts
     /// `this->currentFrame.has_value() == false`.
     std::optional<uint32_t> shouldReallocate(uint32_t frameLength, uint16_t alignment) const;
-
-    /// @brief Calculates what the next base offset needs to be to satisfy the byte alignment of a new
-    /// stack frame. The difference between the return value and `Node::nextBaseOffset` member variable can be used
-    /// to calculate how much the current frame needs to increase it's length by.
-    /// @param currentNextBaseOffset Typically is `this->nextBaseOffset`, 
-    /// however is passed as an argument for testing
-    /// @param byteAlign Byte alignment of the next base offset
-    /// @return The aligned next base offset, which is always greater than or equal to 
-    /// `Stack::Frame::OLD_FRAME_INFO_RESERVED_SLOTS`
-    static uint32_t requiredBaseOffsetForByteAlignment(uint32_t currentNextBaseOffset, uint16_t byteAlign);
-
-    /// By default, values use 1KB.
-    /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit pointers,
-    /// such as wasm32, the types minimum allocation is 512B.
-    static constexpr size_t MIN_SLOTS = 128;
-    
-    /// Values are aligned to either their smaller-than-page allocation size, or are page aligned.
-    /// Alignments greater than page alignment makes no sense.
-    static constexpr size_t MIN_VALUES_ALIGNMENT = 128 * alignof(uint64_t);
     
 protected: 
     Node() = default;
