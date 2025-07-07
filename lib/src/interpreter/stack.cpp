@@ -50,7 +50,7 @@ std::optional<uint32_t> Stack::Frame::frameExtendAmountForAlignment(
 }
 
 std::optional<std::tuple<Stack::Frame, const Bytecode*>> Stack::Frame::readFromMemory(
-    const uint64_t* valuesMem, const uint64_t* typesMem)
+    const uint64_t* valuesMem, const uintptr_t* typesMem)
 {
     const Bytecode* oldInstructionPointer = reinterpret_cast<const Bytecode*>(valuesMem[OLD_INSTRUCTION_POINTER]);
     if(oldInstructionPointer == nullptr) {
@@ -71,7 +71,7 @@ std::optional<std::tuple<Stack::Frame, const Bytecode*>> Stack::Frame::readFromM
     return std::make_tuple(oldFrame, oldInstructionPointer);
 }
 
-void Stack::Frame::storeInMemory(uint64_t* valuesMem, uint64_t* typesMem, const Bytecode* instructionPointer) const
+void Stack::Frame::storeInMemory(uint64_t* valuesMem, uintptr_t* typesMem, const Bytecode* instructionPointer) const
 {
     uint64_t* frameLengthAndFunctionIndex = &valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX];
     *frameLengthAndFunctionIndex = 
@@ -85,7 +85,7 @@ void Stack::Frame::storeInMemory(uint64_t* valuesMem, uint64_t* typesMem, const 
     *oldBasePointerOffset = this->basePointerOffset;
 }
 
-void Stack::Frame::storeNullFrameInMemory(uint64_t *valueMem, uint64_t *typesMem)
+void Stack::Frame::storeNullFrameInMemory(uint64_t *valueMem, uintptr_t *typesMem)
 {
     valueMem[OLD_INSTRUCTION_POINTER] = 0;
     valueMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX] = 0;
@@ -475,7 +475,7 @@ std::optional<Stack::Frame> Stack::Node::pushFrame(
     }
 
     uint64_t* const valuesBefore = &this->values[this->nextBaseOffset];
-    uint64_t* const typesBefore = &this->types[this->nextBaseOffset];
+    uintptr_t* const typesBefore = &this->types[this->nextBaseOffset];
     if(currentFrame.has_value()) {
         currentFrame.value()->storeInMemory(valuesBefore, typesBefore, instructionPointer);
     } else {
@@ -530,7 +530,7 @@ std::optional<std::tuple<Stack::Frame, const Bytecode *, bool>> Stack::Node::pop
     
     const size_t oldInfoStartOffset = this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
     const uint64_t* const valuesMem = &this->values[oldInfoStartOffset];
-    const uint64_t* const typesMem  = &this->types[oldInfoStartOffset];
+    const uintptr_t* const typesMem  = &this->types[oldInfoStartOffset];
 
     return std::nullopt;
 
@@ -610,21 +610,34 @@ Stack::Node::Allocation Stack::Node::allocateStack(const uint32_t minSlotSize)
 
     if(minSlotSize <= MIN_SLOTS) {
         sy::Allocator allocator;
-        aloc.values = allocator.allocAlignedArray<uint64_t>(MIN_SLOTS, MIN_BYTES_ALLOCATED).get();
-        aloc.types  = allocator.allocAlignedArray<uint64_t>(MIN_SLOTS, MIN_BYTES_ALLOCATED).get();
-        aloc.slots  = MIN_SLOTS;
+        aloc.values = allocator.allocAlignedArray<uint64_t>(MIN_SLOTS, MIN_VALUES_ALIGNMENT).get();
+        aloc.types = allocator.allocAlignedArray<uintptr_t>(MIN_SLOTS, ALLOC_CACHE_ALIGN).get();
+        aloc.slots = MIN_SLOTS;
     } else {
         const size_t pageSize = page_size();
-        size_t bytesToAllocate = static_cast<size_t>(minSlotSize) * sizeof(uint64_t);
+        size_t valuesBytesToAllocate = static_cast<size_t>(minSlotSize) * sizeof(uint64_t);
         {
-            const size_t remainder = bytesToAllocate % pageSize;
+            const size_t remainder = valuesBytesToAllocate % pageSize;
             if(remainder != 0) {
-                bytesToAllocate += pageSize - remainder;
+                valuesBytesToAllocate += pageSize - remainder;
             }
         }
+        const size_t typesBytesToAllocate = [valuesBytesToAllocate]() -> size_t {
+            if constexpr(sizeof(uintptr_t) == sizeof(int64_t)) {
+                return valuesBytesToAllocate;
+            } else if constexpr(sizeof(uintptr_t) < sizeof(int64_t)) { 
+                // 32 bit pointers (wasm32). We never target anything smaller
+                // https://webassembly.org/features/
+                // Gosh darn safari...
+                return valuesBytesToAllocate / (sizeof(uint64_t) / sizeof(uintptr_t));
+            } else { // pointer bigger than 64 bits
+                // CHERI ? Maybe not worth considering
+                return valuesBytesToAllocate * (sizeof(uintptr_t) / sizeof(uint64_t));
+            }
+        }();
 
-        void* valuesMem = page_malloc(bytesToAllocate);
-        void* typesMem = page_malloc(bytesToAllocate);
+        void* valuesMem = page_malloc(valuesBytesToAllocate);
+        void* typesMem = page_malloc(typesBytesToAllocate);
         
         // https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
         #if _MSC_VER
@@ -636,8 +649,8 @@ Stack::Node::Allocation Stack::Node::allocateStack(const uint32_t minSlotSize)
         #endif
 
         aloc.values = reinterpret_cast<uint64_t*>(valuesMem);
-        aloc.types  = reinterpret_cast<uint64_t*>(typesMem);
-        aloc.slots  = static_cast<uint32_t>(bytesToAllocate / sizeof(uint64_t));
+        aloc.types = reinterpret_cast<uintptr_t*>(typesMem);
+        aloc.slots = static_cast<uint32_t>(valuesBytesToAllocate / sizeof(uint64_t));
     }
 
     return aloc;
@@ -647,13 +660,26 @@ void Stack::Node::freeStack(Allocation &allocation)
 {
     if(allocation.slots == MIN_SLOTS) {
         sy::Allocator allocator;
-        allocator.freeAlignedArray(allocation.values, MIN_SLOTS, MIN_BYTES_ALLOCATED);
-        allocator.freeAlignedArray(allocation.types, MIN_SLOTS, MIN_BYTES_ALLOCATED);
+        allocator.freeAlignedArray(allocation.values, MIN_SLOTS, MIN_VALUES_ALIGNMENT);
+        allocator.freeAlignedArray(allocation.types, MIN_SLOTS, ALLOC_CACHE_ALIGN);
     }
     else {
-        const size_t bytesAllocated = static_cast<size_t>(allocation.slots) * sizeof(uint64_t);
-        page_free(allocation.values, bytesAllocated);
-        page_free(allocation.types, bytesAllocated);
+        const size_t valuesBytesAllocated = static_cast<size_t>(allocation.slots) * sizeof(uint64_t);
+        const size_t typesBytesAllocated = [valuesBytesAllocated]() -> size_t {
+            if constexpr(sizeof(uintptr_t) == sizeof(int64_t)) {
+                return valuesBytesAllocated;
+            } else if constexpr(sizeof(uintptr_t) < sizeof(int64_t)) { 
+                // 32 bit pointers (wasm32). We never target anything smaller
+                // https://webassembly.org/features/
+                // Gosh darn safari...
+                return valuesBytesAllocated / (sizeof(uint64_t) / sizeof(uintptr_t));
+            } else { // pointer bigger than 64 bits
+                // CHERI ? Maybe not worth considering
+                return valuesBytesAllocated * (sizeof(uintptr_t) / sizeof(uint64_t));
+            }
+        }();
+        page_free(allocation.values, valuesBytesAllocated);
+        page_free(allocation.types, typesBytesAllocated);
     }
 }
 

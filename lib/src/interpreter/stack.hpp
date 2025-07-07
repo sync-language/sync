@@ -126,11 +126,11 @@ public:
         /// @return A valid frame if there is a frame to return to (has a valid instruction pointer to return to)
         /// along with the corresponding instruction pointer, otherwise an empty optional.
         static std::optional<std::tuple<Frame, const Bytecode*>> readFromMemory(
-            const uint64_t* valuesMem, const uint64_t* typesMem);
+            const uint64_t* valuesMem, const uintptr_t* typesMem);
 
-        void storeInMemory(uint64_t* valuesMem, uint64_t* typesMem, const Bytecode* instructionPointer) const;
+        void storeInMemory(uint64_t* valuesMem, uintptr_t* typesMem, const Bytecode* instructionPointer) const;
 
-        static void storeNullFrameInMemory(uint64_t* valueMem, uint64_t* typesMem);
+        static void storeNullFrameInMemory(uint64_t* valueMem, uintptr_t* typesMem);
 
         static const Bytecode* readOldInstructionPointer(const size_t* valuesMem);
 
@@ -157,10 +157,10 @@ public:
 
     
     struct Node {
-        /// Allocates as either 1KB chunk or pages
+        /// See `Node::MIN_SLOTS`. Is aligned to `Node::MIN_VALUES_ALIGNMENT` or page alignment.
         uint64_t*               values = nullptr;
-        /// Allocates as either 1KB chunk or pages
-        uint64_t*               types = nullptr;
+        /// See `Node::MIN_SLOTS`. Is aligned to `ALLOC_CACHE_ALIGN` or page alignment.
+        uintptr_t*              types = nullptr;
         /// `slots * sizeof(uint64_t)` is the amount of bytes occupied by all of the memory allocated for
         /// each of `values` and `types`.
         uint32_t                slots = 0;
@@ -232,16 +232,21 @@ public:
         /// @return The aligned next base offset, which is always greater than or equal to 
         /// `Stack::Frame::OLD_FRAME_INFO_RESERVED_SLOTS`
         static uint32_t requiredBaseOffsetForByteAlignment(uint32_t currentNextBaseOffset, uint16_t byteAlign);
+
+        /// By default, values use 1KB.
+        /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit pointers,
+        /// such as wasm32, the types minimum allocation is 512B.
+        static constexpr size_t MIN_SLOTS = 128;
         
-        static constexpr size_t MIN_BYTES_ALLOCATED = 1024;
-        /// Stack default is 2KB (1KB for values, 1KB for types)
-        static constexpr size_t MIN_SLOTS = MIN_BYTES_ALLOCATED / sizeof(void*);
+        /// Values are aligned to either their smaller-than-page allocation size, or are page aligned.
+        /// Alignments greater than page alignment makes no sense.
+        static constexpr size_t MIN_VALUES_ALIGNMENT = 128 * alignof(uint64_t);
 
     private:
 
         struct Allocation {
             uint64_t*   values;
-            uint64_t*   types;
+            uintptr_t*  types;
             uint32_t    slots;
         };
 
