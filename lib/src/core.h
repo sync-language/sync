@@ -55,4 +55,17 @@ using std::uint64_t;
 
 #endif // __cplusplus
 
+// In order to test the private (actually protected) logic within classes 
+// without being forced to expose them as part of the public API, we need to 
+// leverage test classes, being classes that derive the classes we actually 
+// want to test. As a result, while all non-inherited classes (overwhelming 
+// majority of the classes in the library) should be marked final, for 
+// testing purposes, we need to derive them.
+
+#ifdef SYNC_LIB_TEST
+#define SY_CLASS_FINAL
+#else
+#define SY_CLASS_FINAL final
+#endif
+
 #endif // SY_CORE_H_
