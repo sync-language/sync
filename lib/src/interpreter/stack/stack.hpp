@@ -95,7 +95,45 @@ public:
         const uint16_t frameAlign
     );
 
+<<<<<<< HEAD:lib/src/interpreter/stack/stack.hpp
     [[nodiscard]] std::optional<Frame*> getCurrentFrame();
+=======
+    [[nodiscard]] const Frame& currentFrame() const { return this->raw.currentFrame; }
+
+    using stack_value_t = void*;
+
+    struct Node {
+        /// Allocates as pages
+        size_t* values;
+        /// Allocates as pages
+        size_t* types;
+        /// `slots * sizeof(size_t)` is the amount of bytes occupied by all of the pages allocated for both
+        /// `values` and `types`.
+        size_t  slots;
+
+        Node(const size_t minSlotSize);
+
+        ~Node();
+    };
+
+    struct Raw {
+        const Bytecode* instructionPointer;
+        /// Offset from `values` and `types` indicated where the next frame should start
+        size_t                  nextBaseOffset;
+        Frame                   currentFrame;
+        /// Allocated as pages
+        stack_value_t*          values;
+        /// Allocates as pages
+        uintptr_t*           types;
+        /// Does not need to be the amount of pages, or total number of bytes in the pages for `stack` and `types.
+        /// For both `mmap` and `VirtualAlloc`, the length argument does not need to be a page multiple, as the C
+        /// runtime library will handle it accordingly.
+        size_t                  slots;
+        const sy::Function**    callstackFunctions;
+        size_t                  callstackLen;
+        size_t                  callstackCapacity;
+    };
+>>>>>>> 84c4f7d (starting nodes):lib/src/interpreter/stack.hpp
 
 private:
     /// Instances of `sy::Type` are required to have alignment of `alignof(void*)`, therefore on all target platforms,
