@@ -61,11 +61,15 @@ using std::uint64_t;
 // want to test. As a result, while all non-inherited classes (overwhelming 
 // majority of the classes in the library) should be marked final, for 
 // testing purposes, we need to derive them.
+// On top of that, we use SY_CLASS_TEST_PRIVATE for anything that should be
+// private to the class, but must be protected for testing purposes.
 
 #ifdef SYNC_LIB_TEST
 #define SY_CLASS_FINAL
+#define SY_CLASS_TEST_PRIVATE protected
 #else
 #define SY_CLASS_FINAL final
+#define SY_CLASS_TEST_PRIVATE private
 #endif
 
 #endif // SY_CORE_H_
