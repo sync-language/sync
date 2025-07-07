@@ -136,7 +136,11 @@ private:
 /// An RAII guard over a stack frame, to automatically handle popping the frame, and checking for stack overflow.
 /// The `checkOverflow(...)` member function MUST be called. Upon calling, it signals to the stack that the frame
 /// has been validated, and thus can be used.
+<<<<<<< HEAD
 class FrameGuard final {
+=======
+class FrameGuard {
+>>>>>>> 7895a31 (refactoring stack for more readability)
 public:
     ~FrameGuard();
     FrameGuard(FrameGuard&& other);
