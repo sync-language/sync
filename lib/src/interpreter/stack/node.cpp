@@ -456,43 +456,43 @@ TEST_CASE("Node should reallocate false with alignment same as frame length") {
 
 TEST_CASE("requiredBaseOffsetForByteAlignment") {
     { // 1 byte align from default next base offset
-        uint32_t res = Node::requiredBaseOffsetForByteAlignment(Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 1);
+        uint32_t res = requiredBaseOffsetForByteAlignment(Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 1);
         CHECK_EQ(res, Frame::OLD_FRAME_INFO_RESERVED_SLOTS);
     }
     { // 8 byte align from default next base offset
-        uint32_t res = Node::requiredBaseOffsetForByteAlignment(Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 8);
+        uint32_t res = requiredBaseOffsetForByteAlignment(Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 8);
         CHECK_EQ(res, Frame::OLD_FRAME_INFO_RESERVED_SLOTS);
     }
     { // 16 byte align (two slots) from default next base offset
-        uint32_t res = Node::requiredBaseOffsetForByteAlignment(Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 16);
+        uint32_t res = requiredBaseOffsetForByteAlignment(Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 16);
         CHECK_EQ(res, Frame::OLD_FRAME_INFO_RESERVED_SLOTS);
     }
     { // 64 byte align (two slots) from default next base offset
-        uint32_t res = Node::requiredBaseOffsetForByteAlignment(Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 64);
+        uint32_t res = requiredBaseOffsetForByteAlignment(Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 64);
         CHECK_EQ(res, 8);
     }
     { // 1 byte align from non-default but already aligned
-        uint32_t res = Node::requiredBaseOffsetForByteAlignment(32, 1);
+        uint32_t res = requiredBaseOffsetForByteAlignment(32, 1);
         CHECK_EQ(res, 32);
     }
     { // 8 byte align from non-default but already aligned
-        uint32_t res = Node::requiredBaseOffsetForByteAlignment(32, 8);
+        uint32_t res = requiredBaseOffsetForByteAlignment(32, 8);
         CHECK_EQ(res, 32);
     }
     { // 16 byte align (two slots) from non-default but already aligned
-        uint32_t res = Node::requiredBaseOffsetForByteAlignment(32, 16);
+        uint32_t res = requiredBaseOffsetForByteAlignment(32, 16);
         CHECK_EQ(res, 32);
     }
     { // 64 byte align (two slots) from non-default but already aligned
-        uint32_t res = Node::requiredBaseOffsetForByteAlignment(32, 64);
+        uint32_t res = requiredBaseOffsetForByteAlignment(32, 64);
         CHECK_EQ(res, 32);
     }
     { // 16 byte align (two slots) from non-default and not aligned
-        uint32_t res = Node::requiredBaseOffsetForByteAlignment(33, 16);
+        uint32_t res = requiredBaseOffsetForByteAlignment(33, 16);
         CHECK_EQ(res, 34);
     }
     { // 64 byte align (two slots) from non-default and not aligned
-        uint32_t res = Node::requiredBaseOffsetForByteAlignment(33, 64);
+        uint32_t res = requiredBaseOffsetForByteAlignment(33, 64);
         CHECK_EQ(res, 40);
     }
 }
