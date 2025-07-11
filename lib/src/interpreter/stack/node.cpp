@@ -416,16 +416,6 @@ TEST_CASE("Construct destruct one above minimum") {
 
 TEST_CASE("Node reallocate bigger") {
     auto node = Node(1);
-<<<<<<< HEAD
-    node.reallocate(MIN_SLOTS + 1);
-    CHECK_GT(node.slots, MIN_SLOTS);
-}
-
-TEST_CASE("Node reallocate smaller") {
-    auto node = Node(MIN_SLOTS + 1);
-    node.reallocate(1);
-    CHECK_EQ(node.slots, MIN_SLOTS);
-=======
     node.reallocate(Node::MIN_SLOTS + 1);
     CHECK_GT(node.slots, Node::MIN_SLOTS);
 }
@@ -434,7 +424,6 @@ TEST_CASE("Node reallocate smaller") {
     auto node = Node(Node::MIN_SLOTS + 1);
     node.reallocate(1);
     CHECK_EQ(node.slots, Node::MIN_SLOTS);
->>>>>>> 7895a31 (refactoring stack for more readability)
 }
 
 TEST_CASE("Node should reallocate true with simple alignment") {
@@ -465,8 +454,6 @@ TEST_CASE("Node should reallocate false with alignment same as frame length") {
     CHECK_FALSE(result.has_value());
 }
 
-<<<<<<< HEAD
-=======
 TEST_CASE("requiredBaseOffsetForByteAlignment") {
     { // 1 byte align from default next base offset
         uint32_t res = Node::requiredBaseOffsetForByteAlignment(Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 1);
@@ -510,7 +497,6 @@ TEST_CASE("requiredBaseOffsetForByteAlignment") {
     }
 }
 
->>>>>>> 7895a31 (refactoring stack for more readability)
 TEST_CASE_FIXTURE(Node, "example") {
 
 }
