@@ -19,6 +19,8 @@ constexpr size_t MIN_SLOTS = 128;
 /// Alignments greater than page alignment makes no sense.
 constexpr size_t MIN_VALUES_ALIGNMENT = 128 * alignof(uint64_t);
 
+#pragma region Memory_Allocation
+
 struct Allocation {
     uint64_t*   values;
     uintptr_t*  types;
@@ -105,6 +107,8 @@ static void freeStack(Allocation& allocation)
         page_free(allocation.types, typesBytesAllocated);
     }
 }
+
+#pragma endregion
 
 /// @brief Calculates what the next base offset needs to be to satisfy the byte alignment of a new
 /// stack frame. The difference between the return value and `Node::nextBaseOffset` member variable can be used
@@ -262,23 +266,49 @@ std::optional<Frame> Node::pushFrame(
     return std::optional<Frame>(newFrame);
 }
 
-Frame Node::pushFrameAllowReallocate(
+void Node::pushFrameAllowReallocate(
     const uint32_t frameLength,
-    const uint16_t alignment,
+    const uint16_t byteAlign,
     void *const retValDst,
     std::optional<Frame*> previousFrame,
     const Bytecode *const instructionPointer
 ) {
     sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
+    sy_assert(this->nextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS, "next base offset invalid value");
 
-    std::optional<uint32_t> optReallocSize = this->shouldReallocate(frameLength, alignment);
-    if(optReallocSize.has_value()) {
-        this->reallocate(optReallocSize.value());
+    { // potential reallocation
+        std::optional<uint32_t> optReallocSize = this->shouldReallocate(frameLength, byteAlign);
+        if(optReallocSize.has_value()) {
+            this->reallocate(optReallocSize.value());
+        }
     }
-
-
-
-    return Frame();
+    { // update next base offset
+        const uint32_t newNextBaseOffset = requiredBaseOffsetForByteAlignment(this->nextBaseOffset, byteAlign);
+        // `previousFrame` is from a different node so we do not have to increase it's frame length
+        this->nextBaseOffset = newNextBaseOffset;
+    }
+    { // store old frame
+        const uint32_t actualOffset = this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS; // no int overflow
+        uint64_t* valuesMem = &this->values[actualOffset];
+        uintptr_t* typesMem = &this->types[actualOffset];
+        if(previousFrame.has_value()) {
+            previousFrame.value()->storeInMemory(valuesMem, typesMem, instructionPointer);
+        } else {
+            Frame::storeNullFrameInMemory(valuesMem, typesMem);
+        }
+    }
+    { // new frame
+        Frame f{
+            this->nextBaseOffset,
+            frameLength,
+            0, // TODO function index
+            retValDst
+        };
+        this->currentFrame = f;
+    }
+    { // update base offset for after the new frame
+        this->nextBaseOffset += frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+    }
 }
 
 std::optional<std::tuple<Frame, const Bytecode *, bool>> Node::popFrame(

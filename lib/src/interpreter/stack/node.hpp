@@ -57,9 +57,9 @@ public:
     /// @return 
     /// # Debug Asserts
     /// `this->currentFrame.has_value() == false`.
-    Frame pushFrameAllowReallocate(
+    void pushFrameAllowReallocate(
         const uint32_t frameLength,
-        const uint16_t alignment,
+        const uint16_t byteAlign,
         void* const retValDst,
         std::optional<Frame*> previousFrame,
         const Bytecode* const instructionPointer
