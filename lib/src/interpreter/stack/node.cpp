@@ -203,67 +203,77 @@ void Node::reallocate(const uint32_t minSlotSize)
     this->slots = allocation.slots;
 }
 
-std::optional<Frame> Node::pushFrame(
-    uint32_t frameLength,
-    uint16_t alignment,
-    void *retValDst,
-    std::optional<Frame *> currentFrame,
-    const Bytecode *instructionPointer)
+bool Node::pushFrame(uint32_t frameLength, uint16_t byteAlign, void *retValDst, std::optional<Frame *> previousFrame, const Bytecode *instructionPointer)
 {
-    sy_assert(alignment % 2 == 0, "Expected frame alignment to be a multiple of 2");
-    sy_assert(frameLength > 0, "Frame length of 0 is useless");
-    sy_assert(frameLength <= Stack::MAX_FRAME_LEN, "Frame length cannot exceed maximum");
+    sy_assert(previousFrame.has_value() == (instructionPointer != nullptr), 
+        "If there is a previous frame, a valid instruction pointer is expected and vice versa");
 
-    const uint16_t actualAlignment = alignment < 16 ? 16 : alignment;
+    if(this->currentFrame.has_value()) {
+        sy_assert(previousFrame.has_value(), "Expected there to be a previous frame if this node is in use");
+        Frame& prevFrame = *previousFrame.value();
+        Frame& currFrame = this->currentFrame.value();
+        const char* message = "Expected previous frame to be current frame";
+        sy_assert(prevFrame.basePointerOffset   == currFrame.basePointerOffset, message);
+        sy_assert(prevFrame.frameLength         == currFrame.frameLength, message);
+        sy_assert(prevFrame.functionIndex       == currFrame.functionIndex, message);
+        sy_assert(prevFrame.retValueDst         == currFrame.retValueDst, message);
 
-    { // validate values are properly aligned
-        const size_t asNum = reinterpret_cast<size_t>(this->values);
-        sy_assert(asNum % actualAlignment == 0, "The stack values must be aligned to the required frame alignment");
-    }
-
-    { // check if fits
-        if ((this->nextBaseOffset + frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS) > this->slots) {
-            return std::optional<Frame>();
-        }
-    }
-
-    { // extend frame
-        uint32_t actualNextBaseOffset = this->nextBaseOffset;
-        if(currentFrame.has_value()) actualNextBaseOffset += Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
-        // TODO integer overflow checks
-
-        std::optional<uint32_t> optExtendAmount = Frame::frameExtendAmountForAlignment(
-            this->slots, actualNextBaseOffset, alignment);
-        if (!optExtendAmount.has_value()) {
-            return std::optional<Frame>();
-        }
-
-        if(currentFrame.has_value()) {
-            this->nextBaseOffset = actualNextBaseOffset + optExtendAmount.value();
-            const uint32_t currentFrameLength = currentFrame.value()->frameLength;
-            const uint32_t newFrameLen = currentFrameLength + optExtendAmount.value();
-            sy_assert(newFrameLen < Stack::MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
-            currentFrame.value()->frameLength = static_cast<uint16_t>(newFrameLen);
-        }
-    }
-
-    uint64_t* const valuesBefore = &this->values[this->nextBaseOffset];
-    uintptr_t* const typesBefore = &this->types[this->nextBaseOffset];
-    if(currentFrame.has_value()) {
-        currentFrame.value()->storeInMemory(valuesBefore, typesBefore, instructionPointer);
+        return this->pushFrameNoReallocate(frameLength, byteAlign, retValDst, instructionPointer);
     } else {
-        Frame::storeNullFrameInMemory(valuesBefore, typesBefore);
+        this->pushFrameAllowReallocate(frameLength, byteAlign, retValDst, previousFrame, instructionPointer);
+        return true;
+    }
+}
+
+bool Node::pushFrameNoReallocate(const uint32_t frameLength, const uint16_t byteAlign, void *const retValDst, const Bytecode *const instructionPointer)
+{
+    sy_assert(this->currentFrame.has_value(), "Expected this node to be in use");
+    sy_assert(this->frameDepth > 0, "Expected frame depth");
+    sy_assert(this->nextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS, "next base offset invalid value");
+    sy_assert(instructionPointer != nullptr, "Cannot have null instruction pointer when previous frames exist");
+
+    { // update next base offset and current frame for length
+        const uint32_t newNextBaseOffset = requiredBaseOffsetForByteAlignment(this->nextBaseOffset, byteAlign);
+        if(newNextBaseOffset >= this->slots) {
+            return false;
+        }
+
+        // even if the frame cannot be pushed onto this node, increasing the previous frame's length and
+        // updated the next base offset is safe.
+        // increase frame length by the difference
+        this->currentFrame.value().frameLength += newNextBaseOffset - this->nextBaseOffset;
+        this->nextBaseOffset = newNextBaseOffset;
     }
 
-    const Frame newFrame = {
-        static_cast<uint32_t>(this->nextBaseOffset + Frame::OLD_FRAME_INFO_RESERVED_SLOTS),
-        static_cast<uint16_t>(frameLength - 1),
-        UINT16_MAX - 1,
-        retValDst
-    };
+    if(!this->hasEnoughSpaceForFrame(frameLength, byteAlign)) {
+        return false;
+    }
 
-    this->nextBaseOffset += frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
-    return std::optional<Frame>(newFrame);
+    // now we know that the frame can fit
+
+    { // store old frame
+        const uint32_t actualOffset = this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS; // no int overflow
+        uint64_t* valuesMem = &this->values[actualOffset];
+        uintptr_t* typesMem = &this->types[actualOffset];
+        this->currentFrame.value().storeInMemory(valuesMem, typesMem, instructionPointer);
+    }
+    { // new frame
+        Frame f{
+            this->nextBaseOffset,
+            frameLength,
+            0, // TODO function index
+            retValDst
+        };
+        this->currentFrame = f;
+    }
+    { // update base offset for after the new frame
+        this->nextBaseOffset += frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+    }
+    { // set new frame depth
+        this->frameDepth += 1;
+    }
+
+    return true;
 }
 
 void Node::pushFrameAllowReallocate(
@@ -276,6 +286,8 @@ void Node::pushFrameAllowReallocate(
     sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
     sy_assert(this->frameDepth == 0, "Expected no frame depth");
     sy_assert(this->nextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS, "next base offset invalid value");
+    sy_assert(previousFrame.has_value() == (instructionPointer != nullptr), 
+        "If there is a previous frame, a valid instruction pointer is expected and vice versa");
 
     { // potential reallocation
         std::optional<uint32_t> optReallocSize = this->shouldReallocate(frameLength, byteAlign);
@@ -312,7 +324,7 @@ void Node::pushFrameAllowReallocate(
     }
     { // set new frame depth
         this->frameDepth = 1;
-    }   
+    }
 }
 
 std::optional<std::tuple<Frame, const Bytecode *, bool>> Node::popFrame(

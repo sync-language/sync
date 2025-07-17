@@ -44,25 +44,22 @@ public:
 
     bool hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t alignment) const;
 
-    std::optional<Frame> pushFrame(
+    /// @brief Attempts to push a new frame onto this node. If the node is not in use it
+    /// may reallocate the node to fit the new frame.
+    /// @param frameLength The length of the frame
+    /// @param byteAlign The alignment in bytes
+    /// @param retValDst The return value destination. May be `nullptr`.
+    /// @param currentFrame The current frame. If this node is in use, and `previousFrame.has_value() == true`,
+    /// expects that `previousFrame.value()` is equivalent to `this->currentFrame.value()`.
+    /// @param instructionPointer The instruction pointer that was being executed. May be `nullptr`. NOTE If
+    /// `instructionPointer == nullptr`, then it is assumed that there is no previous frame.
+    /// @return `true` the frame was successfully pushed onto this node.
+    [[nodiscard]] bool pushFrame(
         uint32_t frameLength, 
-        uint16_t alignment,
+        uint16_t byteAlign,
         void* retValDst, 
-        std::optional<Frame*> currentFrame, 
+        std::optional<Frame*> previousFrame, 
         const Bytecode* instructionPointer
-    );
-
-    /// @brief Pushes a frame onto this node from a previous node. Expects this node to not be in use,
-    /// allowing reallocation.
-    /// @return 
-    /// # Debug Asserts
-    /// `this->currentFrame.has_value() == false`.
-    void pushFrameAllowReallocate(
-        const uint32_t frameLength,
-        const uint16_t byteAlign,
-        void* const retValDst,
-        std::optional<Frame*> previousFrame,
-        const Bytecode* const instructionPointer
     );
 
     std::optional<std::tuple<Frame, const Bytecode*, bool>> popFrame(const uint16_t currentFrameLenMinusOne);
@@ -87,6 +84,26 @@ public:
     
 SY_CLASS_TEST_PRIVATE: 
     Node() = default;
+
+    [[nodiscard]] bool pushFrameNoReallocate(
+        const uint32_t frameLength,
+        const uint16_t byteAlign,
+        void* const retValDst,
+        const Bytecode* const instructionPointer
+    );
+
+    /// @brief Pushes a frame onto this node from a previous node. Expects this node to not be in use,
+    /// allowing reallocation.
+    /// @return 
+    /// # Debug Asserts
+    /// `this->currentFrame.has_value() == false`.
+    void pushFrameAllowReallocate(
+        const uint32_t frameLength,
+        const uint16_t byteAlign,
+        void* const retValDst,
+        std::optional<Frame*> previousFrame,
+        const Bytecode* const instructionPointer
+    );
 };
 
 #endif // SY_INTERPRETER_STACK_NODE_HPP_
