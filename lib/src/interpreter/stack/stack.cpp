@@ -99,17 +99,16 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void *retV
     const uint16_t actualAlignment = alignment < 16 ? 16 : alignment;
 
     const std::optional<Frame*> optCurrentFrame = getCurrentFrame();
-    std::optional<Frame> optFrame = this->nodes[currentNode].pushFrame(
+    bool success = this->nodes[currentNode].pushFrame(
         frameLength, actualAlignment, retValDst, optCurrentFrame, this->instructionPointer);
-    if(!optFrame.has_value()) {
+    if(!success) {
         this->addOneNode(frameLength);
         this->currentNode += 1;
-        optFrame = this->nodes[currentNode].pushFrame(
+        (void)this->nodes[currentNode].pushFrame(
             frameLength, actualAlignment, retValDst, optCurrentFrame, this->instructionPointer);
-        sy_assert(optFrame.has_value(), "Adding new node should not have failed");
     }
 
-    this->currentFrame = optFrame.value();
+    this->currentFrame = this->nodes[currentNode].currentFrame.value();
     return FrameGuard(this);
 }
 
