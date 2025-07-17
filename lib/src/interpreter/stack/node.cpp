@@ -274,6 +274,7 @@ void Node::pushFrameAllowReallocate(
     const Bytecode *const instructionPointer
 ) {
     sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
+    sy_assert(this->frameDepth == 0, "Expected no frame depth");
     sy_assert(this->nextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS, "next base offset invalid value");
 
     { // potential reallocation
@@ -309,6 +310,9 @@ void Node::pushFrameAllowReallocate(
     { // update base offset for after the new frame
         this->nextBaseOffset += frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
     }
+    { // set new frame depth
+        this->frameDepth = 1;
+    }   
 }
 
 std::optional<std::tuple<Frame, const Bytecode *, bool>> Node::popFrame(
