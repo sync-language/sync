@@ -175,7 +175,7 @@ Node::Node(Node &&other) noexcept
 
 bool Node::hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t alignment) const
 {
-    if ((this->nextBaseOffset + frameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS) > this->slots) {
+    if ((this->nextBaseOffset + frameLength) > this->slots) {
         return false;
     }
     return true;
@@ -543,9 +543,49 @@ TEST_CASE("requiredBaseOffsetForByteAlignment") {
     }
 }
 
-TEST_CASE_FIXTURE(Node, "example") {
-
+TEST_CASE_FIXTURE(Node, "simple construct") {
+    auto node = Node(1);
+    CHECK_FALSE(node.currentFrame.has_value());
+    CHECK_EQ(node.frameDepth, 0);
+    CHECK_EQ(node.nextBaseOffset, Frame::OLD_FRAME_INFO_RESERVED_SLOTS);
+    CHECK_EQ(node.slots, MIN_SLOTS);
 }
+
+TEST_CASE_FIXTURE(Node, "hasEnoughSpaceForFrame minimum") {
+    auto node = Node(1);
+    // 1 slot, 1 byte align
+    CHECK(node.hasEnoughSpaceForFrame(1, 1));
+    // 2 slot, 1 byte align
+    CHECK(node.hasEnoughSpaceForFrame(2, 1));
+    // 1 slot, pointer byte align
+    CHECK(node.hasEnoughSpaceForFrame(1, alignof(void*)));
+    // 1 slot, slot align
+    CHECK(node.hasEnoughSpaceForFrame(1, alignof(uint64_t)));
+    // 2 slot, pointer byte align
+    CHECK(node.hasEnoughSpaceForFrame(2, alignof(void*)));
+    // 2 slot, slot align
+    CHECK(node.hasEnoughSpaceForFrame(2, alignof(uint64_t)));
+    // 2 slot, 2 slot align
+    CHECK(node.hasEnoughSpaceForFrame(2, 2 * alignof(uint64_t)));
+    // node is at min slots so too big, 1 slot align
+    CHECK_FALSE(node.hasEnoughSpaceForFrame(MIN_SLOTS, 1));
+    // half min slots, 1 slot align
+    CHECK(node.hasEnoughSpaceForFrame(MIN_SLOTS / 2, 1));
+    // half min slots, half min slot align (uses 2 preceeding slots as reserve, so fits)
+    CHECK(node.hasEnoughSpaceForFrame(MIN_SLOTS / 2, (MIN_SLOTS * alignof(uint64_t)) / 2));
+
+    { // use up all slots
+        const auto len = (MIN_SLOTS / 4) * 3;
+        const auto align = len / 3;
+        CHECK(node.hasEnoughSpaceForFrame(len, align));
+    }
+
+    // all slots excluding reserve
+    CHECK(node.hasEnoughSpaceForFrame(node.slots - Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 1));
+    // not all slots but not enough for reserve
+    CHECK_FALSE(node.hasEnoughSpaceForFrame(node.slots - 1, 1));
+}
+
 
 #endif
 
