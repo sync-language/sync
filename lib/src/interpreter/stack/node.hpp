@@ -38,6 +38,8 @@ public:
 
     Node& operator=(const Node& other) = delete;
 
+    [[nodiscard]] bool isInUse() const;
+
     /// @brief Forcibly reallocates this node to either grow or shrink it's allocation size
     /// @param minSlotSize Can be less than `this->slots`.
     void reallocate(const uint32_t minSlotSize);

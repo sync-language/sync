@@ -87,6 +87,8 @@ constexpr size_t OPCODE_BITMASK = 0b11111111;
 struct Bytecode {
     uint64_t value = 0;
 
+    Bytecode() = default;
+
     template<typename OperandsT>
     Bytecode(const OperandsT& operands) {
         static_assert(sizeof(OperandsT) == sizeof(Bytecode));

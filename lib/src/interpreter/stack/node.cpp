@@ -4,6 +4,7 @@
 #include "../../threading/alloc_cache_align.hpp"
 #include "../../mem/os_mem.hpp"
 #include "../../mem/allocator.hpp"
+#include "../bytecode.hpp"
 #if _MSC_VER
 #include <new>
 #elif __GNUC__
@@ -179,6 +180,12 @@ bool Node::hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t ali
         return false;
     }
     return true;
+}
+
+bool Node::isInUse() const
+{
+    sy_assert(this->currentFrame.has_value() == (this->frameDepth != 0), "Invalid state");
+    return this->frameDepth != 0;
 }
 
 void Node::reallocate(const uint32_t minSlotSize)
@@ -549,6 +556,7 @@ TEST_CASE("requiredBaseOffsetForByteAlignment") {
 
 TEST_CASE("simple construct") {
     auto node = Node(1);
+    CHECK_FALSE(node.isInUse());
     CHECK_FALSE(node.currentFrame.has_value());
     CHECK_EQ(node.frameDepth, 0);
     CHECK_EQ(node.nextBaseOffset, Frame::OLD_FRAME_INFO_RESERVED_SLOTS);
@@ -593,9 +601,9 @@ TEST_CASE("hasEnoughSpaceForFrame minimum") {
 TEST_CASE("pushFrameAllowReallocate, no previous frame, non-special align") {
     { // doesn't reallocate at all
         auto node = Node(1);
-        // workaround for silly protected nonsense
         CHECK_FALSE(node.shouldReallocate(1, 1).has_value());
         node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+        CHECK(node.isInUse());
         CHECK(node.currentFrame.has_value());
         CHECK_EQ(node.currentFrame.value().basePointerOffset, 2);
         CHECK_EQ(node.currentFrame.value().frameLength, 1);
@@ -605,9 +613,9 @@ TEST_CASE("pushFrameAllowReallocate, no previous frame, non-special align") {
     }
     { // does reallocate        
         auto node = Node(1);
-        // workaround for silly protected nonsense
         CHECK(node.shouldReallocate(1024, 1).has_value());
         node.pushFrameAllowReallocate(1024, 1, nullptr, std::nullopt, nullptr);
+        CHECK(node.isInUse());
         CHECK(node.currentFrame.has_value());
         CHECK_EQ(node.currentFrame.value().basePointerOffset, 2);
         CHECK_EQ(node.currentFrame.value().frameLength, 1024);
@@ -620,9 +628,9 @@ TEST_CASE("pushFrameAllowReallocate, no previous frame, non-special align") {
 TEST_CASE("pushFrameAllowReallocate, no previous frame, special align") {
     { // doesn't reallocate at all
         auto node = Node(1);
-        // workaround for silly protected nonsense
         CHECK_FALSE(node.shouldReallocate(4, 32).has_value());
         node.pushFrameAllowReallocate(4, 32, nullptr, std::nullopt, nullptr);
+        CHECK(node.isInUse());
         CHECK(node.currentFrame.has_value());
         CHECK_EQ(node.currentFrame.value().basePointerOffset, 4);
         CHECK_EQ(node.currentFrame.value().frameLength, 4);
@@ -632,15 +640,179 @@ TEST_CASE("pushFrameAllowReallocate, no previous frame, special align") {
     }
     { // does reallocate        
         auto node = Node(1);
-        // workaround for silly protected nonsense
         CHECK(node.shouldReallocate(1024, 32).has_value());
         node.pushFrameAllowReallocate(1024, 32, nullptr, std::nullopt, nullptr);
+        CHECK(node.isInUse());
         CHECK(node.currentFrame.has_value());
         CHECK_EQ(node.currentFrame.value().basePointerOffset, 4);
         CHECK_EQ(node.currentFrame.value().frameLength, 1024);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 1);
         CHECK_EQ(node.nextBaseOffset, 1030); // 2 start + 2 bump for alignment + 1024 frame length + 2 reserve slots
+    }
+}
+
+TEST_CASE("pushFrameNoReallocate, successful, 2 total frames, non-special align") {
+    Bytecode unusedBytecode;
+    {
+        auto node = Node(1);
+        node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+        CHECK(node.pushFrameNoReallocate(1, 1, nullptr, &unusedBytecode));
+        CHECK(node.isInUse());
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 6);
+        CHECK_EQ(node.currentFrame.value().frameLength, 1);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 2);
+        // 2 start + 1 old frame length + 1 extended for alignment + 2 reserve slots + 1 new frame length + 2 reserve
+        CHECK_EQ(node.nextBaseOffset, 9); 
+    }
+    {
+        auto node = Node(1);
+        node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+        CHECK(node.pushFrameNoReallocate(4, 1, nullptr, &unusedBytecode));
+        CHECK(node.isInUse());
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 6);
+        CHECK_EQ(node.currentFrame.value().frameLength, 4);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 2);
+        // 2 start + 1 old frame length + 1 extended for alignment + 2 reserve slots + 4 new frame length + 2 reserve
+        CHECK_EQ(node.nextBaseOffset, 12); 
+    }
+    { // exactly enough
+        auto node = Node(1);
+        node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+        CHECK(node.pushFrameNoReallocate(Node::MIN_SLOTS - 6, 1, nullptr, &unusedBytecode));
+        CHECK(node.isInUse());
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 6);
+        CHECK_EQ(node.currentFrame.value().frameLength, Node::MIN_SLOTS - 6);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 2);
+        // 2 start + 1 old frame length + 1 extended for alignment + 2 reserve slots + 4 new frame length + 2 reserve
+        CHECK_GE(node.nextBaseOffset, node.slots); 
+    }
+}
+
+TEST_CASE("pushFrameNoReallocate, successful, 2 total frames, special align") {
+    Bytecode unusedBytecode;
+    {
+        auto node = Node(1);
+        node.pushFrameAllowReallocate(8, 64, nullptr, std::nullopt, nullptr);
+        CHECK(node.pushFrameNoReallocate(8, 64, nullptr, &unusedBytecode));
+        CHECK(node.isInUse());
+        CHECK(node.currentFrame.has_value());
+        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new alignment
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 24);
+        CHECK_EQ(node.currentFrame.value().frameLength, 8);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 2);
+        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new alignment
+        // + 8 new length + 2 reserve
+        CHECK_EQ(node.nextBaseOffset, 34); 
+    }
+    {
+        auto node = Node(1);
+        node.pushFrameAllowReallocate(8, 64, nullptr, std::nullopt, nullptr);
+        CHECK(node.pushFrameNoReallocate(32, 64, nullptr, &unusedBytecode));
+        CHECK(node.isInUse());
+        CHECK(node.currentFrame.has_value());
+        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new alignment
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 24);
+        CHECK_EQ(node.currentFrame.value().frameLength, 32);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 2);
+        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new alignment
+        // + 32 new length + 2 reserve
+        CHECK_EQ(node.nextBaseOffset, 58); 
+    }
+}
+
+TEST_CASE("pushFrameNoReallocate, not successful, non-special align") {
+    Bytecode unusedBytecode;
+    {
+        auto node = Node(1);
+        node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+        CHECK_FALSE(node.pushFrameNoReallocate(node.slots, 1, nullptr, &unusedBytecode));
+
+        // retains all old data
+        CHECK(node.isInUse());
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 2);
+        CHECK_EQ(node.currentFrame.value().frameLength, 2);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 1);
+        // despite mostly not doing anything, the frame is still extended (maybe this is stupid)
+        CHECK_EQ(node.nextBaseOffset, 6); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
+    }
+    {
+        auto node = Node(1);
+        node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+        CHECK_FALSE(node.pushFrameNoReallocate(node.slots, 1, nullptr, &unusedBytecode));
+
+        // retains all old data
+        // despite mostly not doing anything, the frame is still extended (maybe this is stupid)
+        CHECK(node.isInUse());
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 2);
+        CHECK_EQ(node.currentFrame.value().frameLength, 2);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 1);
+        CHECK_EQ(node.nextBaseOffset, 6); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
+    }
+    { // not quite enough
+        auto node = Node(1);
+        node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+        CHECK_FALSE(node.pushFrameNoReallocate(Node::MIN_SLOTS - 5, 1, nullptr, &unusedBytecode));
+
+        CHECK(node.isInUse());
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 2);
+        CHECK_EQ(node.currentFrame.value().frameLength, 2);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 1);
+        CHECK_EQ(node.nextBaseOffset, 6); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
+    }
+}
+
+TEST_CASE("pushFrameNoReallocate, not successful, special align") {
+    Bytecode unusedBytecode;
+    { // cannot fit frame because of length
+        auto node = Node(1);
+        node.pushFrameAllowReallocate(8, 64, nullptr, std::nullopt, nullptr);
+        CHECK_FALSE(node.pushFrameNoReallocate(node.slots, 64, nullptr, &unusedBytecode));
+
+        // retains all old data
+        CHECK(node.isInUse());
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 8);
+        CHECK_EQ(node.currentFrame.value().frameLength, 14); // extended even though failed
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 1);
+        // 2 start + 6 extend old alignment + 8 old frame length
+        // + 2 reserve + 6 extended for new alignment (even though failed)
+        CHECK_EQ(node.nextBaseOffset, 24);
+    }
+    { // cannot fit frame because of length and align (need more than 2 frames in order for alignment alone to prevent)
+        auto node = Node(1);
+        node.pushFrameAllowReallocate(8, 64, nullptr, std::nullopt, nullptr);
+        CHECK_FALSE(node.pushFrameNoReallocate(
+            Node::MIN_SLOTS,
+            (Node::MIN_SLOTS) * alignof(uint64_t), 
+            nullptr, 
+            &unusedBytecode
+        ));
+
+        // retains all old data
+        // despite mostly not doing anything, the frame is still extended (maybe this is stupid)
+        CHECK(node.isInUse());
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 8);
+        CHECK_EQ(node.currentFrame.value().frameLength, 8);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 1);
+        CHECK_EQ(node.nextBaseOffset, 18); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
     }
 }
 
