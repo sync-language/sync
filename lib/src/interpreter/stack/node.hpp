@@ -54,12 +54,32 @@ public:
     /// @param instructionPointer The instruction pointer that was being executed. May be `nullptr`. NOTE If
     /// `instructionPointer == nullptr`, then it is assumed that there is no previous frame.
     /// @return `true` the frame was successfully pushed onto this node.
-    [[nodiscard]] bool pushFrame(
-        uint32_t frameLength, 
-        uint16_t byteAlign,
-        void* retValDst, 
-        std::optional<Frame*> previousFrame, 
-        const Bytecode* instructionPointer
+    // [[nodiscard]] bool pushFrame(
+    //     uint32_t frameLength, 
+    //     uint16_t byteAlign,
+    //     void* retValDst, 
+    //     std::optional<Frame*> previousFrame, 
+    //     const Bytecode* instructionPointer
+    // );
+
+    [[nodiscard]] bool pushFrameNoReallocate(
+        const uint32_t frameLength,
+        const uint16_t byteAlign,
+        void* const retValDst,
+        const Bytecode* const instructionPointer
+    );
+
+    /// @brief Pushes a frame onto this node from a previous node. Expects this node to not be in use,
+    /// allowing reallocation.
+    /// @return 
+    /// # Debug Asserts
+    /// `this->currentFrame.has_value() == false`.
+    void pushFrameAllowReallocate(
+        const uint32_t frameLength,
+        const uint16_t byteAlign,
+        void* const retValDst,
+        std::optional<Frame*> previousFrame,
+        const Bytecode* const instructionPointer
     );
 
     std::optional<std::tuple<Frame, const Bytecode*, bool>> popFrame(const uint16_t currentFrameLenMinusOne);
@@ -82,28 +102,10 @@ public:
     /// Alignments greater than page alignment makes no sense.
     static constexpr size_t MIN_VALUES_ALIGNMENT = 128 * alignof(uint64_t);
     
-SY_CLASS_TEST_PRIVATE: 
+SY_CLASS_TEST_PRIVATE:
+
     Node() = default;
 
-    [[nodiscard]] bool pushFrameNoReallocate(
-        const uint32_t frameLength,
-        const uint16_t byteAlign,
-        void* const retValDst,
-        const Bytecode* const instructionPointer
-    );
-
-    /// @brief Pushes a frame onto this node from a previous node. Expects this node to not be in use,
-    /// allowing reallocation.
-    /// @return 
-    /// # Debug Asserts
-    /// `this->currentFrame.has_value() == false`.
-    void pushFrameAllowReallocate(
-        const uint32_t frameLength,
-        const uint16_t byteAlign,
-        void* const retValDst,
-        std::optional<Frame*> previousFrame,
-        const Bytecode* const instructionPointer
-    );
 };
 
 #endif // SY_INTERPRETER_STACK_NODE_HPP_

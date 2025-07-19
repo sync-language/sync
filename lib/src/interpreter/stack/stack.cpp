@@ -98,13 +98,14 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void *retV
 
     const uint16_t actualAlignment = alignment < 16 ? 16 : alignment;
 
-    const std::optional<Frame*> optCurrentFrame = getCurrentFrame();
-    bool success = this->nodes[currentNode].pushFrame(
-        frameLength, actualAlignment, retValDst, optCurrentFrame, this->instructionPointer);
+    
+    const bool success = this->nodes[currentNode].pushFrameNoReallocate(
+        frameLength, actualAlignment, retValDst, this->instructionPointer);
     if(!success) {
+        const std::optional<Frame*> optCurrentFrame = getCurrentFrame();
         this->addOneNode(frameLength);
         this->currentNode += 1;
-        (void)this->nodes[currentNode].pushFrame(
+        this->nodes[currentNode].pushFrameAllowReallocate(
             frameLength, actualAlignment, retValDst, optCurrentFrame, this->instructionPointer);
     }
 

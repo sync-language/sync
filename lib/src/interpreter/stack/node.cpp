@@ -203,27 +203,27 @@ void Node::reallocate(const uint32_t minSlotSize)
     this->slots = allocation.slots;
 }
 
-bool Node::pushFrame(uint32_t frameLength, uint16_t byteAlign, void *retValDst, std::optional<Frame *> previousFrame, const Bytecode *instructionPointer)
-{
-    sy_assert(previousFrame.has_value() == (instructionPointer != nullptr), 
-        "If there is a previous frame, a valid instruction pointer is expected and vice versa");
+// bool Node::pushFrame(uint32_t frameLength, uint16_t byteAlign, void *retValDst, std::optional<Frame *> previousFrame, const Bytecode *instructionPointer)
+// {
+//     sy_assert(previousFrame.has_value() == (instructionPointer != nullptr), 
+//         "If there is a previous frame, a valid instruction pointer is expected and vice versa");
 
-    if(this->currentFrame.has_value()) {
-        sy_assert(previousFrame.has_value(), "Expected there to be a previous frame if this node is in use");
-        Frame& prevFrame = *previousFrame.value();
-        Frame& currFrame = this->currentFrame.value();
-        const char* message = "Expected previous frame to be current frame";
-        sy_assert(prevFrame.basePointerOffset   == currFrame.basePointerOffset, message);
-        sy_assert(prevFrame.frameLength         == currFrame.frameLength, message);
-        sy_assert(prevFrame.functionIndex       == currFrame.functionIndex, message);
-        sy_assert(prevFrame.retValueDst         == currFrame.retValueDst, message);
+//     if(this->currentFrame.has_value()) {
+//         sy_assert(previousFrame.has_value(), "Expected there to be a previous frame if this node is in use");
+//         Frame& prevFrame = *previousFrame.value();
+//         Frame& currFrame = this->currentFrame.value();
+//         const char* message = "Expected previous frame to be current frame";
+//         sy_assert(prevFrame.basePointerOffset   == currFrame.basePointerOffset, message);
+//         sy_assert(prevFrame.frameLength         == currFrame.frameLength, message);
+//         sy_assert(prevFrame.functionIndex       == currFrame.functionIndex, message);
+//         sy_assert(prevFrame.retValueDst         == currFrame.retValueDst, message);
 
-        return this->pushFrameNoReallocate(frameLength, byteAlign, retValDst, instructionPointer);
-    } else {
-        this->pushFrameAllowReallocate(frameLength, byteAlign, retValDst, previousFrame, instructionPointer);
-        return true;
-    }
-}
+//         return this->pushFrameNoReallocate(frameLength, byteAlign, retValDst, instructionPointer);
+//     } else {
+//         this->pushFrameAllowReallocate(frameLength, byteAlign, retValDst, previousFrame, instructionPointer);
+//         return true;
+//     }
+// }
 
 bool Node::pushFrameNoReallocate(const uint32_t frameLength, const uint16_t byteAlign, void *const retValDst, const Bytecode *const instructionPointer)
 {
@@ -378,7 +378,11 @@ std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t al
     const size_t pageSize = page_size();
     sy_assert(alignment > 0, "Alignment must be non zero");
     sy_assert(alignment <= pageSize, "Alignment greater than page size does not make sense");
-    sy_assert((frameLength % (alignment / sizeof(size_t))) == 0, "Frame length must be a multiple of alignment");
+    #if _DEBUG
+    uint32_t normalizeAlign = alignment / sizeof(size_t);
+    if(normalizeAlign == 0) normalizeAlign = 1;
+    sy_assert((frameLength % normalizeAlign) == 0, "Frame length must be a multiple of alignment");
+    #endif
     sy_assert((alignment & (alignment - 1)) == 0, "Alignment must be a power of 2");
 
     const uint32_t minRequiredSlots = (frameLength * 2) + Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
@@ -543,7 +547,7 @@ TEST_CASE("requiredBaseOffsetForByteAlignment") {
     }
 }
 
-TEST_CASE_FIXTURE(Node, "simple construct") {
+TEST_CASE("simple construct") {
     auto node = Node(1);
     CHECK_FALSE(node.currentFrame.has_value());
     CHECK_EQ(node.frameDepth, 0);
@@ -551,7 +555,7 @@ TEST_CASE_FIXTURE(Node, "simple construct") {
     CHECK_EQ(node.slots, MIN_SLOTS);
 }
 
-TEST_CASE_FIXTURE(Node, "hasEnoughSpaceForFrame minimum") {
+TEST_CASE("hasEnoughSpaceForFrame minimum") {
     auto node = Node(1);
     // 1 slot, 1 byte align
     CHECK(node.hasEnoughSpaceForFrame(1, 1));
@@ -586,6 +590,59 @@ TEST_CASE_FIXTURE(Node, "hasEnoughSpaceForFrame minimum") {
     CHECK_FALSE(node.hasEnoughSpaceForFrame(node.slots - 1, 1));
 }
 
+TEST_CASE("pushFrameAllowReallocate, no previous frame, non-special align") {
+    { // doesn't reallocate at all
+        auto node = Node(1);
+        // workaround for silly protected nonsense
+        CHECK_FALSE(node.shouldReallocate(1, 1).has_value());
+        node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 2);
+        CHECK_EQ(node.currentFrame.value().frameLength, 1);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 1);
+        CHECK_EQ(node.nextBaseOffset, 5); // 2 start + 1 frame length + 2 reserve slots
+    }
+    { // does reallocate        
+        auto node = Node(1);
+        // workaround for silly protected nonsense
+        CHECK(node.shouldReallocate(1024, 1).has_value());
+        node.pushFrameAllowReallocate(1024, 1, nullptr, std::nullopt, nullptr);
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 2);
+        CHECK_EQ(node.currentFrame.value().frameLength, 1024);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 1);
+        CHECK_EQ(node.nextBaseOffset, 1028); // 2 start + 1024 frame length + 2 reserve slots
+    }
+}
+
+TEST_CASE("pushFrameAllowReallocate, no previous frame, special align") {
+    { // doesn't reallocate at all
+        auto node = Node(1);
+        // workaround for silly protected nonsense
+        CHECK_FALSE(node.shouldReallocate(4, 32).has_value());
+        node.pushFrameAllowReallocate(4, 32, nullptr, std::nullopt, nullptr);
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 4);
+        CHECK_EQ(node.currentFrame.value().frameLength, 4);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 1);
+        CHECK_EQ(node.nextBaseOffset, 10); // 2 start + 2 bump for alignment + 4 frame length + 2 reserve slots
+    }
+    { // does reallocate        
+        auto node = Node(1);
+        // workaround for silly protected nonsense
+        CHECK(node.shouldReallocate(1024, 32).has_value());
+        node.pushFrameAllowReallocate(1024, 32, nullptr, std::nullopt, nullptr);
+        CHECK(node.currentFrame.has_value());
+        CHECK_EQ(node.currentFrame.value().basePointerOffset, 4);
+        CHECK_EQ(node.currentFrame.value().frameLength, 1024);
+        CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+        CHECK_EQ(node.frameDepth, 1);
+        CHECK_EQ(node.nextBaseOffset, 1030); // 2 start + 2 bump for alignment + 1024 frame length + 2 reserve slots
+    }
+}
 
 #endif
 
