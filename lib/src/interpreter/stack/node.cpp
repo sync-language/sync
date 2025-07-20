@@ -334,40 +334,36 @@ void Node::pushFrameAllowReallocate(
     }
 }
 
-std::optional<std::tuple<Frame, const Bytecode *, bool>> Node::popFrame(
-    const uint16_t currentFrameLenMinusOne)
+std::optional<std::tuple<Frame, const Bytecode*>> Node::popFrame()
 {
-    sy_assert(this->nextBaseOffset != 0, "No frames to pop");
+    sy_assert(this->isInUse(), "No frames to pop");
 
-    const uint32_t currentFrameLength = static_cast<uint32_t>(currentFrameLenMinusOne) + 1;
-    sy_assert(currentFrameLength <= this->nextBaseOffset, "Stack was corrupted");
-
-    const uint32_t oldNextBaseOffset 
-        = this->nextBaseOffset - (currentFrameLength + Frame::OLD_FRAME_INFO_RESERVED_SLOTS);
-
-    if(oldNextBaseOffset == 0) {
-        this->nextBaseOffset = 0;
-        return std::optional<std::tuple<Frame, const Bytecode*, bool>>();
-    }
-    
-    const size_t oldInfoStartOffset = this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+    const Frame currFrame = this->currentFrame.value();
+    const size_t oldInfoStartOffset = currFrame.basePointerOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
     const uint64_t* const valuesMem = &this->values[oldInfoStartOffset];
     const uintptr_t* const typesMem  = &this->types[oldInfoStartOffset];
 
-    return std::nullopt;
+    const std::optional<std::tuple<Frame, const Bytecode*>> result = Frame::readFromMemory(valuesMem, typesMem);
+    #if _DEBUG
+    if(result.has_value() == false) {
+        sy_assert(this->frameDepth == 1, "Invalid instruction pointer for previous frame");
+    }
+    #endif
 
-    // Frame oldFrame = Frame::readFromMemory(valuesMem, typesMem);
-    // const Bytecode* oldInstructionPointer = Frame::readOldInstructionPointer(valuesMem);
+    this->frameDepth -= 1;
+    this->nextBaseOffset = currFrame.basePointerOffset;
+    if(this->frameDepth == 0) {
+        this->currentFrame = std::nullopt;
+    }
 
-    // const bool backToEmptyNode = oldNextBaseOffset == Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
-    // if(backToEmptyNode) {
-    //     this->nextBaseOffset = 0;
-    // } else {
-    //     this->nextBaseOffset = oldNextBaseOffset;
-    // }
-    
-    // auto tuple = std::make_tuple(oldFrame, oldInstructionPointer, backToEmptyNode);
-    // return std::optional<std::tuple<Frame, const Bytecode*, bool>>(tuple);
+    if(result.has_value()) {
+        if(this->frameDepth != 0) {
+            this->currentFrame = std::get<0>(result.value());
+        }
+        return result;
+    } else {
+        return std::nullopt;
+    }
 }
 
 std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t alignment) const
@@ -822,7 +818,7 @@ TEST_CASE("push 3 frames, successful, non-special align") {
     node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
     CHECK(node.pushFrameNoReallocate(1, 1, nullptr, &unusedBytecode));
     CHECK(node.pushFrameNoReallocate(1, 1, nullptr, &unusedBytecode));
-    
+
     CHECK(node.isInUse());
     CHECK(node.currentFrame.has_value());
     CHECK_EQ(node.currentFrame.value().basePointerOffset, 10);
@@ -878,6 +874,15 @@ TEST_CASE("push 3 frames, not successful, special align") {
     CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
     CHECK_EQ(node.frameDepth, 2);
     CHECK_EQ(node.nextBaseOffset, 40); 
+}
+
+TEST_CASE("pop become unused") {
+    auto node = Node(1);
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+    CHECK_FALSE(node.popFrame().has_value());
+    CHECK_FALSE(node.currentFrame.has_value());
+    CHECK_EQ(node.frameDepth, 0);
+    CHECK_EQ(node.nextBaseOffset, Frame::OLD_FRAME_INFO_RESERVED_SLOTS);
 }
 
 #endif

@@ -84,7 +84,12 @@ public:
         const Bytecode* const instructionPointer
     );
 
-    std::optional<std::tuple<Frame, const Bytecode*, bool>> popFrame(const uint16_t currentFrameLenMinusOne);
+    /// @brief Pops a frame from this node. If this node owned the previous frame, it's information
+    /// is restored into this node, along with returning the frame data. If there was no previous frame,
+    /// meaning the frame was the first frame on the entire call stack, then a null option is returned.
+    /// @return An optional containing the previous frame data, regardless of whether this node owns
+    /// it or not, along with the instruction pointer.
+    [[nodiscard]] std::optional<std::tuple<Frame, const Bytecode*>> popFrame();
 
     /// Checks if this node needs reallocation for the new frame length and alignment.
     /// If it does, returns a valid option with the new reallocation minimum size, that is guaranteed to fit

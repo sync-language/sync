@@ -286,7 +286,7 @@ std::optional<Frame*> Stack::getCurrentFrame()
 
 void Stack::popFrame()
 {
-    auto popResult = this->nodes[this->currentNode].popFrame(this->currentFrame.frameLength);
+    auto popResult = this->nodes[this->currentNode].popFrame();
     if(!popResult.has_value()) {
         sy_assert(this->currentNode == 0, "Node incorrectly reported having no previous frame");
         return;
@@ -294,14 +294,9 @@ void Stack::popFrame()
 
     Frame           oldFrame = std::get<0>(popResult.value());
     const Bytecode* oldInstructionPointer = std::get<1>(popResult.value());
-    bool            shouldDecrementCurrentNode = std::get<2>(popResult.value());
     
     this->currentFrame = oldFrame;
     this->instructionPointer = oldInstructionPointer;
-    if(shouldDecrementCurrentNode) {
-        sy_assert(this->currentNode > 0, "Cannot decrement node");
-        this->currentNode -= 1;
-    }
 }
 
 void Stack::addOneNode(const uint32_t requiredFrameLength)
