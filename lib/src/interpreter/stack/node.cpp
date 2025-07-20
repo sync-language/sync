@@ -816,5 +816,69 @@ TEST_CASE("pushFrameNoReallocate, not successful, special align") {
     }
 }
 
+TEST_CASE("push 3 frames, successful, non-special align") {
+    Bytecode unusedBytecode;
+    auto node = Node(1);
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+    CHECK(node.pushFrameNoReallocate(1, 1, nullptr, &unusedBytecode));
+    CHECK(node.pushFrameNoReallocate(1, 1, nullptr, &unusedBytecode));
+    
+    CHECK(node.isInUse());
+    CHECK(node.currentFrame.has_value());
+    CHECK_EQ(node.currentFrame.value().basePointerOffset, 10);
+    CHECK_EQ(node.currentFrame.value().frameLength, 1);
+    CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+    CHECK_EQ(node.frameDepth, 3);
+    CHECK_EQ(node.nextBaseOffset, 13); 
+}
+
+TEST_CASE("push 3 frames, successful, special align") {
+    Bytecode unusedBytecode;
+    auto node = Node(1);
+    node.pushFrameAllowReallocate(8, 64, nullptr, std::nullopt, nullptr);
+    CHECK(node.pushFrameNoReallocate(8, 64, nullptr, &unusedBytecode));
+    CHECK(node.pushFrameNoReallocate(8, 64, nullptr, &unusedBytecode));
+
+    CHECK(node.isInUse());
+    CHECK(node.currentFrame.has_value());
+    CHECK_EQ(node.currentFrame.value().basePointerOffset, 40);
+    CHECK_EQ(node.currentFrame.value().frameLength, 8);
+    CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+    CHECK_EQ(node.frameDepth, 3);
+    CHECK_EQ(node.nextBaseOffset, 50); 
+}
+
+TEST_CASE("push 3 frames, not successful, non-special align") {
+    Bytecode unusedBytecode;
+    auto node = Node(1);
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+    CHECK(node.pushFrameNoReallocate(1, 1, nullptr, &unusedBytecode));
+    CHECK_FALSE(node.pushFrameNoReallocate(Node::MIN_SLOTS, 1, nullptr, &unusedBytecode));
+
+    CHECK(node.isInUse());
+    CHECK(node.currentFrame.has_value());
+    CHECK_EQ(node.currentFrame.value().basePointerOffset, 6);
+    CHECK_EQ(node.currentFrame.value().frameLength, 2);
+    CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+    CHECK_EQ(node.frameDepth, 2);
+    CHECK_EQ(node.nextBaseOffset, 10); 
+}
+
+TEST_CASE("push 3 frames, not successful, special align") {
+    Bytecode unusedBytecode;
+    auto node = Node(1);
+    node.pushFrameAllowReallocate(8, 64, nullptr, std::nullopt, nullptr);
+    CHECK(node.pushFrameNoReallocate(8, 64, nullptr, &unusedBytecode));
+    CHECK_FALSE(node.pushFrameNoReallocate(Node::MIN_SLOTS, 64, nullptr, &unusedBytecode));
+
+    CHECK(node.isInUse());
+    CHECK(node.currentFrame.has_value());
+    CHECK_EQ(node.currentFrame.value().basePointerOffset, 24);
+    CHECK_EQ(node.currentFrame.value().frameLength, 14);
+    CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
+    CHECK_EQ(node.frameDepth, 2);
+    CHECK_EQ(node.nextBaseOffset, 40); 
+}
+
 #endif
 
