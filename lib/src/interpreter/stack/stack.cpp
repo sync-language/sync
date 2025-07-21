@@ -102,7 +102,7 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void *retV
     const bool success = this->nodes[currentNode].pushFrameNoReallocate(
         frameLength, actualAlignment, retValDst, this->instructionPointer);
     if(!success) {
-        const std::optional<Frame*> optCurrentFrame = getCurrentFrame();
+        const std::optional<Frame> optCurrentFrame = std::nullopt;
         this->addOneNode(frameLength);
         this->currentNode += 1;
         this->nodes[currentNode].pushFrameAllowReallocate(

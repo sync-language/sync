@@ -287,7 +287,7 @@ void Node::pushFrameAllowReallocate(
     const uint32_t frameLength,
     const uint16_t byteAlign,
     void *const retValDst,
-    std::optional<Frame*> previousFrame,
+    std::optional<Frame> previousFrame,
     const Bytecode *const instructionPointer
 ) {
     sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
@@ -312,7 +312,7 @@ void Node::pushFrameAllowReallocate(
         uint64_t* valuesMem = &this->values[actualOffset];
         uintptr_t* typesMem = &this->types[actualOffset];
         if(previousFrame.has_value()) {
-            previousFrame.value()->storeInMemory(valuesMem, typesMem, instructionPointer);
+            previousFrame.value().storeInMemory(valuesMem, typesMem, instructionPointer);
         } else {
             Frame::storeNullFrameInMemory(valuesMem, typesMem);
         }
@@ -880,9 +880,65 @@ TEST_CASE("pop become unused") {
     auto node = Node(1);
     node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
     CHECK_FALSE(node.popFrame().has_value());
+    CHECK_FALSE(node.isInUse());
     CHECK_FALSE(node.currentFrame.has_value());
     CHECK_EQ(node.frameDepth, 0);
     CHECK_EQ(node.nextBaseOffset, Frame::OLD_FRAME_INFO_RESERVED_SLOTS);
+}
+
+TEST_CASE("push 2 pop 1 success") {
+    auto node = Node(1);
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+    Bytecode bytecode;
+    CHECK(node.pushFrameNoReallocate(1, 1, nullptr, &bytecode));
+    auto result = node.popFrame();
+
+    CHECK(node.isInUse());
+    CHECK_EQ(node.frameDepth, 1);
+    CHECK(result.has_value());
+    const Frame oldFrame = std::get<0>(result.value());
+    const Bytecode* oldIp = std::get<1>(result.value());
+    CHECK_EQ(oldIp, &bytecode);
+    CHECK_EQ(oldFrame.basePointerOffset, node.currentFrame.value().basePointerOffset);
+    CHECK_EQ(oldFrame.frameLength, node.currentFrame.value().frameLength);
+    CHECK_EQ(oldFrame.functionIndex, node.currentFrame.value().functionIndex);
+    CHECK_EQ(oldFrame.retValueDst, node.currentFrame.value().retValueDst);
+}
+
+TEST_CASE("push 2 pop 2 no more frames") {
+    auto node = Node(1);
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+    Bytecode bytecode;
+    CHECK(node.pushFrameNoReallocate(1, 1, nullptr, &bytecode));
+    CHECK(node.popFrame().has_value());
+    CHECK_FALSE(node.popFrame().has_value());
+
+    CHECK_FALSE(node.isInUse());
+    CHECK_FALSE(node.currentFrame.has_value());
+    CHECK_EQ(node.frameDepth, 0);
+    CHECK_EQ(node.nextBaseOffset, Frame::OLD_FRAME_INFO_RESERVED_SLOTS);
+}
+
+TEST_CASE("push frame from previous node") {
+    auto node1 = Node(1);
+    auto node2 = Node(1);
+
+    Bytecode bytecode;
+    node1.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+    node2.pushFrameAllowReallocate(1, 1, nullptr, node1.currentFrame, &bytecode);
+
+    auto result = node2.popFrame();
+
+    CHECK_FALSE(node2.isInUse());
+    CHECK(node1.isInUse());
+    CHECK(result.has_value());
+    const Frame oldFrame = std::get<0>(result.value());
+    const Bytecode* oldIp = std::get<1>(result.value());
+    CHECK_EQ(oldIp, &bytecode);
+    CHECK_EQ(oldFrame.basePointerOffset, node1.currentFrame.value().basePointerOffset);
+    CHECK_EQ(oldFrame.frameLength, node1.currentFrame.value().frameLength);
+    CHECK_EQ(oldFrame.functionIndex, node1.currentFrame.value().functionIndex);
+    CHECK_EQ(oldFrame.retValueDst, node1.currentFrame.value().retValueDst);
 }
 
 #endif

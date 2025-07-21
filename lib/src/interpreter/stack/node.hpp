@@ -80,7 +80,7 @@ public:
         const uint32_t frameLength,
         const uint16_t byteAlign,
         void* const retValDst,
-        std::optional<Frame*> previousFrame,
+        std::optional<Frame> previousFrame,
         const Bytecode* const instructionPointer
     );
 

@@ -34,9 +34,9 @@ std::optional<std::tuple<Frame, const Bytecode*>> Frame::readFromMemory(
     }
 
     const uint64_t frameLengthAndFunctionIndex = valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX];
-    void* oldRetDst = const_cast<void*>(reinterpret_cast<const void*>(&typesMem[OLD_RETURN_VALUE_DST]));
+    void* oldRetDst = const_cast<void*>(reinterpret_cast<const void*>(typesMem[OLD_RETURN_VALUE_DST]));
     const uint32_t oldBasePointerOffset = 
-        *reinterpret_cast<const uint32_t*>(&valuesMem[OLD_BASE_POINTER_OFFSET]);
+        *reinterpret_cast<const uint32_t*>(&typesMem[OLD_BASE_POINTER_OFFSET]);
 
     const Frame oldFrame = {
         oldBasePointerOffset,
@@ -49,6 +49,7 @@ std::optional<std::tuple<Frame, const Bytecode*>> Frame::readFromMemory(
 
 void Frame::storeInMemory(uint64_t* valuesMem, uintptr_t* typesMem, const Bytecode* instructionPointer) const
 {
+    valuesMem[OLD_INSTRUCTION_POINTER] = reinterpret_cast<uintptr_t>(instructionPointer);
     uint64_t* frameLengthAndFunctionIndex = &valuesMem[OLD_FRAME_LENGTH_AND_FUNCTION_INDEX];
     *frameLengthAndFunctionIndex = 
         static_cast<uint64_t>(this->frameLength) |
@@ -57,7 +58,7 @@ void Frame::storeInMemory(uint64_t* valuesMem, uintptr_t* typesMem, const Byteco
     void** oldRetDst = reinterpret_cast<void**>(&typesMem[OLD_RETURN_VALUE_DST]);
     *oldRetDst = const_cast<void*>(this->retValueDst);
 
-    uint32_t* oldBasePointerOffset = reinterpret_cast<uint32_t*>(&valuesMem[OLD_BASE_POINTER_OFFSET]);
+    uint32_t* oldBasePointerOffset = reinterpret_cast<uint32_t*>(&typesMem[OLD_BASE_POINTER_OFFSET]);
     *oldBasePointerOffset = this->basePointerOffset;
 }
 
