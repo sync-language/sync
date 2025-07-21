@@ -1016,7 +1016,7 @@ TEST_CASE("push frame from previous node") {
     CHECK_EQ(oldFrame.retValueDst, node1.currentFrame.value().retValueDst);
 }
 
-TEST_CASE("push script function arg, 1 slot, non-special align, no frames") {
+TEST_CASE("push 1 script function arg, 1 slot, non-special align, no frames") {
     auto node = Node(1);
     const int64_t arg = 10;
     CHECK(node.pushScriptFunctionArg(&arg, sy::Type::TYPE_I64, 0, 1, 1));
