@@ -7,6 +7,9 @@
 #include <optional>
 
 struct Bytecode;
+namespace sy {
+    class Type;
+}
 
 class Node SY_CLASS_FINAL {
 public:
@@ -44,10 +47,10 @@ public:
     /// @param minSlotSize Can be less than `this->slots`.
     void reallocate(const uint32_t minSlotSize);
 
-    bool hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t alignment) const;
+    [[nodiscard]] bool hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t alignment) const;
 
-    /// @brief Attempts to push a new frame onto this node. If the node is not in use it
-    /// may reallocate the node to fit the new frame.
+    /// @brief Attempts to push a new frame onto this node while the node is currently in use,
+    /// meaning reallocation is not possible.
     /// @param frameLength The length of the frame
     /// @param byteAlign The alignment in bytes
     /// @param retValDst The return value destination. May be `nullptr`.
@@ -56,14 +59,6 @@ public:
     /// @param instructionPointer The instruction pointer that was being executed. May be `nullptr`. NOTE If
     /// `instructionPointer == nullptr`, then it is assumed that there is no previous frame.
     /// @return `true` the frame was successfully pushed onto this node.
-    // [[nodiscard]] bool pushFrame(
-    //     uint32_t frameLength, 
-    //     uint16_t byteAlign,
-    //     void* retValDst, 
-    //     std::optional<Frame*> previousFrame, 
-    //     const Bytecode* instructionPointer
-    // );
-
     [[nodiscard]] bool pushFrameNoReallocate(
         const uint32_t frameLength,
         const uint16_t byteAlign,
@@ -73,9 +68,13 @@ public:
 
     /// @brief Pushes a frame onto this node from a previous node. Expects this node to not be in use,
     /// allowing reallocation.
-    /// @return 
-    /// # Debug Asserts
-    /// `this->currentFrame.has_value() == false`.
+    /// @param frameLength The length of the frame
+    /// @param byteAlign The alignment in bytes
+    /// @param retValDst The return value destination. May be `nullptr`.
+    /// @param previousFrame The frame that was used previously. Should be from another node, or std::nullopt
+    /// @param instructionPointer The instruction pointer that was being executed. May be `nullptr`. NOTE If
+    /// `instructionPointer == nullptr`, then it is assumed that there is no previous frame, and when calling
+    /// `Node::popFrame()`, will not return a frame and instruction pointer.
     void pushFrameAllowReallocate(
         const uint32_t frameLength,
         const uint16_t byteAlign,
@@ -91,6 +90,22 @@ public:
     /// it or not, along with the instruction pointer.
     [[nodiscard]] std::optional<std::tuple<Frame, const Bytecode*>> popFrame();
 
+    /// @brief Attempts to push a script function argument onto this node.
+    /// @param argMem Non-null pointer to the arguments memory to be byte-copied from.
+    /// @param type Non-null pointer to the type of the argument.
+    /// @param offset Memory offset to place the argument. If not properly aligned, will be shifted.
+    /// @param frameLength Slot length of the frame for the future function call.
+    /// @param frameByteAlign Byte alignment of the frame for the future function call.
+    /// @return std::nullopt if cannot fit the argument and it's frame into this node. Otherwise
+    /// returns the offset for where the next argument should go.
+    [[nodiscard]] std::optional<uint16_t> pushScriptFunctionArg(
+        const void* argMem,
+        const sy::Type* type,
+        uint16_t offset,
+        const uint32_t frameLength,
+        const uint16_t frameByteAlign
+    );
+
     /// Checks if this node needs reallocation for the new frame length and alignment.
     /// If it does, returns a valid option with the new reallocation minimum size, that is guaranteed to fit
     /// the frame length at the specified alignment including with having to shift the base offset for alignment
@@ -98,7 +113,7 @@ public:
     /// If it does not need reallocation, returns a null option.
     /// # Debug Asserts
     /// `this->currentFrame.has_value() == false`.
-    std::optional<uint32_t> shouldReallocate(uint32_t frameLength, uint16_t alignment) const;
+    [[nodiscard]] std::optional<uint32_t> shouldReallocate(uint32_t frameLength, uint16_t alignment) const;
 
     /// By default, values use 1KB.
     /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit pointers,

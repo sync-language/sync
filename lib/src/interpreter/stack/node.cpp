@@ -5,6 +5,7 @@
 #include "../../mem/os_mem.hpp"
 #include "../../mem/allocator.hpp"
 #include "../bytecode.hpp"
+#include "../../types/type_info.hpp"
 #if _MSC_VER
 #include <new>
 #elif __GNUC__
@@ -364,6 +365,76 @@ std::optional<std::tuple<Frame, const Bytecode*>> Node::popFrame()
     } else {
         return std::nullopt;
     }
+}
+
+std::optional<uint16_t> Node::pushScriptFunctionArg(
+    const void* argMem,
+    const sy::Type* type,
+    uint16_t offset,
+    const uint32_t frameLength,
+    const uint16_t frameByteAlign
+) {
+    sy_assert(argMem != nullptr, "Expected valid argument memory");
+    sy_assert(type != nullptr, "Expected valid type memory");
+    sy_assert(type->alignType <= frameByteAlign, "Type alignment exceeds frame alignment");
+
+    if(this->isInUse()) { // update next base offset and current frame for length
+        const uint32_t newNextBaseOffset = requiredBaseOffsetForByteAlignment(this->nextBaseOffset, frameByteAlign);
+        if(newNextBaseOffset >= this->slots) {
+            return std::nullopt;
+        }
+
+        // even if the frame cannot be pushed onto this node, increasing the previous frame's length and
+        // updated the next base offset is safe.
+        // increase frame length by the difference
+        this->currentFrame.value().frameLength += newNextBaseOffset - this->nextBaseOffset;
+        this->nextBaseOffset = newNextBaseOffset;
+
+        if(!this->hasEnoughSpaceForFrame(frameLength, frameByteAlign)) {
+            return std::nullopt;
+        }
+    } else {
+        { // potential reallocation
+            std::optional<uint32_t> optReallocSize = this->shouldReallocate(frameLength, frameByteAlign);
+            if(optReallocSize.has_value()) {
+                this->reallocate(optReallocSize.value());
+            }
+        }
+        { // update next base offset
+            const uint32_t newNextBaseOffset = requiredBaseOffsetForByteAlignment(this->nextBaseOffset, frameByteAlign);
+            // `previousFrame` is from a different node so we do not have to increase it's frame length
+            this->nextBaseOffset = newNextBaseOffset;
+        }
+    }
+
+    // guaranteed that all arguments will fit even with their alignment requirements
+    
+    const uint32_t actualOffset = [this, offset, type]() -> uint32_t {
+        const uint32_t initialOffset = this->nextBaseOffset + static_cast<uint32_t>(offset);
+        const uint32_t remainder = initialOffset % this->nextBaseOffset;
+        if(remainder == 0) {
+            return initialOffset;
+        }
+
+        return initialOffset + (this->nextBaseOffset - remainder);
+    }();
+
+    uint64_t* valueMem = &this->values[actualOffset];
+    uintptr_t* typesMem = &this->types[actualOffset];
+    memcpy(valueMem, argMem, type->sizeType);
+    *typesMem = reinterpret_cast<uintptr_t>(type);
+
+    const uint16_t newOffset = [offset, actualOffset, type]() -> uint16_t {
+        // add one because the argument must occupy at least one slot
+        uint16_t initialOffset = static_cast<uint16_t>((actualOffset - static_cast<uint32_t>(offset)) + 1);
+        // if size is 16, occupies 2 slots, so this math makes it only do 1 iteration
+        for(size_t i = 0; i < ((type->sizeType - 1) / 8); i++) { 
+            initialOffset += 1;
+        }
+        return initialOffset;
+    }();
+
+    return std::optional(newOffset);
 }
 
 std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t alignment) const
@@ -942,4 +1013,3 @@ TEST_CASE("push frame from previous node") {
 }
 
 #endif
-
