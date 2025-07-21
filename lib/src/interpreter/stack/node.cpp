@@ -177,6 +177,7 @@ Node::Node(Node &&other) noexcept
 
 bool Node::hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t alignment) const
 {
+    (void)alignment; // TODO what
     if ((this->nextBaseOffset + frameLength) > this->slots) {
         return false;
     }
@@ -409,7 +410,7 @@ std::optional<uint16_t> Node::pushScriptFunctionArg(
 
     // guaranteed that all arguments will fit even with their alignment requirements
     
-    const uint32_t actualOffset = [this, offset, type]() -> uint32_t {
+    const uint32_t actualOffset = [this, offset]() -> uint32_t {
         const uint32_t initialOffset = this->nextBaseOffset + static_cast<uint32_t>(offset);
         const uint32_t remainder = initialOffset % this->nextBaseOffset;
         if(remainder == 0) {
@@ -1010,6 +1011,10 @@ TEST_CASE("push frame from previous node") {
     CHECK_EQ(oldFrame.frameLength, node1.currentFrame.value().frameLength);
     CHECK_EQ(oldFrame.functionIndex, node1.currentFrame.value().functionIndex);
     CHECK_EQ(oldFrame.retValueDst, node1.currentFrame.value().retValueDst);
+}
+
+TEST_CASE("push script function arg no frames") {
+    
 }
 
 #endif

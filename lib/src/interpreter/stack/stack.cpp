@@ -272,7 +272,7 @@ bool Stack::pushScriptFunctionArg(
     (void)argMem;
     (void)type;
     (void)offset;
-    return true;
+    return onThisFrame;
 }
 
 std::optional<Frame*> Stack::getCurrentFrame()

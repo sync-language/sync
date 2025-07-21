@@ -12,10 +12,12 @@ public:
     // Sync only compiles on targets with full support for 64 bit integers (not necessarily 64 bit architectures
     // due to the existence of wasm32). As a result, frame metadata is stored as 4, 64 bit integer (2 + 2).
 
-    uint32_t basePointerOffset;
-    uint32_t frameLength;
-    uint16_t functionIndex;
-    void*    retValueDst;
+    uint32_t basePointerOffset = 0;
+    uint32_t frameLength = 0;
+    uint16_t functionIndex = 0;
+    void*    retValueDst = nullptr;
+
+    Frame() = default;
 
     static std::optional<uint32_t> frameExtendAmountForAlignment(
         const uint32_t totalSlots, const uint32_t nextBaseOffset, const uint16_t alignment);

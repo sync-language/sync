@@ -123,7 +123,7 @@ private:
 private:
 
     const Bytecode*         instructionPointer = nullptr;
-    Frame                   currentFrame = {0};
+    Frame                   currentFrame;
     Node*                   nodes = nullptr;
     size_t                  nodesLen = 0;
     size_t                  nodesCapacity = 0;
