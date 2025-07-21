@@ -377,7 +377,10 @@ std::optional<uint16_t> Node::pushScriptFunctionArg(
 ) {
     sy_assert(argMem != nullptr, "Expected valid argument memory");
     sy_assert(type != nullptr, "Expected valid type memory");
-    sy_assert(type->alignType <= frameByteAlign, "Type alignment exceeds frame alignment");
+    const uint16_t normalizedAlign = frameByteAlign < (2 * alignof(uint64_t)) ? 
+        (2 * alignof(uint64_t)) 
+        : frameByteAlign;
+    sy_assert(type->alignType <= normalizedAlign, "Type alignment exceeds frame alignment");
 
     if(this->isInUse()) { // update next base offset and current frame for length
         const uint32_t newNextBaseOffset = requiredBaseOffsetForByteAlignment(this->nextBaseOffset, frameByteAlign);
@@ -1013,8 +1016,16 @@ TEST_CASE("push frame from previous node") {
     CHECK_EQ(oldFrame.retValueDst, node1.currentFrame.value().retValueDst);
 }
 
-TEST_CASE("push script function arg no frames") {
-    
+TEST_CASE("push script function arg, 1 slot, non-special align, no frames") {
+    auto node = Node(1);
+    const int64_t arg = 10;
+    CHECK(node.pushScriptFunctionArg(&arg, sy::Type::TYPE_I64, 0, 1, 1));
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+
+    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
+    const int64_t* argMem = reinterpret_cast<const int64_t*>(&node.values[argMemLocation]);
+    CHECK_EQ(*argMem, arg);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), sy::Type::TYPE_I64);
 }
 
 #endif
