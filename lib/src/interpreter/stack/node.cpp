@@ -410,12 +410,11 @@ std::optional<uint16_t> Node::pushScriptFunctionArg(
             this->nextBaseOffset = newNextBaseOffset;
         }
     }
-
-    // guaranteed that all arguments will fit even with their alignment requirements
     
-    const uint32_t actualOffset = [this, offset]() -> uint32_t {
+    const uint32_t actualOffset = [this, offset, type]() -> uint32_t {
+        const uint32_t normalizedTypeAlign = ((type->alignType - 1) / 8) + 1;
         const uint32_t initialOffset = this->nextBaseOffset + static_cast<uint32_t>(offset);
-        const uint32_t remainder = initialOffset % this->nextBaseOffset;
+        const uint32_t remainder = initialOffset % normalizedTypeAlign;
         if(remainder == 0) {
             return initialOffset;
         }
@@ -423,14 +422,23 @@ std::optional<uint16_t> Node::pushScriptFunctionArg(
         return initialOffset + (this->nextBaseOffset - remainder);
     }();
 
+    { // ensure fits within frame
+        const uint32_t extraTypeSlots = static_cast<uint32_t>((type->sizeType - 1) / 8);
+        if(((actualOffset + extraTypeSlots)) - this->nextBaseOffset >= frameLength) {
+            return std::nullopt;
+        }
+    }
+
+    // guaranteed that all arguments will fit even with their alignment requirements
+
     uint64_t* valueMem = &this->values[actualOffset];
     uintptr_t* typesMem = &this->types[actualOffset];
     memcpy(valueMem, argMem, type->sizeType);
     *typesMem = reinterpret_cast<uintptr_t>(type);
 
-    const uint16_t newOffset = [offset, actualOffset, type]() -> uint16_t {
+    const uint16_t newOffset = [this, actualOffset, type]() -> uint16_t {
         // add one because the argument must occupy at least one slot
-        uint16_t initialOffset = static_cast<uint16_t>((actualOffset - static_cast<uint32_t>(offset)) + 1);
+        uint16_t initialOffset = static_cast<uint16_t>((actualOffset - this->nextBaseOffset) + 1);
         // if size is 16, occupies 2 slots, so this math makes it only do 1 iteration
         for(size_t i = 0; i < ((type->sizeType - 1) / 8); i++) { 
             initialOffset += 1;
@@ -1016,6 +1024,34 @@ TEST_CASE("push frame from previous node") {
     CHECK_EQ(oldFrame.retValueDst, node1.currentFrame.value().retValueDst);
 }
 
+struct TestArgClass2Slot {
+    uint64_t v[2];
+};
+
+struct TestArgClass3Slot {
+    uint64_t v[3];
+};
+
+struct TestArgClass4Slot {
+    uint64_t v[4];
+};
+
+struct alignas(16) TestAlignedArgClass2Slot {
+    uint64_t v[2];
+};
+
+struct alignas(32) TestAlignedArgClass4Slot {
+    uint64_t v[4];
+};
+
+template<typename T>
+static sy::Type makeSimpleType() {
+    sy::Type t{0};
+    t.sizeType = sizeof(T);
+    t.alignType = alignof(T);
+    return t;
+}
+
 TEST_CASE("push 1 script function arg, 1 slot, non-special align, no frames") {
     auto node = Node(1);
     const int64_t arg = 10;
@@ -1026,6 +1062,182 @@ TEST_CASE("push 1 script function arg, 1 slot, non-special align, no frames") {
     const int64_t* argMem = reinterpret_cast<const int64_t*>(&node.values[argMemLocation]);
     CHECK_EQ(*argMem, arg);
     CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), sy::Type::TYPE_I64);
+}
+
+TEST_CASE("push 1 script function arg, 2 slot, non-special align, no frames") {
+    auto node = Node(1);
+    const TestArgClass2Slot arg = {{1, 2}};
+    const sy::Type type = makeSimpleType<decltype(arg)>();
+    CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 2, 1));
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+
+    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
+    const TestArgClass2Slot* argMem = reinterpret_cast<const TestArgClass2Slot*>(&node.values[argMemLocation]);
+    CHECK_EQ(argMem->v[0], 1);
+    CHECK_EQ(argMem->v[1], 2);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), &type);
+}
+
+TEST_CASE("push 1 script function arg, 3 slot, non-special align, no frames") {
+    auto node = Node(1);
+    const TestArgClass3Slot arg = {{1, 2, 3}};
+    const sy::Type type = makeSimpleType<decltype(arg)>();
+    CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 3, 1));
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+
+    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
+    const TestArgClass3Slot* argMem = reinterpret_cast<const TestArgClass3Slot*>(&node.values[argMemLocation]);
+    CHECK_EQ(argMem->v[0], 1);
+    CHECK_EQ(argMem->v[1], 2);
+    CHECK_EQ(argMem->v[2], 3);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), &type);
+}
+
+TEST_CASE("push 1 script function arg, 4 slot, non-special align, no frames") {
+    auto node = Node(1);
+    const TestArgClass4Slot arg = {{1, 2, 3, 4}};
+    const sy::Type type = makeSimpleType<decltype(arg)>();
+    CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 4, 1));
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+
+    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
+    const TestArgClass4Slot* argMem = reinterpret_cast<const TestArgClass4Slot*>(&node.values[argMemLocation]);
+    CHECK_EQ(argMem->v[0], 1);
+    CHECK_EQ(argMem->v[1], 2);
+    CHECK_EQ(argMem->v[2], 3);
+    CHECK_EQ(argMem->v[3], 4);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), &type);
+}
+
+TEST_CASE("push 1 script function arg, 2 slot, special align, no frames") {
+    auto node = Node(1);
+    const TestAlignedArgClass2Slot arg = {{1, 2}};
+    const sy::Type type = makeSimpleType<decltype(arg)>();
+    CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 2, 16));
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+
+    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
+    const TestAlignedArgClass2Slot* argMem = 
+        reinterpret_cast<const TestAlignedArgClass2Slot*>(&node.values[argMemLocation]);
+    CHECK_EQ(argMem->v[0], 1);
+    CHECK_EQ(argMem->v[1], 2);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), &type);
+}
+
+TEST_CASE("push 1 script function arg, 4 slot, special align, no frames") {
+    auto node = Node(1);
+    const TestAlignedArgClass4Slot arg = {{1, 2, 3, 4}};
+    const sy::Type type = makeSimpleType<decltype(arg)>();
+    CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 4, 32));
+    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+
+    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
+    const TestAlignedArgClass4Slot* argMem = 
+        reinterpret_cast<const TestAlignedArgClass4Slot*>(&node.values[argMemLocation]);
+    CHECK_EQ(argMem->v[0], 1);
+    CHECK_EQ(argMem->v[1], 2);
+    CHECK_EQ(argMem->v[2], 3);
+    CHECK_EQ(argMem->v[3], 4);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), &type);
+}
+
+TEST_CASE("push 2 script function args, 1 slot, non-special align, no frames") {
+    auto node = Node(1);
+    const int64_t arg1 = 10;
+    const int64_t arg2 = 11;
+    auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 2, 1);
+    CHECK(result.has_value());
+    CHECK_EQ(result.value(), 1);
+    result = node.pushScriptFunctionArg(&arg2, sy::Type::TYPE_I64, 1, 2, 1);
+    CHECK(result.has_value());
+    CHECK_EQ(result.value(), 2);
+    node.pushFrameAllowReallocate(2, 1, nullptr, std::nullopt, nullptr);
+
+    const auto arg1MemLocation = node.currentFrame.value().basePointerOffset; // argument 1 is at offset 0
+    const auto arg2MemLocation = node.currentFrame.value().basePointerOffset + 1; // argument 2 is at offset 1
+    const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
+    const int64_t* arg2Mem = reinterpret_cast<const int64_t*>(&node.values[arg2MemLocation]);
+    CHECK_EQ(*arg1Mem, arg1);
+    CHECK_EQ(*arg2Mem, arg2);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg1MemLocation]), sy::Type::TYPE_I64);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg2MemLocation]), sy::Type::TYPE_I64);
+}
+
+TEST_CASE("push 2 script function args, 2 slot, non-special align, no frames") {
+    auto node = Node(1);
+    const int64_t arg1 = 10;
+    const TestArgClass2Slot arg2 = {{1, 2}};
+    const sy::Type type = makeSimpleType<decltype(arg2)>();
+    auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 3, 1);
+    CHECK(result.has_value());
+    CHECK_EQ(result.value(), 1);
+    result = node.pushScriptFunctionArg(&arg2, &type, 1, 3, 1);
+    CHECK(result.has_value());
+    CHECK_EQ(result.value(), 3);
+    node.pushFrameAllowReallocate(3, 1, nullptr, std::nullopt, nullptr);
+
+    const auto arg1MemLocation = node.currentFrame.value().basePointerOffset; // argument 1 is at offset 0
+    const auto arg2MemLocation = node.currentFrame.value().basePointerOffset + 1; // argument 2 is at offset 1
+    const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
+    const TestArgClass2Slot* arg2Mem = reinterpret_cast<const TestArgClass2Slot*>(&node.values[arg2MemLocation]);
+    CHECK_EQ(*arg1Mem, arg1);
+    CHECK_EQ(arg2Mem->v[0], 1);
+    CHECK_EQ(arg2Mem->v[1], 2);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg1MemLocation]), sy::Type::TYPE_I64);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg2MemLocation]), &type);
+}
+
+TEST_CASE("push 2 script function args, 4 slot, non-special align, no frames") {
+    auto node = Node(1);
+    const int64_t arg1 = 10;
+    const TestArgClass4Slot arg2 = {{1, 2, 3, 4}};
+    const sy::Type type = makeSimpleType<decltype(arg2)>();
+    auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 5, 1);
+    CHECK(result.has_value());
+    CHECK_EQ(result.value(), 1);
+    result = node.pushScriptFunctionArg(&arg2, &type, 1, 5, 1);
+    CHECK(result.has_value());
+    CHECK_EQ(result.value(), 5);
+    node.pushFrameAllowReallocate(5, 1, nullptr, std::nullopt, nullptr);
+
+    const auto arg1MemLocation = node.currentFrame.value().basePointerOffset; // argument 1 is at offset 0
+    const auto arg2MemLocation = node.currentFrame.value().basePointerOffset + 1; // argument 2 is at offset 1
+    const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
+    const TestArgClass4Slot* arg2Mem = reinterpret_cast<const TestArgClass4Slot*>(&node.values[arg2MemLocation]);
+    CHECK_EQ(*arg1Mem, arg1);
+    CHECK_EQ(arg2Mem->v[0], 1);
+    CHECK_EQ(arg2Mem->v[1], 2);
+    CHECK_EQ(arg2Mem->v[2], 3);
+    CHECK_EQ(arg2Mem->v[3], 4);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg1MemLocation]), sy::Type::TYPE_I64);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg2MemLocation]), &type);
+}
+
+TEST_CASE("push 2 script function args, 4 slot, special align, no frames") {
+    auto node = Node(1);
+    const int64_t arg1 = 10;
+    const TestAlignedArgClass4Slot arg2 = {{1, 2, 3, 4}};
+    const sy::Type type = makeSimpleType<decltype(arg2)>();
+    auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 8, 32);
+    CHECK(result.has_value());
+    CHECK_EQ(result.value(), 1);
+    result = node.pushScriptFunctionArg(&arg2, &type, 1, 8, 32);
+    CHECK(result.has_value());
+    CHECK_EQ(result.value(), 8);
+    node.pushFrameAllowReallocate(8, alignof(decltype(arg2)), nullptr, std::nullopt, nullptr);
+
+    const auto arg1MemLocation = node.currentFrame.value().basePointerOffset; // argument 1 is at offset 0
+    const auto arg2MemLocation = node.currentFrame.value().basePointerOffset + 4; // argument 2 is at offset 4
+    const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
+    const TestAlignedArgClass4Slot* arg2Mem = 
+        reinterpret_cast<const TestAlignedArgClass4Slot*>(&node.values[arg2MemLocation]);
+    CHECK_EQ(*arg1Mem, arg1);
+    CHECK_EQ(arg2Mem->v[0], 1);
+    CHECK_EQ(arg2Mem->v[1], 2);
+    CHECK_EQ(arg2Mem->v[2], 3);
+    CHECK_EQ(arg2Mem->v[3], 4);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg1MemLocation]), sy::Type::TYPE_I64);
+    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg2MemLocation]), &type);
 }
 
 #endif
