@@ -24,9 +24,9 @@ constexpr size_t MIN_VALUES_ALIGNMENT = 128 * alignof(uint64_t);
 #pragma region Memory_Allocation
 
 struct Allocation {
-    uint64_t*   values;
-    uintptr_t*  types;
-    uint32_t    slots;
+    uint64_t*           values;
+    Node::TypeOfValue*  types;
+    uint32_t            slots;
 };
 
 static Allocation allocateStack(const uint32_t minSlotSize)
@@ -38,7 +38,7 @@ static Allocation allocateStack(const uint32_t minSlotSize)
     if(minSlotSize <= MIN_SLOTS) {
         sy::Allocator allocator;
         aloc.values = allocator.allocAlignedArray<uint64_t>(MIN_SLOTS, MIN_VALUES_ALIGNMENT).get();
-        aloc.types = allocator.allocAlignedArray<uintptr_t>(MIN_SLOTS, ALLOC_CACHE_ALIGN).get();
+        aloc.types = allocator.allocAlignedArray<Node::TypeOfValue>(MIN_SLOTS, ALLOC_CACHE_ALIGN).get();
         aloc.slots = MIN_SLOTS;
     } else {
         const size_t pageSize = page_size();
@@ -76,7 +76,7 @@ static Allocation allocateStack(const uint32_t minSlotSize)
         #endif
 
         aloc.values = reinterpret_cast<uint64_t*>(valuesMem);
-        aloc.types = reinterpret_cast<uintptr_t*>(typesMem);
+        aloc.types = reinterpret_cast<Node::TypeOfValue*>(typesMem);
         aloc.slots = static_cast<uint32_t>(valuesBytesToAllocate / sizeof(uint64_t));
     }
 
@@ -263,7 +263,7 @@ bool Node::pushFrameNoReallocate(const uint32_t frameLength, const uint16_t byte
     { // store old frame
         const uint32_t actualOffset = this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS; // no int overflow
         uint64_t* valuesMem = &this->values[actualOffset];
-        uintptr_t* typesMem = &this->types[actualOffset];
+        uintptr_t* typesMem = reinterpret_cast<uintptr_t*>(&this->types[actualOffset]);
         this->currentFrame.value().storeInMemory(valuesMem, typesMem, instructionPointer);
     }
     { // new frame
@@ -312,7 +312,7 @@ void Node::pushFrameAllowReallocate(
     { // store old frame
         const uint32_t actualOffset = this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS; // no int overflow
         uint64_t* valuesMem = &this->values[actualOffset];
-        uintptr_t* typesMem = &this->types[actualOffset];
+        uintptr_t* typesMem = reinterpret_cast<uintptr_t*>(&this->types[actualOffset]);
         if(previousFrame.has_value()) {
             previousFrame.value().storeInMemory(valuesMem, typesMem, instructionPointer);
         } else {
@@ -343,9 +343,10 @@ std::optional<std::tuple<Frame, const Bytecode*>> Node::popFrame()
     const Frame currFrame = this->currentFrame.value();
     const size_t oldInfoStartOffset = currFrame.basePointerOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
     const uint64_t* const valuesMem = &this->values[oldInfoStartOffset];
-    const uintptr_t* const typesMem  = &this->types[oldInfoStartOffset];
+    const TypeOfValue* const typesMem  = &this->types[oldInfoStartOffset];
 
-    const std::optional<std::tuple<Frame, const Bytecode*>> result = Frame::readFromMemory(valuesMem, typesMem);
+    const std::optional<std::tuple<Frame, const Bytecode*>> result = 
+        Frame::readFromMemory(valuesMem, reinterpret_cast<const uintptr_t*>(typesMem));
     #if _DEBUG
     if(result.has_value() == false) {
         sy_assert(this->frameDepth == 1, "Invalid instruction pointer for previous frame");
@@ -432,9 +433,9 @@ std::optional<uint16_t> Node::pushScriptFunctionArg(
     // guaranteed that all arguments will fit even with their alignment requirements
 
     uint64_t* valueMem = &this->values[actualOffset];
-    uintptr_t* typesMem = &this->types[actualOffset];
+    TypeOfValue* typesMem = &this->types[actualOffset];
     memcpy(valueMem, argMem, type->sizeType);
-    *typesMem = reinterpret_cast<uintptr_t>(type);
+    typesMem->set(type, true);
 
     const uint16_t newOffset = [this, actualOffset, type]() -> uint16_t {
         // add one because the argument must occupy at least one slot
@@ -488,9 +489,27 @@ std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t al
     return std::nullopt;
 }
 
-void Node::ensureOffsetWithinFrameBounds(const uint16_t offset)
+Node::TypeOfValue& Node::typeAt(const uint16_t offset)
+{
+    this->ensureOffsetWithinFrameBounds(offset);
+    return this->types[offset + this->nextBaseOffset];
+}
+
+const Node::TypeOfValue& Node::typeAt(const uint16_t offset) const
+{
+    this->ensureOffsetWithinFrameBounds(offset);
+    return this->types[offset + this->nextBaseOffset];
+}
+
+void Node::ensureOffsetWithinFrameBounds(const uint16_t offset) const
 {
     sy_assert(offset < this->currentFrame.value().frameLength, "Index out of bounds for stack frame");
+}
+
+Node::TypeOfValue& Node::TypeOfValue::operator=(std::nullptr_t)
+{
+    this->mask_ = 0;    
+    return *this;
 }
 
 const sy::Type* Node::TypeOfValue::get() const
@@ -1101,7 +1120,7 @@ TEST_CASE("push 1 script function arg, 1 slot, non-special align, no frames") {
     const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
     const int64_t* argMem = reinterpret_cast<const int64_t*>(&node.values[argMemLocation]);
     CHECK_EQ(*argMem, arg);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), sy::Type::TYPE_I64);
+    CHECK_EQ(node.types[argMemLocation], sy::Type::TYPE_I64);
 }
 
 TEST_CASE("push 1 script function arg, 2 slot, non-special align, no frames") {
@@ -1115,7 +1134,7 @@ TEST_CASE("push 1 script function arg, 2 slot, non-special align, no frames") {
     const TestArgClass2Slot* argMem = reinterpret_cast<const TestArgClass2Slot*>(&node.values[argMemLocation]);
     CHECK_EQ(argMem->v[0], 1);
     CHECK_EQ(argMem->v[1], 2);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), &type);
+    CHECK_EQ(node.types[argMemLocation], &type);
 }
 
 TEST_CASE("push 1 script function arg, 3 slot, non-special align, no frames") {
@@ -1130,7 +1149,7 @@ TEST_CASE("push 1 script function arg, 3 slot, non-special align, no frames") {
     CHECK_EQ(argMem->v[0], 1);
     CHECK_EQ(argMem->v[1], 2);
     CHECK_EQ(argMem->v[2], 3);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), &type);
+    CHECK_EQ(node.types[argMemLocation], &type);
 }
 
 TEST_CASE("push 1 script function arg, 4 slot, non-special align, no frames") {
@@ -1146,7 +1165,7 @@ TEST_CASE("push 1 script function arg, 4 slot, non-special align, no frames") {
     CHECK_EQ(argMem->v[1], 2);
     CHECK_EQ(argMem->v[2], 3);
     CHECK_EQ(argMem->v[3], 4);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), &type);
+    CHECK_EQ(node.types[argMemLocation], &type);
 }
 
 TEST_CASE("push 1 script function arg, 2 slot, special align, no frames") {
@@ -1161,7 +1180,7 @@ TEST_CASE("push 1 script function arg, 2 slot, special align, no frames") {
         reinterpret_cast<const TestAlignedArgClass2Slot*>(&node.values[argMemLocation]);
     CHECK_EQ(argMem->v[0], 1);
     CHECK_EQ(argMem->v[1], 2);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), &type);
+    CHECK_EQ(node.types[argMemLocation], &type);
 }
 
 TEST_CASE("push 1 script function arg, 4 slot, special align, no frames") {
@@ -1178,7 +1197,7 @@ TEST_CASE("push 1 script function arg, 4 slot, special align, no frames") {
     CHECK_EQ(argMem->v[1], 2);
     CHECK_EQ(argMem->v[2], 3);
     CHECK_EQ(argMem->v[3], 4);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[argMemLocation]), &type);
+    CHECK_EQ(node.types[argMemLocation], &type);
 }
 
 TEST_CASE("push 2 script function args, 1 slot, non-special align, no frames") {
@@ -1199,8 +1218,8 @@ TEST_CASE("push 2 script function args, 1 slot, non-special align, no frames") {
     const int64_t* arg2Mem = reinterpret_cast<const int64_t*>(&node.values[arg2MemLocation]);
     CHECK_EQ(*arg1Mem, arg1);
     CHECK_EQ(*arg2Mem, arg2);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg1MemLocation]), sy::Type::TYPE_I64);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg2MemLocation]), sy::Type::TYPE_I64);
+    CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
+    CHECK_EQ(node.types[arg2MemLocation], sy::Type::TYPE_I64);
 }
 
 TEST_CASE("push 2 script function args, 2 slot, non-special align, no frames") {
@@ -1223,8 +1242,8 @@ TEST_CASE("push 2 script function args, 2 slot, non-special align, no frames") {
     CHECK_EQ(*arg1Mem, arg1);
     CHECK_EQ(arg2Mem->v[0], 1);
     CHECK_EQ(arg2Mem->v[1], 2);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg1MemLocation]), sy::Type::TYPE_I64);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg2MemLocation]), &type);
+    CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
+    CHECK_EQ(node.types[arg2MemLocation], &type);
 }
 
 TEST_CASE("push 2 script function args, 4 slot, non-special align, no frames") {
@@ -1249,8 +1268,8 @@ TEST_CASE("push 2 script function args, 4 slot, non-special align, no frames") {
     CHECK_EQ(arg2Mem->v[1], 2);
     CHECK_EQ(arg2Mem->v[2], 3);
     CHECK_EQ(arg2Mem->v[3], 4);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg1MemLocation]), sy::Type::TYPE_I64);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg2MemLocation]), &type);
+    CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
+    CHECK_EQ(node.types[arg2MemLocation], &type);
 }
 
 TEST_CASE("push 2 script function args, 4 slot, special align, no frames") {
@@ -1276,8 +1295,8 @@ TEST_CASE("push 2 script function args, 4 slot, special align, no frames") {
     CHECK_EQ(arg2Mem->v[1], 2);
     CHECK_EQ(arg2Mem->v[2], 3);
     CHECK_EQ(arg2Mem->v[3], 4);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg1MemLocation]), sy::Type::TYPE_I64);
-    CHECK_EQ(reinterpret_cast<const sy::Type*>(node.types[arg2MemLocation]), &type);
+    CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
+    CHECK_EQ(node.types[arg2MemLocation], &type);
 }
 
 #endif

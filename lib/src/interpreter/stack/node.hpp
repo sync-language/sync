@@ -19,7 +19,7 @@ public:
     public:
         TypeOfValue() = default;
         TypeOfValue(std::nullptr_t) : mask_(0) {};
-        TypeOfValue& operator=(std::nullptr_t) { this->mask_ = 0; }
+        TypeOfValue& operator=(std::nullptr_t);
 
         const sy::Type* get() const;
         operator const sy::Type*() const;
@@ -43,7 +43,7 @@ public:
     /// See `Node::MIN_SLOTS`. Is aligned to `Node::MIN_VALUES_ALIGNMENT` or page alignment.
     uint64_t*               values = nullptr;
     /// See `Node::MIN_SLOTS`. Is aligned to `ALLOC_CACHE_ALIGN` or page alignment.
-    uintptr_t*              types = nullptr;
+    TypeOfValue*            types = nullptr;
     /// `slots * sizeof(uint64_t)` is the amount of bytes occupied by all of the memory allocated for
     /// each of `values` and `types`.
     uint32_t                slots = 0;
@@ -150,6 +150,12 @@ public:
     template<typename T>
     const T* frameValueAt(const uint16_t offset) const;
 
+    /// @return The type within the current stack frame at `offset`. The underlying `const sy::Type*` may be nullptr.
+    TypeOfValue& typeAt(const uint16_t offset);
+
+    /// @return The type within the current stack frame at `offset`. The underlying `const sy::Type*` may be nullptr.
+    const TypeOfValue& typeAt(const uint16_t offset) const;
+
     /// By default, values use 1KB.
     /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit pointers,
     /// such as wasm32, the types minimum allocation is 512B.
@@ -163,7 +169,7 @@ SY_CLASS_TEST_PRIVATE:
 
     Node() = default;
 
-    void ensureOffsetWithinFrameBounds(const uint16_t offset);
+    void ensureOffsetWithinFrameBounds(const uint16_t offset) const;
 
 };
 

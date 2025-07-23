@@ -171,14 +171,12 @@ void* Stack::valueMemoryAt(uint16_t offset)
     return &node.values[actualOffset];
 }
 
-const sy::Type* Stack::typeAt(uint16_t offset) const
+const sy::Type *Stack::typeAt(uint16_t offset) const
 {
     sy_assert(offset < this->currentFrame.frameLength, "Cannot access past the frame length");
     const uint32_t actualOffset = this->currentFrame.basePointerOffset + static_cast<uint32_t>(offset);
     Node& node = this->nodes[currentNode];
-    const uintptr_t typeMemAsInt = node.types[actualOffset];
-    const uintptr_t maskedAwayFlag = typeMemAsInt & (~TYPE_NOT_OWNED_FLAG);
-    return reinterpret_cast<const sy::Type*>(maskedAwayFlag);
+    return node.types[actualOffset].get();
 }
 
 void Stack::setTypeAt(const sy::Type *type, uint16_t offset)
@@ -203,9 +201,7 @@ bool Stack::isOwnedTypeAt(uint16_t offset) const
     sy_assert(offset < this->currentFrame.frameLength, "Cannot access past the frame length");
     const uint32_t actualOffset = this->currentFrame.basePointerOffset + static_cast<uint32_t>(offset);
     Node& node = this->nodes[currentNode];
-    const uintptr_t typeMemAsInt = node.types[actualOffset];
-    const uintptr_t maskedAwayType = typeMemAsInt & TYPE_NOT_OWNED_FLAG;
-    return maskedAwayType != TYPE_NOT_OWNED_FLAG;
+    return node.types[actualOffset].isOwned();
 }
 
 void *Stack::returnDst()
@@ -339,7 +335,7 @@ void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
     Node& node = this->nodes[currentNode];
 
     if(type == nullptr) {
-        node.types[actualOffset] = reinterpret_cast<size_t>(nullptr);
+        node.types[actualOffset] = nullptr;
         return;
     } 
     
@@ -348,13 +344,10 @@ void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
     const size_t requiredFrameLength = static_cast<size_t>(offset) + slotsOccupied;
     sy_assert(requiredFrameLength < this->currentFrame.frameLength, "Cannot set type past the frame length");
 
-    const size_t typePtrAsInt = reinterpret_cast<size_t>(type);
-    const size_t refTag = isRef ? TYPE_NOT_OWNED_FLAG : 0; // would be optimized
-
-    node.types[actualOffset] = typePtrAsInt | refTag;
+    node.types[actualOffset].set(type, !isRef);
     if(slotsOccupied > 1) {
         for(size_t i = 1; i < slotsOccupied; i++) {
-            node.types[actualOffset + i] = reinterpret_cast<size_t>(nullptr);
+            node.types[actualOffset + i] = nullptr;
         }
     }
 }
