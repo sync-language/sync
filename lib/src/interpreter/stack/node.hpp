@@ -151,10 +151,11 @@ public:
     const T* frameValueAt(const uint16_t offset) const;
 
     /// @return The type within the current stack frame at `offset`. The underlying `const sy::Type*` may be nullptr.
-    TypeOfValue& typeAt(const uint16_t offset);
+    TypeOfValue typeAt(const uint16_t offset) const;
 
-    /// @return The type within the current stack frame at `offset`. The underlying `const sy::Type*` may be nullptr.
-    const TypeOfValue& typeAt(const uint16_t offset) const;
+    /// Sets the type at `offset` to `type`. If `type` is not a null type, will also set the following slots to
+    /// nullptr provided that the type requires that many slots to store an object.
+    void setTypeAt(const TypeOfValue type, const uint16_t offset);
 
     /// By default, values use 1KB.
     /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit pointers,

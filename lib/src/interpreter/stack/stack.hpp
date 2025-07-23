@@ -4,6 +4,7 @@
 
 #include "../../core.h"
 #include "frame.hpp"
+#include "node.hpp"
 #include <type_traits>
 #include <optional>
 #include <tuple>
@@ -15,7 +16,6 @@ namespace sy {
 }
 
 struct Bytecode;
-class Node;
 
 class FrameGuard;
 
@@ -39,7 +39,6 @@ public:
     /// 0 is a valid input. See types/function.h and types/function.hpp as to why.
     /// @param retValDst Memory address where the return value of a function should be copied to. Can be `nullptr`,
     /// meaning no return value destination.
-    /// @return `true` if successful, otherwise `false` in which pushing the frame would overflow the stack.
     [[nodiscard]] FrameGuard pushFrame(uint32_t frameLength, uint16_t alignment, void* retValDst);
 
     [[nodiscard]] FrameGuard pushFunctionFrame(const sy::Function* function, void* retValDst);
@@ -98,9 +97,6 @@ public:
     [[nodiscard]] std::optional<Frame*> getCurrentFrame();
 
 private:
-    /// Instances of `sy::Type` are required to have alignment of `alignof(void*)`, therefore on all target platforms,
-    /// the lowest bit will be zeroed, and thus can be used as a flag bit, conserving memory.
-    static constexpr uintptr_t TYPE_NOT_OWNED_FLAG = 0b1;
 
     void addOneNode(const uint32_t requiredFrameLength);
 

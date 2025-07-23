@@ -489,20 +489,35 @@ std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t al
     return std::nullopt;
 }
 
-Node::TypeOfValue& Node::typeAt(const uint16_t offset)
+Node::TypeOfValue Node::typeAt(const uint16_t offset) const
 {
     this->ensureOffsetWithinFrameBounds(offset);
     return this->types[offset + this->nextBaseOffset];
 }
 
-const Node::TypeOfValue& Node::typeAt(const uint16_t offset) const
-{
+void Node::setTypeAt(const TypeOfValue type, const uint16_t offset)
+{ 
     this->ensureOffsetWithinFrameBounds(offset);
-    return this->types[offset + this->nextBaseOffset];
+    const auto frame = this->currentFrame.value();
+    const uint32_t actualOffset = frame.basePointerOffset + static_cast<uint32_t>(offset);
+
+    const sy::Type* typeInfo = type.get();
+    if(typeInfo != nullptr) {
+        const uint32_t slotsOccupied = static_cast<uint32_t>((typeInfo->sizeType - 1) / 8) + 1;
+        sy_assert((static_cast<uint32_t>(offset) + slotsOccupied) < frame.frameLength, "Cannot set type information past the frame length");
+
+        this->types[actualOffset] = type;
+        for(size_t i = 1; i < slotsOccupied; i++) {
+            this->types[actualOffset + 1] = nullptr;
+        }
+    } else {
+        this->types[actualOffset] = nullptr;
+    }
 }
 
 void Node::ensureOffsetWithinFrameBounds(const uint16_t offset) const
 {
+    sy_assert(this->currentFrame.has_value(), "No frame");
     sy_assert(offset < this->currentFrame.value().frameLength, "Index out of bounds for stack frame");
 }
 
