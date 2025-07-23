@@ -488,6 +488,46 @@ std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t al
     return std::nullopt;
 }
 
+void Node::ensureOffsetWithinFrameBounds(const uint16_t offset)
+{
+    sy_assert(offset < this->currentFrame.value().frameLength, "Index out of bounds for stack frame");
+}
+
+const sy::Type* Node::TypeOfValue::get() const
+{
+    const uintptr_t maskedAwayFlag = this->mask_ & (~TYPE_NOT_OWNED_FLAG);
+    return reinterpret_cast<const sy::Type*>(maskedAwayFlag);
+}
+
+Node::TypeOfValue::operator const sy::Type *() const
+{
+    return this->get();
+}
+
+void Node::TypeOfValue::set(const sy::Type *type, bool owned)
+{
+    sy_assert(type != nullptr, "Use operator=(nullptr) to explicitly set this type to null");
+
+    const uintptr_t typeMask = reinterpret_cast<uintptr_t>(type);
+    this->mask_ = typeMask | static_cast<uintptr_t>(owned ? 0 : TYPE_NOT_OWNED_FLAG);
+}
+
+bool Node::TypeOfValue::operator==(const TypeOfValue &other) const
+{
+    return this->get() == other.get();
+}
+
+bool Node::TypeOfValue::operator==(const sy::Type *otherType) const
+{
+    return this->get() == otherType;
+}
+
+bool Node::TypeOfValue::isOwned() const
+{
+    const uintptr_t maskedAwayType = this->mask_ & TYPE_NOT_OWNED_FLAG;
+    return maskedAwayType != TYPE_NOT_OWNED_FLAG;
+}
+
 #ifdef SYNC_LIB_TEST
 
 #include "../../doctest.h"

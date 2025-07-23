@@ -5,6 +5,7 @@
 #include "../../core.h"
 #include "frame.hpp"
 #include <optional>
+#include <cstddef>
 
 struct Bytecode;
 namespace sy {
@@ -13,6 +14,32 @@ namespace sy {
 
 class Node SY_CLASS_FINAL {
 public:
+
+    class TypeOfValue {
+    public:
+        TypeOfValue() = default;
+        TypeOfValue(std::nullptr_t) : mask_(0) {};
+        TypeOfValue& operator=(std::nullptr_t) { this->mask_ = 0; }
+
+        const sy::Type* get() const;
+        operator const sy::Type*() const;
+
+        void set(const sy::Type* type, bool owned);
+
+        bool operator==(const TypeOfValue& other) const;
+        bool operator==(const sy::Type* otherType) const;
+
+        bool isOwned() const;
+
+    private:
+
+        /// Instances of `sy::Type` are required to have alignment of `alignof(void*)`, therefore on all target platforms,
+        /// the lowest bit will be zeroed, and thus can be used as a flag bit, conserving memory.
+        static constexpr uintptr_t TYPE_NOT_OWNED_FLAG = 0b1;
+
+        uintptr_t mask_ = 0;
+    };
+
     /// See `Node::MIN_SLOTS`. Is aligned to `Node::MIN_VALUES_ALIGNMENT` or page alignment.
     uint64_t*               values = nullptr;
     /// See `Node::MIN_SLOTS`. Is aligned to `ALLOC_CACHE_ALIGN` or page alignment.
@@ -115,6 +142,14 @@ public:
     /// `this->currentFrame.has_value() == false`.
     [[nodiscard]] std::optional<uint32_t> shouldReallocate(uint32_t frameLength, uint16_t alignment) const;
 
+    /// @return non-null pointer to the value at the specific offset within the current stack frame.
+    template<typename T>
+    T* frameValueAt(const uint16_t offset);
+
+    /// @return non-null pointer to the value at the specific offset within the current stack frame.
+    template<typename T>
+    const T* frameValueAt(const uint16_t offset) const;
+
     /// By default, values use 1KB.
     /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit pointers,
     /// such as wasm32, the types minimum allocation is 512B.
@@ -128,6 +163,22 @@ SY_CLASS_TEST_PRIVATE:
 
     Node() = default;
 
+    void ensureOffsetWithinFrameBounds(const uint16_t offset);
+
 };
+
+template <typename T>
+inline T* Node::frameValueAt(const uint16_t offset)
+{
+    ensureOffsetWithinFrameBounds(offset);
+    return reinterpret_cast<T*>(&this->values[offset + this->nextBaseOffset]);
+}
+
+template <typename T>
+inline const T* Node::frameValueAt(const uint16_t offset) const
+{
+    ensureOffsetWithinFrameBounds(offset);
+    return reinterpret_cast<const T*>(&this->values[offset + this->nextBaseOffset]);
+}
 
 #endif // SY_INTERPRETER_STACK_NODE_HPP_
