@@ -2,7 +2,7 @@
 #include "../program/program.hpp"
 #include "../program/program_internal.hpp"
 #include "../util/assert.hpp"
-#include "stack.hpp"
+#include "stack/stack.hpp"
 #include "bytecode.hpp"
 #include "../types/function/function.hpp"
 #include "../types/type_info.hpp"
@@ -31,9 +31,6 @@ ProgramRuntimeError sy::interpreterExecuteScriptFunction(const Function *scriptF
 
     Stack& activeStack = Stack::getActiveStack();
     FrameGuard guard = activeStack.pushFunctionFrame(scriptFunction, outReturnValue);
-    if(guard.checkOverflow()) {
-        return ProgramRuntimeError::initStackOverflow();
-    }
 
     const sy::InterpreterFunctionScriptInfo* scriptInfo
         = reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(scriptFunction->fptr);
@@ -73,7 +70,7 @@ static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len) {
 
         sy_assert(type->tag != Type::Tag::Reference, "Cannot destruct reference types");
 
-        type->destroyObject(activeStack.valueMemoryAt(unwindSlots[i]));
+        type->destroyObject(activeStack.frameValueAt<void>(unwindSlots[i]));
     }
 }
 
@@ -178,7 +175,7 @@ static void executeReturnValue(const Bytecode b)
     const Type* retValType = activeStack.typeAt(operands.src);
     sy_assert(retValType != nullptr, "Cannot return null type");
 
-    std::memcpy(retDst, activeStack.valueMemoryAt(operands.src), retValType->sizeType);
+    std::memcpy(retDst, activeStack.frameValueAt<void>(operands.src), retValType->sizeType);
 
     // Frame is automatically unwinded
 }
@@ -195,7 +192,7 @@ static bool pushScriptFunctionArgs(const Function* function, const uint16_t args
         const uint16_t argSrc = argsSrc[i];
         const Type* type = activeStack.typeAt(argSrc);
         sy_assert(type != nullptr, "Cannot push null type to function");
-        if(callArgs.push(activeStack.valueMemoryAt(argSrc), type) == false) {
+        if(callArgs.push(activeStack.frameValueAt<void>(argSrc), type) == false) {
             return false;
         }
     }
@@ -232,8 +229,8 @@ static ProgramRuntimeError executeCallSrcNoReturn(ptrdiff_t& ipChange, const Byt
 
     Stack& activeStack = Stack::getActiveStack();
     
-    sy_assert(activeStack.typeAt(operands.src)->tag == Type::Tag::Function, "Expected function to call");
-    const Function* function = activeStack.valueAt<const Function*>(operands.src);
+    sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function, "Expected function to call");
+    const Function* function = activeStack.frameValueAt<const Function>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
 
     ipChange = static_cast<ptrdiff_t>(operators::CallSrcNoReturn::bytecodeUsed(operands.argCount));
@@ -250,7 +247,7 @@ static ProgramRuntimeError executeCallImmediateWithReturn(ptrdiff_t& ipChange, c
     ipChange = static_cast<ptrdiff_t>(operators::CallImmediateWithReturn::bytecodeUsed(operands.argCount));
 
     Stack& activeStack = Stack::getActiveStack();
-    void* returnDst = activeStack.valueMemoryAt(operands.retDst);
+    void* returnDst = activeStack.frameValueAt<void>(operands.retDst);
 
     return performCall(function, returnDst, operands.argCount, argsSrcs);
 }
@@ -260,13 +257,13 @@ static ProgramRuntimeError executeCallSrcWithReturn(ptrdiff_t& ipChange, const B
 
     Stack& activeStack = Stack::getActiveStack();
     
-    sy_assert(activeStack.typeAt(operands.src)->tag == Type::Tag::Function, "Expected function to call");
-    const Function* function = activeStack.valueAt<const Function*>(operands.src);
+    sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function, "Expected function to call");
+    const Function* function = activeStack.frameValueAt<const Function>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
 
     ipChange = static_cast<ptrdiff_t>(operators::CallSrcWithReturn::bytecodeUsed(operands.argCount));
 
-    void* returnDst = activeStack.valueMemoryAt(operands.retDst);
+    void* returnDst = activeStack.frameValueAt<void>(operands.retDst);
 
     return performCall(function, returnDst, operands.argCount, argsSrcs);
 }
@@ -276,7 +273,7 @@ ProgramRuntimeError executeLoadDefault(ptrdiff_t &ipChange, const Bytecode *byte
     const operators::LoadDefault operands = bytecodes[0].toOperands<operators::LoadDefault>();
 
     Stack& activeStack = Stack::getActiveStack();
-    void* destination = activeStack.valueMemoryAt(operands.dst);
+    void* destination = activeStack.frameValueAt<void>(operands.dst);
 
     if(operands.isScalar) {
         const Type* scalarType = scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
@@ -296,7 +293,7 @@ void executeLoadImmediateScalar(ptrdiff_t &ipChange, const Bytecode *bytecodes)
     const ScalarTag scalarTag = static_cast<ScalarTag>(operands.scalarTag);
 
     Stack& activeStack = Stack::getActiveStack();
-    void* destination = activeStack.valueMemoryAt(operands.dst);
+    void* destination = activeStack.frameValueAt<void>(operands.dst);
     const Type* type = scalarTypeFromTag(scalarTag);
     if(type->sizeType <= 4) { // 32 bits
         uint32_t rawValue = static_cast<uint32_t>(operands.immediate);
@@ -319,9 +316,11 @@ void executeMemsetUninitialized(const Bytecode bytecode)
     const operators::MemsetUninitialized operands = bytecode.toOperands<operators::MemsetUninitialized>();
 
     Stack& activeStack = Stack::getActiveStack();
-    void* destination = activeStack.valueMemoryAt(operands.dst);
-    sy_assert(activeStack.currentFrame().frameLength >= (operands.dst + operands.slots), 
-        "Trying to uninitialize memory outside of stack frame");
+    void* destination = activeStack.frameValueAt<void>(operands.dst);
+    #if _DEBUG
+    const uint32_t frameLength = activeStack.getCurrentFrame().value().frameLength;
+    sy_assert(frameLength >= (operands.dst + operands.slots), "Trying to uninitialize memory outside of stack frame");
+    #endif
     const size_t bytesToSet = sizeof(void*) * static_cast<size_t>(operands.slots);
     memset(destination, 0xAA, bytesToSet);
 }
@@ -339,14 +338,14 @@ void executeSetType(ptrdiff_t &ipChange, const Bytecode *bytecodes)
         type = *reinterpret_cast<const Type* const*>(&next);
         ipChange = 2;
     }
-    activeStack.setTypeAt(type, operands.dst);
+    activeStack.setTypeAt(Node::TypeOfValue(type, true), operands.dst);
 }
 
 void executeSetNullType(const Bytecode bytecode)
 {    
     const operators::SetNullType operands = bytecode.toOperands<operators::SetNullType>();
     Stack& activeStack = Stack::getActiveStack();
-    activeStack.setNullTypeAt(operands.dst);
+    activeStack.setTypeAt(nullptr, operands.dst);
 }
 
 static void executeJump(ptrdiff_t& ipChange, const Bytecode bytecode) {
@@ -362,7 +361,7 @@ static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode) {
     const Type* srcType = activeStack.typeAt(operands.src);
     sy_assert(srcType == Type::TYPE_BOOL, "Can only conditionally jump on boolean types");
 
-    if(activeStack.valueAt<bool>(operands.src) == false) {
+    if(activeStack.frameValueAt<bool>(operands.src) == false) {
         int32_t jumpAmount = static_cast<int32_t>(operands.amount);
         ipChange = jumpAmount;
     }
@@ -376,7 +375,7 @@ static void executeDestruct(const Bytecode bytecode) {
     const Type* srcType = activeStack.typeAt(operands.src);
     sy_assert(srcType != nullptr, "Cannot destruct null typed object");
 
-    void* src = activeStack.valueMemoryAt(operands.src);
+    void* src = activeStack.frameValueAt<void>(operands.src);
     srcType->destroyObject(src);
-    activeStack.setNullTypeAt(operands.src);
+    activeStack.setTypeAt(nullptr, operands.src);
 }

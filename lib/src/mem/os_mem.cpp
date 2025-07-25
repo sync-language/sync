@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <cstdlib>
 #include <errno.h>
+#include <unistd.h>
 #endif
 
 /*
@@ -21,6 +22,7 @@ ISO/IEC 9899:201x (aka ISO C11)
 */
 
 #include <iostream>
+#include "os_mem.hpp"
 
 extern "C" {
     void *aligned_malloc(size_t len, size_t align) {
@@ -67,3 +69,30 @@ extern "C" {
     }
 }
 
+size_t page_size()
+{
+    static size_t pageSize = []() -> size_t {
+        #if defined(_WIN32) || defined(WIN32)
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
+        return static_cast<size_t>(sysInfo.dwPageSize);
+        #elif __GNUC__
+        long sz = sysconf(_SC_PAGESIZE);
+        return static_cast<size_t>(sz);
+        #else
+        static_assert(false, "Unknown page size for target");
+        #endif
+    }();
+    return pageSize;
+}
+
+#if SYNC_LIB_TEST
+
+#include "../doctest.h"
+
+TEST_CASE("page size") {
+    const size_t systemPageSize = page_size();
+    CHECK_GE(systemPageSize, 4096);
+}
+
+#endif

@@ -89,6 +89,9 @@
         "condition_variable": "cpp",
         "memory_resource": "cpp",
         "functional": "cpp",
-        "print": "cpp"
+        "print": "cpp",
+        "deque": "cpp",
+        "queue": "cpp",
+        "stack": "cpp"
     }
 }

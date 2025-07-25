@@ -3,7 +3,7 @@
 #define SY_INTERPRETER_BYTECODE_HPP_
 
 #include "../core.h"
-#include "stack.hpp"
+#include "stack/stack.hpp"
 
 namespace sy {
     class Type;
@@ -86,6 +86,8 @@ constexpr size_t OPCODE_BITMASK = 0b11111111;
 /// Zero initializing gets a Nop.
 struct Bytecode {
     uint64_t value = 0;
+
+    Bytecode() = default;
 
     template<typename OperandsT>
     Bytecode(const OperandsT& operands) {

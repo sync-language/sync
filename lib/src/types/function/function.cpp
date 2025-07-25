@@ -3,7 +3,7 @@
 #include "../type_info.h"
 #include "../type_info.hpp"
 #include "../../util/assert.hpp"
-#include "../../interpreter/stack.hpp"
+#include "../../interpreter/stack/stack.hpp"
 #include "../../interpreter/interpreter.hpp"
 #include "../../program/program.h"
 #include "../../program/program_internal.hpp"
@@ -383,8 +383,10 @@ bool sy::Function::CallArgs::push(void *argMem, const Type *typeInfo)
     sy_assert(this->pushedCount < this->func->argsLen, "Cannot push more arguments than the function takes");
 
     if(this->func->tag == Function::CallType::Script) {
+        const sy::InterpreterFunctionScriptInfo *scriptInfo =
+            reinterpret_cast<const sy::InterpreterFunctionScriptInfo *>(this->func->fptr);
         const bool result = Stack::getActiveStack().pushScriptFunctionArg(
-            argMem, reinterpret_cast<const Type *>(typeInfo), this->_offset);
+            argMem, reinterpret_cast<const Type *>(typeInfo), this->_offset, scriptInfo->stackSpaceRequired, func->alignment);
 
         if (result == false) {
             return false;
@@ -396,8 +398,7 @@ bool sy::Function::CallArgs::push(void *argMem, const Type *typeInfo)
 
         const size_t newOffset = this->_offset + slotsOccupied;
         sy_assert(newOffset <= UINT16_MAX, "Cannot push argument. Would overflow script stack");
-        const sy::InterpreterFunctionScriptInfo *scriptInfo =
-            reinterpret_cast<const sy::InterpreterFunctionScriptInfo *>(this->func->fptr);
+        
         sy_assert(newOffset <= scriptInfo->stackSpaceRequired, "Pushing argument would overflow this function's script stack");
 
         this->_offset = static_cast<uint16_t>(slotsOccupied);
