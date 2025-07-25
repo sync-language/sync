@@ -313,7 +313,7 @@ bool sy::String::hasEnoughCapacity(const size_t requiredCapacity) const
     }
 }
 
-#ifdef SYNC_LIB_TEST
+#ifndef SYNC_LIB_NO_TESTS
 
 #include "../../doctest.h"
 
@@ -351,4 +351,4 @@ TEST_SUITE("const char* constructor") {
     }
 }
 
-#endif // SYNC_LIB_TEST
+#endif // SYNC_LIB_NO_TESTS

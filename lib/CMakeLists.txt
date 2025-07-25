@@ -52,7 +52,10 @@ endif()
 target_compile_options(SyncLib PRIVATE /fsanitize=address)
 target_compile_options(SyncLibTests PRIVATE /fsanitize=address)
 
-target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_TEST)
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_compile_definitions(SyncLib PRIVATE SYNC_LIB_NO_TESTS)
+endif()
+
 
 set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 

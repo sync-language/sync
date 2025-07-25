@@ -398,7 +398,7 @@ void SyncQueueStack::ensureCapacityForCurrent()
 }
 
 
-#if SYNC_LIB_TEST
+#ifndef SYNC_LIB_NO_TESTS
 
 #include "../doctest.h"
 #include <shared_mutex>
@@ -445,5 +445,5 @@ TEST_SUITE("one lock") {
     }
 }
 
-#endif
+#endif // SYNC_LIB_NO_TESTS
 

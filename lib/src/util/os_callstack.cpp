@@ -368,7 +368,7 @@ void Backtrace::print() const
     }
 }
 
-#if SYNC_LIB_TEST
+#ifndef SYNC_LIB_NO_TESTS
 
 #include "../doctest.h"
 
@@ -405,6 +405,6 @@ TEST_CASE("backtrace template function call") {
     }
 }
 
-#endif
+#endif // SYNC_LIB_NO_TESTS
 
 

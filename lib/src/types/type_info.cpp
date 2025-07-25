@@ -187,7 +187,7 @@ void sy::Type::destroyObjectImpl(void *obj) const
     sy_assert(err.ok(), "Destructors may not throw/cause errors"); // TODO what do to if error?
 }
 
-#ifdef SYNC_LIB_TEST
+#ifndef SYNC_LIB_NO_TESTS
 
 #include "../doctest.h"
 
@@ -211,4 +211,4 @@ TEST_CASE("string destructor") {
     Type::TYPE_STRING->destroyObject(s);
 }
 
-#endif
+#endif // SYNC_LIB_NO_TESTS

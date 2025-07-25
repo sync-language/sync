@@ -274,7 +274,7 @@ FrameGuard &FrameGuard::operator=(FrameGuard && other) {
     return *this;
 }
 
-#ifdef SYNC_LIB_TEST
+#ifndef SYNC_LIB_NO_TESTS
 
 #include "../../doctest.h"
 
@@ -352,4 +352,4 @@ TEST_CASE("max frame") {
     FrameGuard guard = active.pushFrame(UINT16_MAX + 1, 1, nullptr);
 }
 
-#endif // SYNC_LIB_TEST
+#endif // SYNC_LIB_NO_TESTS

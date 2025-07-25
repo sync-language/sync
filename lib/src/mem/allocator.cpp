@@ -86,7 +86,7 @@ void sy::detail::debugAssertNonNull(void *ptr)
     sy_assert(ptr != nullptr, "Expected non-null pointer");
 }
 
-#ifdef SYNC_LIB_TEST
+#ifndef SYNC_LIB_NO_TESTS
 
 #include "../doctest.h"
 
@@ -251,4 +251,4 @@ TEST_CASE("C++ custom allocator") {
     CHECK(backingAllocator.freed);
 }
 
-#endif // SYNC_LIB_TEST
+#endif // SYNC_LIB_NO_TESTS

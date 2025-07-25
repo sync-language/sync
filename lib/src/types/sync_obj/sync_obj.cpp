@@ -474,7 +474,7 @@ void sy::detail::BaseSyncObj::checkNotExpired() const
     sy_assert(!syncObjExpired(this->inner), "Held sync object is expired");
 }
 
-#if SYNC_LIB_TEST
+#ifndef SYNC_LIB_NO_TESTS
 
 #include "../../doctest.h"
 
@@ -582,4 +582,4 @@ TEST_CASE("Weak clone") {
     w2.unlockExclusive();
 }
 
-#endif
+#endif // SYNC_LIB_NO_TESTS

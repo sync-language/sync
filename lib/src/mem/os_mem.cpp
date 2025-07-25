@@ -86,7 +86,7 @@ size_t page_size()
     return pageSize;
 }
 
-#if SYNC_LIB_TEST
+#ifndef SYNC_LIB_NO_TESTS
 
 #include "../doctest.h"
 
@@ -95,4 +95,4 @@ TEST_CASE("page size") {
     CHECK_GE(systemPageSize, 4096);
 }
 
-#endif
+#endif // SYNC_LIB_NO_TESTS
