@@ -1,8 +1,11 @@
 cmake_minimum_required (VERSION 3.19)
 
 if (POLICY CMP0141)
-  cmake_policy(SET CMP0141 NEW)
-  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
+    cmake_policy(SET CMP0141 NEW)
+    #set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
+
+    # https://cmake.org/cmake/help/latest/prop_tgt/MSVC_DEBUG_INFORMATION_FORMAT.html#prop_tgt:MSVC_DEBUG_INFORMATION_FORMAT
+    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -33,14 +36,21 @@ add_executable(SyncLibTests "src/test.cpp" ${SyncLibSources})
 
 # Ensure all warnings are caught
 if(MSVC)
-  target_compile_options(SyncLib PRIVATE /W4 /WX)
-  target_link_libraries(SyncLib PRIVATE dbghelp)
-  target_link_libraries(SyncLibTests PRIVATE dbghelp)
-  # C++ exceptions and unwind semantics. Necessary for Rust
-  target_compile_options(SyncLib PRIVATE /EHsc) 
+    target_compile_options(SyncLib PRIVATE /W4 /WX)
+    target_compile_options(SyncLibTests PRIVATE /W4 /WX)
+    target_link_libraries(SyncLib PRIVATE dbghelp)
+    target_link_libraries(SyncLibTests PRIVATE dbghelp)
+    # C++ exceptions and unwind semantics. Necessary for Rust
+    target_compile_options(SyncLib PRIVATE /EHsc /Zi) 
+    target_compile_options(SyncLibTests PRIVATE /EHsc /Zi) 
 else()
-  target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(SyncLibTests PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
+
+# Address sanitizing
+target_compile_options(SyncLib PRIVATE /fsanitize=address)
+target_compile_options(SyncLibTests PRIVATE /fsanitize=address)
 
 target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_TEST)
 
