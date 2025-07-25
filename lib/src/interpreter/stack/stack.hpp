@@ -49,44 +49,30 @@ public:
 
     void setInstructionPointer(const Bytecode* bytecode);
 
-    /// Will never return `nullptr`.
-    void* valueMemoryAt(uint16_t offset);
-
+    /// @return non-null pointer to the value at the specific offset within the current stack frame.
     template<typename T>
-    T& valueAt(uint16_t offset) {
-        void* valMem = valueMemoryAt(offset);
-        return *reinterpret_cast<typename std::remove_const<T>::type*>(valMem);
-    }
+    [[nodiscard]] T* frameValueAt(const uint16_t offset);
 
-    /// May return `nullptr`.
-    const sy::Type* typeAt(uint16_t offset) const;
+    /// @return non-null pointer to the value at the specific offset within the current stack frame.
+    template<typename T>
+    [[nodiscard]] const T* frameValueAt(const uint16_t offset) const;
 
-    /// Sets the type at a specific offset within the stack frame to be a valid type.
-    /// @param type Non-null pointer.
-    /// @param offset Offset within the stack frame
-    void setTypeAt(const sy::Type* type, uint16_t offset);
+    /// @return The type within the current stack frame at `offset`. The underlying `const sy::Type*` may be nullptr.
+    [[nodiscard]] Node::TypeOfValue typeAt(const uint16_t offset) const;
 
-    /// Sets the type at a specific offset within the stack frame to be a valid type.
-    /// The type is flagged as non-owning, and thus will not be destroyed when the stack is unwinded.
-    /// @param type Non-null pointer.
-    /// @param offset Offset within the stack frame
-    void setNonOwningTypeAt(const sy::Type* type, uint16_t offset);
+    /// Sets the type at `offset` to `type`. If `type` is not a null type, will also set the following slots to
+    /// nullptr provided that the type requires that many slots to store an object.
+    void setTypeAt(const Node::TypeOfValue type, const uint16_t offset);
 
-    /// Sets the type at `offset` to be `nullptr`, marking it as invalid.
-    void setNullTypeAt(uint16_t offset);
-
-    /// @returns If the type at `offset` is an owned type, and thus would be destroyed when the stack is unwinded.
-    bool isOwnedTypeAt(uint16_t offset) const;
-
-    void* returnDst();
+    [[nodiscard]] void* returnDst();
 
     /// @brief Pushes the argument onto the script stack. Potentially adds another stack node if the frame
     /// and arguments wouldn't fit within the current node.
     /// @param argMem Memory to copy the argument data from.
     /// @param type The type of the argument.
     /// @param offset The offset within the next stack frame to set it at.
-    /// @return `true` if the argument was pushed into the current stack node. `false` if pushed to one after.
-    [[nodiscard]] bool pushScriptFunctionArg(
+    /// @return The new starting offset for the next argument
+    uint16_t pushScriptFunctionArg(
         const void* argMem,
         const sy::Type* type,
         uint16_t offset,
@@ -94,19 +80,11 @@ public:
         const uint16_t frameAlign
     );
 
-    [[nodiscard]] std::optional<Frame*> getCurrentFrame();
+    [[nodiscard]] std::optional<Frame> getCurrentFrame();
 
 private:
 
     void addOneNode(const uint32_t requiredFrameLength);
-
-    // Maybe good idea to not store the instruction pointer itself, but the offset within the bytecode.
-    // That way it can occupy 48 bits rather than a full pointer, and then the other 16 bits can be the frame length.
-    // This allows storing the previous function, while saving room for 1 more another old frame data store.
-
-    void setOptionalTypeAt(const sy::Type* type, uint16_t offset, bool isRef);
-
-    const Bytecode* previousInstructionPointer() const;
 
     friend class FrameGuard;
 
@@ -119,7 +97,6 @@ private:
 private:
 
     const Bytecode*         instructionPointer = nullptr;
-    Frame                   currentFrame;
     Node*                   nodes = nullptr;
     size_t                  nodesLen = 0;
     size_t                  nodesCapacity = 0;
@@ -147,5 +124,17 @@ private:
 private:
     Stack* stack;
 };
+
+template <typename T>
+inline T* Stack::frameValueAt(const uint16_t offset)
+{
+    return this->nodes[this->currentNode].frameValueAt<T>(offset);
+}
+
+template <typename T>
+inline const T* Stack::frameValueAt(const uint16_t offset) const
+{
+    return this->nodes[this->currentNode].frameValueAt<T>(offset);
+}
 
 #endif // SY_INTERPRETER_STACK_STACK_HPP_

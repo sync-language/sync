@@ -7,7 +7,6 @@
 #include "../../program/program_internal.hpp"
 #include "../../types/type_info.hpp"
 #include "../../threading/alloc_cache_align.hpp"
-#include "node.hpp"
 #include <utility>
 #include <iostream>
 #include <cstring>
@@ -16,10 +15,6 @@
 #elif __GNUC__
 #include <sys/mman.h>
 #endif
-
-static_assert(sizeof(size_t) == sizeof(void*));
-static_assert(alignof(size_t) == alignof(void*));
-//static_assert(reinterpret_cast<size_t>(nullptr) == 0);
 
 namespace detail {
     /// For now, this value will never change, however it'll be supported anyways for when coroutines become a thing.
@@ -98,18 +93,25 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void *retV
 
     const uint16_t actualAlignment = alignment < 16 ? 16 : alignment;
 
-    
-    const bool success = this->nodes[currentNode].pushFrameNoReallocate(
-        frameLength, actualAlignment, retValDst, this->instructionPointer);
-    if(!success) {
-        const std::optional<Frame> optCurrentFrame = std::nullopt;
-        this->addOneNode(frameLength);
-        this->currentNode += 1;
-        this->nodes[currentNode].pushFrameAllowReallocate(
-            frameLength, actualAlignment, retValDst, optCurrentFrame, this->instructionPointer);
+    Node& currNode = this->nodes[currentNode];
+    if(currNode.isInUse() == false) {
+        sy_assert(currentNode == 0, "If the current node isn't in use, it's the first node");
+
+        currNode.pushFrameAllowReallocate(frameLength, alignment, retValDst, std::nullopt, this->instructionPointer);
+    } else {  
+        const bool success = currNode.pushFrameNoReallocate(
+            frameLength, actualAlignment, retValDst, this->instructionPointer);
+        if(!success) {
+            sy_assert(currNode.isInUse(), "Expected node to be in use");
+            const Frame currFrame = this->nodes[currentNode].currentFrame.value();
+            // initialize the next node if necessary
+            this->addOneNode(currNode.slots + frameLength); // TODO determine better way to do over-allocation       
+            this->nodes[currentNode + 1].pushFrameAllowReallocate(
+                frameLength, actualAlignment, retValDst, currFrame, this->instructionPointer);
+            this->currentNode += 1;
+        }
     }
 
-    this->currentFrame = this->nodes[currentNode].currentFrame.value();
     return FrameGuard(this);
 }
 
@@ -163,121 +165,42 @@ void Stack::setInstructionPointer(const Bytecode *bytecode)
     this->instructionPointer = bytecode;
 }
 
-void* Stack::valueMemoryAt(uint16_t offset)
+Node::TypeOfValue Stack::typeAt(const uint16_t offset) const
 {
-    sy_assert(offset < this->currentFrame.frameLength, "Cannot access past the frame length");
-    const uint32_t actualOffset = this->currentFrame.basePointerOffset + static_cast<uint32_t>(offset);
-    Node& node = this->nodes[currentNode];
-    return &node.values[actualOffset];
+    return this->nodes[this->currentNode].typeAt(offset);
 }
 
-const sy::Type *Stack::typeAt(uint16_t offset) const
+void Stack::setTypeAt(const Node::TypeOfValue type, const uint16_t offset)
 {
-    sy_assert(offset < this->currentFrame.frameLength, "Cannot access past the frame length");
-    const uint32_t actualOffset = this->currentFrame.basePointerOffset + static_cast<uint32_t>(offset);
-    Node& node = this->nodes[currentNode];
-    return node.types[actualOffset].get();
-}
-
-void Stack::setTypeAt(const sy::Type *type, uint16_t offset)
-{
-    sy_assert(type != nullptr, "Cannot set null type");
-    this->setOptionalTypeAt(type, offset, false);
-}
-
-void Stack::setNonOwningTypeAt(const sy::Type *type, uint16_t offset)
-{    
-    sy_assert(type != nullptr, "Cannot set null type");
-    this->setOptionalTypeAt(type, offset, true);
-}
-
-void Stack::setNullTypeAt(uint16_t offset)
-{
-    this->setOptionalTypeAt(nullptr, offset, false);
-}
-
-bool Stack::isOwnedTypeAt(uint16_t offset) const
-{
-    sy_assert(offset < this->currentFrame.frameLength, "Cannot access past the frame length");
-    const uint32_t actualOffset = this->currentFrame.basePointerOffset + static_cast<uint32_t>(offset);
-    Node& node = this->nodes[currentNode];
-    return node.types[actualOffset].isOwned();
+    this->nodes[this->currentNode].setTypeAt(type, offset);
 }
 
 void *Stack::returnDst()
 {
-    return this->currentFrame.retValueDst;
+    return this->nodes[currentNode].currentFrame.value().retValueDst;
 }
 
-bool Stack::pushScriptFunctionArg(
+uint16_t Stack::pushScriptFunctionArg(
     const void* argMem,
     const sy::Type* type,
     uint16_t offset,
     const uint32_t frameLength,
     const uint16_t frameAlign
 ) {
-    bool onThisFrame = true;
-    Node& currentNodeUsed = this->nodes[this->currentNode];
-    std::optional<Frame*> currentFrame = this->getCurrentFrame();
-
-    std::optional<uint32_t> optExtend = Frame::frameExtendAmountForAlignment(
-        currentNodeUsed.slots,
-        currentNodeUsed.nextBaseOffset,
-        frameAlign
-    );
-    if(!optExtend.has_value()) {
-        onThisFrame = false;
-    } else { // extend frame
-        uint32_t actualNextBaseOffset = currentNodeUsed.nextBaseOffset;
-        if(currentFrame.has_value()) {
-            actualNextBaseOffset += Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
-            const uint32_t currentFrameLength = currentFrame.value()->frameLength;
-            const uint32_t newFrameLen = currentFrameLength + optExtend.value();
-            sy_assert(newFrameLen < MAX_FRAME_LEN, "Frame extension exceeds maximum frame length");
-            currentFrame.value()->frameLength = static_cast<uint16_t>(newFrameLen);
-        }
-        currentNodeUsed.nextBaseOffset = actualNextBaseOffset + optExtend.value();
+    std::optional<uint16_t> result = this->nodes[this->currentNode].pushScriptFunctionArg(argMem, type, offset, frameLength, frameAlign);
+    if(result.has_value()) {
+        return result.value();
     }
 
-    if(!currentNodeUsed.hasEnoughSpaceForFrame(frameLength, frameAlign)) {
-        onThisFrame = false;
-    }
-
-
-
-    
-
-
-    // const size_t actualOffset = this->raw.nextBaseOffset + OLD_FRAME_INFO_RESERVED_SLOTS + static_cast<size_t>(offset);
-    // const size_t slotsOccupied = type->sizeType / 8;
-    // { // validate no stack overflow     
-    //     const size_t requiredStackSize = actualOffset + slotsOccupied;
-    //     if(requiredStackSize > this->raw.slots) {
-    //         return false;
-    //     }
-    // }
-
-    // std::memcpy(&this->raw.values[actualOffset], argMem, type->sizeType);
-    // this->raw.types[actualOffset] = reinterpret_cast<uintptr_t>(type);
-    // if(slotsOccupied > 1) {
-    //     for(size_t i = 1; i < slotsOccupied; i++) {
-    //         this->raw.types[actualOffset + i] = reinterpret_cast<uintptr_t>(nullptr);
-    //     }
-    // }
-    // return true;
-    (void)argMem;
-    (void)type;
-    (void)offset;
-    return onThisFrame;
+    // TODO determine better way to do over-allocation 
+    this->addOneNode(this->nodes[this->currentNode].slots + frameLength);
+    uint16_t actualResult = this->nodes[this->currentNode + 1].pushScriptFunctionArg(argMem, type, offset, frameLength, frameAlign).value();
+    return actualResult;
 }
 
-std::optional<Frame*> Stack::getCurrentFrame()
+std::optional<Frame> Stack::getCurrentFrame()
 {
-    if(this->currentNode != 0 || this->nodes[0].nextBaseOffset != 0) {
-        return std::optional<Frame*>(&this->currentFrame);
-    } else {
-        return std::nullopt;
-    }
+    return this->nodes[this->currentNode].currentFrame;
 }
 
 void Stack::popFrame()
@@ -290,14 +213,23 @@ void Stack::popFrame()
 
     Frame           oldFrame = std::get<0>(popResult.value());
     const Bytecode* oldInstructionPointer = std::get<1>(popResult.value());
+
+    if(this->nodes[this->currentNode].isInUse() == false) {
+        //this->nodes[this->currentNode - 1].currentFrame = oldFrame;
+        (void)oldFrame;
+        this->currentNode -= 1;
+    }
     
-    this->currentFrame = oldFrame;
     this->instructionPointer = oldInstructionPointer;
 }
 
 void Stack::addOneNode(const uint32_t requiredFrameLength)
 {
     sy_assert(this->nodesCapacity != 0, "Initial allocation should have been done");
+
+    if(this->nodesLen > (this->currentNode + 1)) {
+        return; // already added
+    }
 
     if(this->nodesLen == this->nodesCapacity) {
         sy::Allocator alloc{};
@@ -320,36 +252,6 @@ void Stack::addOneNode(const uint32_t requiredFrameLength)
     Node* placedNode = new (&this->nodes[this->nodesLen]) Node(minSlots);
     (void)placedNode;
     this->nodesLen += 1;
-}
-
-static bool ptrIsAligned(const void* p, size_t alignment) {
-    // Works for null pointers
-    return (((size_t)p) % alignment) == 0;
-}
-
-void Stack::setOptionalTypeAt(const sy::Type *type, uint16_t offset, bool isRef)
-{
-    static_assert(alignof(sy::Type) > 1, "Lowest bit must be reserved");    
-    sy_assert(offset < this->currentFrame.frameLength, "Cannot access past the frame length");
-    const uint32_t actualOffset = this->currentFrame.basePointerOffset + static_cast<uint32_t>(offset);
-    Node& node = this->nodes[currentNode];
-
-    if(type == nullptr) {
-        node.types[actualOffset] = nullptr;
-        return;
-    } 
-    
-    sy_assert(ptrIsAligned(reinterpret_cast<const void*>(type), alignof(sy::Type)), "Type pointer misaligned");
-    const size_t slotsOccupied = type->sizeType / 8;
-    const size_t requiredFrameLength = static_cast<size_t>(offset) + slotsOccupied;
-    sy_assert(requiredFrameLength < this->currentFrame.frameLength, "Cannot set type past the frame length");
-
-    node.types[actualOffset].set(type, !isRef);
-    if(slotsOccupied > 1) {
-        for(size_t i = 1; i < slotsOccupied; i++) {
-            node.types[actualOffset + i] = nullptr;
-        }
-    }
 }
 
 FrameGuard::~FrameGuard()
