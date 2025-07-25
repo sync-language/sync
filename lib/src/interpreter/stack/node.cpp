@@ -167,12 +167,19 @@ Node::~Node() noexcept
 }
 
 Node::Node(Node &&other) noexcept
-    : values(other.values), types(other.types), slots(other.slots), nextBaseOffset(other.nextBaseOffset)
+    :   values(other.values), 
+        types(other.types), 
+        slots(other.slots), 
+        nextBaseOffset(other.nextBaseOffset),
+        currentFrame(std::move(other.currentFrame)),
+        frameDepth(other.frameDepth)
 {
     other.values = nullptr;
     other.types = nullptr;
     other.slots = 0;
     other.nextBaseOffset = 0;
+    other.currentFrame = std::nullopt;
+    other.frameDepth = 0;
 }
 
 bool Node::hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t alignment) const
@@ -515,13 +522,24 @@ void Node::setTypeAt(const TypeOfValue type, const uint16_t offset)
     }
 }
 
+void Node::setFrameFunction(const uint16_t functionIndex)
+{
+    sy_assert(this->isInUse(), "Expected node to have a frame");
+    this->currentFrame.value().functionIndex = functionIndex;
+}
+
 void Node::ensureOffsetWithinFrameBounds(const uint16_t offset) const
 {
     sy_assert(this->currentFrame.has_value(), "No frame");
     sy_assert(offset < this->currentFrame.value().frameLength, "Index out of bounds for stack frame");
 }
 
-Node::TypeOfValue& Node::TypeOfValue::operator=(std::nullptr_t)
+Node::TypeOfValue::TypeOfValue(const sy::Type *type, bool owned)
+{
+    this->set(type, owned);
+}
+
+Node::TypeOfValue &Node::TypeOfValue::operator=(std::nullptr_t)
 {
     this->mask_ = 0;    
     return *this;

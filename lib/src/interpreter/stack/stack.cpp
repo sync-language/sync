@@ -7,12 +7,12 @@
 #include "../../program/program_internal.hpp"
 #include "../../types/type_info.hpp"
 #include "../../threading/alloc_cache_align.hpp"
+#include "../bytecode.hpp"
 #include <utility>
 #include <iostream>
 #include <cstring>
-#if _MSC_VER
 #include <new>
-#elif __GNUC__
+#if __GNUC__
 #include <sys/mman.h>
 #endif
 
@@ -139,11 +139,12 @@ FrameGuard Stack::pushFunctionFrame(const sy::Function *function, void* retValDs
             alloc.freeAlignedArray(this->callstackFunctions, this->callstackCapacity, ALLOC_CACHE_ALIGN);
             this->callstackFunctions = newFunctions;
             this->callstackCapacity = newCapacity;
-        }
-
-        this->callstackFunctions[this->callstackLen] = function;
-        this->callstackLen += 1;
+        }   
     }
+
+    this->callstackFunctions[this->callstackLen] = function;
+    this->nodes[this->currentNode].setFrameFunction(this->callstackLen);
+    this->callstackLen += 1;
 
     return guard;
 }
@@ -208,6 +209,7 @@ void Stack::popFrame()
     auto popResult = this->nodes[this->currentNode].popFrame();
     if(!popResult.has_value()) {
         sy_assert(this->currentNode == 0, "Node incorrectly reported having no previous frame");
+        this->instructionPointer = nullptr;
         return;
     }
 
@@ -276,79 +278,78 @@ FrameGuard &FrameGuard::operator=(FrameGuard && other) {
 
 #include "../../doctest.h"
 
-// TEST_CASE("push frame on thread local stack") {
-//     Stack& tls = Stack::getThisThreadDefaultStack();
-//     FrameGuard guard = tls.pushFrame(1, 16, nullptr);
-//     tls.setNullTypeAt(0);
-// }
+TEST_CASE("push frame on thread local stack") {
+    Stack& tls = Stack::getThisThreadDefaultStack();
+    FrameGuard guard = tls.pushFrame(1, 1, nullptr);
+    tls.setTypeAt(nullptr, 0);
+}
 
-// TEST_CASE("push frame on active stack") {
-//     Stack& active = Stack::getActiveStack();
-//     FrameGuard guard = active.pushFrame(1, 16, nullptr);
-// }
+TEST_CASE("push frame on active stack") {
+    Stack& active = Stack::getActiveStack();
+    FrameGuard guard = active.pushFrame(1, 1, nullptr);
+}
 
-// TEST_CASE("construct stack") {
-//     Stack stack = Stack();
-//     FrameGuard guard = stack.pushFrame(1, 16, nullptr);
-// }
+TEST_CASE("construct stack") {
+    Stack stack = Stack();
+    FrameGuard guard = stack.pushFrame(1, 1, nullptr);
+}
 
-// TEST_CASE("overflow stack with first frame") {
-//     Stack stack = Stack(); // only has 1 actual slot
-//     FrameGuard guard = stack.pushFrame(2, 16, nullptr);
-// }
+TEST_CASE("overflow stack with first frame") {
+    Stack stack = Stack(); // only has 1 actual slot
+    FrameGuard guard = stack.pushFrame(2, 1, nullptr);
+}
 
-// TEST_CASE("2 frames") {
-//     Stack& active = Stack::getActiveStack();
-//     FrameGuard guard1 = active.pushFrame(4, 16, nullptr);
-//     {
-//         FrameGuard guard2 = active.pushFrame(9, 16, nullptr);
-//     }
-// }
+TEST_CASE("2 frames") {
+    Stack& active = Stack::getActiveStack();
+    FrameGuard guard1 = active.pushFrame(4, 1, nullptr);
+    Bytecode bytecode;
+    active.setInstructionPointer(&bytecode);
+    {
+        FrameGuard guard2 = active.pushFrame(9, 1, nullptr);
+    }
+}
 
-// TEST_CASE("many nested frames") {    
-//     Stack& active = Stack::getActiveStack();
-//     FrameGuard guard1 = active.pushFrame(1, 16, nullptr);
-//     {
-//         FrameGuard guard2 = active.pushFrame(1, 16, nullptr);
-//         {
-//             FrameGuard guard3 = active.pushFrame(1, 16, nullptr);
-//             {
-//                 FrameGuard guard4 = active.pushFrame(1, 16, nullptr);
-//                 {
-//                     FrameGuard guard5 = active.pushFrame(1, 16, nullptr);
-//                 }
-//             }
-//         }
-//     }
-// }
+TEST_CASE("many nested frames") {    
+    Stack& active = Stack::getActiveStack();
+    FrameGuard guard1 = active.pushFrame(1, 1, nullptr);
+    Bytecode bytecode;
+    active.setInstructionPointer(&bytecode);
+    {
+        FrameGuard guard2 = active.pushFrame(1, 1, nullptr);
+        {
+            FrameGuard guard3 = active.pushFrame(1, 1, nullptr);
+            {
+                FrameGuard guard4 = active.pushFrame(1, 1, nullptr);
+                {
+                    FrameGuard guard5 = active.pushFrame(1, 1, nullptr);
+                }
+            }
+        }
+    }
+}
 
-// TEST_CASE("frames of various length") {
-//     Stack& active = Stack::getActiveStack();
-//     FrameGuard guard1 = active.pushFrame(100, 16, nullptr);
-//     {
-//         FrameGuard guard2 = active.pushFrame(400, 16, nullptr);
-//         {
-//             FrameGuard guard3 = active.pushFrame(3, 16, nullptr);        
-//             // active.setNullTypeAt(0);
-//             // active.setNullTypeAt(1);
-//             {
-//                 FrameGuard guard4 = active.pushFrame(80, 16, nullptr);
-//                 {
-//                     FrameGuard guard5 = active.pushFrame(1000, 16, nullptr);
-//                     // active.setNullTypeAt(0);
-//                     // active.setNullTypeAt(500);
-//                     // active.setNullTypeAt(999);
-//                 }
-//             }
-//             // active.setNullTypeAt(1);
-//             // active.setNullTypeAt(2);
-//         }
-//     }
-// }
+TEST_CASE("frames of various length") {
+    Stack& active = Stack::getActiveStack();
+    FrameGuard guard1 = active.pushFrame(100, 1, nullptr);
+    Bytecode bytecode;
+    active.setInstructionPointer(&bytecode);
+    {
+        FrameGuard guard2 = active.pushFrame(400, 1, nullptr);
+        {
+            FrameGuard guard3 = active.pushFrame(3, 1, nullptr);
+            {
+                FrameGuard guard4 = active.pushFrame(80, 1, nullptr);
+                {
+                    FrameGuard guard5 = active.pushFrame(1000, 1, nullptr);
+                }
+            }
+        }
+    }
+}
 
-// TEST_CASE("max frame") {
-//     Stack& active = Stack::getActiveStack();
-//     FrameGuard guard = active.pushFrame(UINT16_MAX + 1, 16, nullptr);
-// }
+TEST_CASE("max frame") {
+    Stack& active = Stack::getActiveStack();
+    FrameGuard guard = active.pushFrame(UINT16_MAX + 1, 1, nullptr);
+}
 
 #endif // SYNC_LIB_TEST

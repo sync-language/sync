@@ -18,6 +18,7 @@ public:
     class TypeOfValue {
     public:
         TypeOfValue() = default;
+        TypeOfValue(const sy::Type* type, bool owned);
         TypeOfValue(std::nullptr_t) : mask_(0) {};
         TypeOfValue& operator=(std::nullptr_t);
 
@@ -156,6 +157,8 @@ public:
     /// Sets the type at `offset` to `type`. If `type` is not a null type, will also set the following slots to
     /// nullptr provided that the type requires that many slots to store an object.
     void setTypeAt(const TypeOfValue type, const uint16_t offset);
+
+    void setFrameFunction(const uint16_t functionIndex);
 
     /// By default, values use 1KB.
     /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit pointers,
