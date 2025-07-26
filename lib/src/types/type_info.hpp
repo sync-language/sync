@@ -20,7 +20,7 @@ namespace sy {
             String = 4,
             StringSlice = 5,
             Reference = 7,
-            Function = 17,
+            Function = 18,
         };
 
         union SY_API ExtraInfo {
