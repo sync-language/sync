@@ -76,7 +76,7 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void *retV
 
         if(this->nodes == nullptr) {
             constexpr size_t capacity = minNodeCapacityForCacheAlign();
-            this->nodes = alloc.allocAlignedArray<Node>(capacity, ALLOC_CACHE_ALIGN).get();
+            this->nodes = alloc.allocAlignedArray<Node>(capacity, ALLOC_CACHE_ALIGN).value();
             this->nodesCapacity = capacity;
 
             Node* _ = new (&this->nodes[0]) Node(frameLength * 4); // TODO evaluate this default
@@ -86,7 +86,7 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void *retV
 
         if(this->callstackFunctions == nullptr) {
             constexpr size_t capacity = minCallstackFunctionCapacityForCacheAlign();
-            this->callstackFunctions = alloc.allocAlignedArray<const sy::Function*>(capacity, ALLOC_CACHE_ALIGN).get();
+            this->callstackFunctions = alloc.allocAlignedArray<const sy::Function*>(capacity, ALLOC_CACHE_ALIGN).value();
             this->callstackCapacity = capacity;
         }
     }
@@ -130,7 +130,7 @@ FrameGuard Stack::pushFunctionFrame(const sy::Function *function, void* retValDs
             sy::Allocator alloc{};
 
             const uint16_t newCapacity = callstackCapacity * 2;
-            auto newFunctions = alloc.allocAlignedArray<const sy::Function*>(newCapacity, ALLOC_CACHE_ALIGN).get();
+            auto newFunctions = alloc.allocAlignedArray<const sy::Function*>(newCapacity, ALLOC_CACHE_ALIGN).value();
             
             for(decltype(this->callstackLen) i = 0; i < this->callstackLen; i++) {
                 newFunctions[i] = this->callstackFunctions[i];
@@ -237,7 +237,7 @@ void Stack::addOneNode(const uint32_t requiredFrameLength)
         sy::Allocator alloc{};
 
         const size_t newCapacity = nodesCapacity * 2;
-        auto newNodes = alloc.allocAlignedArray<Node>(newCapacity, ALLOC_CACHE_ALIGN).get();
+        auto newNodes = alloc.allocAlignedArray<Node>(newCapacity, ALLOC_CACHE_ALIGN).value();
         
         for(decltype(this->nodesLen) i = 0; i < this->nodesLen; i++) {
             Node* _ = new (&newNodes[i]) Node(std::move(this->nodes[i]));

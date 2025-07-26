@@ -260,9 +260,9 @@ void ArgBuf::reallocate(const size_t sizeNewType)
     }
 
     sy::Allocator alloc;
-    uint8_t *newValues = alloc.allocAlignedArray<uint8_t>(newValuesCapacity, ALLOC_ALIGNMENT).get();
-    const Type **newTypes = alloc.allocAlignedArray<const Type *>(newTypesAndOffsetCapacity, ALLOC_ALIGNMENT).get();
-    size_t *newOffsets = alloc.allocAlignedArray<size_t>(newTypesAndOffsetCapacity, ALLOC_ALIGNMENT).get();
+    uint8_t *newValues = alloc.allocAlignedArray<uint8_t>(newValuesCapacity, ALLOC_ALIGNMENT).value();
+    const Type **newTypes = alloc.allocAlignedArray<const Type *>(newTypesAndOffsetCapacity, ALLOC_ALIGNMENT).value();
+    size_t *newOffsets = alloc.allocAlignedArray<size_t>(newTypesAndOffsetCapacity, ALLOC_ALIGNMENT).value();
 
     if (this->count > 0) {
         memcpy(newValues, this->values, this->valuesCapacity);
@@ -309,7 +309,7 @@ uint32_t ArgBufArray::pushNewBuf()
 
         // 4 seems like reasonable starting capacity
         const uint32_t newCapacity = this->capacity == 0 ? 4 : this->capacity * 2;
-        ArgBuf* newBufs = alloc.allocArray<ArgBuf>(newCapacity).get();
+        ArgBuf* newBufs = alloc.allocArray<ArgBuf>(newCapacity).value();
 
         if(this->capacity != 0) {
             for(uint32_t i = 0; i < this->len; i++) {

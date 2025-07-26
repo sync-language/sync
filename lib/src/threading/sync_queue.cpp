@@ -314,7 +314,7 @@ void SyncQueue::addExtraCapacity()
     sy_assert(newCapacity <= UINT16_MAX, "Sync queue maximum capacity is max uint16");
 
     sy::Allocator alloc{};
-    InQueueSyncObj* newObjects = alloc.allocAlignedArray<InQueueSyncObj>(newCapacity, ALLOC_CACHE_ALIGN).get();
+    InQueueSyncObj* newObjects = alloc.allocAlignedArray<InQueueSyncObj>(newCapacity, ALLOC_CACHE_ALIGN).value();
     if(this->_capacity > 0) {
         for(uint16_t i = 0; i < this->_len; i++) {
             newObjects[i] = this->_objects[i];
@@ -330,7 +330,7 @@ SyncQueueStack::SyncQueueStack()
 {
     constexpr size_t DEFAULT_CAPACITY = ALLOC_CACHE_ALIGN / sizeof(SyncQueue);
     sy::Allocator alloc{};
-    SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(DEFAULT_CAPACITY, ALLOC_CACHE_ALIGN).get();
+    SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(DEFAULT_CAPACITY, ALLOC_CACHE_ALIGN).value();
     for(size_t i = 0; i < DEFAULT_CAPACITY; i++) {
         SyncQueue* placed = new (&newQueues[i]) SyncQueue;
         (void)placed;
@@ -381,7 +381,7 @@ void SyncQueueStack::ensureCapacityForCurrent()
         : static_cast<size_t>(static_cast<double>(this->capacity) * 1.5);
     
     sy::Allocator alloc{};
-    SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(newCapacity, ALLOC_CACHE_ALIGN).get();
+    SyncQueue* newQueues = alloc.allocAlignedArray<SyncQueue>(newCapacity, ALLOC_CACHE_ALIGN).value();
     for(size_t i = 0; i < newCapacity; i++) {
         SyncQueue* placed = new (&newQueues[i]) SyncQueue;
         (void)placed;

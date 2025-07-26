@@ -66,8 +66,7 @@ static sy::AllocExpect<char*> mallocHeapBuffer(size_t& inCapacity, sy::Allocator
     if(remainder != 0){
         inCapacity = inCapacity + (STRING_ALLOC_ALIGN - remainder);
     }
-    auto res = alloc.allocAlignedArray<char>(inCapacity, STRING_ALLOC_ALIGN);
-    return sy::AllocExpect<char*>(res.get());
+    return alloc.allocAlignedArray<char>(inCapacity, STRING_ALLOC_ALIGN);
 }
 
 static void freeHeapBuffer(char* buff, size_t inCapacity, sy::Allocator alloc) {

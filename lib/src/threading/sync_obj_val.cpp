@@ -27,7 +27,7 @@ SyncObjVal *SyncObjVal::create(const size_t inSizeType, const size_t inAlignType
     const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType(inAlignType) + inSizeType;
 
     sy::Allocator alloc{};
-    uint8_t* mem = alloc.allocAlignedArray<uint8_t>(fullAllocSize, allocAlign).get();
+    uint8_t* mem = alloc.allocAlignedArray<uint8_t>(fullAllocSize, allocAlign).value();
     SyncObjVal* self = reinterpret_cast<SyncObjVal*>(mem);
     (void)new (self) SyncObjVal(static_cast<uint16_t>(inAlignType));
     self->alignType = static_cast<uint16_t>(inAlignType);

@@ -174,7 +174,7 @@ TEST_CASE("C custom allocator") {
 
 TEST_CASE("C++ default alloc/free object") {
     Allocator a;
-    int* p = a.allocObject<int>().get();
+    int* p = a.allocObject<int>().value();
     CHECK_NE(p, nullptr);
     *p = 10;
     a.freeObject(p);
@@ -183,7 +183,7 @@ TEST_CASE("C++ default alloc/free object") {
 
 TEST_CASE("C++ default alloc/free array") {
     Allocator a;
-    int* p = a.allocArray<int>(10).get();
+    int* p = a.allocArray<int>(10).value();
     CHECK_NE(p, nullptr);
     for(int i = 0; i < 10; i++) {
         p[i] = i;
@@ -194,7 +194,7 @@ TEST_CASE("C++ default alloc/free array") {
 
 TEST_CASE("C++ default alloc/free aligned object") {
     Allocator a;
-    int* p = a.allocAlignedObject<int>(64).get();
+    int* p = a.allocAlignedObject<int>(64).value();
     CHECK_NE(p, nullptr);
     const size_t alignMod64 = reinterpret_cast<size_t>(p) % 64;
     CHECK_EQ(alignMod64, 0);
@@ -205,7 +205,7 @@ TEST_CASE("C++ default alloc/free aligned object") {
 
 TEST_CASE("C++ default alloc/free aligned array") {
     Allocator a;
-    int* p = a.allocAlignedArray<int>(10, 64).get();
+    int* p = a.allocAlignedArray<int>(10, 64).value();
     CHECK_NE(p, nullptr);
     const size_t alignMod64 = reinterpret_cast<size_t>(p) % 64;
     CHECK_EQ(alignMod64, 0);
@@ -247,7 +247,7 @@ TEST_CASE("C++ custom allocator") {
     CHECK_EQ(backingAllocator.freed, false);
     CHECK_EQ(backingAllocator.some, 0);
     
-    int* p = a.allocObject<int>().get();
+    int* p = a.allocObject<int>().value();
     CHECK_NE(p, nullptr);
     CHECK_NE(backingAllocator.ptr, nullptr);
     *p = 10;

@@ -9,8 +9,8 @@
 
 namespace sy {
     namespace detail {
-        void debugAssertNonNull(void* ptr);
-        void debugAssertHasVal(bool hasVal);
+        extern void debugAssertNonNull(void* ptr);
+        extern void debugAssertHasVal(bool hasVal);
     }
 
     template<typename T, typename Enable = void> 

@@ -37,8 +37,8 @@ static Allocation allocateStack(const uint32_t minSlotSize)
 
     if(minSlotSize <= MIN_SLOTS) {
         sy::Allocator allocator;
-        aloc.values = allocator.allocAlignedArray<uint64_t>(MIN_SLOTS, MIN_VALUES_ALIGNMENT).get();
-        aloc.types = allocator.allocAlignedArray<Node::TypeOfValue>(MIN_SLOTS, ALLOC_CACHE_ALIGN).get();
+        aloc.values = allocator.allocAlignedArray<uint64_t>(MIN_SLOTS, MIN_VALUES_ALIGNMENT).value();
+        aloc.types = allocator.allocAlignedArray<Node::TypeOfValue>(MIN_SLOTS, ALLOC_CACHE_ALIGN).value();
         aloc.slots = MIN_SLOTS;
     } else {
         const size_t pageSize = page_size();

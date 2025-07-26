@@ -43,23 +43,6 @@ namespace sy {
             free_fn     freeFn;
         };
 
-        template<typename T>
-        class Result final {
-            friend class Allocator;
-        public:
-            Result() : _mem(nullptr) {}
-            
-            T* get() const {
-                T* mem = const_cast<T*>(this->_mem);
-                detail::debugAssertNonNull(reinterpret_cast<void*>(mem));
-                return mem;
-            }
-        private:
-            Result(T* ptr) : _mem(ptr) {}
-        private:
-            T* _mem;
-        };
-
         /// Default initializes to the global allocator.
         Allocator();
 
@@ -74,27 +57,27 @@ namespace sy {
 
         /// Allocate memory for a single instance of T. Does not call constructor.
         template<typename T>
-        Result<T> allocObject() {
+        AllocExpect<T*> allocObject() {
             return reinterpret_cast<T*>(
                 this->allocImpl(sizeof(T), alignof(T)));      
         }
 
         template<typename T>
-        Result<T> allocArray(size_t len) {
+        AllocExpect<T*> allocArray(size_t len) {
             return reinterpret_cast<T*>(
                 this->allocImpl(sizeof(T) * len, alignof(T)));    
         }
 
         /// Allocate memory for a single instance of T. Does not call constructor.
         template<typename T>
-        Result<T> allocAlignedObject(size_t align) {
+        AllocExpect<T*> allocAlignedObject(size_t align) {
             const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
             return reinterpret_cast<T*>(
                 this->allocImpl(sizeof(T), actualAlign));      
         }
 
         template<typename T>
-        Result<T> allocAlignedArray(size_t len, size_t align) {
+        AllocExpect<T*> allocAlignedArray(size_t len, size_t align) {
             const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
             return reinterpret_cast<T*>(
                 this->allocImpl(sizeof(T) * len, actualAlign));    
