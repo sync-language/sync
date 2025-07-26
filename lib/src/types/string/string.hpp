@@ -5,11 +5,26 @@
 
 #include "../../core.h"
 #include "string_slice.hpp"
+#include "../../mem/allocator.hpp"
 
 namespace sy {
 
     /// Dynamic, [Small String Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/) 
-    /// utf8 string class. It's a primitive script type.
+    /// utf8 string class. It supports using a custom allocator.
+    class SY_API StringUnmanaged SY_CLASS_FINAL {
+    public:
+    
+        StringUnmanaged() = default;
+
+    private:
+        
+        size_t len_     = 0;
+        size_t raw_[3]  = { 0 };
+    };
+
+    /// Dynamic, [Small String Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/) 
+    /// utf8 string class. It is a wrapper around `StringUnmanaged` that uses the default allocator.
+    /// Is script compatible.
     class SY_API String final {
     public:
     
