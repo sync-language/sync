@@ -86,6 +86,11 @@ void sy::detail::debugAssertNonNull(void *ptr)
     sy_assert(ptr != nullptr, "Expected non-null pointer");
 }
 
+void sy::detail::debugAssertHasVal(bool hasVal)
+{
+    sy_assert(hasVal, "Expected allocator error result object to have a value");
+}
+
 #ifndef SYNC_LIB_NO_TESTS
 
 #include "../doctest.h"

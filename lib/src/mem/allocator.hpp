@@ -4,6 +4,7 @@
 #define SY_MEM_ALLOCATOR_HPP_
 
 #include "../core.h"
+#include "alloc_expect.hpp"
 
 namespace sy {
     class Allocator;
@@ -27,6 +28,7 @@ namespace sy {
 
     namespace detail {
         void debugAssertNonNull(void* ptr);
+        void debugAssertHasVal(bool hasVal);
     }
 
     /// Can be bitcast to `c::SyAllocator`.

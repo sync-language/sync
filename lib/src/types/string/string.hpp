@@ -6,6 +6,7 @@
 #include "../../core.h"
 #include "string_slice.hpp"
 #include "../../mem/allocator.hpp"
+#include <iostream>
 
 namespace sy {
 
@@ -15,6 +16,29 @@ namespace sy {
     public:
     
         StringUnmanaged() = default;
+
+        ~StringUnmanaged() noexcept;
+
+        void destroy(Allocator& alloc) noexcept;
+
+        StringUnmanaged(StringUnmanaged&& other) noexcept;
+
+        StringUnmanaged& operator=(StringUnmanaged&& other) = delete;
+
+        void moveAssign(StringUnmanaged&& other, Allocator& alloc) noexcept;
+
+        StringUnmanaged(const StringUnmanaged&) = delete;
+
+        static AllocExpect<StringUnmanaged> copyConstruct(const StringUnmanaged& other, Allocator& alloc);
+
+
+    SY_CLASS_TEST_PRIVATE:
+
+        bool isSso() const;
+
+        void setHeapFlag();
+
+        void setSsoFlag();
 
     private:
         

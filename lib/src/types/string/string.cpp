@@ -2,6 +2,8 @@
 #include "string.hpp"
 #include "../../mem/allocator.hpp"
 #include <cstring>
+#include <cstdlib>
+#include "../../util/os_callstack.hpp"
 
 #if defined(__AVX512BW__)
 // _mm512_cmpeq_epi8_mask
@@ -20,23 +22,55 @@ constexpr size_t STRING_ALLOC_ALIGN = 16;
 constexpr size_t STRING_ALLOC_ALIGN = alignof(void*);
 #endif
 
-static_assert(STRING_ALLOC_ALIGN);
+static constexpr size_t SSO_CAPACITY = 3 * sizeof(size_t);
+// Not including null terminator
+static constexpr size_t MAX_SSO_LEN = SSO_CAPACITY - 1;
+constexpr char FLAG_BIT = static_cast<char>(0b10000000);
+
+struct SsoBuffer {
+    char arr[SSO_CAPACITY] = { '\0' };
+    SsoBuffer() = default;
+};
+
+struct AllocBuffer {
+    char*   ptr = nullptr;
+    size_t  capacity = 0;
+    char    _unused[sizeof(size_t) - 1] = { 0 };
+    char    flag = 0;
+    AllocBuffer() = default;
+};
+
+static_assert(sizeof(SsoBuffer) == sizeof(AllocBuffer));
+static_assert(sizeof(SsoBuffer) == sizeof(size_t[3]));
+
+// static const SsoBuffer* asSso(const size_t* raw) {
+//     return reinterpret_cast<const SsoBuffer*>(raw);
+// }
+
+// static SsoBuffer* asSsoMut(size_t* raw) {
+//     return reinterpret_cast<SsoBuffer*>(raw);
+// }
+
+static const AllocBuffer* asAlloc(const size_t* raw) {
+    return reinterpret_cast<const AllocBuffer*>(raw);
+}
+
+static AllocBuffer* asAllocMut(size_t* raw) {
+    return reinterpret_cast<AllocBuffer*>(raw);
+}
 
 /// @param inCapacity will be rounded up to the nearest multiple of `STRING_ALLOC_ALIGN`.
 /// @return Non-zeroed memory
-static char* mallocHeapBuffer(size_t& inCapacity){
-    sy::Allocator alloc{};
-
+static sy::AllocExpect<char*> mallocHeapBuffer(size_t& inCapacity, sy::Allocator alloc) {
     const size_t remainder = inCapacity % STRING_ALLOC_ALIGN;
     if(remainder != 0){
         inCapacity = inCapacity + (STRING_ALLOC_ALIGN - remainder);
     }
-    char* buffer = alloc.allocAlignedArray<char>(inCapacity, STRING_ALLOC_ALIGN).get();
-    return buffer;
+    auto res = alloc.allocAlignedArray<char>(inCapacity, STRING_ALLOC_ALIGN);
+    return sy::AllocExpect<char*>(res.get());
 }
 
-static void freeHeapBuffer(char* buff, size_t inCapacity){
-    sy::Allocator alloc{};
+static void freeHeapBuffer(char* buff, size_t inCapacity, sy::Allocator alloc) {
     alloc.freeAlignedArray<char>(buff, inCapacity, STRING_ALLOC_ALIGN);
 }
 
@@ -57,14 +91,111 @@ static void zeroSetLastSIMDElement(char* buffer, const size_t untouchedLength) {
     }
 }
 
-constexpr char FLAG_BIT = static_cast<char>(0b10000000);
+sy::StringUnmanaged::~StringUnmanaged() noexcept
+{
+    // Ensure no leaks
+    #if _DEBUG
+    if(this->isSso() == false) {
+        try {
+            std::cerr << "StringUnmanaged not properly destroyed." << std::endl;
+            Backtrace bt = Backtrace::generate();
+            bt.print();
+        } catch(...) {}
+        std::abort();
+    }
+    #endif
+}
+
+void sy::StringUnmanaged::destroy(Allocator& alloc) noexcept
+{
+    if(this->isSso()) return;
+
+    AllocBuffer* heap = asAllocMut(this->raw_);
+
+    freeHeapBuffer(heap->ptr, heap->capacity, alloc);
+    this->len_ = 0;
+    heap->flag = 0;
+}
+
+sy::StringUnmanaged::StringUnmanaged(StringUnmanaged &&other) noexcept
+    : len_(other.len_)
+{
+    for(size_t i = 0; i < 3; i++) {
+        this->raw_[i] = other.raw_[i];
+    }
+    other.len_ = 0;
+    asAllocMut(this->raw_)->flag = 0;
+}
+
+void sy::StringUnmanaged::moveAssign(StringUnmanaged &&other, Allocator& alloc) noexcept
+{
+    if(!isSso()) {
+        AllocBuffer* heap = asAllocMut(this->raw_);
+        freeHeapBuffer(heap->ptr, heap->capacity, alloc);
+    }
+
+    this->len_ = other.len_;
+    for(size_t i = 0; i < 3; i++) {
+        this->raw_[i] = other.raw_[i];   
+    }
+    other.len_ = 0;
+    asAllocMut(this->raw_)->flag = 0;
+}
+
+sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstruct(const StringUnmanaged &other, Allocator &alloc)
+{
+    sy::StringUnmanaged self;
+    self.len_ = other.len_;
+
+    if(other.isSso()) {
+        // This is the same as copying the SSO buffer manually, but with a linear loop, and less copies
+        for(size_t i = 0; i < 3; i++){
+            self.raw_[i] = other.raw_[i];
+        }
+        return AllocExpect<StringUnmanaged>();
+    }
+    
+    //capacity is length + 1 for \0 (null terminator)
+    size_t cap = self.len_ + 1;
+    auto res = mallocHeapBuffer(cap, alloc);
+    char* buffer = res.value();
+    const AllocBuffer* otherHeap = asAlloc(other.raw_);
+    for(size_t i = 0; i < self.len_; i++) {
+        buffer[i] = otherHeap->ptr[i];
+    }
+    zeroSetLastSIMDElement(buffer, self.len_);
+
+    self.setHeapFlag();
+    AllocBuffer* thisHeap = asAllocMut(self.raw_);
+    thisHeap->ptr = buffer;
+    thisHeap->capacity = cap;
+    return AllocExpect<StringUnmanaged>(std::move(self));
+}
+
+bool sy::StringUnmanaged::isSso() const
+{
+    return !(asAlloc(this->raw_)->flag & FLAG_BIT);
+}
+
+void sy::StringUnmanaged::setHeapFlag()
+{
+    AllocBuffer* h = asAllocMut(this->raw_);
+    h->flag = FLAG_BIT;
+}
+
+void sy::StringUnmanaged::setSsoFlag()
+{
+    AllocBuffer* h = asAllocMut(this->raw_);
+    h->flag = 0;
+}
+
 
 sy::String::~String() noexcept {
     if(this->isSso()) return;
 
     HeapBuffer* heap = this->asHeap();
 
-    freeHeapBuffer(heap->ptr, heap->capacity);
+    (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
     this->_length = 0;
     heap->flag = 0;
 }
@@ -82,7 +213,7 @@ sy::String::String(const String &other)
     
     //capacity is length + 1 for \0 (null terminator)
     size_t cap = this->_length + 1;
-    char* buffer = mallocHeapBuffer(cap);
+    char* buffer = mallocHeapBuffer(cap, Allocator()).value();
     const HeapBuffer* otherHeap = other.asHeap();
     for(size_t i = 0; i < _length; i++) {
         buffer[i] = otherHeap->ptr[i];
@@ -114,7 +245,7 @@ sy::String& sy::String::operator=(const String& other) {
         if(!isSso()) {
             // Don't bother keeping large heap allocation unnecessarily
             HeapBuffer* heap = this->asHeap();
-            freeHeapBuffer(heap->ptr, heap->capacity);
+            (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
         }
         // All slices returned by a String object have the same alignment as `alignof(size_t)`.
         // Furthermore all are at least 3 size_t's wide (even if the slice doesn't extend that long).
@@ -139,12 +270,12 @@ sy::String& sy::String::operator=(const String& other) {
         HeapBuffer* heap = asHeap();
         if(!isSso()) {
             // The old buffer isn't big enough, so we free it
-            freeHeapBuffer(heap->ptr, heap->capacity);
+            (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
         }
 
         // Allocate for a new buffer that is big enough here
         size_t newCapacity = requiredCapacity;
-        char* buffer = mallocHeapBuffer(newCapacity);
+        char* buffer = mallocHeapBuffer(newCapacity, Allocator()).value();
         for(size_t i = 0; i < _length; i++) {
             buffer[i] = otherSlice[i];
         }
@@ -162,7 +293,7 @@ sy::String& sy::String::operator=(const String& other) {
 sy::String& sy::String::operator=(String&& other) noexcept {
     if(!isSso()) {
         HeapBuffer* heap = asHeap();
-        freeHeapBuffer(heap->ptr, heap->capacity);
+        (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
     }
 
     this->_length = other._length;
@@ -186,7 +317,7 @@ sy::String::String(const StringSlice &str)
 
     //capacity is length + 1 for \0 (null terminator)
     size_t cap = this->_length + 1;
-    char* buffer = mallocHeapBuffer(cap);
+    char* buffer = mallocHeapBuffer(cap, Allocator()).value();
     for(size_t i = 0; i < _length; i++) {
         buffer[i] = str[i];
     }
@@ -206,7 +337,7 @@ sy::String& sy::String::operator=(const StringSlice& str) {
         if(!isSso()) {
             // Don't bother keeping large heap allocation unnecessarily
             HeapBuffer* heap = this->asHeap();
-            freeHeapBuffer(heap->ptr, heap->capacity);
+            (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
         }
 
         for(size_t i = 0; i < str.len(); i++) {
@@ -229,12 +360,12 @@ sy::String& sy::String::operator=(const StringSlice& str) {
         HeapBuffer* heap = asHeap();
         if(!isSso()) {
             // The old buffer isn't big enough, so we free it
-            freeHeapBuffer(heap->ptr, heap->capacity);
+            (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
         }
 
         // Allocate for a new buffer that is big enough here
         size_t newCapacity = requiredCapacity;
-        char* buffer = mallocHeapBuffer(newCapacity);
+        char* buffer = mallocHeapBuffer(newCapacity, Allocator()).value();
         for(size_t i = 0; i < _length; i++) {
             buffer[i] = str[i];
         }
