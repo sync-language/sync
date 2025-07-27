@@ -124,7 +124,7 @@ sy::StringUnmanaged::StringUnmanaged(StringUnmanaged &&other) noexcept
         this->raw_[i] = other.raw_[i];
     }
     other.len_ = 0;
-    asAllocMut(this->raw_)->flag = 0;
+    other.setSsoFlag();
 }
 
 void sy::StringUnmanaged::moveAssign(StringUnmanaged &&other, Allocator& alloc) noexcept
