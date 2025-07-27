@@ -1,9 +1,10 @@
 #include "string.h"
 #include "string.hpp"
 #include "../../mem/allocator.hpp"
+#include "../../util/os_callstack.hpp"
+#include "../../util/assert.hpp"
 #include <cstring>
 #include <cstdlib>
-#include "../../util/os_callstack.hpp"
 
 #if defined(__AVX512BW__)
 // _mm512_cmpeq_epi8_mask
@@ -43,13 +44,13 @@ struct AllocBuffer {
 static_assert(sizeof(SsoBuffer) == sizeof(AllocBuffer));
 static_assert(sizeof(SsoBuffer) == sizeof(size_t[3]));
 
-// static const SsoBuffer* asSso(const size_t* raw) {
-//     return reinterpret_cast<const SsoBuffer*>(raw);
-// }
+static const SsoBuffer* asSso(const size_t* raw) {
+    return reinterpret_cast<const SsoBuffer*>(raw);
+}
 
-// static SsoBuffer* asSsoMut(size_t* raw) {
-//     return reinterpret_cast<SsoBuffer*>(raw);
-// }
+static SsoBuffer* asSsoMut(size_t* raw) {
+    return reinterpret_cast<SsoBuffer*>(raw);
+}
 
 static const AllocBuffer* asAlloc(const size_t* raw) {
     return reinterpret_cast<const AllocBuffer*>(raw);
@@ -141,7 +142,8 @@ void sy::StringUnmanaged::moveAssign(StringUnmanaged &&other, Allocator& alloc) 
     asAllocMut(this->raw_)->flag = 0;
 }
 
-sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstruct(const StringUnmanaged &other, Allocator &alloc)
+sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstruct(
+    const StringUnmanaged &other, Allocator &alloc) noexcept
 {
     sy::StringUnmanaged self;
     self.len_ = other.len_;
@@ -151,12 +153,15 @@ sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstruct(const St
         for(size_t i = 0; i < 3; i++){
             self.raw_[i] = other.raw_[i];
         }
-        return AllocExpect<StringUnmanaged>();
+        return AllocExpect<StringUnmanaged>(std::move(self));
     }
     
     //capacity is length + 1 for \0 (null terminator)
     size_t cap = self.len_ + 1;
     auto res = mallocHeapBuffer(cap, alloc);
+    if(!res) {
+        return AllocExpect<StringUnmanaged>();
+    }
     char* buffer = res.value();
     const AllocBuffer* otherHeap = asAlloc(other.raw_);
     for(size_t i = 0; i < self.len_; i++) {
@@ -169,6 +174,177 @@ sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstruct(const St
     thisHeap->ptr = buffer;
     thisHeap->capacity = cap;
     return AllocExpect<StringUnmanaged>(std::move(self));
+}
+
+sy::AllocExpect<void> sy::StringUnmanaged::copyAssign(const StringUnmanaged &other, Allocator &alloc) noexcept
+{
+    const size_t requiredCapacity = other.len_ + 1; // for null terminator
+    const StringSlice otherSlice = other.asSlice();
+
+    if(requiredCapacity < SSO_CAPACITY) {
+        if(!isSso()) {
+            // Don't bother keeping large heap allocation unnecessarily
+            AllocBuffer* heap = asAllocMut(this->raw_);
+            freeHeapBuffer(heap->ptr, heap->capacity, alloc);
+        }
+        // All slices returned by a String object have the same alignment as `alignof(size_t)`.
+        // Furthermore all are at least 3 size_t's wide (even if the slice doesn't extend that long).
+        const size_t* asSizeTArr = reinterpret_cast<const size_t*>(otherSlice.data());
+        for(size_t i = 0; i < 3; i++) {
+            this->raw_[i] = asSizeTArr[i];
+        }
+        // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting the flag bit
+        this->setSsoFlag();
+        return AllocExpect<void>(std::true_type());
+    }
+
+    if(this->hasEnoughCapacity(requiredCapacity)) {
+        AllocBuffer* heap = asAllocMut(this->raw_);
+        this->len_ = other.len_;
+        for(size_t i = 0; i < other.len_; i++) {
+            heap->ptr[i] = otherSlice.data()[i];
+        }
+        zeroSetLastSIMDElement(heap->ptr, otherSlice.len());
+    }
+    else {
+        size_t newCapacity = requiredCapacity;
+        auto res = mallocHeapBuffer(newCapacity, alloc);
+        if(!res) {
+            return AllocExpect<void>();
+        }
+
+        char* buffer = res.value();
+        this->len_ = other.len_;
+        AllocBuffer* heap = asAllocMut(this->raw_);
+        if(!isSso()) {
+            freeHeapBuffer(heap->ptr, heap->capacity, alloc);
+        }
+
+        for(size_t i = 0; i < other.len_; i++) {
+            buffer[i] = otherSlice[i];
+        }
+        zeroSetLastSIMDElement(buffer, otherSlice.len());
+       
+        this->setHeapFlag();
+        heap->ptr = buffer;
+        heap->capacity = newCapacity;
+    }
+
+    return AllocExpect<void>(std::true_type());
+}
+
+sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstructSlice(
+    const StringSlice &slice, Allocator &alloc) noexcept
+{
+    StringUnmanaged self;
+    self.len_ = slice.len();
+
+    if(slice.len() <= MAX_SSO_LEN) {
+        for(size_t i = 0; i < slice.len(); i++){
+            asSsoMut(self.raw_)->arr[i] = slice[i];
+        }
+        return AllocExpect<StringUnmanaged>(std::move(self));
+    }
+
+    //capacity is length + 1 for \0 (null terminator)
+    size_t cap = slice.len() + 1;
+    auto res = mallocHeapBuffer(cap, alloc);
+    if(!res) {
+        return AllocExpect<StringUnmanaged>();
+    }
+
+    char* buffer = res.value();
+    for(size_t i = 0; i < slice.len(); i++) {
+        buffer[i] = slice[i];
+    }
+    zeroSetLastSIMDElement(buffer, slice.len());
+
+    self.setHeapFlag();
+    AllocBuffer* thisHeap = asAllocMut(self.raw_);
+    thisHeap->ptr = buffer;
+    thisHeap->capacity = cap;
+    return AllocExpect<StringUnmanaged>(std::move(self));
+}
+
+sy::AllocExpect<void> sy::StringUnmanaged::copyAssignSlice(const StringSlice &slice, Allocator &alloc) noexcept
+{
+    const size_t requiredCapacity = slice.len() + 1; // for null terminator
+
+    if(requiredCapacity < SSO_CAPACITY) {
+        if(!isSso()) {
+            // Don't bother keeping large heap allocation unnecessarily
+            AllocBuffer* heap = asAllocMut(this->raw_);
+            freeHeapBuffer(heap->ptr, heap->capacity, alloc);
+        }
+
+        for(size_t i = 0; i < slice.len(); i++) {
+            asSsoMut(this->raw_)->arr[i] = slice[i];
+        }
+        // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting the flag bit
+        this->setSsoFlag();
+        return AllocExpect<void>(std::true_type());
+    }
+
+    if(this->hasEnoughCapacity(requiredCapacity)) {
+        AllocBuffer* heap = asAllocMut(this->raw_);
+        this->len_ = slice.len();
+        for(size_t i = 0; i < slice.len(); i++) {
+            heap->ptr[i] = slice[i];
+        }
+        zeroSetLastSIMDElement(heap->ptr, slice.len());
+    }
+    else {
+        size_t newCapacity = requiredCapacity;
+        auto res = mallocHeapBuffer(newCapacity, alloc);
+        if(!res) {
+            return AllocExpect<void>();
+        }
+
+        char* buffer = res.value();
+        this->len_ = slice.len();
+        AllocBuffer* heap = asAllocMut(this->raw_);
+        if(!isSso()) {
+            freeHeapBuffer(heap->ptr, heap->capacity, alloc);
+        }
+
+        for(size_t i = 0; i < slice.len(); i++) {
+            buffer[i] = slice[i];
+        }
+        zeroSetLastSIMDElement(buffer, slice.len());
+       
+        this->setHeapFlag();
+        heap->ptr = buffer;
+        heap->capacity = newCapacity;
+    }
+
+    return AllocExpect<void>(std::true_type());
+}
+
+sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstructCStr(
+    const char *str, Allocator &alloc) noexcept
+{
+    const size_t len = std::strlen(str);
+    return StringUnmanaged::copyConstructSlice(StringSlice(str, len), alloc);
+}
+
+sy::AllocExpect<void> sy::StringUnmanaged::copyAssignCStr(
+    const char *str, Allocator &alloc) noexcept
+{
+    const size_t len = std::strlen(str);
+    return this->copyAssignSlice(StringSlice(str, len), alloc);
+}
+
+sy::StringSlice sy::StringUnmanaged::asSlice() const
+{
+    return StringSlice(this->cstr(), this->len_);
+}
+
+const char *sy::StringUnmanaged::cstr() const
+{
+    if(this->isSso()) {
+        return asSso(this->raw_)->arr;
+    }
+    return asAlloc(this->raw_)->ptr;
 }
 
 bool sy::StringUnmanaged::isSso() const
@@ -188,259 +364,76 @@ void sy::StringUnmanaged::setSsoFlag()
     h->flag = 0;
 }
 
-
-sy::String::~String() noexcept {
-    if(this->isSso()) return;
-
-    HeapBuffer* heap = this->asHeap();
-
-    (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
-    this->_length = 0;
-    heap->flag = 0;
-}
-
-sy::String::String(const String &other) 
-    : _length(other._length)
-{
-    if(other.isSso()) {
-        // This is the same as copying the SSO buffer manually, but with a linear loop, and less copies
-        for(size_t i = 0; i < 3; i++){
-            this->_raw[i] = other._raw[i];
-        }
-        return;
-    }
-    
-    //capacity is length + 1 for \0 (null terminator)
-    size_t cap = this->_length + 1;
-    char* buffer = mallocHeapBuffer(cap, Allocator()).value();
-    const HeapBuffer* otherHeap = other.asHeap();
-    for(size_t i = 0; i < _length; i++) {
-        buffer[i] = otherHeap->ptr[i];
-    }
-    zeroSetLastSIMDElement(buffer, this->_length);
-
-    this->setHeapFlag();
-    HeapBuffer* thisHeap = this->asHeap();
-    thisHeap->ptr = buffer;
-    thisHeap->capacity = cap;
-}
-
-sy::String::String(String&& other) noexcept
-    : _length(other._length)
-{
-    for(size_t i = 0; i < 3; i++) {
-        this->_raw[i] = other._raw[i];
-    }
-    other._length = 0;
-    this->asHeap()->flag = 0;
-}
-
-sy::String& sy::String::operator=(const String& other) {
-    this->_length = other._length;
-    const size_t requiredCapacity = other._length + 1; // for null terminator
-    const StringSlice otherSlice = other.asSlice();
-
-    if(requiredCapacity < SSO_CAPACITY) {
-        if(!isSso()) {
-            // Don't bother keeping large heap allocation unnecessarily
-            HeapBuffer* heap = this->asHeap();
-            (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
-        }
-        // All slices returned by a String object have the same alignment as `alignof(size_t)`.
-        // Furthermore all are at least 3 size_t's wide (even if the slice doesn't extend that long).
-        const size_t* asSizeTArr = reinterpret_cast<const size_t*>(otherSlice.data());
-        for(size_t i = 0; i < 3; i++) {
-            this->_raw[i] = asSizeTArr[i];
-        }
-        // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting the flag bit
-        this->setSsoFlag();
-        return *this;
-    }
-    
-    // We have determined now that the string to copy exceeds the sso buffer
-    // If there is enough capacity already in the existing string allocation, we should just use it
-    if(this->hasEnoughCapacity(requiredCapacity)) {
-        HeapBuffer* heap = this->asHeap();
-        for(size_t i = 0; i < other._length; i++) {
-            heap->ptr[i] = otherSlice.data()[i];
-        }
-        zeroSetLastSIMDElement(heap->ptr, otherSlice.len());
-    } else {
-        HeapBuffer* heap = asHeap();
-        if(!isSso()) {
-            // The old buffer isn't big enough, so we free it
-            (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
-        }
-
-        // Allocate for a new buffer that is big enough here
-        size_t newCapacity = requiredCapacity;
-        char* buffer = mallocHeapBuffer(newCapacity, Allocator()).value();
-        for(size_t i = 0; i < _length; i++) {
-            buffer[i] = otherSlice[i];
-        }
-        zeroSetLastSIMDElement(buffer, otherSlice.len());
-       
-        this->setHeapFlag();
-        HeapBuffer* thisHeap = this->asHeap();
-        thisHeap->ptr = buffer;
-        thisHeap->capacity = newCapacity;
-    }
-
-    return *this;
-}
-
-sy::String& sy::String::operator=(String&& other) noexcept {
-    if(!isSso()) {
-        HeapBuffer* heap = asHeap();
-        (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
-    }
-
-    this->_length = other._length;
-    for(size_t i = 0; i < 3; i++) {
-        this->_raw[i] = other._raw[i];   
-    }
-    other._length = 0;
-    this->asHeap()->flag = 0;
-    return *this;
-}
-
-sy::String::String(const StringSlice &str)
-    : _length(str.len())
-{
-    if(str.len() <= MAX_SSO_LEN) {
-        for(size_t i = 0; i < str.len(); i++){
-            this->asSso()->arr[i] = str[i];
-        }
-        return;
-    }
-
-    //capacity is length + 1 for \0 (null terminator)
-    size_t cap = this->_length + 1;
-    char* buffer = mallocHeapBuffer(cap, Allocator()).value();
-    for(size_t i = 0; i < _length; i++) {
-        buffer[i] = str[i];
-    }
-    zeroSetLastSIMDElement(buffer, this->_length);
-
-    this->setHeapFlag();
-    HeapBuffer* thisHeap = this->asHeap();
-    thisHeap->ptr = buffer;
-    thisHeap->capacity = cap;
-}
-
-sy::String& sy::String::operator=(const StringSlice& str) {
-    this->_length = str.len();
-    const size_t requiredCapacity = str.len() + 1; // for null terminator
-
-    if(requiredCapacity < SSO_CAPACITY) {
-        if(!isSso()) {
-            // Don't bother keeping large heap allocation unnecessarily
-            HeapBuffer* heap = this->asHeap();
-            (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
-        }
-
-        for(size_t i = 0; i < str.len(); i++) {
-            this->asSso()->arr[i] = str[i];
-        }
-        // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting the flag bit
-        this->setSsoFlag();
-        return *this;
-    }
-
-    // We have determined now that the string to copy exceeds the sso buffer
-    // If there is enough capacity already in the existing string allocation, we should just use it
-    if(this->hasEnoughCapacity(requiredCapacity)) {
-        HeapBuffer* heap = this->asHeap();
-        for(size_t i = 0; i < str.len(); i++) {
-            heap->ptr[i] = str[i];
-        }
-        zeroSetLastSIMDElement(heap->ptr, str.len());
-    } else {
-        HeapBuffer* heap = asHeap();
-        if(!isSso()) {
-            // The old buffer isn't big enough, so we free it
-            (void)freeHeapBuffer(heap->ptr, heap->capacity, Allocator());
-        }
-
-        // Allocate for a new buffer that is big enough here
-        size_t newCapacity = requiredCapacity;
-        char* buffer = mallocHeapBuffer(newCapacity, Allocator()).value();
-        for(size_t i = 0; i < _length; i++) {
-            buffer[i] = str[i];
-        }
-        zeroSetLastSIMDElement(buffer, str.len());
-       
-        this->setHeapFlag();
-        HeapBuffer* thisHeap = this->asHeap();
-        thisHeap->ptr = buffer;
-        thisHeap->capacity = newCapacity;
-    }
-
-    return *this;
-}
-
-sy::String::String(const char* str) 
-    : String(StringSlice(str, std::strlen(str)))
-{}
-
-sy::String& sy::String::operator=(const char* str) {
-    const size_t len = std::strlen(str);
-    StringSlice strSlice(str, len);
-    return String::operator=(strSlice);
-}
-
-sy::StringSlice sy::String::asSlice() const
-{
-    return StringSlice(this->cstr(), this->_length);
-}
-
-const char *sy::String::cstr() const
-{
-    if(this->isSso()) {
-        return this->asSso()->arr;
-    }
-    return this->asHeap()->ptr;
-}
-
-bool sy::String::isSso() const
-{
-    return !(this->asHeap()->flag & FLAG_BIT);
-}
-
-void sy::String::setHeapFlag() {
-    HeapBuffer* h = this->asHeap();
-    h->flag = FLAG_BIT;
-}
-
-void sy::String::setSsoFlag()
-{    
-    HeapBuffer* h = this->asHeap();
-    h->flag = 0;
-}
-
-const sy::String::SsoBuffer *sy::String::asSso() const {
-    return reinterpret_cast<const SsoBuffer*>(this->_raw);
-}
-
-sy::String::SsoBuffer *sy::String::asSso() {
-    return reinterpret_cast<SsoBuffer*>(this->_raw);
-}
-
-const sy::String::HeapBuffer *sy::String::asHeap() const {
-    return reinterpret_cast<const HeapBuffer*>(this->_raw);
-}
-
-sy::String::HeapBuffer *sy::String::asHeap() {
-    return reinterpret_cast<HeapBuffer*>(this->_raw);
-}
-
-bool sy::String::hasEnoughCapacity(const size_t requiredCapacity) const
+bool sy::StringUnmanaged::hasEnoughCapacity(const size_t requiredCapacity) const
 {
     if(this->isSso()) {
         return requiredCapacity <= SSO_CAPACITY;
     } else {
-        return requiredCapacity <= this->asHeap()->capacity;
+        return requiredCapacity <= asAlloc(this->raw_)->capacity;
     }
+}
+
+sy::String::~String() noexcept {
+    Allocator defaultAlloc;
+    this->inner.destroy(defaultAlloc);
+}
+
+sy::String::String(const String &other)
+{
+    Allocator defaultAlloc;
+    auto res = StringUnmanaged::copyConstruct(other.inner, defaultAlloc);
+    sy_assert(res.hasValue(), "Memory allocation failed");
+    new (&this->inner) StringUnmanaged(std::move(res.take()));
+}
+
+sy::String::String(String&& other) noexcept
+    : inner(std::move(other.inner))
+{}
+
+sy::String& sy::String::operator=(const String& other) 
+{
+    Allocator defaultAlloc;
+    auto res = this->inner.copyAssign(other.inner, defaultAlloc);
+    sy_assert(res.hasValue(), "Memory allocation failed");
+    return *this;
+}
+
+sy::String& sy::String::operator=(String&& other) noexcept {
+    Allocator defaultAlloc;
+    this->inner.moveAssign(std::move(other.inner), defaultAlloc);
+    return *this;
+}
+
+sy::String::String(const StringSlice &str)
+{
+    Allocator defaultAlloc;
+    auto res = StringUnmanaged::copyConstructSlice(str, defaultAlloc);
+    sy_assert(res.hasValue(), "Memory allocation failed");
+    new (&this->inner) StringUnmanaged(std::move(res.take()));
+}
+
+sy::String& sy::String::operator=(const StringSlice& str) 
+{
+    Allocator defaultAlloc;
+    auto res = this->inner.copyAssignSlice(str, defaultAlloc);
+    sy_assert(res.hasValue(), "Memory allocation failed");
+    return *this;
+}
+
+sy::String::String(const char* str) 
+{
+    Allocator defaultAlloc;
+    auto res = StringUnmanaged::copyConstructCStr(str, defaultAlloc);
+    sy_assert(res.hasValue(), "Memory allocation failed");
+    new (&this->inner) StringUnmanaged(std::move(res.take()));
+}
+
+sy::String& sy::String::operator=(const char* str) 
+{
+    Allocator defaultAlloc;
+    auto res = inner.copyAssignCStr(str, defaultAlloc);
+    sy_assert(res.hasValue(), "Memory allocation failed");
+    return *this;
 }
 
 #ifndef SYNC_LIB_NO_TESTS

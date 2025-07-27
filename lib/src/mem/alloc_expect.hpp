@@ -78,7 +78,7 @@ namespace sy {
         [[nodiscard]] T&& take() {
             detail::debugAssertHasVal(this->hasVal_);
             this->hasVal_ = false;
-            return val_.val;
+            return std::move(val_.val);
         }
 
     private:
