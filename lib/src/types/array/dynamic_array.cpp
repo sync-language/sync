@@ -6,7 +6,7 @@
 #include "../function/function.hpp"
 #include "../../program/program.hpp"
 
-sy::DynArrayUnmanaged::~DynArrayUnmanaged() noexcept
+sy::RawDynArrayUnmanaged::~RawDynArrayUnmanaged() noexcept
 {
     // Ensure no leaks
     #if _DEBUG
@@ -21,7 +21,7 @@ sy::DynArrayUnmanaged::~DynArrayUnmanaged() noexcept
     #endif
 }
 
-void sy::DynArrayUnmanaged::destroy(Allocator &alloc, void (*destruct)(void *ptr), size_t size, size_t align) noexcept
+void sy::RawDynArrayUnmanaged::destroy(Allocator &alloc, void (*destruct)(void *ptr), size_t size, size_t align) noexcept
 {
     if(this->capacity_ == 0) return;
 
@@ -41,7 +41,7 @@ void sy::DynArrayUnmanaged::destroy(Allocator &alloc, void (*destruct)(void *ptr
     this->alloc_ = nullptr;
 }
 
-void sy::DynArrayUnmanaged::destroyScript(Allocator &alloc, const sy::Type *typeInfo) noexcept
+void sy::RawDynArrayUnmanaged::destroyScript(Allocator &alloc, const sy::Type *typeInfo) noexcept
 {    
     if(this->capacity_ == 0) return;
 
@@ -65,6 +65,35 @@ void sy::DynArrayUnmanaged::destroyScript(Allocator &alloc, const sy::Type *type
     this->data_ = nullptr;
     this->capacity_ = 0;
     this->alloc_ = nullptr;
+}
+
+sy::RawDynArrayUnmanaged::RawDynArrayUnmanaged(RawDynArrayUnmanaged&& other) noexcept
+    : len_(other.len_), data_(other.data_), capacity_(other.capacity_), alloc_(other.alloc_)
+{   
+    other.len_ = 0;
+    other.data_ = nullptr;
+    other.capacity_ = 0;
+    other.alloc_ = nullptr;
+}
+
+void sy::RawDynArrayUnmanaged::moveAssign(
+    RawDynArrayUnmanaged&& other,
+    void (*destruct)(void *ptr),
+    Allocator& alloc,
+    size_t size,
+    size_t align
+) noexcept
+{
+    this->destroy(alloc, destruct, size, align);
+
+    this->len_ = other.len_;
+    this->data_ = other.data_;
+    this->capacity_ = other.capacity_;
+    this->alloc_ = other.alloc_;
+    other.len_ = 0;
+    other.data_ = nullptr;
+    other.capacity_ = 0;
+    other.alloc_ = nullptr;
 }
 
 #ifndef SYNC_LIB_NO_TESTS
