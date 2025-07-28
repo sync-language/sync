@@ -4,8 +4,31 @@
 
 #include "../../core.h"
 #include <utility>
+#include "../../mem/allocator.hpp"
 
 namespace sy {
+
+    class Type;
+
+    class SY_API DynArrayUnmanaged SY_CLASS_FINAL {
+    public:
+
+        DynArrayUnmanaged() = default;
+
+        ~DynArrayUnmanaged() noexcept;
+
+        void destroy(Allocator& alloc, void (*destruct)(void *ptr), size_t size, size_t align) noexcept;
+
+        void destroyScript(Allocator& alloc, const sy::Type* typeInfo) noexcept;
+
+    private:
+        size_t  len_ = 0;
+        void*   data_ = nullptr;
+        size_t  capacity_ = 0;
+        void*   alloc_ = nullptr;
+    };
+
+
     
     /// Dynamically resizable array. Grows to fit elements you push into it.
     template <typename T>
