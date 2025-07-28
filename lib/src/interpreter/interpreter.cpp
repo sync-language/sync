@@ -361,7 +361,7 @@ static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode) {
     const Type* srcType = activeStack.typeAt(operands.src);
     sy_assert(srcType == Type::TYPE_BOOL, "Can only conditionally jump on boolean types");
 
-    if(activeStack.frameValueAt<bool>(operands.src) == false) {
+    if(*activeStack.frameValueAt<bool>(operands.src) == false) {
         int32_t jumpAmount = static_cast<int32_t>(operands.amount);
         ipChange = jumpAmount;
     }

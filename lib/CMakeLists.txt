@@ -43,14 +43,13 @@ if(MSVC)
     # C++ exceptions and unwind semantics. Necessary for Rust
     target_compile_options(SyncLib PRIVATE /EHsc /Zi) 
     target_compile_options(SyncLibTests PRIVATE /EHsc /Zi) 
+    target_compile_options(SyncLib PRIVATE /fsanitize=address)
+    target_compile_options(SyncLibTests PRIVATE /fsanitize=address)
 else()
-    target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    target_compile_options(SyncLibTests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror -fsanitize=address)
+    target_compile_options(SyncLibTests PRIVATE -Wall -Wextra -Wpedantic -Werror -fsanitize=address)
+    set(CMAKE_EXE_LINKER_FLAGS "-fsanitize=address")
 endif()
-
-# Address sanitizing
-target_compile_options(SyncLib PRIVATE /fsanitize=address)
-target_compile_options(SyncLibTests PRIVATE /fsanitize=address)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_definitions(SyncLib PRIVATE SYNC_LIB_NO_TESTS)

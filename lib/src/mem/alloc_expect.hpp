@@ -4,6 +4,7 @@
 #define SY_MEM_ALLOC_EXPECT_HPP_
 
 #include "../core.h"
+#include <utility>
 #include <type_traits>
 #include <new>
 
@@ -17,7 +18,7 @@ namespace sy {
     class SY_API AllocExpect SY_CLASS_FINAL {};
 
     template<typename T>
-    class SY_API AllocExpect<typename T, std::enable_if_t<std::is_same_v<T, void>>> SY_CLASS_FINAL {
+    class SY_API AllocExpect<T, std::enable_if_t<std::is_same_v<T, void>>> SY_CLASS_FINAL {
     public:
         AllocExpect() = default;
         AllocExpect(std::true_type) : hasVal_(true) {}
@@ -31,7 +32,7 @@ namespace sy {
 
     template<typename T>
     class SY_API AllocExpect
-        <typename T, std::enable_if_t<std::is_pointer_v<T>>>
+        <T, std::enable_if_t<std::is_pointer_v<T>>>
     SY_CLASS_FINAL {
     public:
         AllocExpect() = default;
@@ -51,7 +52,7 @@ namespace sy {
 
     template<typename T>
     class SY_API AllocExpect
-        <typename T, std::enable_if_t<!std::is_same_v<T, void> && !std::is_pointer_v<T>>>
+        <T, std::enable_if_t<!std::is_same_v<T, void> && !std::is_pointer_v<T>>>
     SY_CLASS_FINAL {
     public:
         AllocExpect() = default;

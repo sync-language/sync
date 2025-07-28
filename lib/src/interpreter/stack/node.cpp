@@ -1138,7 +1138,7 @@ struct alignas(32) TestAlignedArgClass4Slot {
 
 template<typename T>
 static sy::Type makeSimpleType() {
-    sy::Type t{0};
+    sy::Type t;
     t.sizeType = sizeof(T);
     t.alignType = alignof(T);
     return t;
