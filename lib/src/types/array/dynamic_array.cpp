@@ -3,7 +3,7 @@
 #include "../../mem/allocator.hpp"
 #include "../../util/assert.hpp"
 
-#if SYNC_LIB_TEST
+#ifndef SYNC_LIB_NO_TESTS
 
 #include "../../doctest.h"
 
@@ -59,4 +59,4 @@ TEST_SUITE("push move T&&") {
     }
 }
 
-#endif
+#endif // SYNC_LIB_NO_TESTS

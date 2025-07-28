@@ -84,6 +84,14 @@
         "cstdarg": "cpp",
         "cwctype": "cpp",
         "execution": "cpp",
-        "string_view": "cpp"
+        "string_view": "cpp",
+        "shared_mutex": "cpp",
+        "condition_variable": "cpp",
+        "memory_resource": "cpp",
+        "functional": "cpp",
+        "print": "cpp",
+        "deque": "cpp",
+        "queue": "cpp",
+        "stack": "cpp"
     }
 }

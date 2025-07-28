@@ -1,10 +1,8 @@
 [package]
 name = "sync_lang"
 version = "0.0.1"
-edition = "2024"
+#edition = "2024"
 build="build.rs"
 
-[dependencies]
-
 [build-dependencies]
-cmake = "0.1.31"
+cc = "1.2.27"

@@ -33,6 +33,10 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         });
         lib.root_module.addImport(moduleName, syncModule);
+        if (@import("builtin").os.tag == .windows) {
+            lib.linkSystemLibrary("dbghelp");
+        }
+
         b.installArtifact(lib);
     }
     { // Tests
@@ -44,6 +48,9 @@ pub fn build(b: *std.Build) void {
         libUnitTests.addIncludePath(b.path("lib/src"));
         libUnitTests.linkLibC();
         libUnitTests.linkLibCpp();
+        if (@import("builtin").os.tag == .windows) {
+            libUnitTests.linkSystemLibrary("dbghelp");
+        }
 
         const c_flags = [_][]const u8{};
         libUnitTests.addCSourceFiles(.{
@@ -68,14 +75,19 @@ pub fn build(b: *std.Build) void {
 
 const sync_lang_c_sources = [_][]const u8{
     "lib/src/util/panic.cpp",
+    "lib/src/util/os_callstack.cpp",
     "lib/src/mem/os_mem.cpp",
     "lib/src/mem/allocator.cpp",
+    "lib/src/threading/sync_queue.cpp",
+    "lib/src/threading/sync_obj_val.cpp",
     "lib/src/types/type_info.cpp",
     "lib/src/types/function/function.cpp",
     "lib/src/types/string/string_slice.cpp",
     "lib/src/types/string/string.cpp",
-    "lib/src/types/array/dynamic_array.cpp",
-    "lib/src/interpreter/stack.cpp",
+    "lib/src/types/sync_obj/sync_obj.cpp",
+    "lib/src/interpreter/stack/frame.cpp",
+    "lib/src/interpreter/stack/node.cpp",
+    "lib/src/interpreter/stack/stack.cpp",
     "lib/src/interpreter/bytecode.cpp",
     "lib/src/interpreter/interpreter.cpp",
     "lib/src/program/program.cpp",

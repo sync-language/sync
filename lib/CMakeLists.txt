@@ -1,52 +1,61 @@
-cmake_minimum_required (VERSION 3.12)
+cmake_minimum_required (VERSION 3.19)
 
 if (POLICY CMP0141)
-  cmake_policy(SET CMP0141 NEW)
-  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
+    cmake_policy(SET CMP0141 NEW)
+    #set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
+
+    # https://cmake.org/cmake/help/latest/prop_tgt/MSVC_DEBUG_INFORMATION_FORMAT.html#prop_tgt:MSVC_DEBUG_INFORMATION_FORMAT
+    # set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_library(SyncLib STATIC
+set(SyncLibSources 
     "src/util/panic.cpp"
+    "src/util/os_callstack.cpp"
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
+    "src/threading/sync_queue.cpp"
+    "src/threading/sync_obj_val.cpp"
     "src/types/type_info.cpp"
     "src/types/function/function.cpp"
     "src/types/string/string_slice.cpp"
     "src/types/string/string.cpp"
-    "src/interpreter/stack.cpp"
+    "src/types/sync_obj/sync_obj.cpp"
+    "src/types/array/dynamic_array.cpp"
+    "src/interpreter/stack/frame.cpp"
+    "src/interpreter/stack/node.cpp"
+    "src/interpreter/stack/stack.cpp"
     "src/interpreter/bytecode.cpp"
     "src/interpreter/interpreter.cpp"
     "src/program/program.cpp"
 )
 
-add_executable(SyncLibTests
-    "src/test.cpp"
-    "src/util/panic.cpp"
-    "src/mem/allocator.cpp"
-    "src/mem/os_mem.cpp"
-    "src/types/type_info.cpp"
-    "src/types/function/function.cpp"
-    "src/types/string/string_slice.cpp"
-    "src/types/string/string.cpp"
-    "src/types/array/dynamic_array.cpp"
-    "src/interpreter/stack.cpp"
-    "src/interpreter/bytecode.cpp"
-    "src/interpreter/interpreter.cpp"
-    "src/program/program.cpp"
-)
+add_library(SyncLib STATIC ${SyncLibSources})
+
+add_executable(SyncLibTests "src/test.cpp" ${SyncLibSources})
 
 # Ensure all warnings are caught
 if(MSVC)
-  target_compile_options(SyncLib PRIVATE /W4 /WX)
-  # C++ exceptions and unwind semantics. Necessary for Rust
-  target_compile_options(SyncLib PRIVATE /EHsc) 
+    target_compile_options(SyncLib PRIVATE /W4 /WX)
+    target_compile_options(SyncLibTests PRIVATE /W4 /WX)
+    target_link_libraries(SyncLib PRIVATE dbghelp)
+    target_link_libraries(SyncLibTests PRIVATE dbghelp)
+    # C++ exceptions and unwind semantics. Necessary for Rust
+    target_compile_options(SyncLib PRIVATE /EHsc /Zi) 
+    target_compile_options(SyncLibTests PRIVATE /EHsc /Zi) 
+    target_compile_options(SyncLib PRIVATE /fsanitize=address)
+    target_compile_options(SyncLibTests PRIVATE /fsanitize=address)
 else()
-  target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror -fsanitize=address)
+    target_compile_options(SyncLibTests PRIVATE -Wall -Wextra -Wpedantic -Werror -fsanitize=address)
+    set(CMAKE_EXE_LINKER_FLAGS "-fsanitize=address")
 endif()
 
-target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_TEST)
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_compile_definitions(SyncLib PRIVATE SYNC_LIB_NO_TESTS)
+endif()
+
 
 set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 

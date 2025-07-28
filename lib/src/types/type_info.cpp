@@ -1,8 +1,8 @@
 #include "type_info.h"
 #include "function/function.h"
 #include "type_info.hpp"
-#include "../util/assert.hpp"
 #include "function/function.hpp"
+#include "../util/assert.hpp"
 #include "string/string_slice.hpp"
 #include "string/string.hpp"
 #include "../program/program.hpp"
@@ -12,13 +12,54 @@ using sy::Function;
 using sy::StringSlice;
 using sy::String;
 
-static_assert(sizeof(sy::Type) == sizeof(sy::c::SyType));
-static_assert(alignof(sy::Type) == alignof(sy::c::SyType));
 static_assert(sizeof(float) == 4); // f32
 static_assert(sizeof(double) == 8); // f64
 
+static_assert(sizeof(Type::Tag) == sizeof(SyTypeTag));
+static_assert(alignof(Type::Tag) == alignof(SyTypeTag));
+static_assert(sizeof(Type::Tag) == sizeof(int));
+static_assert(alignof(Type::Tag) == alignof(int));
+static_assert(static_cast<int>(Type::Tag::Bool) == static_cast<int>(SyTypeTagBool));
+static_assert(static_cast<int>(Type::Tag::Int) == static_cast<int>(SyTypeTagInt));
+static_assert(static_cast<int>(Type::Tag::Float) == static_cast<int>(SyTypeTagFloat));
+static_assert(static_cast<int>(Type::Tag::StringSlice) == static_cast<int>(SyTypeTagStringSlice));
+static_assert(static_cast<int>(Type::Tag::String) == static_cast<int>(SyTypeTagString));
+static_assert(static_cast<int>(Type::Tag::Reference) == static_cast<int>(SyTypeTagReference));
+static_assert(static_cast<int>(Type::Tag::Function) == static_cast<int>(SyTypeTagFunction));
+
+static_assert(sizeof(Type::ExtraInfo) == sizeof(SyTypeExtraInfo));
+static_assert(alignof(Type::ExtraInfo) == alignof(SyTypeExtraInfo));
+
+static_assert(sizeof(Type::ExtraInfo::Int) == sizeof(SyTypeInfoInt));
+static_assert(alignof(Type::ExtraInfo::Int) == alignof(SyTypeInfoInt));
+static_assert(offsetof(Type::ExtraInfo::Int, isSigned) == offsetof(SyTypeInfoInt, isSigned));
+static_assert(offsetof(Type::ExtraInfo::Int, bits) == offsetof(SyTypeInfoInt, bits));
+
+static_assert(sizeof(Type::ExtraInfo::Float) == sizeof(SyTypeInfoFloat));
+static_assert(alignof(Type::ExtraInfo::Float) == alignof(SyTypeInfoFloat));
+static_assert(offsetof(Type::ExtraInfo::Float, bits) == offsetof(SyTypeInfoFloat, bits));
+
 static_assert(sizeof(Type::ExtraInfo::Reference) == sizeof(SyTypeInfoReference));
 static_assert(alignof(Type::ExtraInfo::Reference) == alignof(SyTypeInfoReference));
+static_assert(offsetof(Type::ExtraInfo::Reference, isMutable) == offsetof(SyTypeInfoReference, isMutable));
+static_assert(offsetof(Type::ExtraInfo::Reference, childType) == offsetof(SyTypeInfoReference, childType));
+
+static_assert(sizeof(Type::ExtraInfo::Function) == sizeof(SyTypeInfoFunction));
+static_assert(alignof(Type::ExtraInfo::Function) == alignof(SyTypeInfoFunction));
+static_assert(offsetof(Type::ExtraInfo::Function, retType) == offsetof(SyTypeInfoFunction, retType));
+static_assert(offsetof(Type::ExtraInfo::Function, argTypes) == offsetof(SyTypeInfoFunction, argTypes));
+static_assert(offsetof(Type::ExtraInfo::Function, argLen) == offsetof(SyTypeInfoFunction, argLen));
+
+static_assert(sizeof(Type) == sizeof(SyType));
+static_assert(alignof(Type) == alignof(SyType));
+static_assert(offsetof(Type, sizeType) == offsetof(SyType, sizeType));
+static_assert(offsetof(Type, alignType) == offsetof(SyType, alignType));
+static_assert(offsetof(Type, name) == offsetof(SyType, name));
+static_assert(offsetof(Type, optionalDestructor) == offsetof(SyType, optionalDestructor));
+static_assert(offsetof(Type, tag) == offsetof(SyType, tag));
+static_assert(offsetof(Type, extra) == offsetof(SyType, extra));
+static_assert(offsetof(Type, constRef) == offsetof(SyType, constRef));
+static_assert(offsetof(Type, mutRef) == offsetof(SyType, mutRef));
 
 namespace detail {
     template<typename T>
@@ -84,8 +125,6 @@ const Type* const sy::Type::TYPE_STRING =
 #pragma endregion
 
 extern "C" {
-    using sy::c::SyType;
-
     SY_API const SyType* SY_TYPE_BOOL = reinterpret_cast<const SyType*>(Type::TYPE_BOOL);
 
     SY_API const SyType* SY_TYPE_I8     = reinterpret_cast<const SyType*>(Type::TYPE_I8);
@@ -148,7 +187,7 @@ void sy::Type::destroyObjectImpl(void *obj) const
     sy_assert(err.ok(), "Destructors may not throw/cause errors"); // TODO what do to if error?
 }
 
-#ifdef SYNC_LIB_TEST
+#ifndef SYNC_LIB_NO_TESTS
 
 #include "../doctest.h"
 
@@ -172,4 +211,4 @@ TEST_CASE("string destructor") {
     Type::TYPE_STRING->destroyObject(s);
 }
 
-#endif
+#endif // SYNC_LIB_NO_TESTS

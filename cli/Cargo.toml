@@ -1,7 +1,7 @@
 [package]
 name = "sync_lang_cli"
 version = "0.0.1"
-edition = "2024"
+#edition = "2024"
 
 [dependencies]
 sync_lang = { path = "../lib" }

@@ -19,14 +19,26 @@
 #if (__STDC_VERSION__ >= 201112L) // C11
 #include <stdbool.h>
 #elif (__STDC_VERSION__ == 199901L) // C99
+
+#ifndef bool
 #define bool  _Bool
+#endif
+#ifndef false
 #define false 0
+#endif
+#ifndef true
 #define true  1
+#endif
+
 #else // __STDC_VERSION__ some other
 #error C99 or higher compiler required. Need _Bool.
 #endif // __STDC_VERSION__
 
 #else // __cplusplus
+
+#undef bool
+#undef true
+#undef false
 
 #include <cstddef>
 #include <cstdint>
@@ -42,5 +54,22 @@ using std::uint32_t;
 using std::uint64_t;
 
 #endif // __cplusplus
+
+// In order to test the private (actually protected) logic within classes 
+// without being forced to expose them as part of the public API, we need to 
+// leverage test classes, being classes that derive the classes we actually 
+// want to test. As a result, while all non-inherited classes (overwhelming 
+// majority of the classes in the library) should be marked final, for 
+// testing purposes, we need to derive them.
+// On top of that, we use SY_CLASS_TEST_PRIVATE for anything that should be
+// private to the class, but must be protected for testing purposes.
+
+#ifndef SYNC_LIB_NO_TESTS
+#define SY_CLASS_FINAL
+#define SY_CLASS_TEST_PRIVATE protected
+#else
+#define SY_CLASS_FINAL final
+#define SY_CLASS_TEST_PRIVATE private
+#endif
 
 #endif // SY_CORE_H_

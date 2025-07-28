@@ -1,15 +1,79 @@
 //! API
 #pragma once
-#ifndef SY_TYPES_STRING_HPP_
-#define SY_TYPES_STRING_HPP_
+#ifndef SY_TYPES_STRING_STRING_HPP_
+#define SY_TYPES_STRING_STRING_HPP_
 
 #include "../../core.h"
 #include "string_slice.hpp"
+#include "../../mem/allocator.hpp"
+#include <iostream>
 
 namespace sy {
 
     /// Dynamic, [Small String Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/) 
-    /// utf8 string class. It's a primitive script type.
+    /// utf8 string class. It supports using a custom allocator.
+    class SY_API StringUnmanaged SY_CLASS_FINAL {
+    public:
+    
+        StringUnmanaged() = default;
+
+        ~StringUnmanaged() noexcept;
+
+        void destroy(Allocator& alloc) noexcept;
+
+        StringUnmanaged(StringUnmanaged&& other) noexcept;
+
+        StringUnmanaged& operator=(StringUnmanaged&& other) = delete;
+
+        void moveAssign(StringUnmanaged&& other, Allocator& alloc) noexcept;
+
+        StringUnmanaged(const StringUnmanaged&) = delete;
+
+        [[nodiscard]] static AllocExpect<StringUnmanaged> copyConstruct(
+            const StringUnmanaged& other, Allocator& alloc) noexcept;
+        
+        StringUnmanaged& operator=(const StringUnmanaged& other) = delete;
+
+        [[nodiscard]] AllocExpect<void> copyAssign(const StringUnmanaged& other, Allocator& alloc) noexcept;
+
+        [[nodiscard]] static AllocExpect<StringUnmanaged> copyConstructSlice(
+            const StringSlice& slice, Allocator& alloc) noexcept;
+
+        [[nodiscard]] AllocExpect<void> copyAssignSlice(const StringSlice& slice, Allocator& alloc) noexcept;
+
+        [[nodiscard]] static AllocExpect<StringUnmanaged> copyConstructCStr(
+            const char* str, Allocator& alloc) noexcept;
+
+        [[nodiscard]] AllocExpect<void> copyAssignCStr(const char* str, Allocator& alloc) noexcept;
+
+        /// Length in bytes, not utf8 characters or graphemes.
+        [[nodiscard]] size_t len() const { return len_; }
+
+        /// Any mutation operations on `this` may invalidate the returned slice.
+        [[nodiscard]] StringSlice asSlice() const;
+
+        // Get as const char*
+        [[nodiscard]] const char* cstr() const;
+
+    SY_CLASS_TEST_PRIVATE:
+
+        bool isSso() const;
+
+        void setHeapFlag();
+
+        void setSsoFlag();
+
+        bool hasEnoughCapacity(const size_t requiredCapacity) const;
+
+    private:
+        
+        size_t len_     = 0;
+        size_t raw_[3]  = { 0 };
+    };
+
+    /// Dynamic, [Small String Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/) 
+    /// utf8 string class. It is a wrapper around `StringUnmanaged` that uses the default allocator.
+    /// Is script compatible.
     class SY_API String final {
     public:
     
@@ -34,55 +98,19 @@ namespace sy {
         String& operator=(const char* str);
 
         /// Length in bytes, not utf8 characters or graphemes.
-        size_t len() const { return _length; }
+        size_t len() const { return inner.len(); }
 
         /// Any mutation operations on `this` may invalidate the returned slice.
-        StringSlice asSlice() const;
+        StringSlice asSlice() const { return inner.asSlice(); }
 
         // Get as const char*
-        const char* cstr() const;
+        const char* cstr() const { return inner.cstr(); }
 
     private:
 
-        bool isSso()const;
-
-        void setHeapFlag();
-
-        void setSsoFlag();
-
-        static constexpr size_t SSO_CAPACITY = 3 * sizeof(size_t);
-        // Not including null terminator
-        static constexpr size_t MAX_SSO_LEN = SSO_CAPACITY - 1;
-
-        struct SsoBuffer {
-            char arr[SSO_CAPACITY] = { '\0' };
-            SsoBuffer() = default;
-        };
-
-        struct HeapBuffer {
-            char*   ptr = nullptr;
-            size_t  capacity = 0;
-            char    _unused[sizeof(size_t) - 1] = { 0 };
-            char    flag = 0;
-            HeapBuffer() = default;
-        };
-
-        const SsoBuffer* asSso() const;
-        SsoBuffer* asSso();
-        const HeapBuffer* asHeap() const;
-        HeapBuffer* asHeap();
-
-        bool hasEnoughCapacity(const size_t requiredCapacity) const;
-
-        static_assert(sizeof(SsoBuffer) == sizeof(HeapBuffer));
-        static_assert(sizeof(SsoBuffer) == sizeof(size_t[3]));
-
-    private:
-
-        size_t      _length = 0;
-        size_t      _raw[3] = { 0 };
+        StringUnmanaged inner;
     };
 }
 
-#endif // SY_TYPES_STRING_HPP_
+#endif // SY_TYPES_STRING_STRING_HPP_
 

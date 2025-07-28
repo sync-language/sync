@@ -29,53 +29,53 @@ typedef enum SyTypeTag {
     /// Maps to effectively infinite `SyType` instances, depending on the references type and mutability.
     SyTypeTagReference = 7,
     /// Maps to effectively infinite `SyType` instances, depending on the type of each array element,
-    /// as well as if it's a dynamic or static array (and size of array for static). Holds ownership over the values. 
+    /// and size of array. Holds ownership over the values. For dynamic arrays, see `SyTypeTagDynamicArray`.
     /// For array references, see `SyTypeTagSlice`.
     SyTypeTagArray = 8,
+    /// Maps to effectively infinite `SyType` instances, depending on the type of each array element.
+    /// For array references, see `SyTypeTagSlice`. For static arrays, see `SyTypeTagArray`.
+    SyTypeTagDynamicArray = 9,
     /// Maps to effectively infinite `SyType` instances, depending on the type of each set element.
     /// Holds ownership over the values.
-    SyTypeTagSet = 9,
+    /// Maps to effectively infinite `SyType` instances, depending on the type of each array element, and mutability.
+    SyTypeTagSlice = 10,
+    SyTypeTagSet = 11,
     /// Maps to effectively infinite `SyType` instances, depending on the type of keys and values.
     /// Holds ownership over the keys and values.
-    SyTypeTagMap = 10,
-    /// Maps to effectively infinite `SyType` instances, depending on the type of each array element, and mutability.
-    SyTypeTagSlice = 11,
+    SyTypeTagMap = 12,
     /// Maps to effectively infinite `SyType` instances, depending on the type of the optional value.
     /// Can perform special optimizations for types with an "invalid" state. These types are references, slices,
     /// function pointers, and the sync pointer types,which aren't allowed to be nulled. Weak sync pointers may
     /// appear null when invalidated, but they still hold a valid pointer to the freed object.
-    SyTypeTagOption = 12,
+    SyTypeTagOption = 13,
     /// Maps to effectively infinite `SyType` instances, depending on the optional type of the error value.
     /// TODO For the error type, look into other really good error types, such as anyhow and thiserror for Rust. 
     /// Having stack traces in error may be really smart
     /// https://docs.rs/anyhow/latest/anyhow/ https://github.com/dtolnay/thiserror
-    SyTypeTagError = 13,
+    SyTypeTagError = 14,
     /// Maps to effectively infinite `SyType` instances, depending on the type of the ok value and the error value.
     /// Holds ownership over the values.
-    SyTypeTagResult = 14,
+    SyTypeTagResult = 15,
     /// Maps to a few `SyType` instances, depending on the type of each component for the integer and float types, 
     /// along with the dimensions, being `2`, `3`, or `4`. These can map to GLSL types.
-    SyTypeTagVector = 15,
+    SyTypeTagVector = 16,
     /// Maps to a few `SyType` instances, depending on the `32` or `64` bit floats, along with the X and Y dimensions,
     /// each of which can be `2`, `3`, or `4`. These can map to GLSL types.
     /// TODO figure out column vs row major
-    SyTypeTagMatrix = 16,
+    SyTypeTagMatrix = 17,
     /// Maps to effectively infinite `SyType` instances, depending on the return type and argument types.
     /// Is a function pointer. Doesn't handle member binding.
-    SyTypeTagFunction = 17,
+    SyTypeTagFunction = 18,
     /// Maps to effectively infinite `SyType` instances, depending on the object type, and whether it's
     /// single ownership, shared ownership, or weak referencing.
-    SyTypeTagSync = 18,
+    SyTypeTagSync = 19,
     /// Maps to effectively infinite `SyType` instances, depending on the struct name (and relevant namespacing),
     /// it's members, and various other factors.
-    SyTypeTagStruct = 19,
+    SyTypeTagStruct = 20,
 
     // Enforce 32 bit size
     _SY_TYPE_TAG_MAX_ENUM = 0x7FFFFFFF
 } SyTypeTag;
-
-/// Internal use only. Used for type requirements on C unions.
-typedef void* _sy_type_extra_info_unused_t;
 
 typedef struct SyTypeInfoInt {
     /// If `true`, this is a signed integer, otherwise unsigned.
@@ -104,14 +104,14 @@ typedef struct SyTypeInfoFunction {
 } SyTypeInfoFunction;
 
 typedef union SyTypeExtraInfo {
-    _sy_type_extra_info_unused_t    _boolInfo;
-    SyTypeInfoInt                   intInfo;
-    SyTypeInfoFloat                 floatInfo;
-    //_sy_type_extra_info_unused_t    _charInfo;
-    _sy_type_extra_info_unused_t    _stringSliceInfo;
-    _sy_type_extra_info_unused_t    _stringInfo;
-    SyTypeInfoFunction              functionInfo;
-    SyTypeInfoReference             referenceInfo;
+    void*               _boolInfo;
+    SyTypeInfoInt       intInfo;
+    SyTypeInfoFloat     floatInfo;
+    //void*    _charInfo;
+    void*               _stringSliceInfo;
+    void*               _stringInfo;
+    SyTypeInfoFunction  functionInfo;
+    SyTypeInfoReference referenceInfo;
 } SyTypeExtraInfo;
 
 typedef struct SyType {
