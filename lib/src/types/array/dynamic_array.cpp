@@ -5,12 +5,13 @@
 #include "../type_info.hpp"
 #include "../function/function.hpp"
 #include "../../program/program.hpp"
+#include "../../util/pow_of_2.hpp"
 
 sy::RawDynArrayUnmanaged::~RawDynArrayUnmanaged() noexcept
 {
     // Ensure no leaks
-    #if _DEBUG
-    if(capacity > 0) {
+    #ifndef NDEBUG
+    if(capacity_ > 0) {
         try {
             std::cerr << "DynArrayUnmanaged not properly destroyed." << std::endl;
             Backtrace bt = Backtrace::generate();
@@ -94,6 +95,42 @@ void sy::RawDynArrayUnmanaged::moveAssign(
     other.data_ = nullptr;
     other.capacity_ = 0;
     other.alloc_ = nullptr;
+}
+
+sy::AllocExpect<sy::RawDynArrayUnmanaged> sy::RawDynArrayUnmanaged::copyConstruct(
+    const RawDynArrayUnmanaged &other,
+    Allocator &alloc,
+    void (*copyConstructFn)(void *dst, const void *src),
+    size_t size,
+    size_t align
+) noexcept
+{
+    RawDynArrayUnmanaged self;
+    if(other.len_ == 0) {
+        return AllocExpect<RawDynArrayUnmanaged>(std::move(self));
+    }
+
+    auto res = alloc.allocAlignedArray<uint8_t>(other.len_ * size, align);
+    if(res.hasValue() == false) {
+        return AllocExpect<RawDynArrayUnmanaged>();
+    }
+
+    self.len_ = other.len_;
+    self.data_ = res.value(); // start without any space in the front of the array
+    self.alloc_ = self.data_;
+    self.capacity_ = other.len_;
+
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(self.data_);
+    const uint8_t* otherAsBytes = reinterpret_cast<const uint8_t*>(other.data_);
+
+    for(size_t i = 0; i < other.len_; i++) {
+        const size_t    offset = i * size;
+        void*           dst = &selfAsBytes[offset];
+        const void*     src = &otherAsBytes[offset];
+        copyConstructFn(dst, src);
+    }
+
+    return AllocExpect<RawDynArrayUnmanaged>(std::move(self));
 }
 
 #ifndef SYNC_LIB_NO_TESTS

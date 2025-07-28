@@ -43,13 +43,14 @@ namespace sy {
             size_t align
         ) noexcept;
 
-        [[nodiscard]] static AllocExpect<RawDynArrayUnmanaged> copyConstructScript(
-            const RawDynArrayUnmanaged& other,
-            Allocator& alloc,
-            const Type* typeInfo
-        ) noexcept;
+        // TODO script types copy
+        // [[nodiscard]] static AllocExpect<RawDynArrayUnmanaged> copyConstructScript(
+        //     const RawDynArrayUnmanaged& other,
+        //     Allocator& alloc,
+        //     const Type* typeInfo
+        // ) noexcept;
 
-        RawDynArrayUnmanaged& operator=(const RawDynArrayUnmanaged& other);
+        RawDynArrayUnmanaged& operator=(const RawDynArrayUnmanaged& other) = delete;
 
         [[nodiscard]] AllocExpect<void> copyAssign(
             const RawDynArrayUnmanaged& other,
