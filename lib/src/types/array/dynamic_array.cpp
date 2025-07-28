@@ -25,14 +25,15 @@ void sy::DynArrayUnmanaged::destroy(Allocator &alloc, void (*destruct)(void *ptr
 {
     if(this->capacity_ == 0) return;
 
+    uint8_t* asBytes = reinterpret_cast<uint8_t*>(this->data_);
+
     for(size_t i = 0; i < this->len_; i++) {
-        uint8_t* asBytes = reinterpret_cast<uint8_t*>(this->data_);
         const size_t offset = i * size;
         void* obj = &asBytes[offset];
         destruct(obj);
     }
 
-    alloc.freeAlignedArray(this->data_, this->capacity_ * size, align);
+    alloc.freeAlignedArray(asBytes, this->capacity_ * size, align);
 
     this->len_ = 0;
     this->data_ = nullptr;
@@ -44,12 +45,13 @@ void sy::DynArrayUnmanaged::destroyScript(Allocator &alloc, const sy::Type *type
 {    
     if(this->capacity_ == 0) return;
 
+    uint8_t* asBytes = reinterpret_cast<uint8_t*>(this->data_);
+
     if(typeInfo->optionalDestructor != nullptr) {
         for(size_t i = 0; i < this->len_; i++) {
-            uint8_t* asBytes = reinterpret_cast<uint8_t*>(this->data_);
             const size_t offset = i * typeInfo->sizeType;
             void* obj = &asBytes[offset];
-            
+
             sy::Function::CallArgs callArgs = typeInfo->optionalDestructor->startCall();
             callArgs.push(obj, typeInfo->mutRef);
             const sy::ProgramRuntimeError err = callArgs.call(nullptr);
@@ -57,7 +59,7 @@ void sy::DynArrayUnmanaged::destroyScript(Allocator &alloc, const sy::Type *type
         }     
     }
 
-    alloc.freeAlignedArray(this->data_, this->capacity_ * typeInfo->sizeType, typeInfo->alignType);
+    alloc.freeAlignedArray(asBytes, this->capacity_ * typeInfo->sizeType, typeInfo->alignType);
 
     this->len_ = 0;
     this->data_ = nullptr;
