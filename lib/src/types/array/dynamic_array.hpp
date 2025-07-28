@@ -19,7 +19,73 @@ namespace sy {
 
         void destroy(Allocator& alloc, void (*destruct)(void *ptr), size_t size, size_t align) noexcept;
 
-        void destroyScript(Allocator& alloc, const sy::Type* typeInfo) noexcept;
+        void destroyScript(Allocator& alloc, const Type* typeInfo) noexcept;
+
+        DynArrayUnmanaged(DynArrayUnmanaged&& other) noexcept;
+
+        DynArrayUnmanaged& operator=(DynArrayUnmanaged&& other) noexcept;
+
+        void moveAssign(DynArrayUnmanaged&& other, Allocator& alloc) noexcept;
+
+        DynArrayUnmanaged(const DynArrayUnmanaged& other);
+
+        [[nodiscard]] static AllocExpect<DynArrayUnmanaged> copyConstruct(
+            const DynArrayUnmanaged& other,
+            Allocator& alloc,
+            void (*copyConstructFn)(void* dst, const void* src),
+            size_t size,
+            size_t align
+        ) noexcept;
+
+        [[nodiscard]] static AllocExpect<DynArrayUnmanaged> copyConstructScript(
+            const DynArrayUnmanaged& other,
+            Allocator& alloc,
+            const Type* typeInfo
+        ) noexcept;
+
+        DynArrayUnmanaged& operator=(const DynArrayUnmanaged& other);
+
+        [[nodiscard]] AllocExpect<void> copyAssign(
+            const DynArrayUnmanaged& other,
+            Allocator& alloc,
+            void (*copyConstructFn)(void* dst, const void* src),
+            size_t size,
+            size_t align
+        ) noexcept;
+
+        [[nodiscard]] AllocExpect<void> copyAssignScript(
+            const DynArrayUnmanaged& other,
+            Allocator& alloc,
+            const Type* typeInfo
+        ) noexcept;
+
+        [[nodiscard]] size_t len() const { return len_; }
+
+        [[nodiscard]] const void* at(size_t index, size_t size) const;
+
+        [[nodiscard]] void* at(size_t index, size_t size);
+
+        [[nodiscard]] AllocExpect<void> push(void* element, size_t size, size_t align) noexcept;
+
+        [[nodiscard]] AllocExpect<void> pushCustomMove(
+            void* element,
+            size_t size,
+            size_t align,
+            void(*moveConstructFn)(void* dst, void* src)
+        ) noexcept;
+
+        [[nodiscard]] AllocExpect<void> pushScript(void* element, const Type* typeInfo) noexcept;
+
+        [[nodiscard]] AllocExpect<void> pushFront(void* element, size_t size, size_t align) noexcept;
+
+        [[nodiscard]] AllocExpect<void> pushFrontCustomMove(
+            void* element,
+            size_t size,
+            size_t align,
+            void(*moveConstructFn)(void* dst, void* src)
+        ) noexcept;
+
+        [[nodiscard]] AllocExpect<void> pushFrontScript(void* element, const Type* typeInfo) noexcept;
 
     private:
         size_t  len_ = 0;
