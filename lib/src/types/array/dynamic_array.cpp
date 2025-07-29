@@ -28,7 +28,7 @@ static size_t capacityIncrease(const size_t inCapacity) {
     }
     #endif
 
-    if(inCapacity < 1024) {
+    if(inCapacity < lowAmount) {
         return inCapacity << 1;
     } else {
         return (inCapacity * 3) >> 1;
@@ -57,8 +57,8 @@ static size_t remainingBackCapacity(
 ) {
     const size_t frontCapacity = remainingFrontCapacity(data, alloc, size);
     const size_t capacityWithoutFront = fullCapacity - frontCapacity;
-    sy_assert(frontCapacity >= len, "Invalid inputs");
-    return (fullCapacity - frontCapacity) - len;
+    sy_assert(capacityWithoutFront >= len, "Invalid inputs");
+    return capacityWithoutFront - len;
 }
 
 sy::RawDynArrayUnmanaged::~RawDynArrayUnmanaged() noexcept
@@ -272,13 +272,16 @@ sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushBack(
 ) noexcept
 {
     if(remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, size) == 0) {
-        this->reallocateBack(alloc, size, align);
+        if(this->reallocateBack(alloc, size, align) == false) {
+            return AllocExpect<void>();
+        }
     }
     
     uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
     const size_t byteOffset = this->len_ * size;
     memcpy(&selfAsBytes[byteOffset], element, size);
     this->len_ += 1;
+    return AllocExpect<void>(std::true_type());
 }
 
 sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushBackCustomMove(
@@ -290,13 +293,16 @@ sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushBackCustomMove(
 ) noexcept
 {
     if(remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, size) == 0) {
-        this->reallocateBackCustomMove(alloc, size, align, moveConstructFn);
+        if(this->reallocateBackCustomMove(alloc, size, align, moveConstructFn) == false) {
+            return AllocExpect<void>();
+        }
     }
     
     uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
     const size_t byteOffset = this->len_ * size;
     moveConstructFn(&selfAsBytes[byteOffset], element);
     this->len_ += 1;
+    return AllocExpect<void>(std::true_type());
 }
 
 sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushBackScript(
@@ -306,13 +312,16 @@ sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushBackScript(
 ) noexcept
 {
     if(remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, typeInfo->sizeType) == 0) {
-        this->reallocateBack(alloc, typeInfo->sizeType, typeInfo->alignType);
+        if(this->reallocateBack(alloc, typeInfo->sizeType, typeInfo->alignType) == false) {
+            return AllocExpect<void>();
+        }
     }
     
     uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
     const size_t byteOffset = this->len_ * typeInfo->sizeType;
     memcpy(&selfAsBytes[byteOffset], element, typeInfo->sizeType);
     this->len_ += 1;
+    return AllocExpect<void>(std::true_type());
 }
 
 sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushFront(
@@ -323,15 +332,16 @@ sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushFront(
 ) noexcept
 {
     if(remainingFrontCapacity(this->data_, this->alloc_, size) == 0) {
-        this->reallocateFront(alloc, size, align);
+        if(this->reallocateFront(alloc, size, align) == false) {
+            return AllocExpect<void>();
+        }
     }
     
-    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
-    const size_t byteOffset = this->len_ * size;
     memcpy(this->beforeFront(size), element, size);
     this->len_ += 1;
     uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
     this->data_ = selfAsBytes - size;
+    return AllocExpect<void>(std::true_type());
 }
 
 sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushFrontCustomMove(
@@ -343,15 +353,16 @@ sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushFrontCustomMove(
 ) noexcept
 {
     if(remainingFrontCapacity(this->data_, this->alloc_, size) == 0) {
-        this->reallocateFrontCustomMove(alloc, size, align, moveConstructFn);
+        if(this->reallocateFrontCustomMove(alloc, size, align, moveConstructFn) == false) {
+            return AllocExpect<void>();
+        }
     }
     
-    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
-    const size_t byteOffset = this->len_ * size;
     moveConstructFn(this->beforeFront(size), element);
-    this->len_ += 1;
     uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+    this->len_ += 1;
     this->data_ = selfAsBytes - size;
+    return AllocExpect<void>(std::true_type());
 }
 
 sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushFrontScript(
@@ -361,15 +372,16 @@ sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushFrontScript(
 ) noexcept
 {
     if(remainingFrontCapacity(this->data_, this->alloc_, typeInfo->sizeType) == 0) {
-        this->reallocateFront(alloc, typeInfo->sizeType, typeInfo->alignType);
+        if(this->reallocateFront(alloc, typeInfo->sizeType, typeInfo->alignType) == false) {
+            return AllocExpect<void>();
+        }
     }
     
-    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
-    const size_t byteOffset = this->len_ * typeInfo->sizeType;
     memcpy(this->beforeFront(typeInfo->sizeType), element, typeInfo->sizeType);
     this->len_ += 1;
     uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
     this->data_ = selfAsBytes - typeInfo->sizeType;
+    return AllocExpect<void>(std::true_type());
 }
 
 sy::AllocExpect<void> sy::RawDynArrayUnmanaged::reallocateBack(
