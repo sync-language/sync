@@ -6,6 +6,60 @@
 #include "../function/function.hpp"
 #include "../../program/program.hpp"
 #include "../../util/pow_of_2.hpp"
+#include <tuple>
+
+static constexpr size_t initialArrayCapacity = 4;
+
+static size_t capacityIncrease(const size_t inCapacity) {
+    constexpr size_t lowAmount = 1024;
+    // increasing by 1.5 without double conversion is n * 3 / 2.
+    // simplified, it is (n * 3) >> 1;
+    constexpr size_t superHighAmount = SIZE_MAX / 3;
+
+
+    #ifndef NDEBUG
+    if(inCapacity > superHighAmount) {
+        try {
+            std::cerr << "DynArrayUnmanaged too big" << std::endl;
+            Backtrace bt = Backtrace::generate();
+            bt.print();
+        } catch(...) {}
+        std::abort();
+    }
+    #endif
+
+    if(inCapacity < 1024) {
+        return inCapacity << 1;
+    } else {
+        return (inCapacity * 3) >> 1;
+    }
+}
+
+static size_t remainingFrontCapacity(
+    const void* data,
+    const void* alloc,
+    const size_t size
+) {
+    const uintptr_t dataAsInt = reinterpret_cast<uintptr_t>(data);
+    const uintptr_t allocAsInt = reinterpret_cast<uintptr_t>(alloc);
+    sy_assert(dataAsInt > allocAsInt, "Invalid memory");
+
+    const size_t difference = static_cast<size_t>(dataAsInt - allocAsInt);
+    return difference / size;
+}
+
+static size_t remainingBackCapacity(
+    const size_t len,
+    const size_t fullCapacity,
+    const void* data,
+    const void* alloc,
+    const size_t size
+) {
+    const size_t frontCapacity = remainingFrontCapacity(data, alloc, size);
+    const size_t capacityWithoutFront = fullCapacity - frontCapacity;
+    sy_assert(frontCapacity >= len, "Invalid inputs");
+    return (fullCapacity - frontCapacity) - len;
+}
 
 sy::RawDynArrayUnmanaged::~RawDynArrayUnmanaged() noexcept
 {
@@ -131,6 +185,207 @@ sy::AllocExpect<sy::RawDynArrayUnmanaged> sy::RawDynArrayUnmanaged::copyConstruc
     }
 
     return AllocExpect<RawDynArrayUnmanaged>(std::move(self));
+}
+
+sy::AllocExpect<void> sy::RawDynArrayUnmanaged::copyAssign(
+    const RawDynArrayUnmanaged &other,
+    Allocator &alloc,
+    void (*destruct)(void *ptr),
+    void (*copyConstructFn)(void *dst, const void *src),
+    size_t size,
+    size_t align
+) noexcept
+{
+    const uint8_t* otherAsBytes = reinterpret_cast<const uint8_t*>(other.data_);
+
+    if(this->capacity_ >= other.len_) {
+        uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+
+        for(size_t i = 0; i < this->len_; i++) {
+            const size_t offset = i * size;
+            void* obj = &selfAsBytes[offset];
+            destruct(obj);
+        }
+
+        // start without any space in the front of the array
+        this->data_ = this->alloc_;
+        selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+
+        for(size_t i = 0; i < other.len_; i++) {
+            const size_t    offset = i * size;
+            void*           dst = &selfAsBytes[offset];
+            const void*     src = &otherAsBytes[offset];
+            copyConstructFn(dst, src);
+        }
+
+        this->len_ = other.len_;
+
+        return AllocExpect<void>(std::true_type());
+    } else {
+        auto res = alloc.allocAlignedArray<uint8_t>(other.len_ * size, align);
+        if(res.hasValue() == false) {
+            return AllocExpect<void>();
+        }
+
+        this->destroy(alloc, destruct, size, align);
+        this->len_ = other.len_;
+        this->data_ = res.value(); // start without any space in the front of the array
+        this->alloc_ = this->data_;
+        this->capacity_ = other.len_;
+
+        uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+
+        for(size_t i = 0; i < other.len_; i++) {
+            const size_t    offset = i * size;
+            void*           dst = &selfAsBytes[offset];
+            const void*     src = &otherAsBytes[offset];
+            copyConstructFn(dst, src);
+        }
+    }
+
+    return AllocExpect<void>();
+}
+
+const void* sy::RawDynArrayUnmanaged::at(size_t index, size_t size) const
+{
+    sy_assert(index < this->len_, "Index out of bounds");
+    
+    const size_t byteOffset = index * size;
+    const uint8_t* selfAsBytes = reinterpret_cast<const uint8_t*>(this->data_);
+    return &selfAsBytes[byteOffset];
+}
+
+void* sy::RawDynArrayUnmanaged::at(size_t index, size_t size)
+{
+    sy_assert(index < this->len_, "Index out of bounds");
+    
+    const size_t byteOffset = index * size;
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+    return &selfAsBytes[byteOffset];
+}
+
+sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushBack(
+    void *element,
+    Allocator &alloc,
+    size_t size,
+    size_t align
+) noexcept
+{
+    if(remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, size) == 0) {
+        this->reallocateBack(alloc, size, align);
+    }
+    
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+    const size_t byteOffset = this->len_ * size;
+    memcpy(&selfAsBytes[byteOffset], element, size);
+    this->len_ += 1;
+}
+
+sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushBackCustomMove(
+    void *element,
+    Allocator &alloc,
+    size_t size,
+    size_t align,
+    void (*moveConstructFn)(void *dst, void *src)
+) noexcept
+{
+    if(remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, size) == 0) {
+        this->reallocateBackCustomMove(alloc, size, align, moveConstructFn);
+    }
+    
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+    const size_t byteOffset = this->len_ * size;
+    moveConstructFn(&selfAsBytes[byteOffset], element);
+    this->len_ += 1;
+}
+
+sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushBackScript(
+    void *element,
+    Allocator &alloc,
+    const Type *typeInfo
+) noexcept
+{
+    if(remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, typeInfo->sizeType) == 0) {
+        this->reallocateBack(alloc, typeInfo->sizeType, typeInfo->alignType);
+    }
+    
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+    const size_t byteOffset = this->len_ * typeInfo->sizeType;
+    memcpy(&selfAsBytes[byteOffset], element, typeInfo->sizeType);
+    this->len_ += 1;
+}
+
+sy::AllocExpect<void> sy::RawDynArrayUnmanaged::pushFront(
+    void *element,
+    Allocator &alloc,
+    size_t size,
+    size_t align
+) noexcept
+{
+    return AllocExpect<void>();
+}
+
+sy::AllocExpect<void> sy::RawDynArrayUnmanaged::reallocateBack(
+    Allocator& alloc,
+    const size_t size,
+    const size_t align
+) noexcept
+{
+    const size_t newCapacity = capacityIncrease(this->capacity_);
+    auto res = alloc.allocAlignedArray<uint8_t>(newCapacity * size, align);
+    if(res.hasValue() == false) {
+        return AllocExpect<void>();
+    }
+
+    const size_t frontCapacity = remainingFrontCapacity(this->data_, this->alloc_, size);
+    uint8_t* newAlloc = res.value();
+    uint8_t* newData = &newAlloc[frontCapacity];
+
+    const uint8_t* selfAsBytes = reinterpret_cast<const uint8_t*>(this->data_);
+    for(size_t i = 0; i < this->len_; i++) {      
+        const size_t byteOffset = i * size;
+        memcpy(&newData[byteOffset], &selfAsBytes[byteOffset], size);
+    }
+
+    uint8_t* selfAlloc = reinterpret_cast<uint8_t*>(this->alloc_);
+    alloc.freeAlignedArray(selfAlloc, this->capacity_ * size, align);
+
+    this->data_ = newData;
+    this->alloc_ = newAlloc;
+    this->capacity_ = newCapacity;
+    return AllocExpect<void>(std::true_type());
+}
+
+sy::AllocExpect<void> sy::RawDynArrayUnmanaged::reallocateBackCustomMove(
+    Allocator &alloc,
+    const size_t size,
+    const size_t align,
+    void (*moveConstructFn)(void *dst, void *src)
+) noexcept
+{
+    const size_t newCapacity = capacityIncrease(this->capacity_);
+    auto res = alloc.allocAlignedArray<uint8_t>(newCapacity * size, align);
+    if(res.hasValue() == false) {
+        return AllocExpect<void>();
+    }
+
+    const size_t frontCapacity = remainingFrontCapacity(this->data_, this->alloc_, size);
+    uint8_t* newAlloc = res.value();
+    uint8_t* newData = &newAlloc[frontCapacity];
+
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+    for(size_t i = 0; i < this->len_; i++) {      
+        const size_t byteOffset = i * size;
+        moveConstructFn(&newData[byteOffset], &selfAsBytes[byteOffset]);
+    }
+
+    uint8_t* selfAlloc = reinterpret_cast<uint8_t*>(this->alloc_);
+    alloc.freeAlignedArray(selfAlloc, this->capacity_ * size, align);
+
+    this->data_ = newData;
+    this->alloc_ = newAlloc;
+    this->capacity_ = newCapacity;
+    return AllocExpect<void>(std::true_type());
 }
 
 #ifndef SYNC_LIB_NO_TESTS
