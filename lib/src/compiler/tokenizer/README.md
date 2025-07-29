@@ -39,6 +39,7 @@ All tokens are whitespace sensitive. For instance, `11 11` would not be the inte
   - How should modules work?
 - extern
   - Scripts only work well realistically if they can call into the host program. This must be figured out precisely and safely.
+- assert
 
 ### Primitive Types
 
@@ -107,6 +108,7 @@ Identifiers must start with alphabetical characters, being [a-z] or [A-Z], or an
 - .! (Error Unchecked Unwrap)
 - .? (Option Unchecked Unwrap)
 - ! (Not)
+  - Must be distinguished from not. Must not be after an identifier.
 - .* (Dereference)
   - Is this needed?
 - <= (Less Or Equal)
@@ -155,6 +157,7 @@ Identifiers must start with alphabetical characters, being [a-z] or [A-Z], or an
 - . (Dot)
 - ? (Optional)
 - ! (Error Result)
+  - Must be distinguished from not. Must be after an identifier.
 - & (Immutable Reference)
   - Must be distinguished from bit and. Whitespace sensitive? Cannot be after an identifier.
 - &mut (Mutable Reference)

@@ -32,6 +32,7 @@ StringSlice tokenTypeToString(TokenType tokenType)
         case TokenType::NullKeyword: return "NullKeyword";
         case TokenType::AndKeyword: return "AndKeyword";
         case TokenType::OrKeyword: return "OrKeyword";
+        case TokenType::AssertKeyword: return "AssertKeyword";
 
         case TokenType::BoolPrimitive: return "BoolPrimitive";
         case TokenType::I8Primitive: return "I8Primitive";
@@ -110,4 +111,152 @@ StringSlice tokenTypeToString(TokenType tokenType)
         sy_assert(false, "Invalid token");
     }
     unreachable();
+}
+
+// no need to include whole header
+
+constexpr static bool isSpace(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
+}
+
+constexpr static bool isAlpha(char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+constexpr static bool isNumeric(char c) {
+    return (c >= '0' && c <= '9');
+}
+
+constexpr static bool isAlphaNumeric(char c) {
+    return isAlpha(c) && isNumeric(c);
+}
+
+constexpr static bool isAlphaNumericOrUnderscore(char c) {
+    return isAlpha(c) || isNumeric(c) || c == '_';
+}
+
+/// @return -1 if reached end of source
+static uint32_t nonWhitespaceStartFrom(const StringSlice source, const uint32_t start) {
+    const char* strData = source.data();
+    const uint32_t len = static_cast<uint32_t>(source.len());
+    for(uint32_t i = start; i < len; i++) {
+        if(!isSpace(strData[i])) return i;
+    }
+    return static_cast<uint32_t>(-1);
+}
+
+// /// @return -1 if reached end of source
+// static uint32_t firstWhitespaceStartFrom(const StringSlice source, const uint32_t start) {
+//     const char* strData = source.data();
+//     const uint32_t len = static_cast<uint32_t>(source.len());
+//     for(uint32_t i = start; i < len; i++) {
+//         if(isSpace(strData[i])) return i;
+//     }
+//     return static_cast<uint32_t>(-1);
+// }
+
+// static uint32_t endOfAlphaNumeric(const StringSlice source, const uint32_t start) {
+//     const char* strData = source.data();
+//     const uint32_t len = static_cast<uint32_t>(source.len());
+//     for(uint32_t i = start; i < len; i++) {
+//         if(!isAlphaNumeric(strData[i])) return i;
+//     }
+//     return static_cast<uint32_t>(-1);
+// }
+
+static uint32_t endOfAlphaNumericOrUnderscore(const StringSlice source, const uint32_t start) {
+    const char* strData = source.data();
+    const uint32_t len = static_cast<uint32_t>(source.len());
+    for(uint32_t i = start; i < len; i++) {
+        if(!isAlphaNumericOrUnderscore(strData[i])) return i;
+    }
+    return static_cast<uint32_t>(-1);
+}
+
+static bool sliceFoundAtUnchecked(const StringSlice source, const StringSlice toFind, const uint32_t start) {
+    const uint32_t toFindLen = static_cast<uint32_t>(toFind.len());
+
+    for(uint32_t i = 0; i < toFindLen; i++) {
+        if(source[start + i] != toFind[i])  return false;
+    }
+    return true;
+}
+
+static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'c', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 7) { // cannot fit continue      
+        if(remainingSourceLen < 4) { // cannot fit const
+            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+            return std::make_tuple(Token(TokenType::Identifier), end);
+        }
+
+        if(sliceFoundAtUnchecked(source, "onst", start)) {
+            // char after is whitespace
+            if(remainingSourceLen >= 4 && isSpace(source[start + 4])) {
+                return std::make_tuple(Token(TokenType::ConstKeyword), start + 4);
+            }
+            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
+            return std::make_tuple(Token(TokenType::Identifier), end);
+        } 
+        else {
+            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+            return std::make_tuple(Token(TokenType::Identifier), end);
+        }
+    }
+
+    if(sliceFoundAtUnchecked(source, "ontinue", start)) {
+        // char after is whitespace
+        if(remainingSourceLen >= 4 && isSpace(source[start + 7])) {
+            return std::make_tuple(Token(TokenType::ConstKeyword), start + 7);
+        }
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 7);
+        return std::make_tuple(Token(TokenType::Identifier), end);
+    } 
+    else {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 1);
+        return std::make_tuple(Token(TokenType::Identifier), end);
+    }
+}
+
+std::tuple<Token, uint32_t> Token::parseToken(
+    const StringSlice source,
+    const uint32_t start,
+    const Token previous
+) {
+    (void)previous;
+
+    const uint32_t nonWhitespaceStart = nonWhitespaceStartFrom(source, start);
+    if(nonWhitespaceStart == static_cast<uint32_t>(-1)) {
+        return std::make_tuple(Token(TokenType::EndOfFile), 0);
+    }
+
+    switch(source[nonWhitespaceStart]) {
+        case '_': { // is definitely an identifier
+            // already did first char
+            const uint32_t end = endOfAlphaNumericOrUnderscore(source, nonWhitespaceStart + 1);
+            return std::make_tuple(Token(TokenType::Identifier), end);
+        };
+        // For tokens with no possible variants and are 1 character, this works
+        case '(': return std::make_tuple(Token(TokenType::LeftParenthesesSymbol), nonWhitespaceStart + 1);
+        case ')': return std::make_tuple(Token(TokenType::RightParenthesesSymbol), nonWhitespaceStart + 1);
+        case '[': return std::make_tuple(Token(TokenType::LeftBracketSymbol), nonWhitespaceStart + 1);
+        case ']': return std::make_tuple(Token(TokenType::RightBracketSymbol), nonWhitespaceStart + 1);
+        case '{': return std::make_tuple(Token(TokenType::LeftBraceSymbol), nonWhitespaceStart + 1);
+        case '}': return std::make_tuple(Token(TokenType::RightBraceSymbol), nonWhitespaceStart + 1);
+        case ';': return std::make_tuple(Token(TokenType::SemicolonSymbol), nonWhitespaceStart + 1);
+        case '?': return std::make_tuple(Token(TokenType::OptionalSymbol), nonWhitespaceStart + 1);
+        default: break;
+    }
+
+    if(source[nonWhitespaceStart] == 'c') { // const and continue
+        return parseConstContinueOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    return std::make_tuple(Token(TokenType::Error), 0);
 }

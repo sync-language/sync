@@ -4,6 +4,7 @@
 
 #include "../../core.h"
 #include "../../types/string/string_slice.hpp"
+#include <tuple>
 
 /// Maximum length of a source file mustn't exceed 24 bits
 static constexpr size_t MAX_SOURCE_LEN = 0x00FFFFFF;
@@ -39,6 +40,7 @@ enum class TokenType : uint8_t {
     // ImportKeyword,
     // ModKeyword,
     // ExternKeyword,
+    AssertKeyword,
 
     BoolPrimitive,
     I8Primitive,
@@ -125,6 +127,26 @@ enum class TokenType : uint8_t {
 sy::StringSlice tokenTypeToString(TokenType tokenType);
 
 class Token {
+public:
+
+    constexpr Token(TokenType inTag) 
+        : tag_(static_cast<uint8_t>(inTag))
+        , location_(0)
+    {}
+
+    /// @return First tuple value is the token. Second tuple value is the next
+    /// location to start. If the second tuple value is `-1`, then the end of
+    /// file has been reached but a token was at the end.
+    static std::tuple<Token, uint32_t> parseToken(
+        const sy::StringSlice source,
+        const uint32_t start,
+        const Token previous
+    );
+
+    [[nodiscard]] constexpr TokenType tag() const { return static_cast<TokenType>(tag_); }
+
+    [[nodiscard]] constexpr uint32_t location() const { return location_; }
+
 private:
     uint32_t tag_ : 8;
     uint32_t location_ : 24;
