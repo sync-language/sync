@@ -28,6 +28,8 @@ set(SyncLibSources
     "src/interpreter/stack/stack.cpp"
     "src/interpreter/bytecode.cpp"
     "src/interpreter/interpreter.cpp"
+    "src/compiler/tokenizer/token.cpp"
+    "src/compiler/tokenizer/tokenizer.cpp"
     "src/program/program.cpp"
 )
 
