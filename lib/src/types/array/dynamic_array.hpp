@@ -135,6 +135,21 @@ namespace sy {
             void(*moveConstructFn)(void* dst, void* src)
         ) noexcept;
 
+        [[nodiscard]] AllocExpect<void> reallocateFront(
+            Allocator& alloc,
+            const size_t size,
+            const size_t align
+        ) noexcept;
+
+        [[nodiscard]] AllocExpect<void> reallocateFrontCustomMove(
+            Allocator& alloc,
+            const size_t size,
+            const size_t align,
+            void(*moveConstructFn)(void* dst, void* src)
+        ) noexcept;
+
+        [[nodiscard]] void* beforeFront(const size_t size);
+
     private:
         size_t  len_ = 0;
         void*   data_ = nullptr;
