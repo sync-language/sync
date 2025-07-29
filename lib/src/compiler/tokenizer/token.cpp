@@ -198,7 +198,8 @@ static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
 
         if(sliceFoundAtUnchecked(source, "onst", start)) {
             // char after is whitespace
-            if(remainingSourceLen >= 4 && isSpace(source[start + 4])) {
+            if(remainingSourceLen == 4) return std::make_tuple(Token(TokenType::ConstKeyword), start + 4);
+            if(remainingSourceLen > 4 && isSpace(source[start + 4])) {
                 return std::make_tuple(Token(TokenType::ConstKeyword), start + 4);
             }
             const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
@@ -212,8 +213,9 @@ static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
 
     if(sliceFoundAtUnchecked(source, "ontinue", start)) {
         // char after is whitespace
-        if(remainingSourceLen >= 4 && isSpace(source[start + 7])) {
-            return std::make_tuple(Token(TokenType::ConstKeyword), start + 7);
+        if(remainingSourceLen == 7) return std::make_tuple(Token(TokenType::ContinueKeyword), start + 7);
+        if(remainingSourceLen > 7 && isSpace(source[start + 7])) {
+            return std::make_tuple(Token(TokenType::ContinueKeyword), start + 7);
         }
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 7);
         return std::make_tuple(Token(TokenType::Identifier), end);
@@ -260,3 +262,97 @@ std::tuple<Token, uint32_t> Token::parseToken(
 
     return std::make_tuple(Token(TokenType::Error), 0);
 }
+
+#ifndef SYNC_LIB_NO_TESTS
+
+#include "../../doctest.h"
+
+TEST_SUITE("const") {
+    TEST_CASE("simple") {
+        const StringSlice slice = "const";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_EQ(token.tag(), TokenType::ConstKeyword);
+        CHECK_GE(end, slice.len());
+    }
+
+    TEST_CASE("leading whitespace") {
+        const StringSlice slice = " const";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_EQ(token.tag(), TokenType::ConstKeyword);
+        CHECK_GE(end, slice.len());
+    }
+
+    TEST_CASE("trailing whitespace") {
+        const StringSlice slice = "const ";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_EQ(token.tag(), TokenType::ConstKeyword);
+        CHECK_GE(end, 5);
+    }
+
+    TEST_CASE("whitespace before and after") {
+        const StringSlice slice = " const ";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_EQ(token.tag(), TokenType::ConstKeyword);
+        CHECK_GE(end, 6);
+    }
+
+    TEST_CASE("fail cause character after") {
+        const StringSlice slice = "constt";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_NE(token.tag(), TokenType::ConstKeyword);
+        CHECK_GE(end, 6);
+    }
+
+    TEST_CASE("fail cause character before") {
+        const StringSlice slice = "cconst";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_NE(token.tag(), TokenType::ConstKeyword);
+        CHECK_GE(end, 6);
+    }
+}
+
+TEST_SUITE("continue") {
+    TEST_CASE("simple") {
+        const StringSlice slice = "continue";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_EQ(token.tag(), TokenType::ContinueKeyword);
+        CHECK_GE(end, slice.len());
+    }
+
+    TEST_CASE("leading whitespace") {
+        const StringSlice slice = " continue";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_EQ(token.tag(), TokenType::ContinueKeyword);
+        CHECK_GE(end, slice.len());
+    }
+
+    TEST_CASE("trailing whitespace") {
+        const StringSlice slice = "continue ";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_EQ(token.tag(), TokenType::ContinueKeyword);
+        CHECK_GE(end, 5);
+    }
+
+    TEST_CASE("whitespace before and after") {
+        const StringSlice slice = " continue ";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_EQ(token.tag(), TokenType::ContinueKeyword);
+        CHECK_GE(end, 6);
+    }
+
+    TEST_CASE("fail cause character after") {
+        const StringSlice slice = "continuee";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_NE(token.tag(), TokenType::ContinueKeyword);
+        CHECK_GE(end, 6);
+    }
+
+    TEST_CASE("fail cause character before") {
+        const StringSlice slice = "ccontinue";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        CHECK_NE(token.tag(), TokenType::ContinueKeyword);
+        CHECK_GE(end, 6);
+    }
+}
+
+#endif // SYNC_LIB_NO_TESTS
