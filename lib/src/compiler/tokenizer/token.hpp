@@ -129,9 +129,9 @@ sy::StringSlice tokenTypeToString(TokenType tokenType);
 class Token {
 public:
 
-    constexpr Token(TokenType inTag) 
+    constexpr Token(TokenType inTag, uint32_t inLocation) 
         : tag_(static_cast<uint8_t>(inTag))
-        , location_(0)
+        , location_(inLocation)
     {}
 
     /// @return First tuple value is the token. Second tuple value is the next

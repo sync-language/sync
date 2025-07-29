@@ -193,36 +193,38 @@ static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
     if(remainingSourceLen < 7) { // cannot fit continue      
         if(remainingSourceLen < 4) { // cannot fit const
             const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
-            return std::make_tuple(Token(TokenType::Identifier), end);
+            return std::make_tuple(Token(TokenType::Identifier, start), end);
         }
 
         if(sliceFoundAtUnchecked(source, "onst", start)) {
             // char after is whitespace
-            if(remainingSourceLen == 4) return std::make_tuple(Token(TokenType::ConstKeyword), start + 4);
+            if(remainingSourceLen == 4) 
+                return std::make_tuple(Token(TokenType::ConstKeyword, start - 1), start + 4);
             if(remainingSourceLen > 4 && isSpace(source[start + 4])) {
-                return std::make_tuple(Token(TokenType::ConstKeyword), start + 4);
+                return std::make_tuple(Token(TokenType::ConstKeyword, start - 1), start + 4);
             }
             const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
-            return std::make_tuple(Token(TokenType::Identifier), end);
+            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
         } 
         else {
             const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
-            return std::make_tuple(Token(TokenType::Identifier), end);
+            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
         }
     }
 
     if(sliceFoundAtUnchecked(source, "ontinue", start)) {
         // char after is whitespace
-        if(remainingSourceLen == 7) return std::make_tuple(Token(TokenType::ContinueKeyword), start + 7);
+        if(remainingSourceLen == 7) 
+            return std::make_tuple(Token(TokenType::ContinueKeyword, start - 1), start + 7);
         if(remainingSourceLen > 7 && isSpace(source[start + 7])) {
-            return std::make_tuple(Token(TokenType::ContinueKeyword), start + 7);
+            return std::make_tuple(Token(TokenType::ContinueKeyword, start - 1), start + 7);
         }
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 7);
-        return std::make_tuple(Token(TokenType::Identifier), end);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     } 
     else {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 1);
-        return std::make_tuple(Token(TokenType::Identifier), end);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
 
@@ -235,24 +237,32 @@ std::tuple<Token, uint32_t> Token::parseToken(
 
     const uint32_t nonWhitespaceStart = nonWhitespaceStartFrom(source, start);
     if(nonWhitespaceStart == static_cast<uint32_t>(-1)) {
-        return std::make_tuple(Token(TokenType::EndOfFile), 0);
+        return std::make_tuple(Token(TokenType::EndOfFile, nonWhitespaceStart), 0);
     }
 
     switch(source[nonWhitespaceStart]) {
         case '_': { // is definitely an identifier
             // already did first char
             const uint32_t end = endOfAlphaNumericOrUnderscore(source, nonWhitespaceStart + 1);
-            return std::make_tuple(Token(TokenType::Identifier), end);
+            return std::make_tuple(Token(TokenType::Identifier, nonWhitespaceStart), end);
         };
         // For tokens with no possible variants and are 1 character, this works
-        case '(': return std::make_tuple(Token(TokenType::LeftParenthesesSymbol), nonWhitespaceStart + 1);
-        case ')': return std::make_tuple(Token(TokenType::RightParenthesesSymbol), nonWhitespaceStart + 1);
-        case '[': return std::make_tuple(Token(TokenType::LeftBracketSymbol), nonWhitespaceStart + 1);
-        case ']': return std::make_tuple(Token(TokenType::RightBracketSymbol), nonWhitespaceStart + 1);
-        case '{': return std::make_tuple(Token(TokenType::LeftBraceSymbol), nonWhitespaceStart + 1);
-        case '}': return std::make_tuple(Token(TokenType::RightBraceSymbol), nonWhitespaceStart + 1);
-        case ';': return std::make_tuple(Token(TokenType::SemicolonSymbol), nonWhitespaceStart + 1);
-        case '?': return std::make_tuple(Token(TokenType::OptionalSymbol), nonWhitespaceStart + 1);
+        case '(': return std::make_tuple(Token(TokenType::LeftParenthesesSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case ')': return std::make_tuple(Token(TokenType::RightParenthesesSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '[': return std::make_tuple(Token(TokenType::LeftBracketSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case ']': return std::make_tuple(Token(TokenType::RightBracketSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '{': return std::make_tuple(Token(TokenType::LeftBraceSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '}': return std::make_tuple(Token(TokenType::RightBraceSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case ';': return std::make_tuple(Token(TokenType::SemicolonSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '?': return std::make_tuple(Token(TokenType::OptionalSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
         default: break;
     }
 
@@ -260,7 +270,7 @@ std::tuple<Token, uint32_t> Token::parseToken(
         return parseConstContinueOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    return std::make_tuple(Token(TokenType::Error), 0);
+    return std::make_tuple(Token(TokenType::Error, static_cast<uint32_t>(-1)), 0);
 }
 
 #ifndef SYNC_LIB_NO_TESTS
@@ -270,42 +280,46 @@ std::tuple<Token, uint32_t> Token::parseToken(
 TEST_SUITE("const") {
     TEST_CASE("simple") {
         const StringSlice slice = "const";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_EQ(token.tag(), TokenType::ConstKeyword);
+        CHECK_EQ(token.location(), 0);
         CHECK_GE(end, slice.len());
     }
 
     TEST_CASE("leading whitespace") {
         const StringSlice slice = " const";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_EQ(token.tag(), TokenType::ConstKeyword);
+        CHECK_EQ(token.location(), 1);
         CHECK_GE(end, slice.len());
     }
 
     TEST_CASE("trailing whitespace") {
         const StringSlice slice = "const ";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_EQ(token.tag(), TokenType::ConstKeyword);
+        CHECK_EQ(token.location(), 0);
         CHECK_GE(end, 5);
     }
 
     TEST_CASE("whitespace before and after") {
         const StringSlice slice = " const ";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_EQ(token.tag(), TokenType::ConstKeyword);
+        CHECK_EQ(token.location(), 1);
         CHECK_GE(end, 6);
     }
 
     TEST_CASE("fail cause character after") {
         const StringSlice slice = "constt";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_NE(token.tag(), TokenType::ConstKeyword);
         CHECK_GE(end, 6);
     }
 
     TEST_CASE("fail cause character before") {
         const StringSlice slice = "cconst";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_NE(token.tag(), TokenType::ConstKeyword);
         CHECK_GE(end, 6);
     }
@@ -314,42 +328,46 @@ TEST_SUITE("const") {
 TEST_SUITE("continue") {
     TEST_CASE("simple") {
         const StringSlice slice = "continue";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_EQ(token.tag(), TokenType::ContinueKeyword);
+        CHECK_EQ(token.location(), 0);
         CHECK_GE(end, slice.len());
     }
 
     TEST_CASE("leading whitespace") {
         const StringSlice slice = " continue";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_EQ(token.tag(), TokenType::ContinueKeyword);
+        CHECK_EQ(token.location(), 1);
         CHECK_GE(end, slice.len());
     }
 
     TEST_CASE("trailing whitespace") {
         const StringSlice slice = "continue ";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_EQ(token.tag(), TokenType::ContinueKeyword);
+        CHECK_EQ(token.location(), 0);
         CHECK_GE(end, 5);
     }
 
     TEST_CASE("whitespace before and after") {
         const StringSlice slice = " continue ";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_EQ(token.tag(), TokenType::ContinueKeyword);
+        CHECK_EQ(token.location(), 1);
         CHECK_GE(end, 6);
     }
 
     TEST_CASE("fail cause character after") {
         const StringSlice slice = "continuee";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_NE(token.tag(), TokenType::ContinueKeyword);
         CHECK_GE(end, 6);
     }
 
     TEST_CASE("fail cause character before") {
         const StringSlice slice = "ccontinue";
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error));
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_NE(token.tag(), TokenType::ContinueKeyword);
         CHECK_GE(end, 6);
     }
