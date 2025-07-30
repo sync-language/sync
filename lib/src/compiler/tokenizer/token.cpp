@@ -101,8 +101,10 @@ StringSlice tokenTypeToString(TokenType tokenType)
         case TokenType::RightBracketSymbol: return "RightBracketSymbol";
         case TokenType::LeftBraceSymbol: return "LeftBraceSymbol";
         case TokenType::RightBraceSymbol: return "RightBraceSymbol";
+        case TokenType::ColonSymbol: return "ColonSymbol";
         case TokenType::SemicolonSymbol: return "SemicolonSymbol";
         case TokenType::DotSymbol: return "DotSymbol";
+        case TokenType::CommaSymbol: return "CommaSymbol";
         case TokenType::OptionalSymbol: return "OptionalSymbol";
         case TokenType::ErrorSymbol: return "ErrorSymbol";
         case TokenType::ImmutableReferenceSymbol: return "ImmutableReferenceSymbol";
@@ -125,6 +127,18 @@ constexpr static bool isAlpha(char c) {
 
 constexpr static bool isNumeric(char c) {
     return (c >= '0' && c <= '9');
+}
+
+constexpr static bool isSeparator(char c) {
+    return c == ';' ||
+        c == ',' ||
+        c == ':' ||
+        c == '(' ||
+        c == ')' ||
+        c == '[' ||
+        c == ']' ||
+        c == '{' ||
+        c == '}';
 }
 
 constexpr static bool isAlphaNumeric(char c) {
@@ -182,6 +196,70 @@ static bool sliceFoundAtUnchecked(const StringSlice source, const StringSlice to
     return true;
 }
 
+static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'i', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen == 0) {
+        // Literally the identifier "i". Conveniently this is common for iterators.
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), start);
+    }
+
+    if (source[start] == 'f') {
+        return std::make_tuple(Token(TokenType::IfKeyword, start - 1), start + 1);
+    }
+    if (source[start] == '8') {
+        return std::make_tuple(Token(TokenType::I8Primitive, start - 1), start + 1);
+    }
+
+    if(remainingSourceLen >= 2) { // cannot fit i64, i32, or i16. Must be if, i8, or an identifier
+        if (sliceFoundAtUnchecked(source, "64", start)) {
+            if (
+                remainingSourceLen == 2 ||
+                isSpace(source[start + 2] ||
+                isSeparator(source[start + 2]))
+            ) {
+                return std::make_tuple(Token(TokenType::I64Primitive, start - 1), start + 2);
+            }
+            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+        }
+
+        if (sliceFoundAtUnchecked(source, "32", start)) {
+            if (
+                remainingSourceLen == 2 ||
+                isSpace(source[start + 2] ||
+                    isSeparator(source[start + 2]))
+                ) {
+                return std::make_tuple(Token(TokenType::I32Primitive, start - 1), start + 2);
+            }
+            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+        }
+
+        if (sliceFoundAtUnchecked(source, "16", start)) {
+            if (
+                remainingSourceLen == 2 ||
+                isSpace(source[start + 2] ||
+                    isSeparator(source[start + 2]))
+                ) {
+                return std::make_tuple(Token(TokenType::I16Primitive, start - 1), start + 2);
+            }
+            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+        }
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
 static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
     const StringSlice source,
     const uint32_t start
@@ -190,39 +268,34 @@ static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
-    if(remainingSourceLen < 7) { // cannot fit continue      
-        if(remainingSourceLen < 4) { // cannot fit const
-            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
-            return std::make_tuple(Token(TokenType::Identifier, start), end);
-        }
-
-        if(sliceFoundAtUnchecked(source, "onst", start)) {
-            // char after is whitespace
-            if(remainingSourceLen == 4) 
-                return std::make_tuple(Token(TokenType::ConstKeyword, start - 1), start + 4);
-            if(remainingSourceLen > 4 && isSpace(source[start + 4])) {
-                return std::make_tuple(Token(TokenType::ConstKeyword, start - 1), start + 4);
-            }
-            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
-            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
-        } 
-        else {
-            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
-            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
-        }
+    if (remainingSourceLen < 4) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start), end);
     }
 
-    if(sliceFoundAtUnchecked(source, "ontinue", start)) {
+    if (sliceFoundAtUnchecked(source, "onst", start)) {
         // char after is whitespace
-        if(remainingSourceLen == 7) 
-            return std::make_tuple(Token(TokenType::ContinueKeyword, start - 1), start + 7);
-        if(remainingSourceLen > 7 && isSpace(source[start + 7])) {
-            return std::make_tuple(Token(TokenType::ContinueKeyword, start - 1), start + 7);
+        if (remainingSourceLen == 4 || isSpace(source[start + 4]) || isSeparator(source[start + 4])) {
+            return std::make_tuple(Token(TokenType::ConstKeyword, start - 1), start + 4);
         }
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 7);
+        
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
-    } 
-    else {
+    }
+
+    if(remainingSourceLen >= 7) {
+        if(sliceFoundAtUnchecked(source, "ontinue", start)) {
+            // char after is whitespace
+            if(remainingSourceLen == 7 || isSpace(source[start + 7]) || isSeparator(source[start + 7])) {
+                return std::make_tuple(Token(TokenType::ContinueKeyword, start - 1), start + 7);
+            }
+
+            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 7);
+            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+        } 
+    }
+
+    {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 1);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
@@ -241,12 +314,16 @@ std::tuple<Token, uint32_t> Token::parseToken(
     }
 
     switch(source[nonWhitespaceStart]) {
-        case '_': { // is definitely an identifier
-            // already did first char
-            const uint32_t end = endOfAlphaNumericOrUnderscore(source, nonWhitespaceStart + 1);
-            return std::make_tuple(Token(TokenType::Identifier, nonWhitespaceStart), end);
-        };
         // For tokens with no possible variants and are 1 character, this works
+        // Semicolon is on most lines of code
+        case ';': return std::make_tuple(Token(TokenType::SemicolonSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case ',': return std::make_tuple(Token(TokenType::CommaSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '{': return std::make_tuple(Token(TokenType::LeftBraceSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '}': return std::make_tuple(Token(TokenType::RightBraceSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
         case '(': return std::make_tuple(Token(TokenType::LeftParenthesesSymbol, nonWhitespaceStart),
             nonWhitespaceStart + 1);
         case ')': return std::make_tuple(Token(TokenType::RightParenthesesSymbol, nonWhitespaceStart),
@@ -255,18 +332,27 @@ std::tuple<Token, uint32_t> Token::parseToken(
             nonWhitespaceStart + 1);
         case ']': return std::make_tuple(Token(TokenType::RightBracketSymbol, nonWhitespaceStart),
             nonWhitespaceStart + 1);
-        case '{': return std::make_tuple(Token(TokenType::LeftBraceSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case '}': return std::make_tuple(Token(TokenType::RightBraceSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case ';': return std::make_tuple(Token(TokenType::SemicolonSymbol, nonWhitespaceStart),
+        case ':': return std::make_tuple(Token(TokenType::ColonSymbol, nonWhitespaceStart),
             nonWhitespaceStart + 1);
         case '?': return std::make_tuple(Token(TokenType::OptionalSymbol, nonWhitespaceStart),
             nonWhitespaceStart + 1);
+
+        case '_': { // is definitely an identifier
+            // already did first char
+            const uint32_t end = endOfAlphaNumericOrUnderscore(source, nonWhitespaceStart + 1);
+            return std::make_tuple(Token(TokenType::Identifier, nonWhitespaceStart), end);
+        };
+        
         default: break;
     }
 
-    if(source[nonWhitespaceStart] == 'c') { // const and continue
+    // if will definitely be used a lot, along with probably the signed integer
+    // types so checking those first is good
+    if(source[nonWhitespaceStart] == 'i') {
+        return parseIfAndSignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == 'c') {
         return parseConstContinueOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
@@ -323,6 +409,14 @@ TEST_SUITE("const") {
         CHECK_NE(token.tag(), TokenType::ConstKeyword);
         CHECK_GE(end, 6);
     }
+
+    TEST_CASE("separator after") {
+        const StringSlice slice = "const;";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
+        CHECK_EQ(token.tag(), TokenType::ConstKeyword);
+        CHECK_EQ(token.location(), 0);
+        CHECK_EQ(end, 5);
+    }
 }
 
 TEST_SUITE("continue") {
@@ -370,6 +464,14 @@ TEST_SUITE("continue") {
         auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
         CHECK_NE(token.tag(), TokenType::ContinueKeyword);
         CHECK_GE(end, 6);
+    }
+    
+    TEST_CASE("separator after") {
+        const StringSlice slice = "continue;";
+        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
+        CHECK_EQ(token.tag(), TokenType::ContinueKeyword);
+        CHECK_EQ(token.location(), 0);
+        CHECK_EQ(end, 8);
     }
 }
 

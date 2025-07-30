@@ -153,8 +153,10 @@ Identifiers must start with alphabetical characters, being [a-z] or [A-Z], or an
 - ] (Right Bracket)
 - { (Left Brace)
 - } (Right Brace)
+- : (Colon)
 - ; (Semicolon)
 - . (Dot)
+- , (Comma)
 - ? (Optional)
 - ! (Error Result)
   - Must be distinguished from not. Must be after an identifier.
