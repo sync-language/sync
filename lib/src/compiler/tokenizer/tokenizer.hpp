@@ -11,7 +11,6 @@ public:
 
     Tokenizer(sy::Allocator allocator, sy::StringSlice source);
 
-
 private:
     sy::Allocator alloc_;
     Token* tokens_;
