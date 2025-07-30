@@ -9,13 +9,17 @@
 class Tokenizer {
 public:
 
-    Tokenizer(sy::Allocator allocator, sy::StringSlice source);
+    static sy::AllocExpect<Tokenizer> create(sy::Allocator allocator, sy::StringSlice source);
+
+private:
+
+    Tokenizer(sy::Allocator allocator);
 
 private:
     sy::Allocator alloc_;
-    Token* tokens_;
-    uint32_t len_;
-    uint32_t capacity_;
+    Token* tokens_ = nullptr;
+    uint32_t len_ = 0;
+    uint32_t capacity_ = 0;
 };
 
 #endif //SY_COMPILER_TOKENIZER_TOKENIZER_HPP_
