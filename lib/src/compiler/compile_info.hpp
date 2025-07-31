@@ -7,8 +7,7 @@
 #include "../types/string/string_slice.hpp"
 
 namespace sy {
-    class SourceLocation {
-    public:
+    struct SourceLocation {
         uint32_t line;
         uint32_t column;
     };
@@ -28,8 +27,8 @@ namespace sy {
         };
 
         struct FileTooBig {
-            uint32_t fileSize;
-            uint32_t maxFileSize;
+            size_t fileSize;
+            size_t maxFileSize;
         };
 
         CompileError() = default;
@@ -39,6 +38,8 @@ namespace sy {
         static CompileError createFileTooBig(FileTooBig inFileTooBig);
 
         [[nodiscard]] Kind kind() const { return this->kind_; }
+
+        [[nodiscard]] FileTooBig errFileTooBig() const;
 
     private:
         

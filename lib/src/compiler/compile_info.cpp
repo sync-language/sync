@@ -1,4 +1,5 @@
 #include "compile_info.hpp"
+#include "../util/assert.hpp"
 
 using namespace sy;
 
@@ -15,4 +16,28 @@ CompileError sy::CompileError::createFileTooBig(FileTooBig inFileTooBig)
     err.kind_ = Kind::FileTooBig;
     err.err_.fileTooBig = inFileTooBig;
     return err;
+}
+
+CompileError::FileTooBig sy::CompileError::errFileTooBig() const
+{
+    sy_assert(this->kind_ == Kind::FileTooBig, "Expected the compile error to be file too big");
+    return this->err_.fileTooBig;
+}
+
+SourceLocation sy::detail::sourceLocationFromFileLocation(const sy::StringSlice source, const uint32_t location)
+{
+    sy_assert(source.len() > location, "Index out of bounds");
+
+    SourceLocation self{1, 1};
+
+    for(uint32_t i = 0; i < location; i++) {
+        if(source.data()[i] == '\n') {
+            self.line += 1;
+            self.column = 1;
+        } else {
+            self.column += 1;
+        }
+    }
+    
+    return self;
 }
