@@ -15,7 +15,7 @@ namespace sy {
 
     namespace detail {
         SourceLocation sourceLocationFromFileLocation(
-            const StringSlice source, const uint32_t location);
+            const sy::StringSlice source, const uint32_t location);
     }
     
 
