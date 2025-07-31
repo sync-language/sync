@@ -1,8 +1,0 @@
-//! API
-#pragma once
-#ifndef SY_COMPILER_COMPILE_ERROR_HPP_
-#define SY_COMPILER_COMPILE_ERROR_HPP_
-
-
-
-#endif // SY_COMPILER_COMPILE_ERROR_HPP_

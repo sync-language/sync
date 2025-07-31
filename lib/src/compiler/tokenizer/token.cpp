@@ -142,11 +142,11 @@ constexpr static bool isSeparator(char c) {
 }
 
 constexpr static bool isAlphaNumeric(char c) {
-    return isAlpha(c) && isNumeric(c);
+    return isAlpha(c) || isNumeric(c);
 }
 
 constexpr static bool isAlphaNumericOrUnderscore(char c) {
-    return isAlpha(c) || isNumeric(c) || c == '_';
+    return isAlphaNumeric(c) || c == '_';
 }
 
 /// @return -1 if reached end of source
