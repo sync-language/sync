@@ -196,6 +196,28 @@ static bool sliceFoundAtUnchecked(const StringSlice source, const StringSlice to
     return true;
 }
 
+static std::tuple<Token, uint32_t> extractTokenOrIdentifier(
+    const StringSlice source,
+    const uint32_t remainingSourceLen,
+    const uint32_t remainingPossibleTokenLen,
+    const uint32_t start,
+    const TokenType possibleTokenType
+) {
+    const bool onlyCharsLeft = remainingSourceLen == remainingPossibleTokenLen;
+    if (onlyCharsLeft) {
+        return std::make_tuple(Token(possibleTokenType, start - 1), start + remainingPossibleTokenLen);
+    }
+
+    const bool whitespaceAfter = isSpace(source[start + remainingPossibleTokenLen]);
+    const bool separatorAfter = isSeparator(source[start + remainingPossibleTokenLen]);
+    if(whitespaceAfter || separatorAfter) {
+        return std::make_tuple(Token(possibleTokenType, start - 1), start + remainingPossibleTokenLen);
+    }
+
+    const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + remainingPossibleTokenLen);
+    return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+}
+
 static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(
     const StringSlice source,
     const uint32_t start
@@ -218,39 +240,15 @@ static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(
 
     if(remainingSourceLen >= 2) { // cannot fit i64, i32, or i16. Must be if, i8, or an identifier
         if (sliceFoundAtUnchecked(source, "64", start)) {
-            if (
-                remainingSourceLen == 2 ||
-                isSpace(source[start + 2] ||
-                isSeparator(source[start + 2]))
-            ) {
-                return std::make_tuple(Token(TokenType::I64Primitive, start - 1), start + 2);
-            }
-            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
-            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::I64Primitive);
         }
 
         if (sliceFoundAtUnchecked(source, "32", start)) {
-            if (
-                remainingSourceLen == 2 ||
-                isSpace(source[start + 2] ||
-                    isSeparator(source[start + 2]))
-                ) {
-                return std::make_tuple(Token(TokenType::I32Primitive, start - 1), start + 2);
-            }
-            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
-            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::I32Primitive);
         }
 
         if (sliceFoundAtUnchecked(source, "16", start)) {
-            if (
-                remainingSourceLen == 2 ||
-                isSpace(source[start + 2] ||
-                    isSeparator(source[start + 2]))
-                ) {
-                return std::make_tuple(Token(TokenType::I16Primitive, start - 1), start + 2);
-            }
-            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
-            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::I16Primitive);
         }
     }
 
@@ -274,24 +272,12 @@ static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
     }
 
     if (sliceFoundAtUnchecked(source, "onst", start)) {
-        // char after is whitespace
-        if (remainingSourceLen == 4 || isSpace(source[start + 4]) || isSeparator(source[start + 4])) {
-            return std::make_tuple(Token(TokenType::ConstKeyword, start - 1), start + 4);
-        }
-        
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
-        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+        return extractTokenOrIdentifier(source, remainingSourceLen, 4, start, TokenType::ConstKeyword);
     }
 
     if(remainingSourceLen >= 7) {
         if(sliceFoundAtUnchecked(source, "ontinue", start)) {
-            // char after is whitespace
-            if(remainingSourceLen == 7 || isSpace(source[start + 7]) || isSeparator(source[start + 7])) {
-                return std::make_tuple(Token(TokenType::ContinueKeyword, start - 1), start + 7);
-            }
-
-            const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 7);
-            return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+            return extractTokenOrIdentifier(source, remainingSourceLen, 7, start, TokenType::ContinueKeyword);
         } 
     }
 
