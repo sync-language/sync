@@ -100,3 +100,19 @@ std::variant<Tokenizer, CompileError> Tokenizer::create(Allocator allocator, Str
 
     return std::variant<Tokenizer, CompileError>(std::move(self));
 }
+
+Token TokenIter::next()
+{
+    const Token* endToken = &this->tokenizer_->tokens_[this->tokenizer_->len_];
+    sy_assert((this->current_ + 1) != endToken, "Out of bounds token access");
+
+    this->current_ += 1;
+    return *this->current_;
+}
+
+Token TokenIter::peek() const
+{
+    const Token* endToken = &this->tokenizer_->tokens_[this->tokenizer_->len_];
+    sy_assert((this->current_ + 1) != endToken, "Out of bounds token access");
+    return this->current_[1];
+}
