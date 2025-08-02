@@ -262,6 +262,33 @@ static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(
     }
 }
 
+static std::tuple<Token, uint32_t> parseElseEnumOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'e', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 3) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "lse", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 3, start, TokenType::ElseKeyword);
+    }
+
+    if (sliceFoundAtUnchecked(source, "num", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 3, start, TokenType::EnumKeyword);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
 static std::tuple<Token, uint32_t> parseUnsignedIntegerTypesOrIdentifier(
     const StringSlice source,
     const uint32_t start
@@ -308,6 +335,29 @@ static std::tuple<Token, uint32_t> parseUnsignedIntegerTypesOrIdentifier(
     }
 }
 
+static std::tuple<Token, uint32_t> parseBoolTypeOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'b', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 3) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "ool", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 3, start, TokenType::BoolPrimitive);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
 static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
     const StringSlice source,
     const uint32_t start
@@ -318,7 +368,7 @@ static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
 
     if (remainingSourceLen < 4) {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
-        return std::make_tuple(Token(TokenType::Identifier, start), end);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 
     if (sliceFoundAtUnchecked(source, "onst", start)) {
@@ -332,7 +382,7 @@ static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 1);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -388,12 +438,10 @@ std::tuple<Token, uint32_t> Token::parseToken(
         return parseIfAndSignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // unsigned integer types will also get used quite a lot
-    if(source[nonWhitespaceStart] == 'u') {
-        return parseUnsignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
+    // else will probably be used a lot as well
+    if(source[nonWhitespaceStart] == 'e') {
+        return parseElseEnumOrIdentifier(source, nonWhitespaceStart + 1);
     }
-
-    // bool should be common
 
     // const should be extremely used
     if(source[nonWhitespaceStart] == 'c') {
@@ -403,6 +451,16 @@ std::tuple<Token, uint32_t> Token::parseToken(
     // mut also should be extremely used
     if(source[nonWhitespaceStart] == 'm') {
 
+    }
+
+    // unsigned integer types will also get used quite a lot
+    if(source[nonWhitespaceStart] == 'u') {
+        return parseUnsignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // bool should be common
+    if(source[nonWhitespaceStart] == 'b') {
+        return parseBoolTypeOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // pub will likely be everywhere
@@ -506,15 +564,15 @@ TEST_CASE("u8") {
 }
 
 TEST_CASE("u16") {
-    testParseKeyword("u", TokenType::U16Primitive);
+    testParseKeyword("u16", TokenType::U16Primitive);
 }
 
 TEST_CASE("u32") {
-    testParseKeyword("u", TokenType::U32Primitive);
+    testParseKeyword("u32", TokenType::U32Primitive);
 }
 
 TEST_CASE("u64") {
-    testParseKeyword("u", TokenType::U64Primitive);
+    testParseKeyword("u64", TokenType::U64Primitive);
 }
 
 TEST_CASE("usize") {
