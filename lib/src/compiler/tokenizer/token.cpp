@@ -239,14 +239,18 @@ static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(
     }
 
     if(remainingSourceLen >= 2) { // cannot fit i64, i32, or i16. Must be if, i8, or an identifier
-        if (sliceFoundAtUnchecked(source, "64", start)) {
-            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::I64Primitive);
-        }
-
+        // likely used the most
+        // TODO get actual metrics for this
         if (sliceFoundAtUnchecked(source, "32", start)) {
             return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::I32Primitive);
         }
 
+        // 64 bit signed integer probably used less than 32 bit signed
+        if (sliceFoundAtUnchecked(source, "64", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::I64Primitive);
+        }
+
+        // 16 bit integers probably used the least
         if (sliceFoundAtUnchecked(source, "16", start)) {
             return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::I16Primitive);
         }
@@ -254,6 +258,52 @@ static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(
 
     {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseUnsignedIntegerTypesOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'u', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen == 0) {
+        // Identifier "u"
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), start);
+    }
+
+    if(source[start] == '8') {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 1, start, TokenType::U8Primitive);
+    }
+
+    if(remainingSourceLen >= 2) { // cannot fit u64, u32, or u16. Must be if, i8, or an identifier
+        // While 32 bit signed is probably more popular than 64 bit signed, 64 bit unsigned is probably more popular
+        // TODO get actual metrics for this
+        if (sliceFoundAtUnchecked(source, "64", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::U64Primitive);
+        }
+
+        if (sliceFoundAtUnchecked(source, "32", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::U32Primitive);
+        }
+
+        // 16 bit integers probably used the least
+        if (sliceFoundAtUnchecked(source, "16", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::U16Primitive);
+        }
+    }
+
+    if(remainingSourceLen >= 4) {
+        if (sliceFoundAtUnchecked(source, "size", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::USizePrimitive);
+        }
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 1);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -338,10 +388,31 @@ std::tuple<Token, uint32_t> Token::parseToken(
         return parseIfAndSignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
+    // unsigned integer types will also get used quite a lot
+    if(source[nonWhitespaceStart] == 'u') {
+        return parseUnsignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // bool should be common
+
+    // const should be extremely used
     if(source[nonWhitespaceStart] == 'c') {
         return parseConstContinueOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
+    // mut also should be extremely used
+    if(source[nonWhitespaceStart] == 'm') {
+
+    }
+
+    // pub will likely be everywhere
+
+    // struct, sync (lowercase), str
+
+    // capital S (String, SyncOwned, ...)
+
+    // float types, for
+    
     return std::make_tuple(Token(TokenType::Error, static_cast<uint32_t>(-1)), 0);
 }
 
@@ -428,6 +499,26 @@ TEST_CASE("i32") {
 
 TEST_CASE("i64") {
     testParseKeyword("i64", TokenType::I64Primitive);
+}
+
+TEST_CASE("u8") {
+    testParseKeyword("u8", TokenType::U8Primitive);
+}
+
+TEST_CASE("u16") {
+    testParseKeyword("u", TokenType::U16Primitive);
+}
+
+TEST_CASE("u32") {
+    testParseKeyword("u", TokenType::U32Primitive);
+}
+
+TEST_CASE("u64") {
+    testParseKeyword("u", TokenType::U64Primitive);
+}
+
+TEST_CASE("usize") {
+    testParseKeyword("usize", TokenType::USizePrimitive);
 }
 
 #endif // SYNC_LIB_NO_TESTS
