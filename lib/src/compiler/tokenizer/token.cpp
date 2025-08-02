@@ -325,7 +325,7 @@ static std::tuple<Token, uint32_t> parseUnsignedIntegerTypesOrIdentifier(
 
     if(remainingSourceLen >= 4) {
         if (sliceFoundAtUnchecked(source, "size", start)) {
-            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::USizePrimitive);
+            return extractTokenOrIdentifier(source, remainingSourceLen, 4, start, TokenType::USizePrimitive);
         }
     }
 
@@ -577,6 +577,18 @@ TEST_CASE("u64") {
 
 TEST_CASE("usize") {
     testParseKeyword("usize", TokenType::USizePrimitive);
+}
+
+TEST_CASE("else") {
+    testParseKeyword("else", TokenType::ElseKeyword);
+}
+
+TEST_CASE("enum") {
+    testParseKeyword("enum", TokenType::EnumKeyword);
+}
+
+TEST_CASE("bool") {
+    testParseKeyword("bool", TokenType::BoolPrimitive);
 }
 
 #endif // SYNC_LIB_NO_TESTS
