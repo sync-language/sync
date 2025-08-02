@@ -335,7 +335,7 @@ static std::tuple<Token, uint32_t> parseUnsignedIntegerTypesOrIdentifier(
     }
 }
 
-static std::tuple<Token, uint32_t> parseBoolTypeOrIdentifier(
+static std::tuple<Token, uint32_t> parseBoolTypeBreakOrIdentifier(
     const StringSlice source,
     const uint32_t start
 ) {
@@ -350,6 +350,12 @@ static std::tuple<Token, uint32_t> parseBoolTypeOrIdentifier(
 
     if (sliceFoundAtUnchecked(source, "ool", start)) {
         return extractTokenOrIdentifier(source, remainingSourceLen, 3, start, TokenType::BoolPrimitive);
+    }
+
+    if(remainingSourceLen >= 4) {
+        if(sliceFoundAtUnchecked(source, "reak", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 4, start, TokenType::BreakKeyword);
+        }
     }
 
     {
@@ -383,6 +389,68 @@ static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
 
     {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseMutOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'm', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 2) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "ut", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::MutKeyword);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 's', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 2) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    // struct starts with str so this must be done first
+    if(remainingSourceLen >= 5) {
+        if(sliceFoundAtUnchecked(source, "truct", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 5, start, TokenType::StructKeyword);    
+        }
+        if(sliceFoundAtUnchecked(source, "witch", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 5, start, TokenType::SwitchKeyword);    
+        }
+    }
+
+    if (sliceFoundAtUnchecked(source, "tr", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::StrPrimitive);
+    }
+
+    if(remainingSourceLen >= 3) {
+        if(sliceFoundAtUnchecked(source, "ync", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 3, start, TokenType::SyncKeyword);    
+        }
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -450,7 +518,7 @@ std::tuple<Token, uint32_t> Token::parseToken(
 
     // mut also should be extremely used
     if(source[nonWhitespaceStart] == 'm') {
-
+        return parseMutOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // unsigned integer types will also get used quite a lot
@@ -460,16 +528,21 @@ std::tuple<Token, uint32_t> Token::parseToken(
 
     // bool should be common
     if(source[nonWhitespaceStart] == 'b') {
-        return parseBoolTypeOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseBoolTypeBreakOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // pub will likely be everywhere
-
     // struct, sync (lowercase), str
+    if(source[nonWhitespaceStart] == 's') {
+        return parseStructSyncStrSwitchOrIdentifier(source, nonWhitespaceStart + 1);
+    }
 
     // capital S (String, SyncOwned, ...)
 
     // float types, for
+
+    // pub
+
+
     
     return std::make_tuple(Token(TokenType::Error, static_cast<uint32_t>(-1)), 0);
 }
@@ -589,6 +662,30 @@ TEST_CASE("enum") {
 
 TEST_CASE("bool") {
     testParseKeyword("bool", TokenType::BoolPrimitive);
+}
+
+TEST_CASE("break") {
+    testParseKeyword("break", TokenType::BreakKeyword);
+}
+
+TEST_CASE("mut") {
+    testParseKeyword("mut", TokenType::MutKeyword);
+}
+
+TEST_CASE("str") {
+    testParseKeyword("str", TokenType::StrPrimitive);
+}
+
+TEST_CASE("sync") {
+    testParseKeyword("sync", TokenType::SyncKeyword);
+}
+
+TEST_CASE("struct") {
+    testParseKeyword("struct", TokenType::StructKeyword);
+}
+
+TEST_CASE("switch") {
+    testParseKeyword("switch", TokenType::SwitchKeyword);
 }
 
 #endif // SYNC_LIB_NO_TESTS
