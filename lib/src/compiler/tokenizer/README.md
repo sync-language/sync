@@ -79,12 +79,12 @@ Naturally there are more primitive types, such as arrays. The ones here are the 
   - How should this look? Maybe like golang `map[K]V`? Tokenizer would check for `map` string.
 - Set
   - How should this look? Maybe similar above `set[K]`? Tokenizer would check for `set` string.
-- Sync Owned
-  - Allocated type with thread locking mechanisms, with single ownership. How should this look? Maybe `Owned(T)` where T is the type? Tokenizer would check for `Owned` string.
-- Sync Shared
-  - Allocated type with thread locking mechanisms, with shared ownership. How should this look? Maybe `Shared(T)` where T is the type? Tokenizer would check for `Shared` string.
-- Sync Weak
-  - Weak reference type with thread locking mechanisms, with no ownership. How should this look? Maybe `Weak(T)` where T is the type? Tokenizer would check for `Weak` string.
+- Owned
+  - Allocated type with thread locking mechanisms, with single ownership.
+- Shared
+  - Allocated type with thread locking mechanisms, with shared ownership.
+- Weak
+  - Weak reference type with thread locking mechanisms, with no ownership.
 - Sync Map
   - Is this necessary? Like [Java ConcurrentHashMap](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentHashMap.html). How should this look? Maybe `SyncMap[K]V`?  Tokenizer would check for `SyncMap` string.
 - Sync Set

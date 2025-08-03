@@ -37,6 +37,7 @@ enum class TokenType : uint8_t {
     NullKeyword,
     AndKeyword,
     OrKeyword,
+    DynKeyword,
     // ImportKeyword,
     // ModKeyword,
     // ExternKeyword,

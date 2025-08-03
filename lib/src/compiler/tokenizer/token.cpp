@@ -238,12 +238,17 @@ static std::tuple<Token, uint32_t> parseBoolTypeBreakOrIdentifier(
     const uint32_t start
 );
 
-static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
+static std::tuple<Token, uint32_t> parseCharConstContinueOrIdentifier(
     const StringSlice source,
     const uint32_t start
 );
 
 static std::tuple<Token, uint32_t> parseMutOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseReturnOrIdentifier(
     const StringSlice source,
     const uint32_t start
 );
@@ -254,6 +259,56 @@ static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(
 );
 
 static std::tuple<Token, uint32_t> parseStringSharedOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseTrueOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parsePubOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseOwnedOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseWeakOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseAndOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseOrOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseNullOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseDynOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseWhileOrIdentifier(
     const StringSlice source,
     const uint32_t start
 );
@@ -314,9 +369,9 @@ std::tuple<Token, uint32_t> Token::parseToken(
         return parseElseEnumOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // const should be extremely used
+    // const should be extremely used. char and continue exist too.
     if(source[nonWhitespaceStart] == 'c') {
-        return parseConstContinueOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseCharConstContinueOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // mut also should be extremely used
@@ -324,35 +379,80 @@ std::tuple<Token, uint32_t> Token::parseToken(
         return parseMutOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
+    // return    
+    if(source[nonWhitespaceStart] == 'r') {
+        return parseReturnOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
     // unsigned integer types will also get used quite a lot
     if(source[nonWhitespaceStart] == 'u') {
         return parseUnsignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // bool should be common
+    // bool should be common. break exists too.
     if(source[nonWhitespaceStart] == 'b') {
         return parseBoolTypeBreakOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // struct, sync (lowercase), str
+    // struct, sync (lowercase), str, switch
     if(source[nonWhitespaceStart] == 's') {
         return parseStructSyncStrSwitchOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // capital S (String, Shared, ...)
+    // capital S (String, Shared)
     if(source[nonWhitespaceStart] == 'S') {
         return parseStringSharedOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // float types, for, false
+    // float types, for, false, fn
+    if(source[nonWhitespaceStart] == 'f') {
+        return parseFloatTypesForFalseFnOrIdentifier(source, nonWhitespaceStart + 1);
+    }
 
     // true
+    if(source[nonWhitespaceStart] == 't') {
+        return parseTrueOrIdentifier(source, nonWhitespaceStart + 1);
+    }
 
     // pub
+    if(source[nonWhitespaceStart] == 'p') {
+        return parsePubOrIdentifier(source, nonWhitespaceStart + 1);
+    }
 
     // Owned
+    if(source[nonWhitespaceStart] == 'O') {
+        return parseOwnedOrIdentifier(source, nonWhitespaceStart + 1);
+    }
 
     // Weak
+    if(source[nonWhitespaceStart] == 'W') {
+        return parseWeakOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // and
+    if(source[nonWhitespaceStart] == 'a') {
+        return parseAndOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // or
+    if(source[nonWhitespaceStart] == 'o') {
+        return parseOrOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // null
+    if(source[nonWhitespaceStart] == 'n') {
+        return parseNullOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+    
+    // dyn
+    if(source[nonWhitespaceStart] == 'd') {
+        return parseDynOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // while
+    if(source[nonWhitespaceStart] == 'w') {
+        return parseWhileOrIdentifier(source, nonWhitespaceStart + 1);
+    }
     
     return std::make_tuple(Token(TokenType::Error, static_cast<uint32_t>(-1)), 0);
 }
@@ -503,7 +603,7 @@ static std::tuple<Token, uint32_t> parseBoolTypeBreakOrIdentifier(
     }
 }
 
-static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
+static std::tuple<Token, uint32_t> parseCharConstContinueOrIdentifier(
     const StringSlice source,
     const uint32_t start
 ) {
@@ -511,13 +611,19 @@ static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
-    if (remainingSourceLen < 4) {
+    if (remainingSourceLen < 3) {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 
-    if (sliceFoundAtUnchecked(source, "onst", start)) {
-        return extractTokenOrIdentifier(source, remainingSourceLen, 4, start, TokenType::ConstKeyword);
+    if (sliceFoundAtUnchecked(source, "har", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 3, start, TokenType::CharPrimitive);
+    }
+
+    if(remainingSourceLen >= 4) {
+        if (sliceFoundAtUnchecked(source, "onst", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 4, start, TokenType::ConstKeyword);
+        }
     }
 
     if(remainingSourceLen >= 7) {
@@ -527,7 +633,7 @@ static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -551,6 +657,29 @@ static std::tuple<Token, uint32_t> parseMutOrIdentifier(
 
     {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseReturnOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'r', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 5) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "eturn", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 5, start, TokenType::ReturnKeyword);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 5);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -615,7 +744,252 @@ static std::tuple<Token, uint32_t> parseStringSharedOrIdentifier(
     }
 
     {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 5);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'f', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::FnKeyword, start - 1), start + 1);
+    }
+
+    if(source[start] == 'n') {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 1, start, TokenType::FnKeyword);
+    }
+
+    if(remainingSourceLen >= 2) {
+        if (sliceFoundAtUnchecked(source, "or", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::ForKeyword);
+        }
+
+        // prefer 64 bit floats to 32 bit floats for accuracy
+        if (sliceFoundAtUnchecked(source, "64", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::F64Primitive);
+        }
+
+        if (sliceFoundAtUnchecked(source, "32", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::F32Primitive);
+        }
+    }
+
+    if(remainingSourceLen >= 4) {
+        if (sliceFoundAtUnchecked(source, "alse", start)) {
+            return extractTokenOrIdentifier(source, remainingSourceLen, 4, start, TokenType::FalseKeyword);
+        }
+    }
+    
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 1);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseTrueOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 't', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 3) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "rue", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 3, start, TokenType::TrueKeyword);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parsePubOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'p', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 2) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "ub", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::PubKeyword);
+    }
+
+    {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseOwnedOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'O', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 4) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "wned", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 4, start, TokenType::SyncOwnedPrimitive);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseWeakOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'W', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 3) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "eak", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 3, start, TokenType::SyncWeakPrimitive);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseAndOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'a', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 2) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "nd", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::AndKeyword);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseOrOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'o', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(source[start] == 'r') {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 1, start, TokenType::OrKeyword);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 1);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseNullOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'n', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 2) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "ull", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 3, start, TokenType::NullKeyword);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseDynOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'd', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 2) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "yn", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 2, start, TokenType::DynKeyword);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseWhileOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == 'w', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 2) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    if (sliceFoundAtUnchecked(source, "hile", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 4, start, TokenType::WhileKeyword);
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -759,6 +1133,78 @@ TEST_CASE("struct") {
 
 TEST_CASE("switch") {
     testParseKeyword("switch", TokenType::SwitchKeyword);
+}
+
+TEST_CASE("String") {
+    testParseKeyword("String", TokenType::StringPrimitive);
+}
+
+TEST_CASE("Shared") {
+    testParseKeyword("Shared", TokenType::SyncSharedPrimitive);
+}
+
+TEST_CASE("f32") {
+    testParseKeyword("f32", TokenType::F32Primitive);
+}
+
+TEST_CASE("f64") {
+    testParseKeyword("f64", TokenType::F64Primitive);
+}
+
+TEST_CASE("for") {
+    testParseKeyword("for", TokenType::ForKeyword);
+}
+
+TEST_CASE("false") {
+    testParseKeyword("false", TokenType::FalseKeyword);
+}
+
+TEST_CASE("char") {
+    testParseKeyword("char", TokenType::CharPrimitive);
+}
+
+TEST_CASE("fn") {
+    testParseKeyword("fn", TokenType::FnKeyword);
+}
+
+TEST_CASE("true") {
+    testParseKeyword("true", TokenType::TrueKeyword);
+}
+
+TEST_CASE("pub") {
+    testParseKeyword("pub", TokenType::PubKeyword);
+}
+
+TEST_CASE("Owned") {
+    testParseKeyword("Owned", TokenType::SyncOwnedPrimitive);
+}
+
+TEST_CASE("Weak") {
+    testParseKeyword("Weak", TokenType::SyncWeakPrimitive);
+}
+
+TEST_CASE("return") {
+    testParseKeyword("return", TokenType::ReturnKeyword);
+}
+
+TEST_CASE("and") {
+    testParseKeyword("and", TokenType::AndKeyword);
+}
+
+TEST_CASE("or") {
+    testParseKeyword("or", TokenType::OrKeyword);
+}
+
+TEST_CASE("null") {
+    testParseKeyword("null", TokenType::NullKeyword);
+}
+
+TEST_CASE("dyn") {
+    testParseKeyword("dyn", TokenType::DynKeyword);
+}
+
+TEST_CASE("while") {
+    testParseKeyword("while", TokenType::WhileKeyword);
 }
 
 #endif // SYNC_LIB_NO_TESTS
