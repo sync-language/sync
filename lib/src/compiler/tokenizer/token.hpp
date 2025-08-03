@@ -80,7 +80,7 @@ enum class TokenType : uint8_t {
     NotEqualOperator,
     ErrorUncheckedUnwrapOperator,
     OptionUncheckedUnwrapOperator,
-    NotOperator,
+    // NotOperator,
     // DereferenceOperator,
     LessOrEqualOperator,
     LessOperator,
@@ -103,7 +103,7 @@ enum class TokenType : uint8_t {
     BitshiftLeftAssignOperator,
     BitshiftLeftOperator,
     BitAndAssignOperator,
-    BitAndOperator,
+    // BitAndOperator,
     BitOrAssignOperator,
     BitOrOperator,
     BitXorAssignOperator,
@@ -122,9 +122,11 @@ enum class TokenType : uint8_t {
     DotSymbol,
     CommaSymbol,
     OptionalSymbol,
-    ErrorSymbol,
-    ImmutableReferenceSymbol,
+    // ErrorSymbol,
+    // ImmutableReferenceSymbol,
     MutableReferenceSymbol,
+    AmpersandSymbol,
+    ExclamationSymbol,
 };
 
 sy::StringSlice tokenTypeToString(TokenType tokenType);
@@ -142,8 +144,7 @@ public:
     /// file has been reached but a token was at the end.
     static std::tuple<Token, uint32_t> parseToken(
         const sy::StringSlice source,
-        const uint32_t start,
-        const Token previous
+        const uint32_t start
     );
 
     [[nodiscard]] constexpr TokenType tag() const { return static_cast<TokenType>(tag_); }

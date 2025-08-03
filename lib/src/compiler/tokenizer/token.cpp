@@ -65,7 +65,7 @@ StringSlice tokenTypeToString(TokenType tokenType)
         case TokenType::NotEqualOperator: return "NotEqualOperator";
         case TokenType::ErrorUncheckedUnwrapOperator: return "ErrorUncheckedUnwrapOperator";
         case TokenType::OptionUncheckedUnwrapOperator: return "OptionUncheckedUnwrapOperator";
-        case TokenType::NotOperator: return "NotOperator";
+        //case TokenType::NotOperator: return "NotOperator";
         case TokenType::LessOrEqualOperator: return "LessOrEqualOperator";
         case TokenType::LessOperator: return "LessOperator";
         case TokenType::GreaterOrEqualOperator: return "GreaterOrEqualOperator";
@@ -87,7 +87,7 @@ StringSlice tokenTypeToString(TokenType tokenType)
         case TokenType::BitshiftLeftAssignOperator: return "BitshiftLeftAssignOperator";
         case TokenType::BitshiftLeftOperator: return "BitshiftLeftOperator";
         case TokenType::BitAndAssignOperator: return "BitAndAssignOperator";
-        case TokenType::BitAndOperator: return "BitAndOperator";
+        //case TokenType::BitAndOperator: return "BitAndOperator";
         case TokenType::BitOrAssignOperator: return "BitOrAssignOperator";
         case TokenType::BitOrOperator: return "BitOrOperator";
         case TokenType::BitXorAssignOperator: return "BitXorAssignOperator";
@@ -106,9 +106,11 @@ StringSlice tokenTypeToString(TokenType tokenType)
         case TokenType::DotSymbol: return "DotSymbol";
         case TokenType::CommaSymbol: return "CommaSymbol";
         case TokenType::OptionalSymbol: return "OptionalSymbol";
-        case TokenType::ErrorSymbol: return "ErrorSymbol";
-        case TokenType::ImmutableReferenceSymbol: return "ImmutableReferenceSymbol";
+        // case TokenType::ErrorSymbol: return "ErrorSymbol";
+        //case TokenType::ImmutableReferenceSymbol: return "ImmutableReferenceSymbol";
         case TokenType::MutableReferenceSymbol: return "MutableReferenceSymbol";
+        case TokenType::AmpersandSymbol: return "AmpersandSymbol";
+        case TokenType::ExclamationSymbol: return "ExclamationSymbol";
     default:
         sy_assert(false, "Invalid token");
     }
@@ -315,11 +317,8 @@ static std::tuple<Token, uint32_t> parseWhileOrIdentifier(
 
 std::tuple<Token, uint32_t> Token::parseToken(
     const StringSlice source,
-    const uint32_t start,
-    const Token previous
+    const uint32_t start
 ) {
-    (void)previous;
-
     const uint32_t nonWhitespaceStart = nonWhitespaceStartFrom(source, start);
     if(nonWhitespaceStart == static_cast<uint32_t>(-1)) {
         return std::make_tuple(Token(TokenType::EndOfFile, nonWhitespaceStart), 0);
@@ -1010,42 +1009,42 @@ static void testParseKeyword(const char* keyword, TokenType expectedTokenType)
 
     { // as is
         const auto slice = StringSlice(keyword, keywordLength);
-        auto [token, end] = Token::parseToken(slice, 0, Token(TokenType::Error, 0));
+        auto [token, end] = Token::parseToken(slice, 0);
         CHECK_EQ(token.tag(), expectedTokenType);
         CHECK_EQ(token.location(), 0);
         CHECK_GE(end, keywordLength);
     }
     { // with space in front
         const std::string str = std::string(" ") + keyword;
-        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0, Token(TokenType::Error, 0));
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
         CHECK_EQ(token.tag(), expectedTokenType);
         CHECK_EQ(token.location(), 1);
         CHECK_GE(end, keywordLength);
     }
     { // with space at the end
         const std::string str = keyword + std::string(" ");
-        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0, Token(TokenType::Error, 0));
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
         CHECK_EQ(token.tag(), expectedTokenType);
         CHECK_EQ(token.location(), 0);
         CHECK_EQ(end, keywordLength);
     }
     { // with space at the front and end
         const std::string str = std::string(" ") + keyword + ' ';
-        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0, Token(TokenType::Error, 0));
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
         CHECK_EQ(token.tag(), expectedTokenType);
         CHECK_EQ(token.location(), 1);
         CHECK_EQ(end, keywordLength + 1); // space before so 1 after
     }
     { // separator at the end
         const std::string str = keyword + std::string(";");
-        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0, Token(TokenType::Error, 0));
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
         CHECK_EQ(token.tag(), expectedTokenType);
         CHECK_EQ(token.location(), 0);
         CHECK_EQ(end, keywordLength);
     }
     { // fail cause non whitespace and non separator character at the end
         const std::string str = keyword + std::string("i");
-        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0, Token(TokenType::Error, 0));
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
         CHECK_NE(token.tag(), expectedTokenType);
         CHECK_GE(end, keywordLength + 1); // goes after keyword length
     }

@@ -113,7 +113,7 @@ Identifiers must start with alphabetical characters, being [a-z] or [A-Z], or an
 - .! (Error Unchecked Unwrap)
 - .? (Option Unchecked Unwrap)
 - ! (Not)
-  - Must be distinguished from not. Must not be after an identifier.
+  - Cannot be meaningfully distinguished from error result, as knowing if it's the not operator or the error result type can only be known with more information, such as if it's part of type information (return type for instance), the multiple symbols that came before, etc. As a result it will use `ExclamationSymbol`.
 - .* (Dereference)
   - Is this needed?
 - <= (Less Or Equal)
@@ -141,6 +141,7 @@ Identifiers must start with alphabetical characters, being [a-z] or [A-Z], or an
   - Must be distinguished from make immutable reference. Must be after an identifier.
 - &= (Bit And Assign)
 - & (Bit And)
+  - Cannot be meaningfully distinguished from reference at tokenizing time, as knowing if it's a reference type, make reference operator, or bit-and can only be known with more information, such as if it's part of function signature, the multiple symbols that came before, etc. As a result, it will use `AmpersandSymbol`.
 - |= (Bit Or Assign)
 - | (Bit Or)
 - ^= (Bit Xor Assign)
@@ -164,9 +165,9 @@ Identifiers must start with alphabetical characters, being [a-z] or [A-Z], or an
 - , (Comma)
 - ? (Optional)
 - ! (Error Result)
-  - Must be distinguished from not. Must be after an identifier.
+  - Cannot be meaningfully distinguished from not operator, as knowing if it's the not operator or the error result type can only be known with more information, such as if it's part of type information (return type for instance), the multiple symbols that came before, etc. As a result it will use `ExclamationSymbol`.
 - & (Immutable Reference)
-  - Must be distinguished from bit and. Whitespace sensitive? Cannot be after an identifier.
+  - Cannot be meaningfully distinguished from bit-and at tokenizing time, as knowing if it's a reference type, make reference operator, or bit-and can only be known with more information, such as if it's part of function signature, the multiple symbols that came before, etc. As a result, it will use `AmpersandSymbol`.
 - &mut (Mutable Reference)
   - Must be distinguished from bit and and make reference. Whitespace sensitive? Cannot be after an identifier.
 
