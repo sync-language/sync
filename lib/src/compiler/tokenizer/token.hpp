@@ -41,7 +41,7 @@ enum class TokenType : uint8_t {
     // ImportKeyword,
     // ModKeyword,
     // ExternKeyword,
-    AssertKeyword,
+    // AssertKeyword,
 
     BoolPrimitive,
     I8Primitive,

@@ -32,7 +32,7 @@ StringSlice tokenTypeToString(TokenType tokenType)
         case TokenType::NullKeyword: return "NullKeyword";
         case TokenType::AndKeyword: return "AndKeyword";
         case TokenType::OrKeyword: return "OrKeyword";
-        case TokenType::AssertKeyword: return "AssertKeyword";
+        case TokenType::DynKeyword: return "DynKeyword";
 
         case TokenType::BoolPrimitive: return "BoolPrimitive";
         case TokenType::I8Primitive: return "I8Primitive";
