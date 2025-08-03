@@ -40,6 +40,11 @@ All tokens are whitespace sensitive. For instance, `11 11` would not be the inte
 - extern
   - Scripts only work well realistically if they can call into the host program. This must be figured out precisely and safely.
 - assert
+  - How should asserts look?
+- print
+  - How should printing look?
+- println
+  - Should print also add a newline? Or should println be used instead?
 
 ### Primitive Types
 
@@ -75,11 +80,11 @@ Naturally there are more primitive types, such as arrays. The ones here are the 
 - Set
   - How should this look? Maybe similar above `set[K]`? Tokenizer would check for `set` string.
 - Sync Owned
-  - Allocated type with thread locking mechanisms, with single ownership. How should this look? Maybe `SyncOwned(T)` where T is the type? Tokenizer would check for `SyncOwned` string.
+  - Allocated type with thread locking mechanisms, with single ownership. How should this look? Maybe `Owned(T)` where T is the type? Tokenizer would check for `Owned` string.
 - Sync Shared
-  - Allocated type with thread locking mechanisms, with shared ownership. How should this look? Maybe `SyncShared(T)` where T is the type? Tokenizer would check for `SyncShared` string.
+  - Allocated type with thread locking mechanisms, with shared ownership. How should this look? Maybe `Shared(T)` where T is the type? Tokenizer would check for `Shared` string.
 - Sync Weak
-  - Weak reference type with thread locking mechanisms, with no ownership. How should this look? Maybe `SyncWeak(T)` where T is the type? Tokenizer would check for `SyncWeak` string.
+  - Weak reference type with thread locking mechanisms, with no ownership. How should this look? Maybe `Weak(T)` where T is the type? Tokenizer would check for `Weak` string.
 - Sync Map
   - Is this necessary? Like [Java ConcurrentHashMap](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentHashMap.html). How should this look? Maybe `SyncMap[K]V`?  Tokenizer would check for `SyncMap` string.
 - Sync Set

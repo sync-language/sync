@@ -221,6 +221,145 @@ static std::tuple<Token, uint32_t> extractTokenOrIdentifier(
 static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(
     const StringSlice source,
     const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseElseEnumOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseUnsignedIntegerTypesOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseBoolTypeBreakOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseConstContinueOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseMutOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseStringSharedOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+std::tuple<Token, uint32_t> Token::parseToken(
+    const StringSlice source,
+    const uint32_t start,
+    const Token previous
+) {
+    (void)previous;
+
+    const uint32_t nonWhitespaceStart = nonWhitespaceStartFrom(source, start);
+    if(nonWhitespaceStart == static_cast<uint32_t>(-1)) {
+        return std::make_tuple(Token(TokenType::EndOfFile, nonWhitespaceStart), 0);
+    }
+
+    switch(source[nonWhitespaceStart]) {
+        // For tokens with no possible variants and are 1 character, this works
+        // Semicolon is on most lines of code
+        case ';': return std::make_tuple(Token(TokenType::SemicolonSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case ',': return std::make_tuple(Token(TokenType::CommaSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '{': return std::make_tuple(Token(TokenType::LeftBraceSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '}': return std::make_tuple(Token(TokenType::RightBraceSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '(': return std::make_tuple(Token(TokenType::LeftParenthesesSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case ')': return std::make_tuple(Token(TokenType::RightParenthesesSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '[': return std::make_tuple(Token(TokenType::LeftBracketSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case ']': return std::make_tuple(Token(TokenType::RightBracketSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case ':': return std::make_tuple(Token(TokenType::ColonSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+        case '?': return std::make_tuple(Token(TokenType::OptionalSymbol, nonWhitespaceStart),
+            nonWhitespaceStart + 1);
+
+        case '_': { // is definitely an identifier
+            // already did first char
+            const uint32_t end = endOfAlphaNumericOrUnderscore(source, nonWhitespaceStart + 1);
+            return std::make_tuple(Token(TokenType::Identifier, nonWhitespaceStart), end);
+        };
+        
+        default: break;
+    }
+
+    // if will definitely be used a lot, along with probably the signed integer
+    // types so checking those first is good
+    if(source[nonWhitespaceStart] == 'i') {
+        return parseIfAndSignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // else will probably be used a lot as well
+    if(source[nonWhitespaceStart] == 'e') {
+        return parseElseEnumOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // const should be extremely used
+    if(source[nonWhitespaceStart] == 'c') {
+        return parseConstContinueOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // mut also should be extremely used
+    if(source[nonWhitespaceStart] == 'm') {
+        return parseMutOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // unsigned integer types will also get used quite a lot
+    if(source[nonWhitespaceStart] == 'u') {
+        return parseUnsignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // bool should be common
+    if(source[nonWhitespaceStart] == 'b') {
+        return parseBoolTypeBreakOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // struct, sync (lowercase), str
+    if(source[nonWhitespaceStart] == 's') {
+        return parseStructSyncStrSwitchOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // capital S (String, Shared, ...)
+    if(source[nonWhitespaceStart] == 'S') {
+        return parseStringSharedOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // float types, for, false
+
+    // true
+
+    // pub
+
+    // Owned
+
+    // Weak
+    
+    return std::make_tuple(Token(TokenType::Error, static_cast<uint32_t>(-1)), 0);
+}
+
+static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
 ) {
     sy_assert(source[start - 1] == 'i', "Invalid parse operation");
 
@@ -455,96 +594,30 @@ static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(
     }
 }
 
-std::tuple<Token, uint32_t> Token::parseToken(
+static std::tuple<Token, uint32_t> parseStringSharedOrIdentifier(
     const StringSlice source,
-    const uint32_t start,
-    const Token previous
+    const uint32_t start
 ) {
-    (void)previous;
+    sy_assert(source[start - 1] == 'S', "Invalid parse operation");
 
-    const uint32_t nonWhitespaceStart = nonWhitespaceStartFrom(source, start);
-    if(nonWhitespaceStart == static_cast<uint32_t>(-1)) {
-        return std::make_tuple(Token(TokenType::EndOfFile, nonWhitespaceStart), 0);
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 5) {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 
-    switch(source[nonWhitespaceStart]) {
-        // For tokens with no possible variants and are 1 character, this works
-        // Semicolon is on most lines of code
-        case ';': return std::make_tuple(Token(TokenType::SemicolonSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case ',': return std::make_tuple(Token(TokenType::CommaSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case '{': return std::make_tuple(Token(TokenType::LeftBraceSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case '}': return std::make_tuple(Token(TokenType::RightBraceSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case '(': return std::make_tuple(Token(TokenType::LeftParenthesesSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case ')': return std::make_tuple(Token(TokenType::RightParenthesesSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case '[': return std::make_tuple(Token(TokenType::LeftBracketSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case ']': return std::make_tuple(Token(TokenType::RightBracketSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case ':': return std::make_tuple(Token(TokenType::ColonSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-        case '?': return std::make_tuple(Token(TokenType::OptionalSymbol, nonWhitespaceStart),
-            nonWhitespaceStart + 1);
-
-        case '_': { // is definitely an identifier
-            // already did first char
-            const uint32_t end = endOfAlphaNumericOrUnderscore(source, nonWhitespaceStart + 1);
-            return std::make_tuple(Token(TokenType::Identifier, nonWhitespaceStart), end);
-        };
-        
-        default: break;
+    if(sliceFoundAtUnchecked(source, "tring", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 5, start, TokenType::StringPrimitive);    
+    }
+    if(sliceFoundAtUnchecked(source, "hared", start)) {
+        return extractTokenOrIdentifier(source, remainingSourceLen, 5, start, TokenType::SyncSharedPrimitive);    
     }
 
-    // if will definitely be used a lot, along with probably the signed integer
-    // types so checking those first is good
-    if(source[nonWhitespaceStart] == 'i') {
-        return parseIfAndSignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
-
-    // else will probably be used a lot as well
-    if(source[nonWhitespaceStart] == 'e') {
-        return parseElseEnumOrIdentifier(source, nonWhitespaceStart + 1);
-    }
-
-    // const should be extremely used
-    if(source[nonWhitespaceStart] == 'c') {
-        return parseConstContinueOrIdentifier(source, nonWhitespaceStart + 1);
-    }
-
-    // mut also should be extremely used
-    if(source[nonWhitespaceStart] == 'm') {
-        return parseMutOrIdentifier(source, nonWhitespaceStart + 1);
-    }
-
-    // unsigned integer types will also get used quite a lot
-    if(source[nonWhitespaceStart] == 'u') {
-        return parseUnsignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
-    }
-
-    // bool should be common
-    if(source[nonWhitespaceStart] == 'b') {
-        return parseBoolTypeBreakOrIdentifier(source, nonWhitespaceStart + 1);
-    }
-
-    // struct, sync (lowercase), str
-    if(source[nonWhitespaceStart] == 's') {
-        return parseStructSyncStrSwitchOrIdentifier(source, nonWhitespaceStart + 1);
-    }
-
-    // capital S (String, SyncOwned, ...)
-
-    // float types, for
-
-    // pub
-
-
-    
-    return std::make_tuple(Token(TokenType::Error, static_cast<uint32_t>(-1)), 0);
 }
 
 #ifndef SYNC_LIB_NO_TESTS
