@@ -62,12 +62,11 @@ std::variant<Tokenizer, CompileError> Tokenizer::create(Allocator allocator, Str
 
     uint32_t start = 0;
     uint32_t tokenIter = 0;
-    Token previous = Token(TokenType::Error, 0);
     bool keepFinding = true;
     while(keepFinding) {
         sy_assert(tokenIter < source.len(), "Infinite loop detected");
 
-        auto [token, newStart] = Token::parseToken(source, start, previous);
+        auto [token, newStart] = Token::parseToken(source, start);
 
         sy_assert(token.tag() != TokenType::Error, "Unexpected token error");
 
@@ -75,7 +74,6 @@ std::variant<Tokenizer, CompileError> Tokenizer::create(Allocator allocator, Str
         tokenIter += 1;
         start = newStart;
         
-        previous = token;
         if(token.tag() == TokenType::EndOfFile) {
             keepFinding = false;
         }
