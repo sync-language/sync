@@ -68,8 +68,7 @@ enum class TokenType : uint8_t {
     // SyncMapPrimitive,
     // SyncSetPrimitive,
 
-    IntLiteral,
-    FloatLiteral,
+    NumberLiteral,
     CharLiteral,
     StringLiteral,
 

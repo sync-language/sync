@@ -92,10 +92,8 @@ Naturally there are more primitive types, such as arrays. The ones here are the 
 
 ### Literals
 
-- Int
-  - Number strings without decimals. Can have a leading `-` sign for negatives.
-- Float
-  - Number strings with a decimal. Can have a leading `-` sign for negatives.
+- Number
+  - Number strings that may have decimals. The compiler will convert the parsed value to the correct integer type when necessary.
 - Char
   - String with a single unicode character in utf8 format. Is enclosed by `'` characters.
 - Str

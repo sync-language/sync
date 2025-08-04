@@ -53,8 +53,7 @@ StringSlice tokenTypeToString(TokenType tokenType)
         case TokenType::SyncSharedPrimitive: return "SyncSharedPrimitive";
         case TokenType::SyncWeakPrimitive: return "SyncWeakPrimitive";
 
-        case TokenType::IntLiteral: return "IntLiteral";
-        case TokenType::FloatLiteral: return "FloatLiteral";
+        case TokenType::NumberLiteral: return "NumberLiteral";
         case TokenType::CharLiteral: return "CharLiteral";
         case TokenType::StringLiteral: return "StringLiteral";
 
@@ -481,6 +480,37 @@ static std::tuple<Token, uint32_t> parseAmpersandOrMutableReference(
 
 #pragma endregion
 
+static std::tuple<Token, uint32_t> parseSubtractOrNegativeNumberLiteral(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == '-', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::SubtractOperator, start - 1), static_cast<uint32_t>(-1));
+    }
+
+    if(source[start] == '=') {
+        return std::make_tuple(Token(TokenType::SubtractAssignOperator, start - 1), start + 1);
+    }
+
+    if(isNumeric(source[start])) {
+        // ignore multiple decimal places
+        uint32_t i = start + 1;
+        for(; i < (start + remainingSourceLen); i++) {
+            const char c = source[i];
+            if((!isNumeric(c)) && c != '.') {
+                break;
+            }
+        }
+        return std::make_tuple(Token(TokenType::NumberLiteral, start - 1), i); 
+    }
+
+    return std::make_tuple(Token(TokenType::SubtractOperator, start - 1), start);
+}
+
 std::tuple<Token, uint32_t> Token::parseToken(
     const StringSlice source,
     const uint32_t start
@@ -685,6 +715,10 @@ std::tuple<Token, uint32_t> Token::parseToken(
         return parseMathOperatorWithAssign
             <'!', TokenType::ExclamationSymbol, TokenType::NotEqualOperator>
             (source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '-') {
+        return parseSubtractOrNegativeNumberLiteral(source, nonWhitespaceStart + 1);
     }
     
     return std::make_tuple(Token(TokenType::Error, static_cast<uint32_t>(-1)), 0);
@@ -1674,6 +1708,36 @@ TEST_CASE(",") {
 
 TEST_CASE("?") {
     testParseOperatorOrSymbol("?", TokenType::OptionalSymbol, true, true, true);
+}
+
+TEST_CASE("-") {
+    testParseOperatorOrSymbol("-", TokenType::SubtractOperator, true, true, true);
+}
+
+TEST_CASE("-=") {
+    testParseOperatorOrSymbol("-=", TokenType::SubtractAssignOperator, true, true, true);
+}
+
+TEST_CASE("Negative Numbers") {
+    testParseOperatorOrSymbol("-0", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-1", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-2", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-3", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-4", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-5", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-6", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-7", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-8", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-1.1", TokenType::NumberLiteral, true, true, true);
+    
+    // The following ones will be invalid later in compilation, but for purely extracting a token, it's fine.
+    // The tokenizer first extracts the start and end of the token's range, in which the metadata can be
+    // then parsed, such as validating numbers.
+
+    testParseOperatorOrSymbol("-9.", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-2.", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-3..5", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-5....7.", TokenType::NumberLiteral, true, true, true);
 }
 
 #endif // SYNC_LIB_NO_TESTS
