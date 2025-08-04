@@ -1636,4 +1636,44 @@ TEST_CASE("&mut") {
     testParseOperatorOrSymbol("&mut", TokenType::MutableReferenceSymbol, false, true, true);
 }
 
+TEST_CASE("(") {
+    testParseOperatorOrSymbol("(", TokenType::LeftParenthesesSymbol, true, true, true);
+}
+
+TEST_CASE(")") {
+    testParseOperatorOrSymbol(")", TokenType::RightParenthesesSymbol, true, true, true);
+}
+
+TEST_CASE("[") {
+    testParseOperatorOrSymbol("[", TokenType::LeftBracketSymbol, true, true, true);
+}
+
+TEST_CASE("]") {
+    testParseOperatorOrSymbol("]", TokenType::RightBracketSymbol, true, true, true);
+}
+
+TEST_CASE("{") {
+    testParseOperatorOrSymbol("{", TokenType::LeftBraceSymbol, true, true, true);
+}
+
+TEST_CASE("}") {
+    testParseOperatorOrSymbol("}", TokenType::RightBraceSymbol, true, true, true);
+}
+
+TEST_CASE(":") {
+    testParseOperatorOrSymbol(":", TokenType::ColonSymbol, true, true, true);
+}
+
+TEST_CASE(";") {
+    testParseOperatorOrSymbol(";", TokenType::SemicolonSymbol, true, true, true);
+}
+
+TEST_CASE(",") {
+    testParseOperatorOrSymbol(",", TokenType::CommaSymbol, true, true, true);
+}
+
+TEST_CASE("?") {
+    testParseOperatorOrSymbol("?", TokenType::OptionalSymbol, true, true, true);
+}
+
 #endif // SYNC_LIB_NO_TESTS
