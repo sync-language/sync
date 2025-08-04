@@ -110,8 +110,8 @@ Identifiers must start with alphabetical characters, being [a-z] or [A-Z], or an
 - == (Equal)
 - = (Assign)
 - != (Not Equal)
-- .! (Error Unchecked Unwrap)
-- .? (Option Unchecked Unwrap)
+- .! (Error Unwrap)
+- .? (Option Unwrap)
 - ! (Not)
   - Cannot be meaningfully distinguished from error result, as knowing if it's the not operator or the error result type can only be known with more information, such as if it's part of type information (return type for instance), the multiple symbols that came before, etc. As a result it will use `ExclamationSymbol`.
 - .* (Dereference)

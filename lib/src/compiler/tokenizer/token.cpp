@@ -63,8 +63,8 @@ StringSlice tokenTypeToString(TokenType tokenType)
         case TokenType::EqualOperator: return "EqualOperator";
         case TokenType::AssignOperator: return "AssignOperator";
         case TokenType::NotEqualOperator: return "NotEqualOperator";
-        case TokenType::ErrorUncheckedUnwrapOperator: return "ErrorUncheckedUnwrapOperator";
-        case TokenType::OptionUncheckedUnwrapOperator: return "OptionUncheckedUnwrapOperator";
+        case TokenType::ErrorUnwrapOperator: return "ErrorUnwrapOperator";
+        case TokenType::OptionUnwrapOperator: return "OptionUnwrapOperator";
         //case TokenType::NotOperator: return "NotOperator";
         case TokenType::LessOrEqualOperator: return "LessOrEqualOperator";
         case TokenType::LessOperator: return "LessOperator";
@@ -78,8 +78,8 @@ StringSlice tokenTypeToString(TokenType tokenType)
         case TokenType::MultiplyOperator: return "MultiplyOperator";
         case TokenType::DivideAssignOperator: return "DivideAssignOperator";
         case TokenType::DivideOperator: return "DivideOperator";
-        case TokenType::PowerAssignOperator: return "PowerAssignOperator";
-        case TokenType::PowerOperator: return "PowerOperator";
+        // case TokenType::PowerAssignOperator: return "PowerAssignOperator";
+        // case TokenType::PowerOperator: return "PowerOperator";
         case TokenType::ModuloAssignOperator: return "ModuloAssignOperator";
         case TokenType::ModuloOperator: return "ModuloOperator";
         case TokenType::BitshiftRightAssignOperator: return "BitshiftRightAssignOperator";
@@ -431,6 +431,54 @@ static std::tuple<Token, uint32_t> parseMathOperatorWithAssign(
     return std::make_tuple(Token(nonAssignType, start - 1), start);
 }
 
+static std::tuple<Token, uint32_t> parseDotOperatorsAndSymbol(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == '.', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::DotSymbol, start - 1), static_cast<uint32_t>(-1));
+    }
+    
+    if(source[start] == '?') {
+        return std::make_tuple(Token(TokenType::OptionUnwrapOperator, start - 1), start + 1);
+    }
+    
+    if(source[start] == '!') {
+        return std::make_tuple(Token(TokenType::ErrorUnwrapOperator, start - 1), start + 1);
+    }
+
+    return std::make_tuple(Token(TokenType::DotSymbol, start - 1), start);
+}
+
+static std::tuple<Token, uint32_t> parseAmpersandOrMutableReference(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == '&', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen < 3) {
+        return std::make_tuple(Token(TokenType::AmpersandSymbol, start - 1), start);
+    }
+
+    if(sliceFoundAtUnchecked(source, "mut", start)) {
+        if(remainingSourceLen == 3) {    
+            return std::make_tuple(Token(TokenType::MutableReferenceSymbol, start - 1), static_cast<uint32_t>(-1));
+        }
+
+        if(!isAlphaNumericOrUnderscore(source[start + 3])) {          
+            return std::make_tuple(Token(TokenType::MutableReferenceSymbol, start - 1), start + 3);
+        }
+    }
+
+    return std::make_tuple(Token(TokenType::AmpersandSymbol, start - 1), start);
+}
+
 #pragma endregion
 
 std::tuple<Token, uint32_t> Token::parseToken(
@@ -569,6 +617,14 @@ std::tuple<Token, uint32_t> Token::parseToken(
     // while
     if(source[nonWhitespaceStart] == 'w') {
         return parseWhileOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+    
+    if(source[nonWhitespaceStart] == '.') {
+        return parseDotOperatorsAndSymbol(source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '&') {
+        return parseAmpersandOrMutableReference(source, nonWhitespaceStart + 1);
     }
 
     if(source[nonWhitespaceStart] == '<') {
@@ -1387,6 +1443,7 @@ TEST_CASE("while") {
 static void testParseOperatorOrSymbol(
     const char* operatorOrSymbol,
     TokenType expectedTokenType,
+    bool checkAlphaAfter,
     bool checkAnyOperatorAfter,
     bool checkSameOperatorAfter
 ) {
@@ -1431,7 +1488,7 @@ static void testParseOperatorOrSymbol(
         CHECK_EQ(token.location(), 0);
         CHECK_EQ(end, length);
     }
-    { // works fine with a non whitespace after
+    if(checkAlphaAfter) { // works fine with a non whitespace after
         const std::string str = operatorOrSymbol + std::string("i");
         auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
         CHECK_EQ(token.tag(), expectedTokenType);
@@ -1456,107 +1513,127 @@ static void testParseOperatorOrSymbol(
 }
 
 TEST_CASE("<") {
-    testParseOperatorOrSymbol("<", TokenType::LessOperator, true, false);
+    testParseOperatorOrSymbol("<", TokenType::LessOperator, true, true, false);
 }
 
 TEST_CASE("<=") {
-    testParseOperatorOrSymbol("<=", TokenType::LessOrEqualOperator, true, true);
+    testParseOperatorOrSymbol("<=", TokenType::LessOrEqualOperator, true, true, true);
 }
 
 TEST_CASE("<<") {
-    testParseOperatorOrSymbol("<<", TokenType::BitshiftLeftOperator, true, true);
+    testParseOperatorOrSymbol("<<", TokenType::BitshiftLeftOperator, true, true, true);
 }
 
 TEST_CASE("<<=") {
-    testParseOperatorOrSymbol("<<=", TokenType::BitshiftLeftAssignOperator, true, true);
+    testParseOperatorOrSymbol("<<=", TokenType::BitshiftLeftAssignOperator, true, true, true);
 }
 
 TEST_CASE(">") {
-    testParseOperatorOrSymbol(">", TokenType::GreaterOperator, true, false);
+    testParseOperatorOrSymbol(">", TokenType::GreaterOperator, true, true, false);
 }
 
 TEST_CASE(">=") {
-    testParseOperatorOrSymbol(">=", TokenType::GreaterOrEqualOperator, true, true);
+    testParseOperatorOrSymbol(">=", TokenType::GreaterOrEqualOperator, true, true, true);
 }
 
 TEST_CASE(">>") {
-    testParseOperatorOrSymbol(">>", TokenType::BitshiftRightOperator, true, true);
+    testParseOperatorOrSymbol(">>", TokenType::BitshiftRightOperator, true, true, true);
 }
 
 TEST_CASE(">>=") {
-    testParseOperatorOrSymbol(">>=", TokenType::BitshiftRightAssignOperator, true, true);
+    testParseOperatorOrSymbol(">>=", TokenType::BitshiftRightAssignOperator, true, true, true);
 }
 
 TEST_CASE("=") {
-    testParseOperatorOrSymbol("=", TokenType::AssignOperator, true, false);
+    testParseOperatorOrSymbol("=", TokenType::AssignOperator, true, true, false);
 }
 
 TEST_CASE("==") {
-    testParseOperatorOrSymbol("==", TokenType::EqualOperator, true, true);
+    testParseOperatorOrSymbol("==", TokenType::EqualOperator, true, true, true);
 }
 
 TEST_CASE("+") {
-    testParseOperatorOrSymbol("+", TokenType::AddOperator, true, true);
+    testParseOperatorOrSymbol("+", TokenType::AddOperator, true, true, true);
 }
 
 TEST_CASE("+=") {
-    testParseOperatorOrSymbol("+=", TokenType::AddAssignOperator, true, true);
+    testParseOperatorOrSymbol("+=", TokenType::AddAssignOperator, true, true, true);
 }
 
 TEST_CASE("*") {
-    testParseOperatorOrSymbol("*", TokenType::MultiplyOperator, true, true);
+    testParseOperatorOrSymbol("*", TokenType::MultiplyOperator, true, true, true);
 }
 
 TEST_CASE("*=") {
-    testParseOperatorOrSymbol("*=", TokenType::MultiplyAssignOperator, true, true);
+    testParseOperatorOrSymbol("*=", TokenType::MultiplyAssignOperator, true, true, true);
 }
 
 TEST_CASE("/") {
-    testParseOperatorOrSymbol("/", TokenType::DivideOperator, true, true);
+    testParseOperatorOrSymbol("/", TokenType::DivideOperator, true, true, true);
 }
 
 TEST_CASE("/=") {
-    testParseOperatorOrSymbol("/=", TokenType::DivideAssignOperator, true, true);
+    testParseOperatorOrSymbol("/=", TokenType::DivideAssignOperator, true, true, true);
 }
 
 TEST_CASE("%") {
-    testParseOperatorOrSymbol("%", TokenType::ModuloOperator, true, true);
+    testParseOperatorOrSymbol("%", TokenType::ModuloOperator, true, true, true);
 }
 
 TEST_CASE("%=") {
-    testParseOperatorOrSymbol("%=", TokenType::ModuloAssignOperator, true, true);
+    testParseOperatorOrSymbol("%=", TokenType::ModuloAssignOperator, true, true, true);
 }
 
 TEST_CASE("|") {
-    testParseOperatorOrSymbol("|", TokenType::BitOrOperator, true, true);
+    testParseOperatorOrSymbol("|", TokenType::BitOrOperator, true, true, true);
 }
 
 TEST_CASE("|=") {
-    testParseOperatorOrSymbol("|=", TokenType::BitOrAssignOperator, true, true);
+    testParseOperatorOrSymbol("|=", TokenType::BitOrAssignOperator, true, true, true);
 }
 
 TEST_CASE("^") {
-    testParseOperatorOrSymbol("^", TokenType::BitXorOperator, true, true);
+    testParseOperatorOrSymbol("^", TokenType::BitXorOperator, true, true, true);
 }
 
 TEST_CASE("^=") {
-    testParseOperatorOrSymbol("^=", TokenType::BitXorAssignOperator, true, true);
+    testParseOperatorOrSymbol("^=", TokenType::BitXorAssignOperator, true, true, true);
 }
 
 TEST_CASE("~") {
-    testParseOperatorOrSymbol("~", TokenType::BitNotOperator, true, true);
+    testParseOperatorOrSymbol("~", TokenType::BitNotOperator, true, true, true);
 }
 
 TEST_CASE("~=") {
-    testParseOperatorOrSymbol("~=", TokenType::BitNotAssignOperator, true, true);
+    testParseOperatorOrSymbol("~=", TokenType::BitNotAssignOperator, true, true, true);
 }
 
 TEST_CASE("!") {
-    testParseOperatorOrSymbol("!", TokenType::ExclamationSymbol, true, true);
+    testParseOperatorOrSymbol("!", TokenType::ExclamationSymbol, true, true, true);
 }
 
 TEST_CASE("!=") {
-    testParseOperatorOrSymbol("!=", TokenType::NotEqualOperator, true, true);
+    testParseOperatorOrSymbol("!=", TokenType::NotEqualOperator, true, true, true);
+}
+
+TEST_CASE(".") {
+    testParseOperatorOrSymbol(".", TokenType::DotSymbol, true, false, true);
+}
+
+TEST_CASE(".?") {
+    testParseOperatorOrSymbol(".?", TokenType::OptionUnwrapOperator, true, true, true);
+}
+
+TEST_CASE(".!") {
+    testParseOperatorOrSymbol(".!", TokenType::ErrorUnwrapOperator, true, true, true);
+}
+
+TEST_CASE("&") {
+    testParseOperatorOrSymbol("&", TokenType::AmpersandSymbol, true, true, true);
+}
+
+TEST_CASE("&mut") {
+    testParseOperatorOrSymbol("&mut", TokenType::MutableReferenceSymbol, false, true, true);
 }
 
 #endif // SYNC_LIB_NO_TESTS
