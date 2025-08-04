@@ -129,7 +129,9 @@ Identifiers must start with alphabetical characters, being [a-z] or [A-Z], or an
 - /= (Divide Assign)
 - / (Divide)
 - ^^= (Power Assign)
+  - Makes more sense as just a built in function?
 - ^^ (Power)
+  - Makes more sense as just a built in function?
 - %= (Modulo Assign)
   - Should be distinguished for positive and negative?
 - % (Modulo)

@@ -382,6 +382,25 @@ static std::tuple<Token, uint32_t> parseGreaterOrBitshiftRight(
     return std::make_tuple(Token(TokenType::GreaterOperator, start - 1), start);
 }
 
+static std::tuple<Token, uint32_t> parseEqualsOrAssign(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == '=', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+    
+    if(remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::AssignOperator, start - 1), static_cast<uint32_t>(-1));
+    }
+    
+    if(source[start] == '=') {
+        return std::make_tuple(Token(TokenType::EqualOperator, start - 1), start + 1);
+    }
+
+    return std::make_tuple(Token(TokenType::AssignOperator, start - 1), start);
+}
+
 /// Works for the following operators
 /// 
 /// - \+
@@ -558,6 +577,58 @@ std::tuple<Token, uint32_t> Token::parseToken(
 
     if(source[nonWhitespaceStart] == '>') {
         return parseGreaterOrBitshiftRight(source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '=') {
+        return parseEqualsOrAssign(source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '+') {
+        return parseMathOperatorWithAssign
+            <'+', TokenType::AddOperator, TokenType::AddAssignOperator>
+            (source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '*') {
+        return parseMathOperatorWithAssign
+            <'*', TokenType::MultiplyOperator, TokenType::MultiplyAssignOperator>
+            (source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '/') {
+        return parseMathOperatorWithAssign
+            <'/', TokenType::DivideOperator, TokenType::DivideAssignOperator>
+            (source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '%') {
+        return parseMathOperatorWithAssign
+            <'%', TokenType::ModuloOperator, TokenType::ModuloAssignOperator>
+            (source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '|') {
+        return parseMathOperatorWithAssign
+            <'|', TokenType::BitOrOperator, TokenType::BitOrAssignOperator>
+            (source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '^') {
+        return parseMathOperatorWithAssign
+            <'^', TokenType::BitXorOperator, TokenType::BitXorAssignOperator>
+            (source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '~') {
+        return parseMathOperatorWithAssign
+            <'~', TokenType::BitNotOperator, TokenType::BitNotAssignOperator>
+            (source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '!') {
+        return parseMathOperatorWithAssign
+            <'!', TokenType::ExclamationSymbol, TokenType::NotEqualOperator>
+            (source, nonWhitespaceStart + 1);
     }
     
     return std::make_tuple(Token(TokenType::Error, static_cast<uint32_t>(-1)), 0);
@@ -1414,6 +1485,78 @@ TEST_CASE(">>") {
 
 TEST_CASE(">>=") {
     testParseOperatorOrSymbol(">>=", TokenType::BitshiftRightAssignOperator, true, true);
+}
+
+TEST_CASE("=") {
+    testParseOperatorOrSymbol("=", TokenType::AssignOperator, true, false);
+}
+
+TEST_CASE("==") {
+    testParseOperatorOrSymbol("==", TokenType::EqualOperator, true, true);
+}
+
+TEST_CASE("+") {
+    testParseOperatorOrSymbol("+", TokenType::AddOperator, true, true);
+}
+
+TEST_CASE("+=") {
+    testParseOperatorOrSymbol("+=", TokenType::AddAssignOperator, true, true);
+}
+
+TEST_CASE("*") {
+    testParseOperatorOrSymbol("*", TokenType::MultiplyOperator, true, true);
+}
+
+TEST_CASE("*=") {
+    testParseOperatorOrSymbol("*=", TokenType::MultiplyAssignOperator, true, true);
+}
+
+TEST_CASE("/") {
+    testParseOperatorOrSymbol("/", TokenType::DivideOperator, true, true);
+}
+
+TEST_CASE("/=") {
+    testParseOperatorOrSymbol("/=", TokenType::DivideAssignOperator, true, true);
+}
+
+TEST_CASE("%") {
+    testParseOperatorOrSymbol("%", TokenType::ModuloOperator, true, true);
+}
+
+TEST_CASE("%=") {
+    testParseOperatorOrSymbol("%=", TokenType::ModuloAssignOperator, true, true);
+}
+
+TEST_CASE("|") {
+    testParseOperatorOrSymbol("|", TokenType::BitOrOperator, true, true);
+}
+
+TEST_CASE("|=") {
+    testParseOperatorOrSymbol("|=", TokenType::BitOrAssignOperator, true, true);
+}
+
+TEST_CASE("^") {
+    testParseOperatorOrSymbol("^", TokenType::BitXorOperator, true, true);
+}
+
+TEST_CASE("^=") {
+    testParseOperatorOrSymbol("^=", TokenType::BitXorAssignOperator, true, true);
+}
+
+TEST_CASE("~") {
+    testParseOperatorOrSymbol("~", TokenType::BitNotOperator, true, true);
+}
+
+TEST_CASE("~=") {
+    testParseOperatorOrSymbol("~=", TokenType::BitNotAssignOperator, true, true);
+}
+
+TEST_CASE("!") {
+    testParseOperatorOrSymbol("!", TokenType::ExclamationSymbol, true, true);
+}
+
+TEST_CASE("!=") {
+    testParseOperatorOrSymbol("!=", TokenType::NotEqualOperator, true, true);
 }
 
 #endif // SYNC_LIB_NO_TESTS
