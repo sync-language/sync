@@ -197,6 +197,15 @@ static bool sliceFoundAtUnchecked(const StringSlice source, const StringSlice to
     return true;
 }
 
+static bool validCharForNumberLiteral(char c) {
+    return  isNumeric(c) 
+            || c == '.' 
+            || c == 'x' // hex
+            || c == 'X' // hex
+            || (c >= 'a' && c <= 'f')   // binary (b) and hex
+            || (c >= 'A' && c <= 'F');  // binary (B) and hex
+}
+
 #pragma region Keywords
 
 static std::tuple<Token, uint32_t> extractKeywordOrIdentifier(
@@ -500,8 +509,7 @@ static std::tuple<Token, uint32_t> parseSubtractOrNegativeNumberLiteral(
         // ignore multiple decimal places
         uint32_t i = start + 1;
         for(; i < (start + remainingSourceLen); i++) {
-            const char c = source[i];
-            if((!isNumeric(c)) && c != '.') {
+            if(!validCharForNumberLiteral(source[i])) {
                 break;
             }
         }
@@ -586,6 +594,30 @@ static std::tuple<Token, uint32_t> parseStringLiteral(
         return std::make_tuple(Token(TokenType::Error, start - 1), static_cast<uint32_t>(-1));
     }
 }
+
+static std::tuple<Token, uint32_t> parseNumberLiteral(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(isNumeric(source[start - 1]), "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::NumberLiteral, start - 1), static_cast<uint32_t>(-1));
+    }
+
+    // ignore multiple decimal places
+    uint32_t i = start;
+    for(; i < (start + remainingSourceLen); i++) {
+        if(!validCharForNumberLiteral(source[i])) {
+            break;
+        }
+    }
+    return std::make_tuple(Token(TokenType::NumberLiteral, start - 1), i); 
+    
+}
+
 
 std::tuple<Token, uint32_t> Token::parseToken(
     const StringSlice source,
@@ -804,8 +836,12 @@ std::tuple<Token, uint32_t> Token::parseToken(
     if(source[nonWhitespaceStart] == '\'') {
         return parseCharLiteral(source, nonWhitespaceStart + 1);
     }
+
+    if(isNumeric(source[nonWhitespaceStart])) {
+        return parseNumberLiteral(source, nonWhitespaceStart + 1);
+    }
     
-    return std::make_tuple(Token(TokenType::Error, static_cast<uint32_t>(-1)), 0);
+    return std::make_tuple(Token(TokenType::Error, nonWhitespaceStart), nonWhitespaceStart + 1);
 }
 
 static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(
@@ -1812,6 +1848,7 @@ TEST_CASE("Negative Numbers") {
     testParseOperatorOrSymbol("-6", TokenType::NumberLiteral, true, true, true);
     testParseOperatorOrSymbol("-7", TokenType::NumberLiteral, true, true, true);
     testParseOperatorOrSymbol("-8", TokenType::NumberLiteral, true, true, true);
+    testParseOperatorOrSymbol("-9", TokenType::NumberLiteral, true, true, true);
     testParseOperatorOrSymbol("-1.1", TokenType::NumberLiteral, true, true, true);
     
     // The following ones will be invalid later in compilation, but for purely extracting a token, it's fine.
@@ -2099,6 +2136,38 @@ TEST_SUITE("char literals") {
         }
     }
     
+}
+
+TEST_CASE("Positive Numbers") {
+    testParseOperatorOrSymbol("0", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("1", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("2", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("3", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("4", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("5", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("6", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("7", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("8", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("9", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("1.0", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("5.127640124", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("0xFF", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("0x01", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("0b1", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("0b1001", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("0b0001", TokenType::NumberLiteral, true, true, false);
+    
+    // The following ones will be invalid later in compilation, but for purely extracting a token, it's fine.
+    // The tokenizer first extracts the start and end of the token's range, in which the metadata can be
+    // then parsed, such as validating numbers.
+  
+    testParseOperatorOrSymbol("9.", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("2.", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("3..5", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("5....7.", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("4..X.7.", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("3..bb.7.", TokenType::NumberLiteral, true, true, false);
+    testParseOperatorOrSymbol("1abcdefABCDEF", TokenType::NumberLiteral, true, true, false);
 }
 
 #endif // SYNC_LIB_NO_TESTS
