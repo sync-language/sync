@@ -511,6 +511,82 @@ static std::tuple<Token, uint32_t> parseSubtractOrNegativeNumberLiteral(
     return std::make_tuple(Token(TokenType::SubtractOperator, start - 1), start);
 }
 
+static std::tuple<Token, uint32_t> parseCharLiteral(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == '\'', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::Error, start - 1), static_cast<uint32_t>(-1));
+    }
+
+    if(source[start] == '\'') {
+        // A char literal of '' is invalid
+        return std::make_tuple(Token(TokenType::Error, start - 1), start + 1);
+    }
+
+    uint32_t i = start;
+    bool didFind = false;
+    for(; i < (remainingSourceLen + start); i++) {
+        const char c = source[i];
+        const char before = source[i - 1];
+
+        if(c == '\n') {
+            // Multline char literals? Probably nonsense
+            return std::make_tuple(Token(TokenType::Error, i), static_cast<uint32_t>(-1));
+        }
+        if(c == '\'' && before != '\\') {
+            didFind = true;
+            break;
+        }
+    }
+
+    if(didFind) {
+        return std::make_tuple(Token(TokenType::CharLiteral, start - 1), i + 1);
+    } else {
+        return std::make_tuple(Token(TokenType::Error, start - 1), static_cast<uint32_t>(-1));
+    }
+}
+
+static std::tuple<Token, uint32_t> parseStringLiteral(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(source[start - 1] == '\"', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if(remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::Error, start - 1), static_cast<uint32_t>(-1));
+    }
+
+    // A str literal of "" is valid, as that's just an empty string
+
+    uint32_t i = start;
+    bool didFind = false;
+    for(; i < (remainingSourceLen + start); i++) {
+        const char c = source[i];
+        const char before = source[i - 1];
+        if(c == '\n') {
+            // TODO figure out how to do multiline string literals
+            return std::make_tuple(Token(TokenType::Error, i), static_cast<uint32_t>(-1));
+        }
+        if(c == '\"' && before != '\\') {
+            didFind = true;
+            break;
+        }
+    }
+
+    if(didFind) {
+        return std::make_tuple(Token(TokenType::StringLiteral, start - 1), i + 1);
+    } else {
+        return std::make_tuple(Token(TokenType::Error, start - 1), static_cast<uint32_t>(-1));
+    }
+}
+
 std::tuple<Token, uint32_t> Token::parseToken(
     const StringSlice source,
     const uint32_t start
@@ -719,6 +795,14 @@ std::tuple<Token, uint32_t> Token::parseToken(
 
     if(source[nonWhitespaceStart] == '-') {
         return parseSubtractOrNegativeNumberLiteral(source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '\"') {
+        return parseStringLiteral(source, nonWhitespaceStart + 1);
+    }
+
+    if(source[nonWhitespaceStart] == '\'') {
+        return parseCharLiteral(source, nonWhitespaceStart + 1);
     }
     
     return std::make_tuple(Token(TokenType::Error, static_cast<uint32_t>(-1)), 0);
@@ -1738,6 +1822,283 @@ TEST_CASE("Negative Numbers") {
     testParseOperatorOrSymbol("-2.", TokenType::NumberLiteral, true, true, true);
     testParseOperatorOrSymbol("-3..5", TokenType::NumberLiteral, true, true, true);
     testParseOperatorOrSymbol("-5....7.", TokenType::NumberLiteral, true, true, true);
+}
+
+TEST_SUITE("string literals") {
+    TEST_CASE("empty string") {
+        {
+            const StringSlice s = "\"\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " \"\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "\"\" ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 2);
+        }     
+    }
+
+    TEST_CASE("1 character string") {
+        {
+            const StringSlice s = "\"a\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " \"a\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "\"a\" ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 3);
+        }     
+    }
+
+    TEST_CASE("multiple character string") {
+        {
+            const StringSlice s = "\"abc\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " \"abc\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "\"abc\" ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 5);
+        }     
+    }
+
+    TEST_CASE("has quote character within") {
+        {
+            const StringSlice s = "\"\\\"\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " \"\\\"\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "\"\\\"\" ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 3);
+        }     
+    }
+
+    TEST_CASE("has apostrophe character within") {
+        {
+            const StringSlice s = "\"\\\'\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " \"\\\'\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "\"\\\'\" ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::StringLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 3);
+        }     
+    }
+
+    TEST_CASE("invalid") {
+        { // not terminated last character
+            const StringSlice s = " \"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::Error);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        { // not terminated
+            const StringSlice s = "  \" ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::Error);
+            CHECK_EQ(token.location(), 2);
+            CHECK_GE(end, s.len());
+        }
+        { // new line within
+            const StringSlice s = " \"\n\"";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::Error);
+            CHECK_EQ(token.location(), 2);
+            CHECK_GE(end, s.len());
+        }
+    }
+    
+}
+
+TEST_SUITE("char literals") {
+    TEST_CASE("1 character string") {
+        {
+            const StringSlice s = "\'a\'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " \'a\'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "\'a\' ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 3);
+        }     
+    }
+
+    TEST_CASE("multiple character string") {
+        {
+            const StringSlice s = "\'abc\'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " \'abc\'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "\'abc\' ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 5);
+        }     
+    }
+
+    TEST_CASE("has escaped quote character within") {
+        {
+            const StringSlice s = "\'\\\"\'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " \'\\\"\'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "\'\\\"\' ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 3);
+        }     
+    }
+
+    TEST_CASE("has escaped apostrophe character within") {
+        {
+            const StringSlice s = "\'\\\'\'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " \'\\\'\'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "\'\\\'\' ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::CharLiteral);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 3);
+        }     
+    }
+
+    TEST_CASE("invalid") {
+        { // empty
+            const StringSlice s = " \'\'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::Error);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        { // not terminated last character
+            const StringSlice s = " \'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::Error);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        { // not terminated
+            const StringSlice s = "  \' ";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::Error);
+            CHECK_EQ(token.location(), 2);
+            CHECK_GE(end, s.len());
+        }
+        { // new line within
+            const StringSlice s = " \'\n\'";
+            auto [token, end] = Token::parseToken(s, 0);
+            CHECK_EQ(token.tag(), TokenType::Error);
+            CHECK_EQ(token.location(), 2);
+            CHECK_GE(end, s.len());
+        }
+    }
+    
 }
 
 #endif // SYNC_LIB_NO_TESTS
