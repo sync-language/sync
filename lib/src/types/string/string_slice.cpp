@@ -73,7 +73,6 @@ sy::StringSlice::StringSlice(const char *inPtr, size_t inLen)
     sy_assert(sliceValidUtf8(*this), "Invalid utf8 string slice");
 }
 
-char sy::StringSlice::operator[](const size_t index) const {
-    sy_assert(index < this->_len, "Index out of bounds");
+char sy::StringSlice::operator[](const size_t index) const {    sy_assert(index < this->_len, "Index out of bounds");
     return this->_ptr[index];
 }

@@ -182,10 +182,11 @@ static uint32_t nonWhitespaceStartFrom(const StringSlice source, const uint32_t 
 static uint32_t endOfAlphaNumericOrUnderscore(const StringSlice source, const uint32_t start) {
     const char* strData = source.data();
     const uint32_t len = static_cast<uint32_t>(source.len());
-    for(uint32_t i = start; i < len; i++) {
-        if(!isAlphaNumericOrUnderscore(strData[i])) return i;
+    uint32_t i = start;
+    for(; i < len; i++) {
+        if(!isAlphaNumericOrUnderscore(strData[i])) break;
     }
-    return static_cast<uint32_t>(-1);
+    return i;
 }
 
 static bool sliceFoundAtUnchecked(const StringSlice source, const StringSlice toFind, const uint32_t start) {
@@ -321,6 +322,11 @@ static std::tuple<Token, uint32_t> parseDynOrIdentifier(
 );
 
 static std::tuple<Token, uint32_t> parseWhileOrIdentifier(
+    const StringSlice source,
+    const uint32_t start
+);
+
+static std::tuple<Token, uint32_t> parseIdentifier(
     const StringSlice source,
     const uint32_t start
 );
@@ -840,6 +846,10 @@ std::tuple<Token, uint32_t> Token::parseToken(
     if(isNumeric(source[nonWhitespaceStart])) {
         return parseNumberLiteral(source, nonWhitespaceStart + 1);
     }
+
+    if(isAlpha(source[nonWhitespaceStart])) {
+        return parseIdentifier(source, nonWhitespaceStart + 1);
+    }
     
     return std::make_tuple(Token(TokenType::Error, nonWhitespaceStart), nonWhitespaceStart + 1);
 }
@@ -910,7 +920,7 @@ static std::tuple<Token, uint32_t> parseElseEnumOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -956,7 +966,7 @@ static std::tuple<Token, uint32_t> parseUnsignedIntegerTypesOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 1);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -985,7 +995,7 @@ static std::tuple<Token, uint32_t> parseBoolTypeBreakOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1020,7 +1030,7 @@ static std::tuple<Token, uint32_t> parseCharConstContinueOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1043,7 +1053,7 @@ static std::tuple<Token, uint32_t> parseMutOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1066,7 +1076,7 @@ static std::tuple<Token, uint32_t> parseReturnOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 5);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1105,7 +1115,7 @@ static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1131,7 +1141,7 @@ static std::tuple<Token, uint32_t> parseStringSharedOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 5);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1145,7 +1155,7 @@ static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnOrIdentifier(
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
     if(remainingSourceLen == 0) {
-        return std::make_tuple(Token(TokenType::FnKeyword, start - 1), start + 1);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), start + 1);
     }
 
     if(source[start] == 'n') {
@@ -1174,7 +1184,7 @@ static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnOrIdentifier(
     }
     
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 1);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1197,7 +1207,7 @@ static std::tuple<Token, uint32_t> parseTrueOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1220,7 +1230,7 @@ static std::tuple<Token, uint32_t> parsePubOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1243,7 +1253,7 @@ static std::tuple<Token, uint32_t> parseOwnedOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1266,7 +1276,7 @@ static std::tuple<Token, uint32_t> parseWeakOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1289,7 +1299,7 @@ static std::tuple<Token, uint32_t> parseAndOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1302,12 +1312,16 @@ static std::tuple<Token, uint32_t> parseOrOrIdentifier(
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
+    if(remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), static_cast<uint32_t>(-1));
+    }
+
     if(source[start] == 'r') {
         return extractKeywordOrIdentifier(source, remainingSourceLen, 1, start, TokenType::OrKeyword);
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 1);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1330,7 +1344,7 @@ static std::tuple<Token, uint32_t> parseNullOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 3);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1353,7 +1367,7 @@ static std::tuple<Token, uint32_t> parseDynOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 2);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
@@ -1376,9 +1390,27 @@ static std::tuple<Token, uint32_t> parseWhileOrIdentifier(
     }
 
     {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start + 4);
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
+}
+
+static std::tuple<Token, uint32_t> parseIdentifier(
+    const StringSlice source,
+    const uint32_t start
+) {
+    sy_assert(isAlpha(source[start - 1]), "Invalid parse operation");
+    
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    uint32_t i = start;
+    for(; i < (remainingSourceLen + start); i++) {
+        if(!isAlphaNumericOrUnderscore(source[i])) {
+            break;
+        }
+    }
+
+    return std::make_tuple(Token(TokenType::Identifier, start - 1), i);
 }
 
 #ifndef SYNC_LIB_NO_TESTS
@@ -2168,6 +2200,108 @@ TEST_CASE("Positive Numbers") {
     testParseOperatorOrSymbol("4..X.7.", TokenType::NumberLiteral, true, true, false);
     testParseOperatorOrSymbol("3..bb.7.", TokenType::NumberLiteral, true, true, false);
     testParseOperatorOrSymbol("1abcdefABCDEF", TokenType::NumberLiteral, true, true, false);
+}
+
+static void testParseIdentifier(const char* identifier)
+{
+    const size_t length = std::strlen(identifier);
+
+    auto stdStringToSlice = [](const std::string& s) {
+        return StringSlice(s.data(), s.size());
+    };
+
+    { // as is
+        const auto slice = StringSlice(identifier, length);
+        auto [token, end] = Token::parseToken(slice, 0);
+        CHECK_EQ(token.tag(), TokenType::Identifier);
+        CHECK_EQ(token.location(), 0);
+        CHECK_GE(end, length);
+    }
+    { // with space in front
+        const std::string str = std::string(" ") + identifier;
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
+        CHECK_EQ(token.tag(), TokenType::Identifier);
+        CHECK_EQ(token.location(), 1);
+        CHECK_GE(end, length);
+    }
+    { // with space at the end
+        const std::string str = identifier + std::string(" ");
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
+        CHECK_EQ(token.tag(), TokenType::Identifier);
+        CHECK_EQ(token.location(), 0);
+        CHECK_EQ(end, length);
+    }
+    { // with space at the front and end
+        const std::string str = std::string(" ") + identifier + ' ';
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
+        CHECK_EQ(token.tag(), TokenType::Identifier);
+        CHECK_EQ(token.location(), 1);
+        CHECK_EQ(end, length + 1); // space before so 1 after
+    }
+    { // separator at the end
+        const std::string str = identifier + std::string(";");
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
+        CHECK_EQ(token.tag(), TokenType::Identifier);
+        CHECK_EQ(token.location(), 0);
+        CHECK_EQ(end, length);
+    }
+    { // is a different identifier
+        const std::string str = identifier + std::string("i");
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0);
+        CHECK_EQ(token.tag(), TokenType::Identifier);
+        CHECK_EQ(token.location(), 0);
+        CHECK_GE(end, length + 1); // goes after keyword length
+    }
+}
+
+TEST_CASE("identifiers") {
+    for(char i = 'a'; i < 'z'; i++) {
+        char buf[3] = {i, '\0', '\0'};   
+        //testParseIdentifier(buf);
+        buf[1] = 'a'; // Now it's like "aa", "ba"...
+        testParseIdentifier(buf);
+    }
+
+    // similar to some keywords
+    testParseIdentifier("constt");
+    testParseIdentifier("mutt");
+    testParseIdentifier("returnn");
+    testParseIdentifier("fnn");
+    testParseIdentifier("pubb");
+    testParseIdentifier("iff");
+    testParseIdentifier("elsee");
+    testParseIdentifier("switchh");
+    testParseIdentifier("whilee");
+    testParseIdentifier("forr");
+    testParseIdentifier("breakk");
+    testParseIdentifier("continuee");
+    testParseIdentifier("structt");
+    testParseIdentifier("enumm");
+    testParseIdentifier("dynn");
+    testParseIdentifier("syncc");
+    testParseIdentifier("truee");
+    testParseIdentifier("falsee");
+    testParseIdentifier("nulll");
+    testParseIdentifier("andd");
+    testParseIdentifier("orr");
+    testParseIdentifier("booll");
+    testParseIdentifier("i88");
+    testParseIdentifier("i166");
+    testParseIdentifier("i322");
+    testParseIdentifier("i644");
+    testParseIdentifier("u88");
+    testParseIdentifier("u166");
+    testParseIdentifier("u322");
+    testParseIdentifier("u644");
+    testParseIdentifier("usizee");
+    testParseIdentifier("f322");
+    testParseIdentifier("f644");
+    testParseIdentifier("charr");
+    testParseIdentifier("strr");
+    testParseIdentifier("Stringg");
+    testParseIdentifier("Ownedd");
+    testParseIdentifier("Sharedd");
+    testParseIdentifier("Weakk");
 }
 
 #endif // SYNC_LIB_NO_TESTS
