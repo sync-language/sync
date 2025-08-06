@@ -10,6 +10,20 @@
 
 namespace sy {
 
+    class StringUnmanaged;
+
+    namespace detail {
+        /// @param inCapacity will be rounded up to the nearest multiple of `STRING_ALLOC_ALIGN`.
+        /// @return Non-zeroed memory
+        sy::AllocExpect<char*> mallocStringBuffer(size_t& inCapacity, sy::Allocator alloc);
+
+        void freeStringBuffer(char* buff, size_t inCapacity, sy::Allocator alloc);
+
+        class StringUtils {
+            static StringUnmanaged makeRaw(char*& buf, size_t length, size_t capacity, sy::Allocator alloc);
+        };
+    }
+
     /// Dynamic, [Small String Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/) 
     /// utf8 string class. It supports using a custom allocator.
     class SY_API StringUnmanaged SY_CLASS_FINAL {
@@ -56,6 +70,8 @@ namespace sy {
         [[nodiscard]] const char* cstr() const;
 
     SY_CLASS_TEST_PRIVATE:
+
+        friend class detail::StringUtils;
 
         bool isSso() const;
 
