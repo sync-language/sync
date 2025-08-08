@@ -10,17 +10,22 @@
 #include <type_traits>
 
 class NumberLiteral {
+public:
     enum class RepKind {
         Unsigned64,
         Signed64,
         Float64
     };
 
+    [[nodiscard]] static std::variant<NumberLiteral, sy::CompileError> create(
+        const sy::StringSlice source, const uint32_t start, const uint32_t end
+    );
+
     [[nodiscard]] std::variant<uint64_t, sy::CompileError> asUnsigned64() const;
     
     [[nodiscard]] std::variant<int64_t, sy::CompileError> asSigned64() const;
 
-    [[nodiscard]] std::variant<double, sy::CompileError> asFloat64() const;
+    [[nodiscard]] double asFloat64() const;
 
 private:
 

@@ -39,6 +39,20 @@ CompileError sy::CompileError::createFloatOutsideIntRangeConversion()
     return err;
 }
 
+CompileError sy::CompileError::createInvalidDecimalNumberLiteral()
+{
+    CompileError err;
+    err.kind_ = Kind::InvalidDecimalNumberLiteral;
+    return err;
+}
+
+CompileError sy::CompileError::createInvalidCharNumberLiteral()
+{
+    CompileError err;
+    err.kind_ = Kind::InvalidCharNumberLiteral;
+    return err;
+}
+
 CompileError::FileTooBig sy::CompileError::errFileTooBig() const
 {
     sy_assert(this->kind_ == Kind::FileTooBig, "Expected the compile error to be file too big");
