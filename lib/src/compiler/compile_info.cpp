@@ -18,6 +18,27 @@ CompileError sy::CompileError::createFileTooBig(FileTooBig inFileTooBig)
     return err;
 }
 
+CompileError sy::CompileError::createNegativeToUnsignedIntConversion()
+{
+    CompileError err;
+    err.kind_ = Kind::NegativeToUnsignedIntConversion;
+    return err;
+}
+
+CompileError sy::CompileError::createUnsignedOutsideIntRangeConversion()
+{
+    CompileError err;
+    err.kind_ = Kind::UnsignedOutsideIntRangeConversion;
+    return err;
+}
+
+CompileError sy::CompileError::createFloatOutsideIntRangeConversion()
+{
+    CompileError err;
+    err.kind_ = Kind::FloatOutsideIntRangeConversion;
+    return err;
+}
+
 CompileError::FileTooBig sy::CompileError::errFileTooBig() const
 {
     sy_assert(this->kind_ == Kind::FileTooBig, "Expected the compile error to be file too big");

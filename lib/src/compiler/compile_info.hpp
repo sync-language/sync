@@ -24,6 +24,9 @@ namespace sy {
             None = 0,
             OutOfMemory,
             FileTooBig,
+            NegativeToUnsignedIntConversion,
+            UnsignedOutsideIntRangeConversion,
+            FloatOutsideIntRangeConversion,
         };
 
         struct FileTooBig {
@@ -36,6 +39,12 @@ namespace sy {
         static CompileError createOutOfMemory();
 
         static CompileError createFileTooBig(FileTooBig inFileTooBig);
+
+        static CompileError createNegativeToUnsignedIntConversion();
+
+        static CompileError createUnsignedOutsideIntRangeConversion();
+
+        static CompileError createFloatOutsideIntRangeConversion();
 
         [[nodiscard]] Kind kind() const { return this->kind_; }
 

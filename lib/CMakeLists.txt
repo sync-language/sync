@@ -31,6 +31,7 @@ set(SyncLibSources
     "src/compiler/compile_info.cpp"
     "src/compiler/tokenizer/token.cpp"
     "src/compiler/tokenizer/tokenizer.cpp"
+    "src/compiler/tokenizer/file_literals.cpp"
     "src/program/program.cpp"
 )
 
