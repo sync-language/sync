@@ -238,6 +238,7 @@ double NumberLiteral::asFloat64() const
 #ifndef SYNC_LIB_NO_TESTS
 
 #include "../../doctest.h"
+#include <string>
 
 TEST_SUITE("number literal") {
     TEST_CASE("positive single digit") {
@@ -245,6 +246,39 @@ TEST_SUITE("number literal") {
             const char asChar = static_cast<char>(i) + '0';
             const char buf[2] = { asChar, '\0'};
             auto result = NumberLiteral::create(sy::StringSlice(buf, 1), 0, 1);
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), static_cast<double>(i));
+            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
+            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), static_cast<uint64_t>(i));
+        }
+    }
+
+    TEST_CASE("two digits") {
+        for(int i = 10; i < 100; i++) {
+            const char asCharTens = static_cast<char>(i / 10) + '0';
+            const char asCharOnes = static_cast<char>(i % 10) + '0';
+            const char buf[3] = { asCharTens, asCharOnes, '\0'};
+            auto result = NumberLiteral::create(sy::StringSlice(buf, 2), 0, 2);
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), static_cast<double>(i));
+            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
+            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), static_cast<uint64_t>(i));
+        }
+    }
+
+    TEST_CASE("many digits") {
+        // The powers of 2 have a good mix of characters.
+        // We go up to 2^62 because 2^63 is outside of signed 64 bit range
+        constexpr uint64_t max = (1ULL << 62);
+        for(uint64_t i = 128; i <= max; i <<= 1) {
+            std::string numAsString = std::to_string(i);
+            auto result = NumberLiteral::create(
+                sy::StringSlice(numAsString.c_str(), numAsString.size()), 
+                0, 
+                static_cast<uint32_t>(numAsString.size())
+            );
             CHECK(std::holds_alternative<NumberLiteral>(result));
             NumberLiteral num = std::get<NumberLiteral>(result);
             CHECK_EQ(num.asFloat64(), static_cast<double>(i));
