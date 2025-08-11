@@ -87,7 +87,7 @@ std::variant<NumberLiteral, sy::CompileError> NumberLiteral::create(
 
         if(parsingWholeAsInt) {
             if(isNegative) {
-                constexpr uint64_t MIN_I64_AS_U64 = 9223372036854775808;
+                constexpr uint64_t MIN_I64_AS_U64 = 9223372036854775808ULL;
                 if(wholePartInt == MIN_I64_AS_U64) {
                     self.kind_ = RepKind::Signed64;
                     self.rep_.signed64 = INT64_MIN;
@@ -234,3 +234,24 @@ double NumberLiteral::asFloat64() const
         default: unreachable();
     }
 }
+
+#ifndef SYNC_LIB_NO_TESTS
+
+#include "../../doctest.h"
+
+TEST_SUITE("number literal") {
+    TEST_CASE("positive single digit") {
+        for(int i = 0; i < 10; i++) {
+            const char asChar = static_cast<char>(i) + '0';
+            const char buf[2] = { asChar, '\0'};
+            auto result = NumberLiteral::create(sy::StringSlice(buf, 1), 0, 1);
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), static_cast<double>(i));
+            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
+            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), static_cast<uint64_t>(i));
+        }
+    }
+}
+
+#endif // SYNC_LIB_NO_TESTS
