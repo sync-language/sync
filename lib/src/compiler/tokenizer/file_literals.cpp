@@ -240,6 +240,8 @@ double NumberLiteral::asFloat64() const
 #include "../../doctest.h"
 #include <string>
 
+using sy::CompileError;
+
 TEST_SUITE("number literal") {
     TEST_CASE("positive single digit") {
         for(int i = 0; i < 10; i++) {
@@ -284,6 +286,67 @@ TEST_SUITE("number literal") {
             CHECK_EQ(num.asFloat64(), static_cast<double>(i));
             CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
             CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), static_cast<uint64_t>(i));
+        }
+    }
+
+    TEST_CASE("negative single digit") {
+        for(int i = -1; i > -10; i--) {
+            std::string numAsString = std::to_string(i);
+            auto result = NumberLiteral::create(
+                sy::StringSlice(numAsString.c_str(), numAsString.size()), 
+                0, 
+                static_cast<uint32_t>(numAsString.size())
+            );
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), static_cast<double>(i));
+            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
+
+            CHECK_EQ(
+                std::get<CompileError>(num.asUnsigned64()).kind(),
+                CompileError::Kind::NegativeToUnsignedIntConversion
+            );
+        }
+    }
+
+    TEST_CASE("negative two digits") {
+        for(int i = -10; i > -100; i--) {
+            std::string numAsString = std::to_string(i);
+            auto result = NumberLiteral::create(
+                sy::StringSlice(numAsString.c_str(), numAsString.size()), 
+                0, 
+                static_cast<uint32_t>(numAsString.size())
+            );
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), static_cast<double>(i));
+            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
+
+            CHECK_EQ(
+                std::get<CompileError>(num.asUnsigned64()).kind(),
+                CompileError::Kind::NegativeToUnsignedIntConversion
+            );
+        }
+    }
+
+    TEST_CASE("negative many digits") {
+        constexpr int64_t min = (1ULL << 62) * -1ULL;
+        for(int64_t i = -128; i > min; i *= 2) {
+            std::string numAsString = std::to_string(i);
+            auto result = NumberLiteral::create(
+                sy::StringSlice(numAsString.c_str(), numAsString.size()), 
+                0, 
+                static_cast<uint32_t>(numAsString.size())
+            );
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), static_cast<double>(i));
+            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
+
+            CHECK_EQ(
+                std::get<CompileError>(num.asUnsigned64()).kind(),
+                CompileError::Kind::NegativeToUnsignedIntConversion
+            );
         }
     }
 }
