@@ -9,6 +9,7 @@
 #include <variant>
 #include <type_traits>
 
+// TODO support 0x (hex), and 0b (binary). Maybe also scientific notation?
 class NumberLiteral {
 public:
     enum class RepKind {

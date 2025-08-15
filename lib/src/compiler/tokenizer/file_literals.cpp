@@ -68,7 +68,6 @@ std::variant<NumberLiteral, sy::CompileError> NumberLiteral::create(
                 if(wouldUnsigned64IntAddOverflow(wholePartInt, num)) {
                     parsingWholeAsInt = false;
                     wholePartFloat = static_cast<double>(wholePartInt);
-                    wholePartFloat *= 10;
                     wholePartFloat += static_cast<double>(num);
                     continue;
                 } else {
@@ -170,10 +169,14 @@ std::variant<uint64_t, sy::CompileError> NumberLiteral::asUnsigned64() const
             const double temp = this->rep_.float64;
             if(temp < 0.0) {
                 return std::variant<uint64_t, sy::CompileError>(
-                    sy::CompileError::createFloatOutsideIntRangeConversion());
+                    sy::CompileError::createNegativeToUnsignedIntConversion());
             }
             constexpr double maxU64AsDouble = static_cast<double>(UINT64_MAX);
             if(temp > maxU64AsDouble) {
+                return std::variant<uint64_t, sy::CompileError>(
+                    sy::CompileError::createFloatOutsideIntRangeConversion());
+            }
+            if(temp == 18446744073709551616.0) { // explicitly handle float rounding errors
                 return std::variant<uint64_t, sy::CompileError>(
                     sy::CompileError::createFloatOutsideIntRangeConversion());
             }
@@ -209,6 +212,14 @@ std::variant<int64_t, sy::CompileError> NumberLiteral::asSigned64() const
             }
             constexpr double maxI64AsDouble = static_cast<double>(INT64_MAX);
             if(temp > maxI64AsDouble) {
+                return std::variant<int64_t, sy::CompileError>(
+                    sy::CompileError::createFloatOutsideIntRangeConversion());
+            }
+            if(temp == 9223372036854775808.0) { // explicitly handle float rounding errors positive
+                return std::variant<int64_t, sy::CompileError>(
+                    sy::CompileError::createFloatOutsideIntRangeConversion());
+            }
+            if(temp == -9223372036854775809.0) { // explicitly handle float rounding errors negative
                 return std::variant<int64_t, sy::CompileError>(
                     sy::CompileError::createFloatOutsideIntRangeConversion());
             }
@@ -330,7 +341,7 @@ TEST_SUITE("number literal") {
     }
 
     TEST_CASE("negative many digits") {
-        constexpr int64_t min = (1ULL << 62) * -1ULL;
+        constexpr int64_t min = (1LL << 62) * -1LL;
         for(int64_t i = -128; i > min; i *= 2) {
             std::string numAsString = std::to_string(i);
             auto result = NumberLiteral::create(
@@ -343,6 +354,117 @@ TEST_SUITE("number literal") {
             CHECK_EQ(num.asFloat64(), static_cast<double>(i));
             CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
 
+            CHECK_EQ(
+                std::get<CompileError>(num.asUnsigned64()).kind(),
+                CompileError::Kind::NegativeToUnsignedIntConversion
+            );
+        }
+    }
+
+    TEST_CASE("limits") {
+        { // max 64 bit unsigned int
+            std::string numAsString = "18446744073709551615";
+            auto result = NumberLiteral::create(
+                sy::StringSlice(numAsString.c_str(), numAsString.size()), 
+                0, 
+                static_cast<uint32_t>(numAsString.size())
+            );
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), static_cast<double>(18446744073709551615));
+
+            CHECK_EQ(
+                std::get<CompileError>(num.asSigned64()).kind(),
+                CompileError::Kind::UnsignedOutsideIntRangeConversion
+            );
+            
+            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), 18446744073709551615);
+        }
+        { // max 64 bit signed int
+            std::string numAsString = "9223372036854775807";
+            auto result = NumberLiteral::create(
+                sy::StringSlice(numAsString.c_str(), numAsString.size()), 
+                0, 
+                static_cast<uint32_t>(numAsString.size())
+            );
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), static_cast<double>(9223372036854775807));
+            CHECK_EQ(std::get<int64_t>(num.asSigned64()), 9223372036854775807);
+            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), 9223372036854775807);
+        }
+        { // min 64 bit signed int
+            std::string numAsString = "-9223372036854775808";
+            auto result = NumberLiteral::create(
+                sy::StringSlice(numAsString.c_str(), numAsString.size()), 
+                0, 
+                static_cast<uint32_t>(numAsString.size())
+            );
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), static_cast<double>(INT64_MIN));
+            CHECK_EQ(std::get<int64_t>(num.asSigned64()), INT64_MIN);
+
+            CHECK_EQ(
+                std::get<CompileError>(num.asUnsigned64()).kind(),
+                CompileError::Kind::NegativeToUnsignedIntConversion
+            );
+        }
+   
+        { // 1 above max 64 bit unsigned int
+            std::string numAsString = "18446744073709551616";
+            auto result = NumberLiteral::create(
+                sy::StringSlice(numAsString.c_str(), numAsString.size()), 
+                0, 
+                static_cast<uint32_t>(numAsString.size())
+            );
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), 18446744073709551616.0);
+
+            CHECK_EQ(
+                std::get<CompileError>(num.asSigned64()).kind(),
+                CompileError::Kind::FloatOutsideIntRangeConversion
+            );
+            CHECK_EQ(
+                std::get<CompileError>(num.asUnsigned64()).kind(),
+                CompileError::Kind::FloatOutsideIntRangeConversion
+            );
+        }
+        { // 1 above max 64 bit signed int
+            std::string numAsString = "9223372036854775808";
+            auto result = NumberLiteral::create(
+                sy::StringSlice(numAsString.c_str(), numAsString.size()), 
+                0, 
+                static_cast<uint32_t>(numAsString.size())
+            );
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), 9223372036854775808.0);
+
+            CHECK_EQ(
+                std::get<CompileError>(num.asSigned64()).kind(),
+                CompileError::Kind::UnsignedOutsideIntRangeConversion
+            );
+            
+            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), 9223372036854775808);
+        }
+        { // 1 below min 64 bit signed int
+            std::string numAsString = "-9223372036854775809";
+            auto result = NumberLiteral::create(
+                sy::StringSlice(numAsString.c_str(), numAsString.size()), 
+                0, 
+                static_cast<uint32_t>(numAsString.size())
+            );
+            CHECK(std::holds_alternative<NumberLiteral>(result));
+            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK_EQ(num.asFloat64(), -9223372036854775809.0);
+
+            CHECK_EQ(
+                std::get<CompileError>(num.asSigned64()).kind(),
+                CompileError::Kind::FloatOutsideIntRangeConversion
+            );
+            
             CHECK_EQ(
                 std::get<CompileError>(num.asUnsigned64()).kind(),
                 CompileError::Kind::NegativeToUnsignedIntConversion
