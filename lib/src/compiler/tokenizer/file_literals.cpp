@@ -3,6 +3,7 @@
 #include "../../util/assert.hpp"
 #include "token.hpp"
 #include <tuple>
+#include <new>
 
 static bool wouldUnsigned64IntAddOverflow(uint64_t a, uint64_t b) 
 {
@@ -246,6 +247,69 @@ double NumberLiteral::asFloat64() const
     }
 }
 
+static std::variant<CharLiteral, sy::CompileError> parseEscapeSequence(
+    const char* const start
+) {
+    sy_assert((*start) == '\\', "Beginning of escape sequence must be the \'\\\' character");
+
+    CharLiteral self;
+
+    // https://en.wikipedia.org/wiki/Escape_sequences_in_C
+    const char firstEscapedCharacter = start[1];
+    switch(firstEscapedCharacter) {
+        case 'a': {
+            self.val = '\a';
+        } break;
+        case 'b': {
+            self.val = '\b';
+        } break;
+        // '\e' maybe not supported?
+        case 'f': {
+            self.val = '\f';
+        } break;
+        case 'n': {
+            self.val = '\n';
+        } break;
+        case 'r': {
+            self.val = '\r';
+        } break;
+        case 't': {
+            self.val = '\t';
+        } break;
+        case 'v': {
+            self.val = '\v';
+        } break;
+        case '\\': {
+            self.val = '\\';
+        } break;
+        case '\'': {
+            self.val = '\'';
+        } break;
+        case '\"': {
+            self.val = '\"';
+        } break;
+        case '?': {
+            self.val = '\?';
+        } break;
+        // don't want to support octals at least for now
+        case 'x':
+        case 'X': {
+            // TODO byte?
+            return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());      
+        } break;
+        case 'u':
+        case 'U': {
+            // TODO unicode
+            return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());          
+        } break;
+        default: {
+            return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createInvalidEscapeSequence());      
+        } break;
+    }
+    
+    return std::variant<CharLiteral, sy::CompileError>(self);
+}
+
 std::variant<CharLiteral, sy::CompileError> CharLiteral::create(
     const sy::StringSlice source, const uint32_t start, const uint32_t end
 ) {
@@ -264,57 +328,13 @@ std::variant<CharLiteral, sy::CompileError> CharLiteral::create(
     if(source[i] == '\\') {
         sy_assert((i + 1) != actualEnd, "Invalid source range for char literal");
 
-        // https://en.wikipedia.org/wiki/Escape_sequences_in_C
-        const char firstEscapedCharacter = source[i + 1];
-        switch(firstEscapedCharacter) {
-            case 'a': {
-                self.val = '\a';
-            } break;
-            case 'b': {
-                self.val = '\b';
-            } break;
-            // '\e' maybe not supported?
-            case 'f': {
-                self.val = '\f';
-            } break;
-            case 'n': {
-                self.val = '\n';
-            } break;
-            case 't': {
-                self.val = '\t';
-            } break;
-            case 'v': {
-                self.val = '\v';
-            } break;
-            case '\\': {
-                self.val = '\\';
-            } break;
-            case '\'': {
-                self.val = '\'';
-            } break;
-            case '\"': {
-                self.val = '\"';
-            } break;
-            case '?': {
-                self.val = '\?';
-            } break;
-            // don't want to support octals at least for now
-            case 'x':
-            case 'X': {
-                // TODO byte?
-                return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());      
-            } break;
-            case 'u':
-            case 'U': {
-                // TODO unicode
-                return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());          
-            } break;
-            default: {
-                return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createInvalidEscapeSequence());      
-            } break;
+        auto result = parseEscapeSequence(&source.data()[i]);
+        if(std::holds_alternative<sy::CompileError>(result)) {
+            return result;
         }
 
-        i += 2; // after escape sequence
+        self = std::get<CharLiteral>(result);
+        i += 2; // after escape sequence     
     } else {
         self.val = sy::Char(source[i]);
         i += 1;
@@ -325,6 +345,75 @@ std::variant<CharLiteral, sy::CompileError> CharLiteral::create(
     }
 
     return std::variant<CharLiteral, sy::CompileError>(self);
+}
+
+std::variant<StringLiteral, sy::CompileError> StringLiteral::create(
+    const sy::StringSlice source, const uint32_t start, const uint32_t end, sy::Allocator alloc
+) {
+    const uint32_t actualEnd = end - 1;
+
+    sy_assert(source[start] == '\"', "Invalid source start for string literal");
+    sy_assert(source[actualEnd] == '\"', "Invalid source end for string literal");
+
+    size_t capacity = (end - start);
+    size_t length = 0;
+    char* buf = nullptr;
+    {
+        auto result = sy::detail::mallocStringBuffer(capacity, alloc);
+        if(!result.hasValue()) {
+            return std::variant<StringLiteral, sy::CompileError>(sy::CompileError::createOutOfMemory());
+        }
+        buf = result.value();
+    }
+
+    const char* strIter = &source.data()[start + 1];
+    const char* const strEnd = &source.data()[actualEnd];
+
+    while(strIter != strEnd) {
+        if(static_cast<int>(*strIter) >= 0b01111111) { // for now only support ascii stuff
+            return std::variant<StringLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());
+        }
+
+        if((*strIter) == '\\') {
+            sy_assert((strIter + 1) != strEnd, "Invalid source range for string literal");
+
+            auto result = parseEscapeSequence(strIter);
+            if(std::holds_alternative<sy::CompileError>(result)) {
+                return std::variant<StringLiteral, sy::CompileError>(
+                    sy::CompileError::createInvalidEscapeSequence());
+            }
+
+            buf[length] = std::get<CharLiteral>(result).val.cchar();
+            length += 1;
+            strIter = &strIter[2];
+        }
+        else {
+            buf[length] = *strIter;
+            length += 1;
+            strIter = &strIter[1];
+        }
+    }
+
+    StringLiteral self;
+    (void) new (&self.str) sy::StringUnmanaged (sy::detail::StringUtils::makeRaw(buf, length, capacity, alloc));
+    self.alloc = alloc;
+    return std::variant<StringLiteral, sy::CompileError>(std::move(self));
+}
+
+StringLiteral::StringLiteral(StringLiteral &&other) noexcept
+    : str(std::move(other.str)), alloc(other.alloc)
+{}
+
+StringLiteral &StringLiteral::operator=(StringLiteral &&other) noexcept
+{
+    this->str.moveAssign(std::move(other.str), other.alloc);
+    this->alloc = other.alloc;
+    return *this;
+}
+
+StringLiteral::~StringLiteral() noexcept
+{
+    this->str.destroy(this->alloc);
 }
 
 #ifndef SYNC_LIB_NO_TESTS
@@ -631,12 +720,110 @@ TEST_SUITE("char literal") {
         escapeTest('b', '\b');
         escapeTest('f', '\f');
         escapeTest('n', '\n');
+        escapeTest('r', '\r');
         escapeTest('t', '\t');
         escapeTest('v', '\v');
         escapeTest('\\', '\\');
         escapeTest('\'', '\'');
         escapeTest('\"', '\"');
         escapeTest('?', '\?');
+    }
+}
+
+TEST_SUITE("string literal") {
+    TEST_CASE("ascii printable characters non-escape") {
+        auto asciiTest = [](const char* str) {
+            const std::string testStr = std::string("\"") + str + '\"';
+            auto result = StringLiteral::create(
+                sy::StringSlice(testStr.c_str(), testStr.size()), 
+                0, 
+                static_cast<uint32_t>(testStr.size()),
+                sy::Allocator()
+            );
+
+            CHECK(std::holds_alternative<StringLiteral>(result));
+            StringLiteral& parsedStr = std::get<StringLiteral>(result);
+            CHECK_EQ(std::strcmp(parsedStr.str.cstr(), str), 0);
+            CHECK_EQ(parsedStr.str.len(), std::strlen(str));
+        };
+
+        asciiTest("a");
+        asciiTest("hello world!");
+        asciiTest("this string goes past the SSO length");
+        asciiTest("string goes past a multiple of the SSO length so we know it can store whatever literal is in compiled source code");
+    }
+
+    TEST_CASE("escape sequence") {
+        auto escapeTest = [](const char* str, char escapeChar, char expect) {
+            { // at the beginning
+                const std::string expectStr = std::string("") + expect + str;
+                const std::string testStr = std::string("\"") + '\\' + escapeChar + str + "\"";
+                auto result = StringLiteral::create(
+                    sy::StringSlice(testStr.c_str(), testStr.size()), 
+                    0, 
+                    static_cast<uint32_t>(testStr.size()),          
+                    sy::Allocator()
+                );
+
+                CHECK(std::holds_alternative<StringLiteral>(result));
+                StringLiteral& parsedStr = std::get<StringLiteral>(result);
+                CHECK_EQ(std::strcmp(parsedStr.str.cstr(), expectStr.c_str()), 0);
+                CHECK_EQ(parsedStr.str.len(), expectStr.size());
+            }
+            { // at the end
+                const std::string expectStr = std::string(str) + expect;
+                const std::string testStr = std::string("\"") + str + '\\' + escapeChar + "\"";
+                auto result = StringLiteral::create(
+                    sy::StringSlice(testStr.c_str(), testStr.size()), 
+                    0, 
+                    static_cast<uint32_t>(testStr.size()),          
+                    sy::Allocator()
+                );
+
+                CHECK(std::holds_alternative<StringLiteral>(result));
+                StringLiteral& parsedStr = std::get<StringLiteral>(result);
+                CHECK_EQ(std::strcmp(parsedStr.str.cstr(), expectStr.c_str()), 0);
+                CHECK_EQ(parsedStr.str.len(), expectStr.size());
+            }
+            { // in the middle
+                const std::string expectStr = std::string(str) + expect + str;
+                const std::string testStr = std::string("\"") + str + '\\' + escapeChar + str + "\"";
+                auto result = StringLiteral::create(
+                    sy::StringSlice(testStr.c_str(), testStr.size()), 
+                    0, 
+                    static_cast<uint32_t>(testStr.size()),          
+                    sy::Allocator()
+                );
+
+                CHECK(std::holds_alternative<StringLiteral>(result));
+                StringLiteral& parsedStr = std::get<StringLiteral>(result);
+                CHECK_EQ(std::strcmp(parsedStr.str.cstr(), expectStr.c_str()), 0);
+                CHECK_EQ(parsedStr.str.len(), expectStr.size());
+            }
+        };
+
+        escapeTest("hi", 'a', '\a');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", 'a', '\a');
+        escapeTest("hi", 'b', '\b');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", 'b', '\b');
+        escapeTest("hi", 'f', '\f');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", 'f', '\f');
+        escapeTest("hi", 'n', '\n');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", 'n', '\n');
+        escapeTest("hi", 'r', '\r');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", 'r', '\r');
+        escapeTest("hi", 't', '\t');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", 't', '\t');
+        escapeTest("hi", 'v', '\v');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", 'v', '\v');
+        escapeTest("hi", '\\', '\\');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", '\\', '\\');
+        escapeTest("hi", '\'', '\'');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", '\'', '\'');
+        escapeTest("hi", '\"', '\"');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", '\"', '\"');
+        escapeTest("hi", '?', '\?');
+        escapeTest("pwuifhpaiuwhgpaiwuhfpaiuwhdpiuhaw", '?', '\?');
     }
 }
 

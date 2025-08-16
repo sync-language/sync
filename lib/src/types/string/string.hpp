@@ -20,6 +20,7 @@ namespace sy {
         void freeStringBuffer(char* buff, size_t inCapacity, sy::Allocator alloc);
 
         class StringUtils {
+        public:
             static StringUnmanaged makeRaw(char*& buf, size_t length, size_t capacity, sy::Allocator alloc);
         };
     }

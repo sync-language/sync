@@ -6,6 +6,8 @@
 #include "../../types/string/char.hpp"
 #include "../../types/string/string_slice.hpp"
 #include "../compile_info.hpp"
+#include "../../mem/allocator.hpp"
+#include "../../types/string/string.hpp"
 #include <variant>
 #include <type_traits>
 
@@ -52,9 +54,21 @@ public:
 
 class StringLiteral {
 public:
-    char* ptr;
-    size_t len;
-    size_t capacity;
+
+    [[nodiscard]] static std::variant<StringLiteral, sy::CompileError> create(
+        const sy::StringSlice source, const uint32_t start, const uint32_t end, sy::Allocator alloc
+    );
+
+    StringLiteral() = default;
+
+    StringLiteral(StringLiteral&& other) noexcept;
+
+    StringLiteral& operator=(StringLiteral&& other) noexcept;
+
+    ~StringLiteral() noexcept;
+
+    sy::StringUnmanaged str;
+    sy::Allocator alloc;
 };
 
 #endif // SY_COMPILER_TOKENIZER_FILE_LITERALS_HPP_
