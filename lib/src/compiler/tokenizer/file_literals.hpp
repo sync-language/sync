@@ -42,6 +42,11 @@ private:
 
 class CharLiteral {
 public:
+
+    [[nodiscard]] static std::variant<CharLiteral, sy::CompileError> create(
+        const sy::StringSlice source, const uint32_t start, const uint32_t end
+    );
+
     sy::Char val;
 };
 

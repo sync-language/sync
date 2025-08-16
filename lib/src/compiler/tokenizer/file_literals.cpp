@@ -246,6 +246,87 @@ double NumberLiteral::asFloat64() const
     }
 }
 
+std::variant<CharLiteral, sy::CompileError> CharLiteral::create(
+    const sy::StringSlice source, const uint32_t start, const uint32_t end
+) {
+    const uint32_t actualEnd = end - 1;
+
+    sy_assert(source[start] == '\'', "Invalid source start for char literal");
+    sy_assert(source[actualEnd] == '\'', "Invalid source end for char literal");
+
+    uint32_t i = start + 1;
+    const char firstChar = source[i];
+    if(static_cast<int>(firstChar) >= 0b01111111) { // for now only support ascii stuff
+        return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());
+    }
+
+    CharLiteral self;
+    if(source[i] == '\\') {
+        sy_assert((i + 1) != actualEnd, "Invalid source range for char literal");
+
+        // https://en.wikipedia.org/wiki/Escape_sequences_in_C
+        const char firstEscapedCharacter = source[i + 1];
+        switch(firstEscapedCharacter) {
+            case 'a': {
+                self.val = '\a';
+            } break;
+            case 'b': {
+                self.val = '\b';
+            } break;
+            // '\e' maybe not supported?
+            case 'f': {
+                self.val = '\f';
+            } break;
+            case 'n': {
+                self.val = '\n';
+            } break;
+            case 't': {
+                self.val = '\t';
+            } break;
+            case 'v': {
+                self.val = '\v';
+            } break;
+            case '\\': {
+                self.val = '\\';
+            } break;
+            case '\'': {
+                self.val = '\'';
+            } break;
+            case '\"': {
+                self.val = '\"';
+            } break;
+            case '?': {
+                self.val = '\?';
+            } break;
+            // don't want to support octals at least for now
+            case 'x':
+            case 'X': {
+                // TODO byte?
+                return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());      
+            } break;
+            case 'u':
+            case 'U': {
+                // TODO unicode
+                return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());          
+            } break;
+            default: {
+                return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createInvalidEscapeSequence());      
+            } break;
+        }
+
+        i += 2; // after escape sequence
+    } else {
+        self.val = sy::Char(source[i]);
+        i += 1;
+    }
+
+    if(i != actualEnd) {
+        return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createTooManyCharsInCharLiteral());
+    }
+
+    return std::variant<CharLiteral, sy::CompileError>(self);
+}
+
 #ifndef SYNC_LIB_NO_TESTS
 
 #include "../../doctest.h"
@@ -470,6 +551,92 @@ TEST_SUITE("number literal") {
                 CompileError::Kind::NegativeToUnsignedIntConversion
             );
         }
+    }
+}
+
+TEST_SUITE("char literal") {
+    TEST_CASE("ascii printable characters non-escape") {
+        // https://www.ascii-code.com/
+        // Character codes 32 to 127
+        auto asciiTest = [](char c) {
+            const std::string charStr = std::string("\'") + c + "\'";
+            auto result = CharLiteral::create(
+                sy::StringSlice(charStr.c_str(), charStr.size()), 
+                0, 
+                static_cast<uint32_t>(charStr.size())
+            );
+
+            CHECK(std::holds_alternative<CharLiteral>(result));
+            CharLiteral parsedChar = std::get<CharLiteral>(result);
+            CHECK_EQ(parsedChar.val, sy::Char(c));
+        };
+
+        asciiTest(' ');
+        asciiTest('!');
+        asciiTest('#');
+        asciiTest('$');
+        asciiTest('%');
+        asciiTest('&');
+        asciiTest('(');
+        asciiTest(')');
+        asciiTest('*');
+        asciiTest('+');
+        asciiTest(',');
+        asciiTest('-');
+        asciiTest('.');
+        asciiTest('/');
+        for(char c = '0'; c <= '9'; c++) {
+            asciiTest(c);
+        }
+        asciiTest(':');
+        asciiTest(';');
+        asciiTest('<');
+        asciiTest('=');
+        asciiTest('>');
+        asciiTest('?');
+        asciiTest('@');
+        for(char c = 'A'; c <= 'Z'; c++) {
+            asciiTest(c);
+        }
+        asciiTest('[');
+        asciiTest(']');
+        asciiTest('^');
+        asciiTest('_');
+        asciiTest('`');
+        for(char c = 'a'; c <= 'z'; c++) {
+            asciiTest(c);
+        }
+        asciiTest('{');
+        asciiTest('|');
+        asciiTest('}');
+        asciiTest('~');
+        // delete character?
+    }
+
+    TEST_CASE("escape sequence") {
+        auto escapeTest = [](char c, char expect) {
+            const std::string charStr = std::string("\'\\") + c + "\'";
+            auto result = CharLiteral::create(
+                sy::StringSlice(charStr.c_str(), charStr.size()), 
+                0, 
+                static_cast<uint32_t>(charStr.size())
+            );
+
+            CHECK(std::holds_alternative<CharLiteral>(result));
+            CharLiteral parsedChar = std::get<CharLiteral>(result);
+            CHECK_EQ(parsedChar.val, sy::Char(expect));
+        };
+
+        escapeTest('a', '\a');
+        escapeTest('b', '\b');
+        escapeTest('f', '\f');
+        escapeTest('n', '\n');
+        escapeTest('t', '\t');
+        escapeTest('v', '\v');
+        escapeTest('\\', '\\');
+        escapeTest('\'', '\'');
+        escapeTest('\"', '\"');
+        escapeTest('?', '\?');
     }
 }
 

@@ -29,6 +29,9 @@ namespace sy {
             FloatOutsideIntRangeConversion,
             InvalidDecimalNumberLiteral,
             InvalidCharNumberLiteral,
+            TooManyCharsInCharLiteral,
+            UnsupportedChar,
+            InvalidEscapeSequence
         };
 
         struct FileTooBig {
@@ -51,6 +54,12 @@ namespace sy {
         static CompileError createInvalidDecimalNumberLiteral();
         
         static CompileError createInvalidCharNumberLiteral();
+
+        static CompileError createTooManyCharsInCharLiteral();
+
+        static CompileError createUnsupportedChar();
+
+        static CompileError createInvalidEscapeSequence();
 
         [[nodiscard]] Kind kind() const { return this->kind_; }
 

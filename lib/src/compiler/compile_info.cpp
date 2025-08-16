@@ -53,6 +53,27 @@ CompileError sy::CompileError::createInvalidCharNumberLiteral()
     return err;
 }
 
+CompileError sy::CompileError::createTooManyCharsInCharLiteral()
+{
+    CompileError err;
+    err.kind_ = Kind::TooManyCharsInCharLiteral;
+    return err;
+}
+
+CompileError sy::CompileError::createUnsupportedChar()
+{
+    CompileError err;
+    err.kind_ = Kind::UnsupportedChar;
+    return err;
+}
+
+CompileError sy::CompileError::createInvalidEscapeSequence()
+{
+    CompileError err;
+    err.kind_ = Kind::InvalidEscapeSequence;
+    return err;
+}
+
 CompileError::FileTooBig sy::CompileError::errFileTooBig() const
 {
     sy_assert(this->kind_ == Kind::FileTooBig, "Expected the compile error to be file too big");
