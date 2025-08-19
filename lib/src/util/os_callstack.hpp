@@ -18,12 +18,12 @@ public:
         void* address{};
     };
 
-    std::vector<StackFrameInfo> frames;
+    std::vector<StackFrameInfo> frames{};
 
-    static Backtrace generate();
+    static Backtrace generate() noexcept;
 
     /// Prints to stderr
-    void print() const;
+    void print() const noexcept;
 };
 
 extern "C" {

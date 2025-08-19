@@ -43,95 +43,99 @@ static std::mutex generateBacktraceMutex{};
 
 // TODO maybe get function signature too?
 
-Backtrace Backtrace::generate()
+Backtrace Backtrace::generate() noexcept
 {
-    std::scoped_lock lock(generateBacktraceMutex);
+    try {
+        std::scoped_lock lock(generateBacktraceMutex);
 
-    // https://stackoverflow.com/a/50208684
+        // https://stackoverflow.com/a/50208684
 
-    HANDLE  process;
-    HANDLE  thread;
-    process                = GetCurrentProcess();
-    thread                 = GetCurrentThread();
-    SymInitialize( process, NULL, TRUE ); //load symbols
+        HANDLE  process;
+        HANDLE  thread;
+        process                = GetCurrentProcess();
+        thread                 = GetCurrentThread();
+        SymInitialize( process, NULL, TRUE ); //load symbols
 
-    void* traces[100];
-    auto traceSize = CaptureStackBackTrace(0, 100, traces, NULL);
-    // std::cerr << "found " << traceSize << " frames: ";
-    // for(auto i = 0; i < traceSize; i++) {
-    //     std::cerr << traces[i] << " | ";
-    // }
-    // std::cerr << std::endl;
+        void* traces[100];
+        auto traceSize = CaptureStackBackTrace(0, 100, traces, NULL);
+        // std::cerr << "found " << traceSize << " frames: ";
+        // for(auto i = 0; i < traceSize; i++) {
+        //     std::cerr << traces[i] << " | ";
+        // }
+        // std::cerr << std::endl;
 
-    HMODULE hModule;
-    DWORD64 displacement;
+        HMODULE hModule;
+        DWORD64 displacement;
 
-    DWORD disp;
-    IMAGEHLP_LINE64 *line;
+        DWORD disp;
+        IMAGEHLP_LINE64 *line;
 
-    char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
-    char module[1024];
-    PSYMBOL_INFO pSymbol = (PSYMBOL_INFO)buffer;
+        char buffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
+        char module[1024];
+        PSYMBOL_INFO pSymbol = (PSYMBOL_INFO)buffer;
 
-    // On x64, StackWalk64 modifies the context record, that could
-    // cause crashes, so we create a copy to prevent it
-    // CONTEXT ctxCopy;
-    // RtlCaptureContext(&ctxCopy);
+        // On x64, StackWalk64 modifies the context record, that could
+        // cause crashes, so we create a copy to prevent it
+        // CONTEXT ctxCopy;
+        // RtlCaptureContext(&ctxCopy);
 
-    displacement           = 0;
+        displacement           = 0;
 
-    Backtrace self;
+        Backtrace self;
 
-    // We don't care about this function being called
-    for(decltype(traceSize) i = 1; i < traceSize; i++ ) {
-        //get symbol name for address
-        pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-        pSymbol->MaxNameLen = MAX_SYM_NAME;
-        SymFromAddr(process, ( ULONG64 )traces[i], &displacement, pSymbol);
+        // We don't care about this function being called
+        for(decltype(traceSize) i = 1; i < traceSize; i++ ) {
+            //get symbol name for address
+            pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+            pSymbol->MaxNameLen = MAX_SYM_NAME;
+            SymFromAddr(process, ( ULONG64 )traces[i], &displacement, pSymbol);
 
-        line = (IMAGEHLP_LINE64 *)malloc(sizeof(IMAGEHLP_LINE64));
-        line->SizeOfStruct = sizeof(IMAGEHLP_LINE64);       
+            line = (IMAGEHLP_LINE64 *)malloc(sizeof(IMAGEHLP_LINE64));
+            line->SizeOfStruct = sizeof(IMAGEHLP_LINE64);       
 
-        //try to get line
-        if (SymGetLineFromAddr64(process, ( DWORD64 )traces[i], &disp, line)) {
-            hModule = NULL;
-            lstrcpyA(module,""); 
-            GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-                (LPCTSTR)(traces[i]), &hModule);
-            if(hModule != NULL)GetModuleFileNameA(hModule,module, 1024);
+            //try to get line
+            if (SymGetLineFromAddr64(process, ( DWORD64 )traces[i], &disp, line)) {
+                hModule = NULL;
+                lstrcpyA(module,""); 
+                GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
+                    (LPCTSTR)(traces[i]), &hModule);
+                if(hModule != NULL)GetModuleFileNameA(hModule,module, 1024);
 
-            const size_t moduleNameLen = std::strlen(module);
-            const char* moduleName = &module[moduleNameLen - 1];
-            while(*moduleName != '\\') moduleName--;
+                const size_t moduleNameLen = std::strlen(module);
+                const char* moduleName = &module[moduleNameLen - 1];
+                while(*moduleName != '\\') moduleName--;
 
-            Backtrace::StackFrameInfo info{
-                &moduleName[1],
-                pSymbol->Name,
-                line->FileName,
-                static_cast<int>(line->LineNumber),
-                reinterpret_cast<void*>(pSymbol->Address)
-            };
-            self.frames.push_back(std::move(info));
+                Backtrace::StackFrameInfo info{
+                    &moduleName[1],
+                    pSymbol->Name,
+                    line->FileName,
+                    static_cast<int>(line->LineNumber),
+                    reinterpret_cast<void*>(pSymbol->Address)
+                };
+                self.frames.push_back(std::move(info));
+            }
+            else { 
+                //failed to get line
+                // fprintf(stderr, "\tat %s, address 0x%0X.\n", pSymbol->Name, pSymbol->Address);
+                // hModule = NULL;
+                // lstrcpyA(module,"");        
+                // GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
+                //     (LPCTSTR)(stack.AddrPC.Offset), &hModule);
+
+                // //at least print module name
+                // if(hModule != NULL)GetModuleFileNameA(hModule,module, 1024);       
+
+                // printf ("in %s\n",module);
+            }       
+
+            free(line);
+            line = NULL;
         }
-        else { 
-            //failed to get line
-            // fprintf(stderr, "\tat %s, address 0x%0X.\n", pSymbol->Name, pSymbol->Address);
-            // hModule = NULL;
-            // lstrcpyA(module,"");        
-            // GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-            //     (LPCTSTR)(stack.AddrPC.Offset), &hModule);
 
-            // //at least print module name
-            // if(hModule != NULL)GetModuleFileNameA(hModule,module, 1024);       
-
-            // printf ("in %s\n",module);
-        }       
-
-        free(line);
-        line = NULL;
+        return self;
+    } catch(...) {
+        return Backtrace();
     }
-
-    return self;
 }
 
 #elif defined(__APPLE__) || defined (__GNUC__)
@@ -296,76 +300,82 @@ static Backtrace::StackFrameInfo addr2lineInfo(void* const address, const char* 
 }
 #endif
 
-Backtrace Backtrace::generate()
+Backtrace Backtrace::generate() noexcept
 {
-    std::scoped_lock lock(generateBacktraceMutex);
+    try  {
+        std::scoped_lock lock(generateBacktraceMutex);
 
-    constexpr int defaultBacktraceDepth = 512;
-    void* addresses[defaultBacktraceDepth];
-    int trace_size = backtrace(addresses, defaultBacktraceDepth);
+        constexpr int defaultBacktraceDepth = 512;
+        void* addresses[defaultBacktraceDepth];
+        int trace_size = backtrace(addresses, defaultBacktraceDepth);
 
-    Backtrace self;
+        Backtrace self;
 
-    #if __APPLE__
+        #if __APPLE__
 
-    // We don't care about this function being called
-    for (int i = 1; i < trace_size; ++i) {
-        Dl_info info;
-        dladdr(addresses[i], &info);
+        // We don't care about this function being called
+        for (int i = 1; i < trace_size; ++i) {
+            Dl_info info;
+            dladdr(addresses[i], &info);
 
-        std::stringstream cmd(std::ios_base::out);
-        cmd << "atos -o " << info.dli_fname << " -l " << std::hex
-        << reinterpret_cast<uint64_t>(info.dli_fbase) << ' '
-        << reinterpret_cast<uint64_t>(addresses[i])
-        << " -fullPath";
+            std::stringstream cmd(std::ios_base::out);
+            cmd << "atos -o " << info.dli_fname << " -l " << std::hex
+            << reinterpret_cast<uint64_t>(info.dli_fbase) << ' '
+            << reinterpret_cast<uint64_t>(addresses[i])
+            << " -fullPath";
 
-        FILE* atos = popen(cmd.str().c_str(), "r");
+            FILE* atos = popen(cmd.str().c_str(), "r");
 
-        constexpr int kBufferSize = 256;
-        char buffer[kBufferSize];
+            constexpr int kBufferSize = 256;
+            char buffer[kBufferSize];
 
-        fgets(buffer, kBufferSize, atos);
-        pclose(atos);
+            fgets(buffer, kBufferSize, atos);
+            pclose(atos);
 
-        self.frames.push_back(parseStackFrameInfo(buffer));
-        self.frames[self.frames.size() - 1].address = addresses[i];
+            self.frames.push_back(parseStackFrameInfo(buffer));
+            self.frames[self.frames.size() - 1].address = addresses[i];
+        }
+
+        #elif __GNUC__
+
+        char **messages = (char **)NULL;
+        messages = backtrace_symbols(addresses, trace_size);
+
+        // We don't care about this function being called
+        for(int i = 1; i < trace_size; i++) {
+            self.frames.push_back(addr2lineInfo(addresses, messages[i]));
+        }  
+
+        #endif
+
+        return self;
+    } catch(...) {
+        return Backtrace();
     }
-
-    #elif __GNUC__
-
-    char **messages = (char **)NULL;
-    messages = backtrace_symbols(addresses, trace_size);
-
-    // We don't care about this function being called
-    for(int i = 1; i < trace_size; i++) {
-        self.frames.push_back(addr2lineInfo(addresses, messages[i]));
-    }  
-
-    #endif
-
-    return self;
 }
 
 #endif // defined __APPLE__ || defined __GNUC__
 
-void Backtrace::print() const
+void Backtrace::print() const noexcept
 {
     if(this->frames.size() == 0) return;
 
-    std::cerr << "Stack trace (most recent call first):\n";
-    size_t i = 0;
-    const size_t width = (this->frames.size() / 10) + 1;
-    for(const auto& frame : this->frames) {
-        std::cerr << '#';
-        std::cerr.width(width);
-        std::cerr.setf(std::ios_base::left);
-        std::cerr << i;
-        std::cerr.unsetf(std::ios_base::left);
-        std::cerr.width(-1);
-        std::cerr << ' ' << frame.obj << ' ' << frame.address << " in " << frame.functionName;
-        std::cerr << " at " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
-        i += 1;
-    }
+    try {
+        std::cerr << "Stack trace (most recent call first):\n";
+        size_t i = 0;
+        const size_t width = (this->frames.size() / 10) + 1;
+        for(const auto& frame : this->frames) {
+            std::cerr << '#';
+            std::cerr.width(width);
+            std::cerr.setf(std::ios_base::left);
+            std::cerr << i;
+            std::cerr.unsetf(std::ios_base::left);
+            std::cerr.width(-1);
+            std::cerr << ' ' << frame.obj << ' ' << frame.address << " in " << frame.functionName;
+            std::cerr << " at " << frame.fullFilePath << ':' << frame.lineNumber << std::endl;
+            i += 1;
+        }
+    } catch(...) {}
 }
 
 #ifndef SYNC_LIB_NO_TESTS
@@ -383,7 +393,7 @@ TEST_CASE("backtrace simple function call") {
     CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
     CHECK_NE(frame.functionName.find("backtraceFunction1"), std::string::npos);
     CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
-    if(frame.lineNumber != 376 && frame.lineNumber != 377) { // line executing, or next executing line
+    if(frame.lineNumber != 386 && frame.lineNumber != 387) { // line executing, or next executing line
         FAIL("Incorrect line number from backtrace");
     }
 }
@@ -400,7 +410,7 @@ TEST_CASE("backtrace template function call") {
     CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
     CHECK_NE(frame.functionName.find("backtraceFunction2<int>"), std::string::npos);
     CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
-    if(frame.lineNumber != 393 && frame.lineNumber != 394) { // line executing, or next executing line
+    if(frame.lineNumber != 403 && frame.lineNumber != 404) { // line executing, or next executing line
         FAIL("Incorrect line number from backtrace");
     }
 }
