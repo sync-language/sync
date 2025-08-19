@@ -48,7 +48,7 @@ Tokenizer &Tokenizer::operator=(Tokenizer &&other)
     return *this;
 }
 
-std::variant<Tokenizer, CompileError> Tokenizer::create(Allocator allocator, StringSlice source)
+std::variant<Tokenizer, CompileError> Tokenizer::create(Allocator allocator, StringSlice source) noexcept
 {
     Tokenizer self(allocator);
     self.source_ = source;
@@ -136,11 +136,15 @@ TokenIter Tokenizer::iter() const noexcept
     return TokenIter(this);
 }
 
-TokenIter::TokenIter(const Tokenizer *tokenizer)
-    : current_(tokenizer->tokens_ - 1), tokenizer_(tokenizer)
-{}
+TokenIter::TokenIter(const Tokenizer *tokenizer) noexcept
+    : current_(nullptr), tokenizer_(tokenizer)
+{
+    if(tokenizer_->tokens_ != nullptr) {
+        current_ = tokenizer->tokens_ - 1;
+    }
+}
 
-std::optional<Token> TokenIter::next()
+std::optional<Token> TokenIter::next() noexcept
 {
     sy_assert(this->current_ != nullptr, "Invalid iterator");
 
@@ -154,13 +158,13 @@ std::optional<Token> TokenIter::next()
     return std::optional<Token>(*this->current_);
 }
 
-Token TokenIter::current() const
+Token TokenIter::current() const noexcept
 {
     sy_assert(this->current_ != nullptr, "Invalid iterator");
     return *this->current_;
 }
 
-std::optional<Token> TokenIter::peek() const
+std::optional<Token> TokenIter::peek() const noexcept
 {
     sy_assert(this->current_ != nullptr, "Invalid iterator");
 
@@ -171,14 +175,14 @@ std::optional<Token> TokenIter::peek() const
     return std::optional<Token>(this->current_[1]);
 }
 
-uint32_t TokenIter::currentEnd() const
+uint32_t TokenIter::currentEnd() const noexcept
 {
     sy_assert(this->current_ != nullptr, "Invalid iterator");
     const ptrdiff_t diff = this->current_ - this->tokenizer_->tokens_;
     return this->tokenizer_->ends_[diff];
 }
 
-sy::StringSlice TokenIter::currentSlice() const
+sy::StringSlice TokenIter::currentSlice() const noexcept
 {
     const Token cur = this->current();
     const uint32_t start = cur.location();

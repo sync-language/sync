@@ -20,7 +20,7 @@ public:
 
     Tokenizer& operator=(Tokenizer&& other);
 
-    static std::variant<Tokenizer, sy::CompileError> create(sy::Allocator allocator, sy::StringSlice source);
+    static std::variant<Tokenizer, sy::CompileError> create(sy::Allocator allocator, sy::StringSlice source) noexcept;
 
     TokenIter iter() const noexcept;
 
@@ -50,29 +50,29 @@ private:
 class TokenIter {
 public:
 
-    TokenIter(const Tokenizer* tokenizer);
+    TokenIter(const Tokenizer* tokenizer) noexcept;
 
     /// @brief Steps forward the iterator by one token. If there are no more
     /// tokens, the iterator will invalidate itself and return `std::nullopt`.
     /// @return The next token, or `std::nullopt` if there is no next token.
     /// If this is the first call to `next()`, returns the first element in
     /// the iterator.
-    [[nodiscard]] std::optional<Token> next();
+    [[nodiscard]] std::optional<Token> next() noexcept;
 
     /// @return The token at the current iterator position.
-    [[nodiscard]] Token current() const;
+    [[nodiscard]] Token current() const noexcept;
 
     /// @return The token after the current one, or `std::nullopt` .
     /// if there is no next token.
-    [[nodiscard]] std::optional<Token> peek() const;
+    [[nodiscard]] std::optional<Token> peek() const noexcept;
 
     /// @brief Some tokens, notably literals and identifiers, need to know how
     /// many characters they span so that their data can be parsed out.
     /// @return The end index (exclusive) of the token found in the source text.
-    [[nodiscard]] uint32_t currentEnd() const;
+    [[nodiscard]] uint32_t currentEnd() const noexcept;
 
     /// @return A string slice of the current token.
-    [[nodiscard]] sy::StringSlice currentSlice() const;
+    [[nodiscard]] sy::StringSlice currentSlice() const noexcept;
 
 private:
     const Token*        current_;
