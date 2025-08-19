@@ -11,6 +11,8 @@
 static constexpr size_t initialArrayCapacity = 4;
 
 static size_t capacityIncrease(const size_t inCapacity) {
+    if(inCapacity == 0) return initialArrayCapacity;
+
     constexpr size_t lowAmount = 1024;
     // increasing by 1.5 without double conversion is n * 3 / 2.
     // simplified, it is (n * 3) >> 1;
