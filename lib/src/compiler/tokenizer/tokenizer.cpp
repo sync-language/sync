@@ -20,7 +20,11 @@ Tokenizer::~Tokenizer()
 }
 
 Tokenizer::Tokenizer(Tokenizer &&other)
-    : alloc_(other.alloc_), tokens_(other.tokens_), len_(other.len_)
+    : alloc_(other.alloc_),
+    source_(other.source_),
+    tokens_(other.tokens_), 
+    ends_(other.ends_), 
+    len_(other.len_)
 {
     other.tokens_ = nullptr;
     other.len_ = 0;
@@ -34,9 +38,12 @@ Tokenizer &Tokenizer::operator=(Tokenizer &&other)
     }
 
     this->alloc_ = other.alloc_;
+    this->source_ = other.source_;
     this->tokens_ = other.tokens_;
+    this->ends_ = other.ends_;
     this->len_ = other.len_;
     other.tokens_ = nullptr;
+    other.ends_ = nullptr;
     other.len_ = 0;
     return *this;
 }
@@ -124,6 +131,15 @@ std::variant<Tokenizer, CompileError> Tokenizer::create(Allocator allocator, Str
     return std::variant<Tokenizer, CompileError>(std::move(self));
 }
 
+TokenIter Tokenizer::iter() const noexcept
+{
+    return TokenIter(this);
+}
+
+TokenIter::TokenIter(const Tokenizer *tokenizer)
+    : current_(tokenizer->tokens_ - 1), tokenizer_(tokenizer)
+{}
+
 std::optional<Token> TokenIter::next()
 {
     sy_assert(this->current_ != nullptr, "Invalid iterator");
@@ -161,3 +177,127 @@ uint32_t TokenIter::currentEnd() const
     const ptrdiff_t diff = this->current_ - this->tokenizer_->tokens_;
     return this->tokenizer_->ends_[diff];
 }
+
+sy::StringSlice TokenIter::currentSlice() const
+{
+    const Token cur = this->current();
+    const uint32_t start = cur.location();
+    const uint32_t end = this->currentEnd();
+
+    const sy::StringSlice fullSlice = this->tokenizer_->source_;
+    sy_assert(fullSlice.len() >= end, "Out of bounds access");
+    return sy::StringSlice(&fullSlice.data()[start], end - start);
+}
+
+#ifndef SYNC_LIB_NO_TESTS
+
+#include "../../doctest.h"
+#include <cstring>
+
+TEST_CASE("one token") {
+    auto result = Tokenizer::create(Allocator(), "const");
+    CHECK(std::holds_alternative<Tokenizer>(result));
+    const Tokenizer tokenizer = std::get<Tokenizer>(std::move(result));
+    TokenIter iter = tokenizer.iter();
+
+    auto first = iter.next();
+    CHECK(first.has_value());
+    CHECK_EQ(first.value().tag(), TokenType::ConstKeyword);
+    CHECK_EQ(first.value().location(), 0);
+
+    auto second = iter.next();
+    CHECK(second.has_value());
+    CHECK_EQ(second.value().tag(), TokenType::EndOfFile);
+
+    auto third = iter.next();
+    CHECK_FALSE(third.has_value());
+}
+
+TEST_CASE("location correct") {
+    auto result = Tokenizer::create(Allocator(), " const");
+    CHECK(std::holds_alternative<Tokenizer>(result));
+    const Tokenizer tokenizer = std::get<Tokenizer>(std::move(result));
+    TokenIter iter = tokenizer.iter();
+
+    auto first = iter.next();
+    CHECK(first.has_value());
+    CHECK_EQ(first.value().tag(), TokenType::ConstKeyword);
+    CHECK_EQ(first.value().location(), 1);
+
+    auto second = iter.next();
+    CHECK(second.has_value());
+    CHECK_EQ(second.value().tag(), TokenType::EndOfFile);
+
+    auto third = iter.next();
+    CHECK_FALSE(third.has_value());
+}
+
+TEST_CASE("more tokens") {
+    auto result = Tokenizer::create(Allocator(), " hello mut;1 pub true,i64");
+    CHECK(std::holds_alternative<Tokenizer>(result));
+    const Tokenizer tokenizer = std::get<Tokenizer>(std::move(result));
+    TokenIter iter = tokenizer.iter();
+
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::Identifier);
+        CHECK_EQ(curr.value().location(), 1);
+        const auto identifierStr = iter.currentSlice();
+        CHECK_EQ(std::strncmp(identifierStr.data(), "hello", identifierStr.len()), 0);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::MutKeyword);
+        CHECK_EQ(curr.value().location(), 7);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::SemicolonSymbol);
+        CHECK_EQ(curr.value().location(), 10);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::NumberLiteral);
+        CHECK_EQ(curr.value().location(), 11);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::PubKeyword);
+        CHECK_EQ(curr.value().location(), 13);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::TrueKeyword);
+        CHECK_EQ(curr.value().location(), 17);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::CommaSymbol);
+        CHECK_EQ(curr.value().location(), 21);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::I64Primitive);
+        CHECK_EQ(curr.value().location(), 22);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::EndOfFile);
+    }
+    {
+        auto curr = iter.next();
+        CHECK_FALSE(curr.has_value());
+    }
+
+}
+
+#endif // SYNC_LIB_NO_TESTS

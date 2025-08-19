@@ -22,6 +22,8 @@ public:
 
     static std::variant<Tokenizer, sy::CompileError> create(sy::Allocator allocator, sy::StringSlice source);
 
+    TokenIter iter() const noexcept;
+
 private:
 
     Tokenizer(sy::Allocator allocator) : alloc_(allocator) {}
@@ -30,7 +32,7 @@ private:
     friend class TokenIter;
 
     sy::Allocator alloc_;
-    sy::StringSlice source_;
+    sy::StringSlice source_{};
     /// Tokens found within the source, in order of appearance. When used with
     /// `Tokenizer::ends_` member, also specifies the range. Uses struct of
     /// arrays for better cache utilization, since most tokens don't need a
@@ -48,9 +50,13 @@ private:
 class TokenIter {
 public:
 
+    TokenIter(const Tokenizer* tokenizer);
+
     /// @brief Steps forward the iterator by one token. If there are no more
     /// tokens, the iterator will invalidate itself and return `std::nullopt`.
     /// @return The next token, or `std::nullopt` if there is no next token.
+    /// If this is the first call to `next()`, returns the first element in
+    /// the iterator.
     [[nodiscard]] std::optional<Token> next();
 
     /// @return The token at the current iterator position.
@@ -64,6 +70,9 @@ public:
     /// many characters they span so that their data can be parsed out.
     /// @return The end index (exclusive) of the token found in the source text.
     [[nodiscard]] uint32_t currentEnd() const;
+
+    /// @return A string slice of the current token.
+    [[nodiscard]] sy::StringSlice currentSlice() const;
 
 private:
     const Token*        current_;
