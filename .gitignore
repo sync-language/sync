@@ -1,6 +1,8 @@
 # CMake
 build/
 CMakeUserPresets.json
+compile_commands.json
+.cache/
 # Rust
 target/
 # Zig
@@ -8,3 +10,5 @@ target/
 zig-out/
 # Visual Studio
 .vs/
+# Neovim
+out/
