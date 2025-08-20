@@ -76,3 +76,22 @@ sy::StringSlice::StringSlice(const char *inPtr, size_t inLen)
 char sy::StringSlice::operator[](const size_t index) const {    sy_assert(index < this->_len, "Index out of bounds");
     return this->_ptr[index];
 }
+
+bool sy::StringSlice::operator==(const StringSlice &other) const
+{
+    if(this->_len != other._len) return false;
+
+    if(this->_ptr == other._ptr) return true;
+
+    for(size_t i = 0; i < this->_len; i++) {
+        if(this->_ptr[i] != other._ptr[i]) return false;
+    }
+    return true;
+}
+
+size_t sy::StringSlice::hash() const
+{
+    std::string_view sv{this->_ptr, this->_len};
+    std::hash<std::string_view> h;
+    return h(sv);
+}

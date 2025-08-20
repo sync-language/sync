@@ -4,6 +4,7 @@
 #define SY_TYPES_STRING_STRING_SLICE_HPP_
 
 #include "../../core.h"
+#include <memory> // some header for hash
 
 namespace sy {
     class SY_API StringSlice {
@@ -28,11 +29,24 @@ namespace sy {
 
         char operator[](const size_t index) const;
 
+        bool operator==(const StringSlice& other) const;
+
+        size_t hash() const;
+
     private:
         /// Must be UTF8. Does not have to be null terminated. Is not read from if `len == 0`.
         const char* _ptr;
         /// Does not include possible null terminator. Is measured in bytes.
         size_t _len;
+    };
+}
+
+namespace std {
+    template<>
+    struct hash<sy::StringSlice> {
+        size_t operator()(const sy::StringSlice& obj) const {
+            return obj.hash();
+        }
     };
 }
 
