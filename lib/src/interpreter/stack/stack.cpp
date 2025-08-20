@@ -12,7 +12,7 @@
 #include <iostream>
 #include <cstring>
 #include <new>
-#if __GNUC__
+#if __GNUC__ && !defined(_WIN32)
 #include <sys/mman.h>
 #endif
 

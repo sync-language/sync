@@ -6,7 +6,7 @@
 #include "../../mem/allocator.hpp"
 #include "../bytecode.hpp"
 #include "../../types/type_info.hpp"
-#if _MSC_VER
+#if defined(_MSC_VER) || defined(_WIN32)
 #include <new>
 #elif __GNUC__
 #include <sys/mman.h>
@@ -67,7 +67,7 @@ static Allocation allocateStack(const uint32_t minSlotSize)
         void* typesMem = page_malloc(typesBytesToAllocate);
         
         // https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
-        #if _MSC_VER
+        #if defined(_MSC_VER) || defined(_WIN32)
         sy_assert(valuesMem != nullptr, "Failed to allocate pages");
         sy_assert(typesMem != nullptr, "Failed to allocate pages");
         #elif __GNUC__
