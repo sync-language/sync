@@ -15,6 +15,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(SyncLibSources 
     "src/util/panic.cpp"
     "src/util/os_callstack.cpp"
+    "src/util/simd.cpp"
     "src/mem/allocator.cpp"
     "src/mem/os_mem.cpp"
     "src/threading/sync_queue.cpp"
