@@ -64,6 +64,28 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_definitions(SyncLib PRIVATE SYNC_LIB_NO_TESTS)
 endif()
 
+# SIMD
+
+# SSE2
+cmake_host_system_information(RESULT HAS_SSE2 QUERY HAS_SSE2)
+if(HAS_SSE2)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        message(STATUS "Sync SSE2 GNU/Clang")
+        set(CMAKE_CXX_FLAGS "-msse2")
+        target_compile_options(SyncLib PRIVATE -msse2)
+        target_compile_options(SyncLibTests PRIVATE -msse2)
+    elseif(CMAKE_C_COMPILER_ID MATCHES "MSVC")
+        message(STATUS "Sync SSE2 MSVC")
+        set(CMAKE_CXX_FLAGS "/arch:SSE2")
+        target_compile_options(SyncLib PRIVATE /arch:SSE2)
+        target_compile_options(SyncLibTests PRIVATE /arch:SSE2)
+        # I don't know why this is required
+        target_compile_definitions(SyncLib PRIVATE __SSE2__)
+        target_compile_definitions(SyncLibTests PRIVATE __SSE2__)
+    endif()
+endif()
+
+
 
 set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 
