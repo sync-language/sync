@@ -27,6 +27,8 @@ namespace simd_detail {
     std::optional<uint32_t> countTrailingZeroes32(uint32_t mask);
 
     std::optional<uint32_t> countTrailingZeroes64(uint64_t mask);
+
+    std::optional<uint32_t> firstZeroIndex8x16(const uint8_t* alignedPtr);
 }
 
 template<int Width>
@@ -92,6 +94,78 @@ public:
 
     Iterator end() const { return Iterator(); }
 };
+
+template<int Width>
+class alignas(Width) ByteSimd final {
+public:
+
+    static_assert(Width == 16 || Width == 32 || Width == 64, 
+        "Byte simd width must be 16, 32, or 64");
+
+    uint8_t bytes[Width]{};
+
+    ByteSimd() = default;
+
+    ByteSimd(uint8_t fill);
+
+    ByteSimd(const uint8_t* inBytes);
+
+    std::optional<uint32_t> firstZeroIndex() const;
+};
+
+template <int Width>
+inline ByteSimd<Width>::ByteSimd(uint8_t fill)
+{    
+    for(int i = 0; i < Width; i++) {
+        this->bytes[i] = fill;
+    }
+}
+
+template <int Width>
+inline ByteSimd<Width>::ByteSimd(const uint8_t *inBytes)
+{
+    for(int i = 0; i < Width; i++) {
+        this->bytes[i] = inBytes[i];
+    }
+}
+
+template <int Width>
+inline std::optional<uint32_t> ByteSimd<Width>::firstZeroIndex() const
+{
+    if constexpr (Width == 16) {
+        return simd_detail::firstZeroIndex8x16(this->bytes);
+    } 
+    else if constexpr (Width == 32) {
+        { // first 16
+            auto result = simd_detail::firstZeroIndex8x16(this->bytes);
+            if(result.has_value()) return result;
+        }
+        { // second 16
+            auto result = simd_detail::firstZeroIndex8x16(&this->bytes[16]);
+            if(result.has_value()) return std::optional<uint32_t>(result.value() + 16);
+            return std::nullopt;
+        }
+    }
+    else {
+        { // first 16
+            auto result = simd_detail::firstZeroIndex8x16(this->bytes);
+            if(result.has_value()) return result;
+        }
+        { // second 16
+            auto result = simd_detail::firstZeroIndex8x16(&this->bytes[16]);
+            if(result.has_value()) return std::optional<uint32_t>(result.value() + 16);
+        }
+        { // third 16
+            auto result = simd_detail::firstZeroIndex8x16(&this->bytes[32]);
+            if(result.has_value()) return std::optional<uint32_t>(result.value() + 32);
+        }
+        { // last 16
+            auto result = simd_detail::firstZeroIndex8x16(&this->bytes[48]);
+            if(result.has_value()) return std::optional<uint32_t>(result.value() + 48);
+            return std::nullopt;
+        }
+    }
+}
 
 #endif // SY_UTIL_SIMD_HPP_
 
