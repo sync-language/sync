@@ -120,7 +120,10 @@ typedef struct SyType {
     /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported. 
     uint16_t            alignType;
     SyStringSlice       name;
+    /// Can be NULL.
     const SyFunction*   optionalDestructor;
+    /// Can be NULL.
+    const SyFunction*   optionalEquality;
     /// Used as a tagged union with the payload being `extra`.
     SyTypeTag           tag;
     /// Used as a tagged union, with the tags being `tag`.

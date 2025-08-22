@@ -233,11 +233,11 @@ size_t ArgBuf::nextOffset(const size_t sizeType, const size_t alignType) const
         return requiredShift;
     }
     else {
-        if ((this->offsets[this->count] + requiredShift + sizeType) > this->valuesCapacity) {
+        if ((this->offsets[this->count - 1] + requiredShift + sizeType) > this->valuesCapacity) {
             return INVALID_OFFSET;
         }
 
-        return this->offsets[this->count] + requiredShift;
+        return this->offsets[this->count - 1] + requiredShift;
     }
 }
 
@@ -424,6 +424,9 @@ sy::ProgramRuntimeError sy::Function::CallArgs::call(void *retDst)
         const uint32_t handlerIndex = this->_offset;
         Function::CHandler handler{handlerIndex};
         const auto cfunc = (c_function_t)(this->func->fptr);
+        if(retDst != nullptr) {
+            cArgBufs.bufAt(handlerIndex).setReturnDestination(retDst);
+        } 
         const ProgramRuntimeError err = cfunc(handler);
         cArgBufs.bufAt(handlerIndex).clear();
         cArgBufs.popBuf();

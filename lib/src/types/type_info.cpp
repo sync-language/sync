@@ -56,6 +56,7 @@ static_assert(offsetof(Type, sizeType) == offsetof(SyType, sizeType));
 static_assert(offsetof(Type, alignType) == offsetof(SyType, alignType));
 static_assert(offsetof(Type, name) == offsetof(SyType, name));
 static_assert(offsetof(Type, optionalDestructor) == offsetof(SyType, optionalDestructor));
+static_assert(offsetof(Type, optionalEquality) == offsetof(SyType, optionalEquality));
 static_assert(offsetof(Type, tag) == offsetof(SyType, tag));
 static_assert(offsetof(Type, extra) == offsetof(SyType, extra));
 static_assert(offsetof(Type, constRef) == offsetof(SyType, constRef));
@@ -209,6 +210,29 @@ TEST_CASE("string destructor") {
     // create with new so that destructor doesn't automatically get called 
     String* s = new String("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     Type::TYPE_STRING->destroyObject(s);
+}
+
+TEST_CASE("equality") {
+    CHECK_NE(sy::Type::TYPE_BOOL->optionalEquality, nullptr);
+
+    { // equal
+        bool lhs = true;
+        bool rhs = true;
+        bool ret;
+
+        Function::CallArgs args = sy::Type::TYPE_BOOL->optionalEquality->startCall();
+        const bool* lhsMem = &lhs;
+        args.push(&lhsMem, sy::Type::TYPE_BOOL->constRef);
+        std::cerr << "push second arg\n";
+        const bool* rhsMem = &rhs;
+        args.push(&rhsMem, sy::Type::TYPE_BOOL->constRef);
+        sy::ProgramRuntimeError err = args.call(&ret);
+        CHECK_EQ(err.kind(), sy::ProgramRuntimeError::Kind::None);
+        CHECK(ret);
+    }
+    { // not equal
+
+    }
 }
 
 #endif // SYNC_LIB_NO_TESTS

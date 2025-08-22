@@ -6,9 +6,27 @@
 #include "../core.h"
 #include "string/string_slice.hpp"
 #include <type_traits>
+#include <utility>
+#include "function/function.hpp"
+#include "../program/program.hpp"
 
 namespace sy {
-    class Function;
+    namespace detail {
+        /// https://stackoverflow.com/a/35207812
+        template<class T, class EqualTo>
+        struct has_operator_equal_impl
+        {
+            template<class U, class V>
+            static auto test(U*) -> decltype(std::declval<U>() == std::declval<V>());
+            template<typename, typename>
+            static auto test(...) -> std::false_type;
+
+            using type = typename std::is_same<bool, decltype(test<T, EqualTo>(0))>::type;
+        };
+
+        template<typename T>
+        struct has_operator_equal : has_operator_equal_impl<T, T>::type {};
+    }
     
     class SY_API Type {
     public:
@@ -71,6 +89,7 @@ namespace sy {
         uint16_t        alignType;
         StringSlice     name;
         const Function* optionalDestructor = nullptr;
+        const Function* optionalEquality = nullptr;
         Tag             tag;
         ExtraInfo       extra;
         const Type*     constRef;
@@ -83,7 +102,8 @@ namespace sy {
             ExtraInfo inExtra, 
             const Function* inOptionalDestructor = nullptr
         ) {
-            return createType<T>(inName, inTag, inExtra, inOptionalDestructor);      
+            static const Type* actualType = createType<T>(inName, inTag, inExtra, inOptionalDestructor);
+            return  actualType;
         }
 
         template<typename T>
@@ -113,6 +133,18 @@ namespace sy {
     private:
 
         template<typename T>
+        static Function::c_function_t makeEqualityFunction() {
+            Function::c_function_t func = [](Function::CHandler handler) -> ProgramRuntimeError {
+                const T* lhs = handler.takeArg<const T*>(0);
+                const T* rhs = handler.takeArg<const T*>(1);
+                bool equal = (*lhs) == (*rhs);
+                handler.setReturn(std::move(equal));
+                return ProgramRuntimeError();
+            };
+            return func;
+        }
+
+        template<typename T>
         static const Type* createType(
             StringSlice inName, 
             Tag inTag, 
@@ -124,6 +156,7 @@ namespace sy {
                 static_cast<uint16_t>(alignof(T)),  // alignType
                 inName,                             // name
                 inOptionalDestructor,               // optionalDestructor
+                nullptr,                            // optionalEquality
                 inTag,                              // tag
                 inExtra,                            // extra
                 nullptr,                            // constRef
@@ -141,6 +174,7 @@ namespace sy {
                 static_cast<uint16_t>(alignof(const T*)),
                 "ConstRef", // TODO proper naming
                 nullptr,
+                nullptr,
                 Tag::Reference,
                 constRefExtra,
                 nullptr,
@@ -151,6 +185,7 @@ namespace sy {
                 sizeof(T*),
                 static_cast<uint16_t>(alignof(T*)),
                 "MutRef", // TODO proper naming
+                nullptr,
                 nullptr,
                 Tag::Reference,
                 mutRefExtra,
@@ -166,6 +201,23 @@ namespace sy {
             constRefType.mutRef = &mutRefType;
             mutRefType.constRef = &constRefType;
             mutRefType.mutRef = &mutRefType;
+
+            // Equality
+            if constexpr(detail::has_operator_equal<T>::value) {
+                Function::c_function_t func = makeEqualityFunction<T>();
+                static const Type* argsTypes[2] = {&constRefType, &constRefType};
+                static Function cfunc = {
+                    "==", // name
+                    "==", // identifier name
+                    Type::TYPE_BOOL, // return type
+                    argsTypes,
+                    2, // number of args
+                    SY_FUNCTION_MIN_ALIGN, // alignment
+                    Function::CallType::C,
+                    reinterpret_cast<const void*>(func)
+                };
+                concreteType.optionalEquality = &cfunc;
+            }
 
             return &concreteType;
         }
