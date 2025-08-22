@@ -223,7 +223,6 @@ TEST_CASE("equality") {
         Function::CallArgs args = sy::Type::TYPE_BOOL->optionalEquality->startCall();
         const bool* lhsMem = &lhs;
         args.push(&lhsMem, sy::Type::TYPE_BOOL->constRef);
-        std::cerr << "push second arg\n";
         const bool* rhsMem = &rhs;
         args.push(&rhsMem, sy::Type::TYPE_BOOL->constRef);
         sy::ProgramRuntimeError err = args.call(&ret);

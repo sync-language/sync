@@ -243,6 +243,25 @@ size_t ArgBuf::nextOffset(const size_t sizeType, const size_t alignType) const
 
 void ArgBuf::reallocate(const size_t sizeNewType)
 {
+    { // check current capacity
+        const size_t lastOffset = [this]() -> size_t {
+            if(this->offsets != nullptr) {
+                return this->offsets[this->count - 1];
+            }
+            return 0;
+        }();
+        const size_t lastSize = [this]() -> size_t {
+            if(this->types != nullptr) {
+                return this->types[this->count - 1]->sizeType;
+            }
+            return 0;
+        }();
+        const size_t minRequiredValuesCapacity = lastOffset + lastSize + (sizeNewType * 2);
+        if(this->valuesCapacity >= minRequiredValuesCapacity) {
+            return;
+        }
+    }
+
     size_t newValuesCapacity = 0;
     size_t newTypesAndOffsetCapacity = 0;
 
