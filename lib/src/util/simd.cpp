@@ -107,7 +107,7 @@ SimdMask<16> simd_detail::equalMask8x16(const uint8_t *alignedPtr, uint8_t value
     const __m128i result = _mm_cmpeq_epi8(valueToFind, bufferToSearch);
     const int mask = _mm_movemask_epi8(result);
     return SimdMask<16>(static_cast<uint16_t>(mask));
-    #else // good enough for ARM for now
+    #else // TODO ARM NEON
     uint16_t out = 0;
     for(size_t i = 0; i < 16; i++) {
         if(alignedPtr[i] == value) {
@@ -128,7 +128,7 @@ SimdMask<32> simd_detail::equalMask8x32(const uint8_t *alignedPtr, uint8_t value
     const __m256i result = _mm256_cmpeq_epi8(valueToFind, bufferToSearch);
     const int mask = _mm256_movemask_epi8(result);
     return SimdMask<32>(static_cast<uint32_t>(mask));
-    #else // good enough for ARM for now
+    #else // TODO ARM NEON
     uint32_t out = 0;
     for(size_t i = 0; i < 32; i++) {
         if(alignedPtr[i] == value) {
@@ -162,6 +162,21 @@ static SimdMask<64> equalMask8x64AVX2(const uint8_t* p, uint8_t v) {
         | (static_cast<uint64_t>(high.mask) << 32));
 };
 
+static bool equalBytes8x64AVX512(const uint8_t* lhs, const uint8_t* rhs) {
+    const __m512i lhsVec = *reinterpret_cast<const __m512i*>(lhs);
+    const __m512i rhsVec = *reinterpret_cast<const __m512i*>(rhs);
+    const unsigned long long mask = _mm512_cmpeq_epi8_mask(lhsVec, rhsVec);
+    constexpr unsigned long long matched = ~0ULL;
+    return mask == matched;
+}
+
+static bool equalBytes8x64AVX2(const uint8_t* lhs, const uint8_t* rhs) {
+    if(!simd_detail::equalBytes8x32(&lhs[0], &rhs[0])) {
+        return false;
+    }
+    return simd_detail::equalBytes8x32(&lhs[32], &rhs[32]);
+}
+
 #endif
 
 SimdMask<64> simd_detail::equalMask8x64(const uint8_t *alignedPtr, uint8_t value)
@@ -179,7 +194,7 @@ SimdMask<64> simd_detail::equalMask8x64(const uint8_t *alignedPtr, uint8_t value
     }();
 
     return func(alignedPtr, value);
-    #else // good enough for ARM for now
+    #else // TODO ARM NEON
     uint64_t out = 0;
     for(size_t i = 0; i < 64; i++) {
         if(alignedPtr[i] == value) {
@@ -187,6 +202,69 @@ SimdMask<64> simd_detail::equalMask8x64(const uint8_t *alignedPtr, uint8_t value
         }
     }
     return SimdMask<64>(out);
+    #endif
+}
+
+bool simd_detail::equalBytes8x16(const uint8_t* lhs, const uint8_t* rhs)
+{
+    assert_aligned(lhs, 16);
+    assert_aligned(rhs, 16);
+
+    #if defined(__SSE2__) || defined(__AVX2__) // stupid
+    const __m128i lhsVec = *reinterpret_cast<const __m128i*>(lhs);
+    const __m128i rhsVec = *reinterpret_cast<const __m128i*>(rhs);
+    const __m128i result = _mm_cmpeq_epi8(lhsVec, rhsVec);
+    const int mask = _mm_movemask_epi8(result);
+    return mask == 0xFFFF; // 16 bits set
+    #else // TODO ARM NEON
+    for(size_t i = 0; i < 16; i++) {
+        if(lhs[i] != rhs[i]) return false;
+    }
+    return true;
+    #endif
+}
+
+bool simd_detail::equalBytes8x32(const uint8_t* lhs, const uint8_t* rhs)
+{
+    assert_aligned(lhs, 32);
+    assert_aligned(rhs, 32);
+
+    #if defined(__AVX2__)
+    const __m256i lhsVec = *reinterpret_cast<const __m256i*>(lhs);
+    const __m256i rhsVec = *reinterpret_cast<const __m256i*>(rhs);
+    const __m256i result = _mm256_cmpeq_epi8(lhsVec, rhsVec);
+    const int mask = _mm256_movemask_epi8(result);
+    constexpr int matched = ~0;
+    return mask == matched; // 32 bits set
+    #else // TODO ARM NEON
+    for(size_t i = 0; i < 32; i++) {
+        if(lhs[i] != rhs[i]) return false;
+    }
+    return true;
+    #endif
+}
+
+bool simd_detail::equalBytes8x64(const uint8_t* lhs, const uint8_t* rhs)
+{
+    assert_aligned(lhs, 64);
+    assert_aligned(rhs, 64);
+
+    #if defined(__AVX2__)
+    using FuncT = bool (*)(const uint8_t*, const uint8_t*);
+    static const FuncT func = []() {
+        if(is_avx512f_supported()) {
+            return equalBytes8x64AVX512;
+        } else {
+            return equalBytes8x64AVX2;
+        }
+    }();
+
+    return func(lhs, rhs);
+    #else // TODO ARM NEON
+    for(size_t i = 0; i < 64; i++) {
+        if(lhs[i] != rhs[i]) return false;
+    }
+    return true;
     #endif
 }
 
@@ -527,6 +605,104 @@ TEST_SUITE("equal mask") {
                 i++;
             }
             CHECK_EQ(i, 2);
+        }
+    }
+}
+
+TEST_SUITE("byte simd equal") {
+    TEST_CASE("both all zero") {
+        { // 16
+            ByteSimd<16> lhs;
+            ByteSimd<16> rhs;
+            CHECK_EQ(lhs, rhs);
+        }
+        { // 32
+            ByteSimd<32> lhs;
+            ByteSimd<32> rhs;
+            CHECK_EQ(lhs, rhs);
+        }
+        { // 64
+            ByteSimd<64> lhs;
+            ByteSimd<64> rhs;
+            CHECK_EQ(lhs, rhs);
+        }
+    }
+
+    TEST_CASE("one all zero, one all one") {
+        { // 16
+            ByteSimd<16> lhs;
+            ByteSimd<16> rhs(1);
+            CHECK_NE(lhs, rhs);
+        }
+        { // 32
+            ByteSimd<32> lhs;
+            ByteSimd<32> rhs(1);
+            CHECK_NE(lhs, rhs);
+        }
+        { // 64
+            ByteSimd<64> lhs;
+            ByteSimd<64> rhs(1);
+            CHECK_NE(lhs, rhs);
+        }
+    }
+
+    TEST_CASE("both all one") {
+        { // 16
+            ByteSimd<16> lhs(1);
+            ByteSimd<16> rhs(1);
+            CHECK_EQ(lhs, rhs);
+        }
+        { // 32
+            ByteSimd<32> lhs(1);
+            ByteSimd<32> rhs(1);
+            CHECK_EQ(lhs, rhs);
+        }
+        { // 64
+            ByteSimd<64> lhs(1);
+            ByteSimd<64> rhs(1);
+            CHECK_EQ(lhs, rhs);
+        }
+    }
+    
+    TEST_CASE("one all zero, one all zeroes except start") {
+        { // 16
+            ByteSimd<16> lhs;
+            ByteSimd<16> rhs;
+            rhs.bytes[0] = 1;
+            CHECK_NE(lhs, rhs);
+        }
+        { // 32
+            ByteSimd<32> lhs;
+            ByteSimd<32> rhs;
+            rhs.bytes[0] = 1;
+            CHECK_NE(lhs, rhs);
+        }
+        { // 64
+            ByteSimd<64> lhs;
+            ByteSimd<64> rhs;
+            rhs.bytes[0] = 1;
+            CHECK_NE(lhs, rhs);
+        }
+    }
+    
+    TEST_CASE("one all zero, one all zeroes except end") {
+        { // 16
+            ByteSimd<16> lhs;
+            ByteSimd<16> rhs;
+            rhs.bytes[15] = 1;
+            CHECK_NE(lhs, rhs);
+        }
+        { // 32
+            ByteSimd<32> lhs;
+            ByteSimd<32> rhs;
+            rhs.bytes[31] = 1;
+            CHECK_NE(lhs, rhs);
+        }
+        { // 64
+            ByteSimd<64> lhs;
+            ByteSimd<64> rhs;
+            rhs.bytes[63] = 1;
+            CHECK_NE(lhs, rhs);
         }
     }
 }
