@@ -1,4 +1,10 @@
 {
+    "editor.wordWrap": "bounded",
+    "editor.wordWrapColumn": 120,
+    "editor.detectIndentation": false,
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+
     "files.associations": {
         "cstdint": "cpp",
         "cuchar": "cpp",
