@@ -65,25 +65,46 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 # SIMD
+include(CheckCXXCompilerFlag)
 
-# SSE2
-cmake_host_system_information(RESULT HAS_SSE2 QUERY HAS_SSE2)
-if(HAS_SSE2)
-    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-        message(STATUS "Sync SSE2 GNU/Clang")
-        set(CMAKE_CXX_FLAGS "-msse2")
-        target_compile_options(SyncLib PRIVATE -msse2)
-        target_compile_options(SyncLibTests PRIVATE -msse2)
-    elseif(CMAKE_C_COMPILER_ID MATCHES "MSVC")
-        message(STATUS "Sync SSE2 MSVC")
-        set(CMAKE_CXX_FLAGS "/arch:SSE2")
-        target_compile_options(SyncLib PRIVATE /arch:SSE2)
-        target_compile_options(SyncLibTests PRIVATE /arch:SSE2)
-        # I don't know why this is required
-        target_compile_definitions(SyncLib PRIVATE __SSE2__)
-        target_compile_definitions(SyncLibTests PRIVATE __SSE2__)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+    set (X86 TRUE)
+else ()
+    set (X86 FALSE)
+endif ()
+
+if(X86)
+    # SSE2
+    cmake_host_system_information(RESULT HAS_SSE2 QUERY HAS_SSE2)
+    if(HAS_SSE2)
+        if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+            message(STATUS "Sync SSE2 GNU/Clang")
+            set(CMAKE_CXX_FLAGS "-msse2")
+            target_compile_options(SyncLib PRIVATE -msse2)
+            target_compile_options(SyncLibTests PRIVATE -msse2)
+        elseif(CMAKE_C_COMPILER_ID MATCHES "MSVC")
+            message(STATUS "Sync SSE2 MSVC")
+            set(CMAKE_CXX_FLAGS "/arch:SSE2")
+            target_compile_options(SyncLib PRIVATE /arch:SSE2)
+            target_compile_options(SyncLibTests PRIVATE /arch:SSE2)
+            # For some reason __SSE2__ macro doesn't seem to work? Not sure why?
+        endif()
+    endif()
+
+    # AVX2
+    if(MSVC)
+        message(STATUS "Sync AVX2 MSVC")
+        set(CMAKE_CXX_FLAGS "/arch:AVX2")
+        target_compile_options(SyncLib PRIVATE /arch:AVX2)
+        target_compile_options(SyncLibTests PRIVATE /arch:AVX2)
+    else()
+        message(STATUS "Sync AVX2 GNU/Clang")
+        set(CMAKE_CXX_FLAGS "-mavx2")
+        target_compile_options(SyncLib PRIVATE -mavx2)
+        target_compile_options(SyncLibTests PRIVATE -mavx2)
     endif()
 endif()
+
 
 
 

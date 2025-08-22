@@ -9,7 +9,8 @@
 
 #endif // WIN32 def
 
-#if __SSE2__
+#if defined(__SSE2__) || defined(__AVX2__)
+#include <intrin.h>
 #include <immintrin.h>
 #elif __ARM_NEON__
 #include <arm_neon.h>
@@ -66,11 +67,13 @@ std::optional<uint32_t> simd_detail::countTrailingZeroes64(uint64_t mask)
     #endif
 }
 
+#include <iostream>
+
 std::optional<uint32_t> simd_detail::firstZeroIndex8x16(const uint8_t *alignedPtr)
 {
     assert_aligned(alignedPtr, 16);
 
-    #if __SSE2__
+    #if defined(__SSE2__) || defined(__AVX2__) // stupid
     const __m128i zeroVec = _mm_set1_epi8(0);
     const __m128i buf = *(const __m128i*)alignedPtr;
     const __m128i result = _mm_cmpeq_epi8(zeroVec, buf);
@@ -91,6 +94,99 @@ std::optional<uint32_t> simd_detail::firstZeroIndex8x16(const uint8_t *alignedPt
         }
     }
     return std::nullopt;
+    #endif
+}
+
+SimdMask<16> simd_detail::equalMask8x16(const uint8_t *alignedPtr, uint8_t value)
+{
+    assert_aligned(alignedPtr, 16);
+
+    #if defined(__SSE2__) || defined(__AVX2__) // stupid
+    const __m128i valueToFind = _mm_set1_epi8(value);
+    const __m128i bufferToSearch = *reinterpret_cast<const __m128i*>(alignedPtr);
+    const __m128i result = _mm_cmpeq_epi8(valueToFind, bufferToSearch);
+    const int mask = _mm_movemask_epi8(result);
+    return SimdMask<16>(static_cast<uint16_t>(mask));
+    #else // good enough for ARM for now
+    uint16_t out = 0;
+    for(size_t i = 0; i < 16; i++) {
+        if(alignedPtr[i] == value) {
+            out |= (1U << i);
+        }
+    }
+    return SimdMask<16>(out);
+    #endif
+}
+
+SimdMask<32> simd_detail::equalMask8x32(const uint8_t *alignedPtr, uint8_t value)
+{
+    assert_aligned(alignedPtr, 32);
+
+    #if __AVX2__
+    const __m256i valueToFind = _mm256_set1_epi8(value);
+    const __m256i bufferToSearch = *reinterpret_cast<const __m256i*>(alignedPtr);
+    const __m256i result = _mm256_cmpeq_epi8(valueToFind, bufferToSearch);
+    const int mask = _mm256_movemask_epi8(result);
+    return SimdMask<32>(static_cast<uint32_t>(mask));
+    #else // good enough for ARM for now
+    uint32_t out = 0;
+    for(size_t i = 0; i < 32; i++) {
+        if(alignedPtr[i] == value) {
+            out |= (1U << i);
+        }
+    }
+    return SimdMask<32>(out);
+    #endif
+}
+
+#if defined(__AVX2__)
+static bool is_avx512f_supported() {
+#if defined(_WIN32) || defined(WIN32)
+	return IsProcessorFeaturePresent(PF_AVX512F_INSTRUCTIONS_AVAILABLE);
+#else
+    return false; // TODO linux
+#endif
+}
+
+static SimdMask<64> equalMask8x64AVX512(const uint8_t* p, uint8_t v) {
+    const __m512i valueToFind = _mm512_set1_epi8(v);
+    const __m512i bufferToSearch = *reinterpret_cast<const __m512i*>(p);
+    const unsigned long long mask = _mm512_cmpeq_epi8_mask(valueToFind, bufferToSearch);
+    return SimdMask<64>(static_cast<uint64_t>(mask));
+};
+
+static SimdMask<64> equalMask8x64AVX2(const uint8_t* p, uint8_t v) {
+    auto low = simd_detail::equalMask8x32(&p[0], v);
+    auto high = simd_detail::equalMask8x32(&p[32], v);
+    return SimdMask<64>(static_cast<uint64_t>(low.mask) 
+        | (static_cast<uint64_t>(high.mask) << 32));
+};
+
+#endif
+
+SimdMask<64> simd_detail::equalMask8x64(const uint8_t *alignedPtr, uint8_t value)
+{
+    assert_aligned(alignedPtr, 64);
+
+    #if defined(__AVX2__) // not every x86_64 cpu supports AVX512F so we use this questionable workaround
+    using FuncT = SimdMask<64> (*)(const uint8_t*, uint8_t);
+    static const FuncT func = []() {
+        if(is_avx512f_supported()) {
+            return equalMask8x64AVX512;
+        } else {
+            return equalMask8x64AVX2;
+        }
+    }();
+
+    return func(alignedPtr, value);
+    #else // good enough for ARM for now
+    uint64_t out = 0;
+    for(size_t i = 0; i < 64; i++) {
+        if(alignedPtr[i] == value) {
+            out |= (1ULL << i);
+        }
+    }
+    return SimdMask<64>(out);
     #endif
 }
 
@@ -270,6 +366,167 @@ TEST_SUITE("find first zero") {
             auto result = self.firstZeroIndex();
             CHECK(result.has_value());
             CHECK_EQ(result.value(), 63);
+        }
+    }
+}
+
+TEST_SUITE("equal mask") {
+    TEST_CASE("all not equal") {
+        { // 16
+            ByteSimd<16> self;
+            SimdMask<16> mask = self.equalMask(1);
+            for(uint32_t index : mask) {
+                (void)index;
+                CHECK(false);
+            }
+        }
+        { // 32
+            ByteSimd<32> self;
+            SimdMask<32> mask = self.equalMask(1);
+            for(uint32_t index : mask) {
+                (void)index;
+                CHECK(false);
+            }
+        }
+        { // 64
+            ByteSimd<64> self;
+            SimdMask<64> mask = self.equalMask(1);
+            for(uint32_t index : mask) {
+                (void)index;
+                CHECK(false);
+            }
+        }
+    }
+    
+    TEST_CASE("all equal zero") {
+        { // 16
+            ByteSimd<16> self;
+            SimdMask<16> mask = self.equalMask(0);
+            uint32_t i = 0;
+            for(uint32_t index : mask) {
+                CHECK_EQ(index, i);
+                i++;
+            }
+            CHECK_EQ(i, 16);
+        }
+        { // 32
+            ByteSimd<32> self;
+            SimdMask<32> mask = self.equalMask(0);
+            uint32_t i = 0;
+            for(uint32_t index : mask) {
+                CHECK_EQ(index, i);
+                i++;
+            }
+            CHECK_EQ(i, 32);
+        }
+        { // 64
+            ByteSimd<64> self;
+            SimdMask<64> mask = self.equalMask(0);
+            uint32_t i = 0;
+            for(uint32_t index : mask) {
+                CHECK_EQ(index, i);
+                i++;
+            }
+            CHECK_EQ(i, 64);
+        }
+    }
+
+    TEST_CASE("all equal non-zero") {
+        { // 16
+            ByteSimd<16> self(5);
+            SimdMask<16> mask = self.equalMask(5);
+            uint32_t i = 0;
+            for(uint32_t index : mask) {
+                CHECK_EQ(index, i);
+                i++;
+            }
+            CHECK_EQ(i, 16);
+        }
+        { // 32
+            ByteSimd<32> self(5);
+            SimdMask<32> mask = self.equalMask(5);
+            uint32_t i = 0;
+            for(uint32_t index : mask) {
+                CHECK_EQ(index, i);
+                i++;
+            }
+            CHECK_EQ(i, 32);
+        }
+        { // 64
+            ByteSimd<64> self(5);
+            SimdMask<64> mask = self.equalMask(5);
+            uint32_t i = 0;
+            for(uint32_t index : mask) {
+                CHECK_EQ(index, i);
+                i++;
+            }
+            CHECK_EQ(i, 64);
+        }
+    }
+
+    TEST_CASE("some set") {
+        { // 16
+            uint8_t arr[16] = {0};
+            arr[5] = 2;
+            arr[10] = 2;
+            ByteSimd<16> self(arr);
+            SimdMask<16> mask = self.equalMask(2);
+            uint32_t i = 0;
+            for(uint32_t index : mask) {
+                if(index == 5) {
+                    CHECK_EQ(i, 0);
+                }
+                else if(index == 10) {
+                    CHECK_EQ(i, 1);
+                }
+                else {
+                    FAIL("Invalid index found");
+                }
+                i++;
+            }
+            CHECK_EQ(i, 2);
+        }
+        { // 32
+            uint8_t arr[32] = {0};
+            arr[16] = 2;
+            arr[24] = 2;
+            ByteSimd<32> self(arr);
+            SimdMask<32> mask = self.equalMask(2);
+            uint32_t i = 0;
+            for(uint32_t index : mask) {
+                if(index == 16) {
+                    CHECK_EQ(i, 0);
+                }
+                else if(index == 24) {
+                    CHECK_EQ(i, 1);
+                }
+                else {
+                    FAIL("Invalid index found");
+                }
+                i++;
+            }
+            CHECK_EQ(i, 2);
+        }
+        { // 64
+            uint8_t arr[64] = {0};
+            arr[45] = 2;
+            arr[54] = 2;
+            ByteSimd<64> self(arr);
+            SimdMask<64> mask = self.equalMask(2);
+            uint32_t i = 0;
+            for(uint32_t index : mask) {
+                if(index == 45) {
+                    CHECK_EQ(i, 0);
+                }
+                else if(index == 54) {
+                    CHECK_EQ(i, 1);
+                }
+                else {
+                    FAIL("Invalid index found");
+                }
+                i++;
+            }
+            CHECK_EQ(i, 2);
         }
     }
 }

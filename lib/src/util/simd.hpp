@@ -23,6 +23,9 @@ constexpr size_t SUGGESTED_SIMD_WIDTH = 16;
 constexpr size_t SUGGESTED_SIMD_WIDTH = alignof(uint64_t);
 #endif
 
+template<int Width>
+class SimdMask;
+
 namespace simd_detail {
     std::optional<uint32_t> countTrailingZeroes32(uint32_t mask);
 
@@ -95,6 +98,14 @@ public:
     Iterator end() const { return Iterator(); }
 };
 
+namespace simd_detail {
+    SimdMask<16> equalMask8x16(const uint8_t* alignedPtr, uint8_t value);
+
+    SimdMask<32> equalMask8x32(const uint8_t* alignedPtr, uint8_t value);
+
+    SimdMask<64> equalMask8x64(const uint8_t* alignedPtr, uint8_t value);
+}
+
 template<int Width>
 class alignas(Width) ByteSimd final {
 public:
@@ -111,6 +122,8 @@ public:
     ByteSimd(const uint8_t* inBytes);
 
     std::optional<uint32_t> firstZeroIndex() const;
+
+    SimdMask<Width> equalMask(const uint8_t value) const;
 };
 
 template <int Width>
@@ -164,6 +177,20 @@ inline std::optional<uint32_t> ByteSimd<Width>::firstZeroIndex() const
             if(result.has_value()) return std::optional<uint32_t>(result.value() + 48);
             return std::nullopt;
         }
+    }
+}
+
+template <int Width>
+inline SimdMask<Width> ByteSimd<Width>::equalMask(const uint8_t value) const
+{
+    if constexpr (Width == 16) {
+        return simd_detail::equalMask8x16(this->bytes, value);
+    } 
+    else if constexpr (Width == 32) {
+        return simd_detail::equalMask8x32(this->bytes, value);
+    }
+    else {
+        return simd_detail::equalMask8x64(this->bytes, value);
     }
 }
 
