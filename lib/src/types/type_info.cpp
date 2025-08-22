@@ -230,7 +230,34 @@ TEST_CASE("equality") {
         CHECK(ret);
     }
     { // not equal
+        bool lhs = false;
+        bool rhs = true;
+        bool ret;
 
+        Function::CallArgs args = sy::Type::TYPE_BOOL->optionalEquality->startCall();
+        const bool* lhsMem = &lhs;
+        args.push(&lhsMem, sy::Type::TYPE_BOOL->constRef);
+        const bool* rhsMem = &rhs;
+        args.push(&rhsMem, sy::Type::TYPE_BOOL->constRef);
+        sy::ProgramRuntimeError err = args.call(&ret);
+        CHECK_EQ(err.kind(), sy::ProgramRuntimeError::Kind::None);
+        CHECK_FALSE(ret);
+    }
+}
+
+TEST_CASE("hash") {
+    CHECK_NE(sy::Type::TYPE_U64->optionalHash, nullptr);
+
+    uint64_t obj = 123456789;
+    size_t ret = 0;
+
+    Function::CallArgs args = sy::Type::TYPE_U64->optionalHash->startCall();
+    const uint64_t* objMem = &obj;
+    args.push(&objMem, sy::Type::TYPE_U64->constRef);
+    sy::ProgramRuntimeError err = args.call(&ret);
+    CHECK_EQ(err.kind(), sy::ProgramRuntimeError::Kind::None);
+    if(ret == 0) {
+        std::cerr << "Possible test failure " << __FILE__ << ':' << __LINE__ << std::endl;
     }
 }
 

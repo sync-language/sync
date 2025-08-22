@@ -12,7 +12,7 @@
 
 namespace sy {
     namespace detail {
-        /// https://stackoverflow.com/a/35207812
+        // https://stackoverflow.com/a/35207812
         template<class T, class EqualTo>
         struct has_operator_equal_impl
         {
@@ -26,6 +26,14 @@ namespace sy {
 
         template<typename T>
         struct has_operator_equal : has_operator_equal_impl<T, T>::type {};
+
+        // https://stackoverflow.com/a/51915825
+        template <typename T, typename = std::void_t<>>
+        struct is_std_hashable : std::false_type {};
+
+        template <typename T>
+        struct is_std_hashable<T, std::void_t<
+            decltype(std::declval<std::hash<T>>()(std::declval<T>()))>> : std::true_type {};
     }
     
     class SY_API Type {
@@ -90,6 +98,7 @@ namespace sy {
         StringSlice     name;
         const Function* optionalDestructor = nullptr;
         const Function* optionalEquality = nullptr;
+        const Function* optionalHash = nullptr;
         Tag             tag;
         ExtraInfo       extra;
         const Type*     constRef;
@@ -145,6 +154,18 @@ namespace sy {
         }
 
         template<typename T>
+        static Function::c_function_t makeHashFunction() {
+            Function::c_function_t func = [](Function::CHandler handler) -> ProgramRuntimeError {
+                const T* obj = handler.takeArg<const T*>(0);
+                std::hash<T> h;
+                size_t hashed = h(*obj);
+                handler.setReturn(std::move(hashed));
+                return ProgramRuntimeError();
+            };
+            return func;
+        }
+
+        template<typename T>
         static const Type* createType(
             StringSlice inName, 
             Tag inTag, 
@@ -157,6 +178,7 @@ namespace sy {
                 inName,                             // name
                 inOptionalDestructor,               // optionalDestructor
                 nullptr,                            // optionalEquality
+                nullptr,                            // optionalHash
                 inTag,                              // tag
                 inExtra,                            // extra
                 nullptr,                            // constRef
@@ -175,6 +197,7 @@ namespace sy {
                 "ConstRef", // TODO proper naming
                 nullptr,
                 nullptr,
+                nullptr,
                 Tag::Reference,
                 constRefExtra,
                 nullptr,
@@ -185,6 +208,7 @@ namespace sy {
                 sizeof(T*),
                 static_cast<uint16_t>(alignof(T*)),
                 "MutRef", // TODO proper naming
+                nullptr,
                 nullptr,
                 nullptr,
                 Tag::Reference,
@@ -206,7 +230,7 @@ namespace sy {
             if constexpr(detail::has_operator_equal<T>::value) {
                 Function::c_function_t func = makeEqualityFunction<T>();
                 static const Type* argsTypes[2] = {&constRefType, &constRefType};
-                static Function cfunc = {
+                static Function cEqualFunc = {
                     "==", // name
                     "==", // identifier name
                     Type::TYPE_BOOL, // return type
@@ -216,7 +240,24 @@ namespace sy {
                     Function::CallType::C,
                     reinterpret_cast<const void*>(func)
                 };
-                concreteType.optionalEquality = &cfunc;
+                concreteType.optionalEquality = &cEqualFunc;
+            }
+
+            // Hash
+            if constexpr(detail::is_std_hashable<T>::value) {
+                Function::c_function_t func = makeHashFunction<T>();
+                static const Type* argsTypes[1] = {&constRefType};
+                static Function cHashFunc = {
+                    "hash", // name
+                    "hash", // identifier name
+                    Type::TYPE_USIZE, // return type
+                    argsTypes,
+                    1, // number of args
+                    SY_FUNCTION_MIN_ALIGN, // alignment
+                    Function::CallType::C,
+                    reinterpret_cast<const void*>(func)
+                };
+                concreteType.optionalHash = &cHashFunc; 
             }
 
             return &concreteType;

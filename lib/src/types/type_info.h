@@ -124,6 +124,8 @@ typedef struct SyType {
     const SyFunction*   optionalDestructor;
     /// Can be NULL.
     const SyFunction*   optionalEquality;
+    /// Can be NULL.
+    const SyFunction*   optionalHash;
     /// Used as a tagged union with the payload being `extra`.
     SyTypeTag           tag;
     /// Used as a tagged union, with the tags being `tag`.
