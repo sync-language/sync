@@ -79,14 +79,15 @@ std::optional<uint32_t> simd_detail::firstZeroIndex8x16(const uint8_t *alignedPt
     const __m128i result = _mm_cmpeq_epi8(zeroVec, buf);
     int resultMask = _mm_movemask_epi8(result);
     return countTrailingZeroes32(static_cast<uint32_t>(resultMask));
-    #elif __ARM_NEON__
-    const uint8x16_t zeroVec = {0};
-    const uint8x16_t buf = *(const uint8x16_t*)(alignedPtr);
-    const uint16x8_t equalMask = vreinterpretq_u16_u8(vceqq_u8(zeroVec, buf));
-    // https://community.arm.com/arm-community-blogs/b/servers-and-cloud-computing-blog/posts/porting-x86-vector-bitmask-optimizations-to-arm-neon
-    const uint8x8_t res = vshrn_n_u16(equalMask, 4);
-    const uint64_t matches = vget_lane_u64(vreinterpret_u64_u8(res), 0);
-    return countTrailingZeroes32(static_cast<uint32_t>(matches));
+    // TODO fix neon
+    // #elif __ARM_NEON__
+    // const uint8x16_t zeroVec = {0};
+    // const uint8x16_t buf = *(const uint8x16_t*)(alignedPtr);
+    // const uint16x8_t equalMask = vreinterpretq_u16_u8(vceqq_u8(zeroVec, buf));
+    // // https://community.arm.com/arm-community-blogs/b/servers-and-cloud-computing-blog/posts/porting-x86-vector-bitmask-optimizations-to-arm-neon
+    // const uint8x8_t res = vshrn_n_u16(equalMask, 4);
+    // const uint64_t matches = vget_lane_u64(vreinterpret_u64_u8(res), 0);
+    // return countTrailingZeroes32(static_cast<uint32_t>(matches));
     #else
     for(uint32_t i = 0; i < 16; i++) {
         if(alignedPtr[i] == 0) {

@@ -84,8 +84,8 @@ public:
             }
         }
 
-        uint32_t index;
         integer_t data;
+        uint32_t index;
     };
 
     SimdMask(integer_t inMask) : mask(inMask) {}
