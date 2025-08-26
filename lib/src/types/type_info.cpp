@@ -188,6 +188,48 @@ void sy::Type::destroyObjectImpl(void *obj) const
     sy_assert(err.ok(), "Destructors may not throw/cause errors"); // TODO what do to if error?
 }
 
+bool sy::Type::equalObjectsImpl(const void *self, const void *other) const
+{
+    sy_assert(self != nullptr, "Cannot equality compare null object");
+    sy_assert(other != nullptr, "Cannot equality compare null object");
+    sy_assert(this->optionalEquality != nullptr, "Cannot do equality comparison without an equality function");
+
+    // TODO immediate equality comparison for simple types
+
+    sy_assert(this->constRef != nullptr, "Equality comparison takes const references");
+    sy_assert(this->constRef->sizeType == sizeof(void*), "Const reference types should be the same size as void*");
+    sy_assert(this->constRef->alignType == alignof(void*), "Const reference types should be the same align as void*");
+
+    Function::CallArgs callArgs = this->optionalEquality->startCall();
+    (void)callArgs.push(&self, this->constRef);
+    (void)callArgs.push(&other, this->constRef);
+    bool eql;
+    
+    const ProgramRuntimeError err = callArgs.call(&eql);
+    sy_assert(err.ok(), "Equality may not throw/cause errors"); // TODO what do to if error?
+    return eql;
+}
+
+size_t sy::Type::hashObjectImpl(const void *self) const
+{
+    sy_assert(self != nullptr, "Cannot hash null object");
+    sy_assert(this->optionalHash != nullptr, "Cannot do hash without a hash function");
+
+    // TODO immediate hash for simple types
+
+    sy_assert(this->constRef != nullptr, "Equality comparison takes const references");
+    sy_assert(this->constRef->sizeType == sizeof(void*), "Const reference types should be the same size as void*");
+    sy_assert(this->constRef->alignType == alignof(void*), "Const reference types should be the same align as void*");
+
+    Function::CallArgs callArgs = this->optionalEquality->startCall();
+    (void)callArgs.push(&self, this->constRef);
+    size_t hash;
+    
+    const ProgramRuntimeError err = callArgs.call(&hash);
+    sy_assert(err.ok(), "Hash may not throw/cause errors"); // TODO what do to if error?
+    return hash;
+}
+
 #ifndef SYNC_LIB_NO_TESTS
 
 #include "../doctest.h"

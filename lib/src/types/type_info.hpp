@@ -123,6 +123,22 @@ namespace sy {
             this->destroyObjectImpl(reinterpret_cast<void*>(obj));
         }
 
+        template<typename T>
+        bool equalObj(const T* lhs, const T* rhs) const {
+            if constexpr(!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
+            return this->equalObjectsImpl(reinterpret_cast<const void*>(lhs), reinterpret_cast<const void*>(rhs));
+        }
+
+        template<typename T>
+        size_t hashObj(const T* obj) const {
+            if constexpr(!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
+            return this->hashObjectImpl(reinterpret_cast<const void*>(obj));
+        }
+
         static const Type* const TYPE_BOOL;
         static const Type* const TYPE_I8;
         static const Type* const TYPE_I16;
@@ -265,6 +281,8 @@ namespace sy {
     
         void assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const;
         void destroyObjectImpl(void* obj) const;
+        bool equalObjectsImpl(const void* self, const void* other) const;
+        size_t hashObjectImpl(const void* self) const;
     };
 }
 
