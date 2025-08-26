@@ -26,6 +26,7 @@ set(SyncLibSources
     "src/types/string/string.cpp"
     "src/types/sync_obj/sync_obj.cpp"
     "src/types/array/dynamic_array.cpp"
+    "src/types/hash/groups.cpp"
     "src/interpreter/stack/frame.cpp"
     "src/interpreter/stack/node.cpp"
     "src/interpreter/stack/stack.cpp"
