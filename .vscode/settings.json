@@ -5,6 +5,7 @@
     "editor.insertSpaces": true,
     "editor.tabSize": 4,
     "rust-analyzer.testExplorer": true,
+    "C_Cpp.formatting": "clangFormat",
 
     "files.associations": {
         "cstdint": "cpp",

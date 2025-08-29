@@ -3,78 +3,66 @@
 #define SY_TYPES_HASH_GROUPS_HPP_
 
 #include "../../core.h"
-#include "../../util/simd.hpp"
 #include "../../mem/allocator.hpp"
+#include "../../util/simd.hpp"
 #include "../type_info.hpp"
 
 class Group {
 public:
-    struct Header;
-    /// Doubly linked list of the items within the hash map/set.
-    /// The header is data before the actual relevant key and optional value.
-    struct Header {
-        size_t hashCode;
-        Header* iterBefore;
-        Header* iterAfter;
+  struct Header;
+  /// Doubly linked list of the items within the hash map/set.
+  /// The header is data before the actual relevant key and optional value.
+  struct Header {
+    size_t hashCode;
+    Header *iterBefore;
+    Header *iterAfter;
 
-        void* key(size_t keyAlign);
+    void *key(size_t keyAlign);
 
-        const void* key(size_t keyAlign) const;
+    const void *key(size_t keyAlign) const;
 
-        void* value(size_t keyAlign, size_t keySize, size_t valueAlign);
-        
-        const void* value(size_t keyAlign, size_t keySize, size_t valueAlign) const;
+    void *value(size_t keyAlign, size_t keySize, size_t valueAlign);
 
-        void destroyKeyOnly(
-            sy::Allocator alloc,
-            void (*destruct)(void* key),
-            size_t keyAlign,
-            size_t keySize
-        );
+    const void *value(size_t keyAlign, size_t keySize, size_t valueAlign) const;
 
-        void destroyScriptKeyOnly(sy::Allocator alloc, const sy::Type* type);
+    void destroyKeyOnly(sy::Allocator alloc, void (*destruct)(void *key),
+                        size_t keyAlign, size_t keySize);
 
-        void destroyKeyValue(
-            sy::Allocator alloc,
-            void (*destructKey)(void* key),
-            void (*destructValue)(void* value),
-            size_t keyAlign, 
-            size_t keySize,
-            size_t valueAlign, 
-            size_t valueSize
-        );
+    void destroyScriptKeyOnly(sy::Allocator alloc, const sy::Type *type);
 
-        void destroyScriptKeyValue(sy::Allocator alloc, const sy::Type* keyType, const sy::Type* valueType);
+    void destroyKeyValue(sy::Allocator alloc, void (*destructKey)(void *key),
+                         void (*destructValue)(void *value), size_t keyAlign,
+                         size_t keySize, size_t valueAlign, size_t valueSize);
 
-        static sy::AllocExpect<Header*> createKeyOnly(
-            sy::Allocator alloc, 
-            size_t keyAlign, 
-            size_t keySize
-        );
+    void destroyScriptKeyValue(sy::Allocator alloc, const sy::Type *keyType,
+                               const sy::Type *valueType);
 
-        static sy::AllocExpect<Header*> createKeyValue(
-            sy::Allocator alloc, 
-            size_t keyAlign, 
-            size_t keySize,
-            size_t valueAlign, 
-            size_t valueSize
-        );
-    };
+    static sy::AllocExpect<Header *>
+    createKeyOnly(sy::Allocator alloc, size_t keyAlign, size_t keySize);
 
-    ByteSimd<16>* hashMasks() { return reinterpret_cast<ByteSimd<16>*>(this->hashMasks_); };
+    static sy::AllocExpect<Header *>
+    createKeyValue(sy::Allocator alloc, size_t keyAlign, size_t keySize,
+                   size_t valueAlign, size_t valueSize);
+  };
 
-    const ByteSimd<16>* hashMasks() const { return reinterpret_cast<const ByteSimd<16>*>(this->hashMasks_); };
+  ByteSimd<16> *hashMasks() {
+    return reinterpret_cast<ByteSimd<16> *>(this->hashMasks_);
+  };
 
-    uint32_t simdHashMaskCount() const { return this->capacity_ / 16; }
+  const ByteSimd<16> *hashMasks() const {
+    return reinterpret_cast<const ByteSimd<16> *>(this->hashMasks_);
+  };
 
-    Header** headers();
+  uint32_t simdHashMaskCount() const { return this->capacity_ / 16; }
 
-    const Header* const* headers() const;
+  Header **headers();
+
+  const Header *const *headers() const;
 
 private:
-    uint8_t* hashMasks_;
-    uint32_t itemCount_;
-    uint32_t capacity_;
+  uint8_t *hashMasks_;
+  // uint32_t itemCount_;
+  uint32_t capacity_;
 };
 
 #endif // SY_TYPES_HASH_GROUPS_HPP_
