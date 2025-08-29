@@ -1,0 +1,14 @@
+{
+    "recommendations": [
+        "ms-vscode.cpptools-extension-pack",
+        "ms-vscode.cmake-tools",
+        "vadimcn.vscode-lldb",
+        "rust-lang.rust-analyzer",
+        "dustypomerleau.rust-syntax",
+        "tamasfe.even-better-toml",
+        "ziglang.vscode-zig",
+        "gruntfuggly.todo-tree",
+        "davidanson.vscode-markdownlint",
+        "aaron-bond.better-comments"
+    ]
+}
