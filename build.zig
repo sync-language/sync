@@ -98,5 +98,4 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/compiler/tokenizer/tokenizer.cpp",
     "lib/src/compiler/tokenizer/file_literals.cpp",
     "lib/src/program/program.cpp",
-    "lib/src/testing/doctest.cpp",
 };

@@ -4,6 +4,7 @@
     "editor.detectIndentation": false,
     "editor.insertSpaces": true,
     "editor.tabSize": 4,
+    "rust-analyzer.testExplorer": true,
 
     "files.associations": {
         "cstdint": "cpp",

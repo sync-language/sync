@@ -29,6 +29,5 @@ fn main()
         .file("src/compiler/tokenizer/tokenizer.cpp")
         .file("src/compiler/tokenizer/file_literals.cpp")
         .file("src/program/program.cpp")
-        .file("src/testing/doctest.cpp")
         .compile("SyncLib");
 }
