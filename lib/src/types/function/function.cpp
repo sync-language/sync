@@ -498,7 +498,7 @@ void sy::Function::CHandler::validateReturnDstAligned(void *retDst, size_t align
     sy_assert((reinterpret_cast<uintptr_t>(retDst) % alignType) == 0, "Function return value destination misaligned");
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 

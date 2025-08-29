@@ -193,7 +193,7 @@ sy::StringSlice TokenIter::currentSlice() const noexcept
     return sy::StringSlice(&fullSlice.data()[start], end - start);
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 #include <cstring>

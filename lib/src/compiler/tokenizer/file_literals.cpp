@@ -417,7 +417,7 @@ StringLiteral &StringLiteral::operator=(StringLiteral &&other) noexcept {
 
 StringLiteral::~StringLiteral() noexcept { this->str.destroy(this->alloc); }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 #include <string>

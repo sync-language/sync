@@ -460,7 +460,7 @@ sy::String& sy::String::operator=(const char* str)
     return *this;
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 

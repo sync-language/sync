@@ -378,7 +378,7 @@ void Backtrace::print() const noexcept
     } catch(...) {}
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../doctest.h"
 

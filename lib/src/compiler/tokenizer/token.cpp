@@ -1413,7 +1413,7 @@ static std::tuple<Token, uint32_t> parseIdentifier(
     return std::make_tuple(Token(TokenType::Identifier, start - 1), i);
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 #include <string>

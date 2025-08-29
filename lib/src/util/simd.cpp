@@ -269,7 +269,7 @@ bool simd_detail::equalBytes8x64(const uint8_t* lhs, const uint8_t* rhs)
     #endif
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../doctest.h"
 #include <iostream>

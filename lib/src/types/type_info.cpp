@@ -230,7 +230,7 @@ size_t sy::Type::hashObjectImpl(const void *self) const
     return hash;
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../doctest.h"
 

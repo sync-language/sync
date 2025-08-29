@@ -64,7 +64,7 @@ using std::uint64_t;
 // On top of that, we use SY_CLASS_TEST_PRIVATE for anything that should be
 // private to the class, but must be protected for testing purposes.
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 #define SY_CLASS_FINAL
 #define SY_CLASS_TEST_PRIVATE protected
 #else

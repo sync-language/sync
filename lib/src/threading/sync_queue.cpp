@@ -398,7 +398,7 @@ void SyncQueueStack::ensureCapacityForCurrent()
 }
 
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../doctest.h"
 #include <shared_mutex>

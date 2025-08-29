@@ -523,7 +523,7 @@ void *sy::RawDynArrayUnmanaged::beforeFront(const size_t size)
     return selfAsBytes - size;
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 

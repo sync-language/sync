@@ -580,7 +580,7 @@ bool Node::TypeOfValue::isOwned() const
     return maskedAwayType != TYPE_NOT_OWNED_FLAG;
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 

@@ -474,7 +474,7 @@ void sy::detail::BaseSyncObj::checkNotExpired() const
     sy_assert(!syncObjExpired(this->inner), "Held sync object is expired");
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 

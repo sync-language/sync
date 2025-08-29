@@ -86,7 +86,7 @@ size_t page_size()
     return pageSize;
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../doctest.h"
 

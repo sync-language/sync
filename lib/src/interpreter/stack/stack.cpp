@@ -274,7 +274,7 @@ FrameGuard &FrameGuard::operator=(FrameGuard && other) {
     return *this;
 }
 
-#ifndef SYNC_LIB_NO_TESTS
+#if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 
