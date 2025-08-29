@@ -49,9 +49,10 @@ void sy::RawMapUnmanaged::destroyScript(Allocator& alloc, const Type* keyType, c
 struct FoundGroup {
     size_t groupIndex;
     uint32_t valueIndex;
+    bool hasValue;
 };
 
-static std::optional<FoundGroup> findImpl(const Group* groups, size_t groupCount, size_t hashCode) noexcept {
+static FoundGroup findImpl(const Group* groups, size_t groupCount, size_t hashCode) noexcept {
     Group::IndexBitmask index(hashCode);
     Group::PairBitmask pair(hashCode);
     const size_t groupIndex = index.value % groupCount;
@@ -59,10 +60,10 @@ static std::optional<FoundGroup> findImpl(const Group* groups, size_t groupCount
     const Group& group = groups[groupIndex];
     auto foundIndex = group.find(pair);
     if (foundIndex.has_value() == false) {
-        return std::nullopt;
+        return {0, 0, false};
     } else {
-        FoundGroup actualFound = {groupIndex, foundIndex.value()};
-        return std::optional<FoundGroup>(actualFound);
+        FoundGroup actualFound = {groupIndex, foundIndex.value(), true};
+        return actualFound;
     }
 }
 
@@ -74,12 +75,11 @@ std::optional<const void*> sy::RawMapUnmanaged::find(const void* key, size_t (*h
     const Group* groups = asGroups(this->groups_);
     size_t hashCode = hash(key);
     auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
-    if (foundIndex.has_value() == false) {
+    if (foundIndex.hasValue == false) {
         return std::nullopt;
     } else {
-        FoundGroup actualFound = foundIndex.value();
-        const Group& group = groups[actualFound.groupIndex];
-        return group.headers()[actualFound.valueIndex]->value(keyAlign, keySize, valueAlign);
+        const Group& group = groups[foundIndex.groupIndex];
+        return group.headers()[foundIndex.valueIndex]->value(keyAlign, keySize, valueAlign);
     }
 }
 
@@ -91,12 +91,11 @@ std::optional<const void*> sy::RawMapUnmanaged::findScript(const void* key, cons
     const Group* groups = asGroups(this->groups_);
     size_t hashCode = keyType->hashObj(key);
     auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
-    if (foundIndex.has_value() == false) {
+    if (foundIndex.hasValue == false) {
         return std::nullopt;
     } else {
-        FoundGroup actualFound = foundIndex.value();
-        const Group& group = groups[actualFound.groupIndex];
-        return group.headers()[actualFound.valueIndex]->value(keyType->alignType, keyType->sizeType,
+        const Group& group = groups[foundIndex.groupIndex];
+        return group.headers()[foundIndex.valueIndex]->value(keyType->alignType, keyType->sizeType,
                                                               valueType->alignType);
     }
 }
@@ -109,12 +108,11 @@ std::optional<void*> sy::RawMapUnmanaged::findMut(const void* key, size_t (*hash
     Group* groups = asGroupsMut(this->groups_);
     size_t hashCode = hash(key);
     auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
-    if (foundIndex.has_value() == false) {
+    if (foundIndex.hasValue == false) {
         return std::nullopt;
     } else {
-        FoundGroup actualFound = foundIndex.value();
-        Group& group = groups[actualFound.groupIndex];
-        return group.headers()[actualFound.valueIndex]->value(keyAlign, keySize, valueAlign);
+        Group& group = groups[foundIndex.groupIndex];
+        return group.headers()[foundIndex.valueIndex]->value(keyAlign, keySize, valueAlign);
     }
 }
 
@@ -126,12 +124,11 @@ std::optional<void*> sy::RawMapUnmanaged::findMutScript(const void* key, const T
     Group* groups = asGroupsMut(this->groups_);
     size_t hashCode = keyType->hashObj(key);
     auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
-    if (foundIndex.has_value() == false) {
+    if (foundIndex.hasValue == false) {
         return std::nullopt;
     } else {
-        FoundGroup actualFound = foundIndex.value();
-        Group& group = groups[actualFound.groupIndex];
-        return group.headers()[actualFound.valueIndex]->value(keyType->alignType, keyType->sizeType,
+        Group& group = groups[foundIndex.groupIndex];
+        return group.headers()[foundIndex.valueIndex]->value(keyType->alignType, keyType->sizeType,
                                                               valueType->alignType);
     }
 }
