@@ -1,0 +1,44 @@
+//! API
+#pragma once
+#ifndef SY_TYPES_HASH_MAP_HPP_
+#define SY_TYPES_HASH_MAP_HPP_
+
+#include "../../core.h"
+#include "../../mem/allocator.hpp"
+#include <optional>
+#include <utility>
+
+namespace sy {
+class Type;
+
+class SY_API RawMapUnmanaged final {
+  public:
+    RawMapUnmanaged() = default;
+
+    ~RawMapUnmanaged() noexcept;
+
+    void destroy(Allocator& alloc, void (*destructKey)(void* ptr), void (*destructValue)(void* ptr), size_t keySize,
+                 size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept;
+
+    void destroyScript(Allocator& alloc, const Type* keyType, const Type* valueType) noexcept;
+
+    [[nodiscard]] std::optional<const void*> find(const void* key, size_t (*hash)(const void* key), size_t keyAlign,
+                                                  size_t keySize, size_t valueAlign) const noexcept;
+
+    [[nodiscard]] std::optional<const void*> findScript(const void* key, const Type* keyType,
+                                                        const Type* valueType) const noexcept;
+
+    [[nodiscard]] std::optional<void*> findMut(const void* key, size_t (*hash)(const void* key), size_t keyAlign,
+                                                  size_t keySize, size_t valueAlign) const noexcept;
+
+    [[nodiscard]] std::optional<void*> findMutScript(const void* key, const Type* keyType,
+                                                        const Type* valueType) const noexcept;
+
+  private:
+    void* groups_ = nullptr;
+    size_t groupCount_ = 0;
+    size_t elementCount_ = 0;
+};
+} // namespace sy
+
+#endif // SY_TYPES_HASH_MAP_HPP_

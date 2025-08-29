@@ -1,10 +1,66 @@
 #include "groups.hpp"
 #include "../../util/align.hpp"
 
+void Group::destroyHeadersKeyOnly(sy::Allocator alloc, void (*destruct)(void* key), size_t keyAlign, size_t keySize) {
+    for (uint32_t i = 0; i < capacity_; i++) {
+        if (hashMasks_[i] == 0)
+            continue;
+
+        Header* header = headers()[i];
+        header->destroyKeyOnly(alloc, destruct, keyAlign, keySize);
+    }
+}
+
+void Group::destroyHeadersScriptKeyOnly(sy::Allocator alloc, const sy::Type* type) {
+    for (uint32_t i = 0; i < capacity_; i++) {
+        if (hashMasks_[i] == 0)
+            continue;
+
+        Header* header = headers()[i];
+        header->destroyScriptKeyOnly(alloc, type);
+    }
+}
+
+void Group::destroyHeadersKeyValue(sy::Allocator alloc, void (*destructKey)(void* key),
+                                   void (*destructValue)(void* value), size_t keyAlign, size_t keySize,
+                                   size_t valueAlign, size_t valueSize) {
+    for (uint32_t i = 0; i < capacity_; i++) {
+        if (hashMasks_[i] == 0)
+            continue;
+
+        Header* header = headers()[i];
+        header->destroyKeyValue(alloc, destructKey, destructValue, keyAlign, keySize, valueAlign, valueSize);
+    }
+}
+
+void Group::destroyHeadersScriptKeyValue(sy::Allocator alloc, const sy::Type* keyType, const sy::Type* valueType) {
+    for (uint32_t i = 0; i < capacity_; i++) {
+        if (hashMasks_[i] == 0)
+            continue;
+
+        Header* header = headers()[i];
+        header->destroyScriptKeyValue(alloc, keyType, valueType);
+    }
+}
+
 Group::Header** Group::headers() { return reinterpret_cast<Header**>(&this->hashMasks_[this->capacity_]); }
 
 const Group::Header* const* Group::headers() const {
     return reinterpret_cast<const Header* const*>(&this->hashMasks_[this->capacity_]);
+}
+
+std::optional<uint32_t> Group::find(PairBitmask pair) const {
+    const ByteSimd<16>* simdMasks = this->hashMasks();
+    const uint32_t maskCount = this->simdHashMaskCount();
+    for (uint32_t i = 0; i < maskCount; i++) {
+        SimdMask<16> found = simdMasks->equalMask(pair.value);
+        auto begin = found.begin();
+        auto end = found.end();
+        if (begin != end) {
+            std::optional<uint32_t>((i * 16) + *begin);
+        }
+    }
+    return std::nullopt;
 }
 
 void* Group::Header::key(size_t keyAlign) {
@@ -155,21 +211,24 @@ TEST_SUITE("header") {
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(uint8_t), sizeof(uint8_t));
+            self->destroyKeyOnly(
+                Allocator(), [](void*) {}, alignof(uint8_t), sizeof(uint8_t));
         }
         { // same as header align
             auto result = Header::createKeyOnly(Allocator(), alignof(void*), sizeof(void*));
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(void*), alignof(void*));
+            self->destroyKeyOnly(
+                Allocator(), [](void*) {}, alignof(void*), alignof(void*));
         }
         { // greater than header align
             auto result = Header::createKeyOnly(Allocator(), alignof(ByteSimd<64>), sizeof(ByteSimd<64>));
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(ByteSimd<64>), alignof(ByteSimd<64>));
+            self->destroyKeyOnly(
+                Allocator(), [](void*) {}, alignof(ByteSimd<64>), alignof(ByteSimd<64>));
         }
     }
 }

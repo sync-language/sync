@@ -31,6 +31,7 @@ set(SyncLibSources
     "lib/src/types/sync_obj/sync_obj.cpp"
     "lib/src/types/array/dynamic_array.cpp"
     "lib/src/types/hash/groups.cpp"
+    "lib/src/types/hash/map.cpp"
     "lib/src/interpreter/stack/frame.cpp"
     "lib/src/interpreter/stack/node.cpp"
     "lib/src/interpreter/stack/stack.cpp"
