@@ -4,6 +4,7 @@
 #include "token.hpp"
 #include <new>
 #include <tuple>
+#include <cstring>
 
 static bool wouldUnsigned64IntAddOverflow(uint64_t a, uint64_t b) {
   if (a == 0 || b == 0)

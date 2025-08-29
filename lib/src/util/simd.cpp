@@ -10,7 +10,7 @@
 #endif // WIN32 def
 
 #if defined(__SSE2__) || defined(__AVX2__)
-#include <intrin.h>
+// #include <intrin.h>
 #include <immintrin.h>
 #elif __ARM_NEON__
 #include <arm_neon.h>

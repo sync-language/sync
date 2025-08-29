@@ -4,6 +4,7 @@
 
 #include "../../core.h"
 #include <optional>
+#include <tuple>
 
 struct Bytecode;
 

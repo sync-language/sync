@@ -11,6 +11,7 @@
 #elif __GNUC__
 #include <sys/mman.h>
 #endif
+#include <cstring>
 
 /// By default, values use 1KB.
 /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit pointers,

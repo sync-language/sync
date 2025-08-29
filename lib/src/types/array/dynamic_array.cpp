@@ -7,6 +7,7 @@
 #include "../../program/program.hpp"
 #include "../../util/pow_of_2.hpp"
 #include <tuple>
+#include <cstring>
 
 static constexpr size_t initialArrayCapacity = 4;
 
