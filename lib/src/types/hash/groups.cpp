@@ -1,5 +1,33 @@
 #include "groups.hpp"
 #include "../../util/align.hpp"
+#include "../../util/assert.hpp"
+
+constexpr static uint32_t groupAllocationSize(uint32_t requiredCapacity) {
+    return requiredCapacity + (sizeof(Group::Header*) * requiredCapacity);
+}
+
+constexpr size_t GROUP_ALLOC_ALIGN = 16;
+
+sy::AllocExpect<Group> Group::create(sy::Allocator& alloc) {
+    constexpr uint32_t INITIAL_CAPACITY = 16;
+    constexpr uint32_t INITIAL_ALLOCATION_SIZE = groupAllocationSize(INITIAL_CAPACITY);
+
+    auto allocResult = alloc.allocAlignedArray<uint8_t>(INITIAL_ALLOCATION_SIZE, GROUP_ALLOC_ALIGN);
+    if(allocResult.hasValue() == false) {
+        return sy::AllocExpect<Group>();
+    }
+
+    Group group;
+    group.hashMasks_ = allocResult.value();
+    group.capacity_ = INITIAL_CAPACITY;
+    group.itemCount_ = 0;
+    return sy::AllocExpect<Group>(group);
+}
+
+void Group::freeMemory(sy::Allocator& alloc) {
+    const size_t allocSize = groupAllocationSize(this->capacity_);
+    alloc.freeAlignedArray(this->hashMasks_, allocSize, GROUP_ALLOC_ALIGN);
+}
 
 void Group::destroyHeadersKeyOnly(sy::Allocator alloc, void (*destruct)(void* key), size_t keyAlign, size_t keySize) {
     for (uint32_t i = 0; i < capacity_; i++) {
@@ -61,6 +89,29 @@ std::optional<uint32_t> Group::find(PairBitmask pair) const {
         }
     }
     return std::nullopt;
+}
+
+sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity) {
+    if(minCapacity <= this->capacity_) sy::AllocExpect<void>(std::true_type{});
+
+    
+    const uint32_t pairAllocCapacity = [minCapacity]() {
+        const uint32_t remainder = minCapacity % 16;
+        if(remainder == 0) return minCapacity;
+        return minCapacity + (16 - remainder);
+    }();
+    const uint32_t allocSize = groupAllocationSize(pairAllocCapacity);
+
+    auto allocResult = alloc.allocAlignedArray<uint8_t>(allocSize, GROUP_ALLOC_ALIGN);
+    if(allocResult.hasValue() == false) {
+        return sy::AllocExpect<void>();
+    }
+
+    this->freeMemory(alloc);
+
+    this->hashMasks_ = allocResult.value();
+    this->capacity_ = pairAllocCapacity;
+    return sy::AllocExpect<void>(std::true_type{});
 }
 
 void* Group::Header::key(size_t keyAlign) {

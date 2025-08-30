@@ -86,7 +86,14 @@ namespace sy {
 
         union SY_API Val {
                 uint8_t empty;
+                #if _WIN32 // allow non dll-interface types to be used here
+                #pragma warning(push)
+                #pragma warning(disable: 4251)
+                #endif
                 T val;
+                #if _WIN32
+                #pragma warning(pop)
+                #endif
                 Val() : empty(0) {}
                 Val(T&& inVal) noexcept : val(std::move(inVal)) {}
                 Val(const T& inVal) noexcept : val(inVal) {}

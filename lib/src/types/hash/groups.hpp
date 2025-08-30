@@ -40,6 +40,10 @@ class Group {
                                                        size_t valueAlign, size_t valueSize);
     };
 
+    static sy::AllocExpect<Group> create(sy::Allocator& alloc);
+
+    void freeMemory(sy::Allocator& alloc);
+
     void destroyHeadersKeyOnly(sy::Allocator alloc, void (*destruct)(void* key), size_t keyAlign, size_t keySize);
 
     void destroyHeadersScriptKeyOnly(sy::Allocator alloc, const sy::Type* type);
@@ -75,10 +79,17 @@ class Group {
 
     std::optional<uint32_t> find(PairBitmask pair) const;
 
+    sy::AllocExpect<void> ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity);
+
   private:
     uint8_t* hashMasks_;
-    // uint32_t itemCount_;
     uint32_t capacity_;
+    uint32_t itemCount_;
 };
+
+inline constexpr size_t calculateLoadFactor(size_t totalEntryCapacity) {
+    // load factor of 0.8
+    return (totalEntryCapacity * 4) / 5;
+}
 
 #endif // SY_TYPES_HASH_GROUPS_HPP_
