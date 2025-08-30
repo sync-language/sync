@@ -114,6 +114,11 @@ sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t mi
     return sy::AllocExpect<void>(std::true_type{});
 }
 
+void Group::setMaskAt(uint32_t index, PairBitmask pairMask) {
+    sy_assert(index < this->capacity_, "Index out of bounds");
+    this->hashMasks_[index] = pairMask.value;
+}
+
 void* Group::Header::key(size_t keyAlign) {
     const size_t byteOffset = byteOffsetForAlignedMember(sizeof(Header), keyAlign);
     uint8_t* asBytes = reinterpret_cast<uint8_t*>(this);

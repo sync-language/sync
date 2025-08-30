@@ -29,15 +29,24 @@ class SY_API RawMapUnmanaged final {
                                                         const Type* valueType) const noexcept;
 
     [[nodiscard]] std::optional<void*> findMut(const void* key, size_t (*hash)(const void* key), size_t keyAlign,
-                                                  size_t keySize, size_t valueAlign) const noexcept;
+                                               size_t keySize, size_t valueAlign) const noexcept;
 
     [[nodiscard]] std::optional<void*> findMutScript(const void* key, const Type* keyType,
-                                                        const Type* valueType) const noexcept;
+                                                     const Type* valueType) const noexcept;
+
+    [[nodiscard]] AllocExpect<bool> insert(Allocator& alloc, void* optionalOldValue, void* key, void* value, size_t (*hash)(const void* key),
+                              void (*destructKey)(void* ptr), size_t keySize, size_t keyAlign, size_t valueSize,
+                              size_t valueAlign);
+
+private:
+
+    AllocExpect<void> ensureCapacityForInsert(Allocator& alloc);
 
   private:
+    size_t count_ = 0;
     void* groups_ = nullptr;
     size_t groupCount_ = 0;
-    size_t elementCount_ = 0;
+    size_t available_ = 0;
 };
 } // namespace sy
 

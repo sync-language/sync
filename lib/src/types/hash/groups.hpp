@@ -81,6 +81,16 @@ class Group {
 
     sy::AllocExpect<void> ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity);
 
+    void setMaskAt(uint32_t index, PairBitmask pairMask);
+
+    const uint8_t* hashMasksAsBytes() const { return hashMasks_; }
+
+    uint32_t itemCount() const { return itemCount_; }
+
+    void setItemCount(uint32_t newCount) { itemCount_ = newCount; }
+
+    uint32_t capacity() const { return capacity_; }
+
   private:
     uint8_t* hashMasks_;
     uint32_t capacity_;
