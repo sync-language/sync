@@ -91,6 +91,11 @@ class Group {
 
     uint32_t capacity() const { return capacity_; }
 
+    sy::AllocExpect<void> insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode, size_t keySize,
+                                         size_t keyAlign, size_t valueSize, size_t valueAlign);
+
+    std::optional<uint32_t> firstZeroIndex() const;
+
   private:
     uint8_t* hashMasks_;
     uint32_t capacity_;

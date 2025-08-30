@@ -1,6 +1,7 @@
 #include "groups.hpp"
 #include "../../util/align.hpp"
 #include "../../util/assert.hpp"
+#include <cstring>
 
 constexpr static uint32_t groupAllocationSize(uint32_t requiredCapacity) {
     return requiredCapacity + (sizeof(Group::Header*) * requiredCapacity);
@@ -13,7 +14,7 @@ sy::AllocExpect<Group> Group::create(sy::Allocator& alloc) {
     constexpr uint32_t INITIAL_ALLOCATION_SIZE = groupAllocationSize(INITIAL_CAPACITY);
 
     auto allocResult = alloc.allocAlignedArray<uint8_t>(INITIAL_ALLOCATION_SIZE, GROUP_ALLOC_ALIGN);
-    if(allocResult.hasValue() == false) {
+    if (allocResult.hasValue() == false) {
         return sy::AllocExpect<Group>();
     }
 
@@ -92,18 +93,19 @@ std::optional<uint32_t> Group::find(PairBitmask pair) const {
 }
 
 sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity) {
-    if(minCapacity <= this->capacity_) sy::AllocExpect<void>(std::true_type{});
+    if (minCapacity <= this->capacity_)
+        sy::AllocExpect<void>(std::true_type{});
 
-    
     const uint32_t pairAllocCapacity = [minCapacity]() {
         const uint32_t remainder = minCapacity % 16;
-        if(remainder == 0) return minCapacity;
+        if (remainder == 0)
+            return minCapacity;
         return minCapacity + (16 - remainder);
     }();
     const uint32_t allocSize = groupAllocationSize(pairAllocCapacity);
 
     auto allocResult = alloc.allocAlignedArray<uint8_t>(allocSize, GROUP_ALLOC_ALIGN);
-    if(allocResult.hasValue() == false) {
+    if (allocResult.hasValue() == false) {
         return sy::AllocExpect<void>();
     }
 
@@ -117,6 +119,43 @@ sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t mi
 void Group::setMaskAt(uint32_t index, PairBitmask pairMask) {
     sy_assert(index < this->capacity_, "Index out of bounds");
     this->hashMasks_[index] = pairMask.value;
+}
+
+sy::AllocExpect<void> Group::insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode,
+                                            size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign) {
+    sy_assert(this->find(hashCode).has_value() == false, "Duplicate entry");
+
+    if (auto ensureResult = this->ensureCapacityFor(alloc, this->itemCount_ + 1); ensureResult.hasValue() == false) {
+        return ensureResult;
+    }
+
+    auto headerCreate = Header::createKeyValue(alloc, keyAlign, keySize, valueAlign, valueSize);
+    if (headerCreate.hasValue() == false) {
+        return sy::AllocExpect<void>();
+    }
+
+    Header* newHeader = headerCreate.value();
+    memcpy(newHeader->key(keyAlign), key, keySize);
+    memcpy(newHeader->value(keyAlign, keySize, valueAlign), value, valueSize);
+
+    const uint32_t zeroIndex = this->firstZeroIndex().value();
+
+    this->headers()[zeroIndex] = newHeader;
+    this->setMaskAt(zeroIndex, hashCode);
+    this->itemCount_ += 1;
+
+    return sy::AllocExpect<void>(std::true_type{});
+}
+
+std::optional<uint32_t> Group::firstZeroIndex() const {
+    const ByteSimd<16>* simd = this->hashMasks();
+    for (uint32_t i = 0; i < this->simdHashMaskCount(); i++) {
+        auto fz = simd->firstZeroIndex();
+        if (fz.has_value()) {
+            return std::optional<uint32_t>(fz.value() + (i * 16));
+        }
+    }
+    return std::optional<uint32_t>();
 }
 
 void* Group::Header::key(size_t keyAlign) {
