@@ -163,7 +163,7 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
             }
 
             memcpy(oldValue, value, valueSize);
-            return sy::AllocExpect<bool>(std::true_type{});
+            return sy::AllocExpect<bool>(true);
         }
     }
 
@@ -171,7 +171,13 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
     Group::IndexBitmask index(hashCode);
     const size_t groupIndex = index.value % this->groupCount_;
     Group& group = groups[groupIndex];
-    return group.insertKeyValue(alloc, key, value, hashCode, keySize, keyAlign, valueSize, valueAlign);
+    auto insertResult = group.insertKeyValue(alloc, key, value, hashCode, keySize, keyAlign, valueSize, valueAlign);
+    if(insertResult.hasValue()) {
+        this->count_ += 1;
+        return sy::AllocExpect<bool>(false);
+    }
+    
+    return sy::AllocExpect<bool>();
 }
 
 sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& alloc) {
