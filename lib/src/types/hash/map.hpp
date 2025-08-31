@@ -43,6 +43,10 @@ class SY_API RawMapUnmanaged final {
                void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign);
 
     class SY_API Iterator {
+        friend class RawMapUnmanaged;
+        RawMapUnmanaged* map_;
+        void* currentHeader_;
+
       public:
         class SY_API Entry {
             friend class Iterator;
@@ -56,11 +60,6 @@ class SY_API RawMapUnmanaged final {
         bool operator!=(const Iterator& other);
         Entry operator*() const;
         Iterator& operator++();
-
-      private:
-        friend class RawMapUnmanaged;
-        RawMapUnmanaged* map_;
-        void* currentHeader_;
     };
 
     Iterator begin();
