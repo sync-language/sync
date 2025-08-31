@@ -92,13 +92,14 @@ class Group {
     uint32_t capacity() const { return capacity_; }
 
     sy::AllocExpect<void> insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode, size_t keySize,
-                                         size_t keyAlign, size_t valueSize, size_t valueAlign);
+                                         size_t keyAlign, size_t valueSize, size_t valueAlign, Header** iterFirst,
+                                         Header** iterLast);
 
     std::optional<uint32_t> firstZeroIndex() const;
 
-    void erase(sy::Allocator& alloc, uint32_t index,
-                                void (*destructKey)(void* ptr), void (*destructValue)(void* ptr), size_t keySize,
-                                size_t keyAlign, size_t valueSize, size_t valueAlign);
+    void erase(sy::Allocator& alloc, uint32_t index, void (*destructKey)(void* ptr), void (*destructValue)(void* ptr),
+               size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign, Header** iterFirst,
+               Header** iterLast);
 
   private:
     uint8_t* hashMasks_;

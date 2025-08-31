@@ -122,7 +122,8 @@ void Group::setMaskAt(uint32_t index, PairBitmask pairMask) {
 }
 
 sy::AllocExpect<void> Group::insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode,
-                                            size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign) {
+                                            size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign,
+                                            Header** iterFirst, Header** iterLast) {
     sy_assert(this->find(hashCode).has_value() == false, "Duplicate entry");
 
     if (auto ensureResult = this->ensureCapacityFor(alloc, this->itemCount_ + 1); ensureResult.hasValue() == false) {
@@ -137,6 +138,18 @@ sy::AllocExpect<void> Group::insertKeyValue(sy::Allocator& alloc, void* key, voi
     Header* newHeader = headerCreate.value();
     memcpy(newHeader->key(keyAlign), key, keySize);
     memcpy(newHeader->value(keyAlign, keySize, valueAlign), value, valueSize);
+    // first element in map
+    if (*iterFirst == nullptr) {
+        *iterFirst = newHeader;
+    }
+
+    // set last element or update linked list
+    if (*iterLast == nullptr) {
+        *iterLast = newHeader;
+    } else {
+        (*iterLast)->iterAfter = newHeader;
+        *iterLast = newHeader;
+    }
 
     const uint32_t zeroIndex = this->firstZeroIndex().value();
 
@@ -160,7 +173,23 @@ std::optional<uint32_t> Group::firstZeroIndex() const {
 
 void Group::erase(sy::Allocator& alloc, uint32_t index, void (*destructKey)(void* ptr),
                   void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign, size_t valueSize,
-                  size_t valueAlign) {
+                  size_t valueAlign, Header** iterFirst, Header** iterLast) {
+    Header* thisHeader = this->headers()[index];
+    Header* before = thisHeader->iterBefore;
+    Header* after = thisHeader->iterAfter;
+
+    if (before != nullptr) {
+        before->iterAfter = after;
+    } else {
+        *iterFirst = after;
+    }
+
+    if (after != nullptr) {
+        after->iterBefore = before;
+    } else {
+        *iterLast = before;
+    }
+
     this->headers()[index]->destroyKeyValue(alloc, destructKey, destructValue, keyAlign, keySize, valueAlign,
                                             valueSize);
     this->hashMasks_[index] = 0;

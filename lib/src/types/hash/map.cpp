@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <tuple>
 
 const Group* asGroups(const void* groups_) { return reinterpret_cast<const Group*>(groups_); }
 
@@ -170,7 +171,9 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
     Group::IndexBitmask index(hashCode);
     const size_t groupIndex = index.value % this->groupCount_;
     Group& group = groups[groupIndex];
-    auto insertResult = group.insertKeyValue(alloc, key, value, hashCode, keySize, keyAlign, valueSize, valueAlign);
+    auto insertResult = group.insertKeyValue(alloc, key, value, hashCode, keySize, keyAlign, valueSize, valueAlign,
+                                             reinterpret_cast<Group::Header**>(&this->iterFirst_),
+                                             reinterpret_cast<Group::Header**>(&this->iterLast_));
     if (insertResult.hasValue()) {
         this->count_ += 1;
         return sy::AllocExpect<bool>(false);
@@ -189,7 +192,9 @@ bool sy::RawMapUnmanaged::erase(Allocator& alloc, const void* key, size_t (*hash
         return false;
     } else {
         Group& group = groups[foundIndex.groupIndex];
-        group.erase(alloc, foundIndex.groupIndex, destructKey, destructValue, keySize, keyAlign, valueSize, valueAlign);
+        group.erase(alloc, foundIndex.valueIndex, destructKey, destructValue, keySize, keyAlign, valueSize, valueAlign,
+                    reinterpret_cast<Group::Header**>(&this->iterFirst_),
+                    reinterpret_cast<Group::Header**>(&this->iterLast_));
         this->count_ -= 1;
         return true;
     }
@@ -285,4 +290,44 @@ sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& al
     this->available_ = newAvailable;
 
     return sy::AllocExpect<void>(std::true_type{});
+}
+
+bool sy::RawMapUnmanaged::Iterator::operator!=(const Iterator& other) {
+    return this->currentHeader_ != other.currentHeader_;
+}
+
+sy::RawMapUnmanaged::Iterator::Entry sy::RawMapUnmanaged::Iterator::operator*() const {
+    Entry e;
+    e.header_ = this->currentHeader_;
+    return e;
+}
+
+sy::RawMapUnmanaged::Iterator& sy::RawMapUnmanaged::Iterator::operator++() {
+    Group::Header* header = reinterpret_cast<Group::Header*>(this->currentHeader_);
+    this->currentHeader_ = reinterpret_cast<void*>(header->iterAfter);
+    return *this;
+}
+
+const void* sy::RawMapUnmanaged::Iterator::Entry::key(size_t keyAlign) const {
+    Group::Header* header = reinterpret_cast<Group::Header*>(const_cast<void*>(this->header_));
+    return header->key(keyAlign);
+}
+
+void* sy::RawMapUnmanaged::Iterator::Entry::value(size_t keyAlign, size_t keySize, size_t valueAlign) const {
+    Group::Header* header = reinterpret_cast<Group::Header*>(const_cast<void*>(this->header_));
+    return header->value(keyAlign, keySize, valueAlign);
+}
+
+sy::RawMapUnmanaged::Iterator sy::RawMapUnmanaged::begin() {
+    Iterator it;
+    it.map_ = this;
+    it.currentHeader_ = this->iterFirst_;
+    return it;
+}
+
+sy::RawMapUnmanaged::Iterator sy::RawMapUnmanaged::end() {
+    Iterator it;
+    it.map_ = this;
+    it.currentHeader_ = nullptr;
+    return it;
 }

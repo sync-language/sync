@@ -39,12 +39,37 @@ class SY_API RawMapUnmanaged final {
                                            void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign,
                                            size_t valueSize, size_t valueAlign);
 
-    bool erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key),
-               void (*destructKey)(void* ptr), void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign,
-               size_t valueSize, size_t valueAlign);
+    bool erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
+               void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign);
+
+    class SY_API Iterator {
+      public:
+        class SY_API Entry {
+            friend class Iterator;
+            void* header_;
+
+          public:
+            const void* key(size_t keyAlign) const;
+            void* value(size_t keyAlign, size_t keySize, size_t valueAlign) const;
+        };
+
+        bool operator!=(const Iterator& other);
+        Entry operator*() const;
+        Iterator& operator++();
+
+      private:
+        friend class RawMapUnmanaged;
+        RawMapUnmanaged* map_;
+        void* currentHeader_;
+    };
+
+    Iterator begin();
+
+    Iterator end();
 
   private:
-  
+    friend class Iterator;
+
     AllocExpect<void> ensureCapacityForInsert(Allocator& alloc);
 
   private:
@@ -52,6 +77,8 @@ class SY_API RawMapUnmanaged final {
     void* groups_ = nullptr;
     size_t groupCount_ = 0;
     size_t available_ = 0;
+    void* iterFirst_ = nullptr;
+    void* iterLast_ = nullptr;
 };
 } // namespace sy
 
