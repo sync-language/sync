@@ -96,6 +96,10 @@ class Group {
 
     std::optional<uint32_t> firstZeroIndex() const;
 
+    void erase(sy::Allocator& alloc, uint32_t index,
+                                void (*destructKey)(void* ptr), void (*destructValue)(void* ptr), size_t keySize,
+                                size_t keyAlign, size_t valueSize, size_t valueAlign);
+
   private:
     uint8_t* hashMasks_;
     uint32_t capacity_;

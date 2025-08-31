@@ -39,7 +39,12 @@ class SY_API RawMapUnmanaged final {
                                            void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign,
                                            size_t valueSize, size_t valueAlign);
 
+    bool erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key),
+               void (*destructKey)(void* ptr), void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign,
+               size_t valueSize, size_t valueAlign);
+
   private:
+  
     AllocExpect<void> ensureCapacityForInsert(Allocator& alloc);
 
   private:

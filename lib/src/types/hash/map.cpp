@@ -6,7 +6,6 @@
 #include <cstring>
 #include <iostream>
 
-
 const Group* asGroups(const void* groups_) { return reinterpret_cast<const Group*>(groups_); }
 
 Group* asGroupsMut(void* groups_) { return reinterpret_cast<Group*>(groups_); }
@@ -172,12 +171,28 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
     const size_t groupIndex = index.value % this->groupCount_;
     Group& group = groups[groupIndex];
     auto insertResult = group.insertKeyValue(alloc, key, value, hashCode, keySize, keyAlign, valueSize, valueAlign);
-    if(insertResult.hasValue()) {
+    if (insertResult.hasValue()) {
         this->count_ += 1;
         return sy::AllocExpect<bool>(false);
     }
-    
+
     return sy::AllocExpect<bool>();
+}
+
+bool sy::RawMapUnmanaged::erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key),
+                                void (*destructKey)(void* ptr), void (*destructValue)(void* ptr), size_t keySize,
+                                size_t keyAlign, size_t valueSize, size_t valueAlign) {
+    Group* groups = asGroupsMut(this->groups_);
+    size_t hashCode = hash(key);
+    auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
+    if (foundIndex.hasValue == false) {
+        return false;
+    } else {
+        Group& group = groups[foundIndex.groupIndex];
+        group.erase(alloc, foundIndex.groupIndex, destructKey, destructValue, keySize, keyAlign, valueSize, valueAlign);
+        this->count_ -= 1;
+        return true;
+    }
 }
 
 sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& alloc) {

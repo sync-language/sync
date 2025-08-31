@@ -158,6 +158,15 @@ std::optional<uint32_t> Group::firstZeroIndex() const {
     return std::optional<uint32_t>();
 }
 
+void Group::erase(sy::Allocator& alloc, uint32_t index, void (*destructKey)(void* ptr),
+                  void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign, size_t valueSize,
+                  size_t valueAlign) {
+    this->headers()[index]->destroyKeyValue(alloc, destructKey, destructValue, keyAlign, keySize, valueAlign,
+                                            valueSize);
+    this->hashMasks_[index] = 0;
+    this->itemCount_ -= 1;
+}
+
 void* Group::Header::key(size_t keyAlign) {
     const size_t byteOffset = byteOffsetForAlignedMember(sizeof(Header), keyAlign);
     uint8_t* asBytes = reinterpret_cast<uint8_t*>(this);
