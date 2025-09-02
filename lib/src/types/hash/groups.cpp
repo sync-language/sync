@@ -20,6 +20,7 @@ sy::AllocExpect<Group> Group::create(sy::Allocator& alloc) {
 
     Group group;
     group.hashMasks_ = allocResult.value();
+    memset(group.hashMasks_, 0, INITIAL_CAPACITY);
     group.capacity_ = INITIAL_CAPACITY;
     group.itemCount_ = 0;
     return sy::AllocExpect<Group>(group);
@@ -109,9 +110,13 @@ sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t mi
         return sy::AllocExpect<void>();
     }
 
+    uint8_t* newHashMasks = allocResult.value();
+    memcpy(newHashMasks, this->hashMasks_, this->capacity_);
+    memset(&newHashMasks[this->capacity_], 0, pairAllocCapacity - this->capacity_);
+
     this->freeMemory(alloc);
 
-    this->hashMasks_ = allocResult.value();
+    this->hashMasks_ = newHashMasks;
     this->capacity_ = pairAllocCapacity;
     return sy::AllocExpect<void>(std::true_type{});
 }
@@ -225,7 +230,7 @@ const void* Group::Header::value(size_t keyAlign, size_t keySize, size_t valueAl
 void Group::Header::destroyKeyOnly(sy::Allocator alloc, void (*destruct)(void* key), size_t keyAlign, size_t keySize) {
     const size_t byteOffsetForKey = byteOffsetForAlignedMember(sizeof(Header), keyAlign);
     uint8_t* asBytes = reinterpret_cast<uint8_t*>(this);
-    destruct(&asBytes[byteOffsetForKey]);
+    if(destruct) destruct(&asBytes[byteOffsetForKey]);
 
     const size_t allocSize = byteOffsetForKey + keySize;
     const size_t allocAlign = keyAlign > alignof(Header) ? keyAlign : alignof(Header);
@@ -248,8 +253,8 @@ void Group::Header::destroyKeyValue(sy::Allocator alloc, void (*destructKey)(voi
     const size_t byteOffsetForKey = byteOffsetForAlignedMember(sizeof(Header), keyAlign);
     const size_t byteOffsetForValue = byteOffsetForAlignedMember(byteOffsetForKey + keySize, valueAlign);
     uint8_t* asBytes = reinterpret_cast<uint8_t*>(this);
-    destructKey(&asBytes[byteOffsetForKey]);
-    destructValue(&asBytes[byteOffsetForValue]);
+    if(destructKey) destructKey(&asBytes[byteOffsetForKey]);
+    if(destructValue) destructValue(&asBytes[byteOffsetForValue]);
 
     const size_t allocSize = byteOffsetForValue + valueSize;
     const size_t allocAlign = [keyAlign, valueAlign]() {

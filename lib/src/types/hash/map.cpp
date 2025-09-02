@@ -153,13 +153,13 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
             Group& group = groups[foundIndex.groupIndex];
             Group::Header* pair = group.headers()[foundIndex.valueIndex];
 
-            destructKey(key); // don't need duplicates
+            if(destructKey) destructKey(key); // don't need duplicates
             void* oldValue = pair->value(keyAlign, keySize, valueAlign);
 
             if (optionalOldValue) {
                 memcpy(optionalOldValue, oldValue, keySize);
             } else { // discard old value
-                destructValue(oldValue);
+                if(destructValue) destructValue(oldValue);
             }
 
             memcpy(oldValue, value, valueSize);
@@ -204,7 +204,7 @@ sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& al
 
     if (this->available_ != 0)
         return sy::AllocExpect<void>(std::true_type{});
-    ;
+    
 
     const size_t newGroupCount = [](size_t currentGroupCount) -> size_t {
         constexpr size_t DEFAULT_GROUP_COUNT = 1;
@@ -336,6 +336,7 @@ sy::RawMapUnmanaged::Iterator sy::RawMapUnmanaged::end() {
 
 #include "../../doctest.h"
 
+using sy::Allocator;
 using sy::RawMapUnmanaged;
 
 TEST_CASE("RawMapUnmanaged default construct/destruct") {
@@ -370,13 +371,24 @@ TEST_CASE("RawMapUnmanaged empty find no value") {
     }
 }
 
-TEST_CASE("RawMapUnmanaged insert one") {
+TEST_CASE("RawMapUnmanaged insert one simple") {
     RawMapUnmanaged map;
     size_t key = 10;
     auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
     float value = 5.0;
     
+        constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+        constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
 
+    Allocator alloc;
+    auto insertResult = map.insert(alloc, nullptr, &key, &value, hashKey, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+
+    CHECK(insertResult.hasValue()); // successfully allocated
+    CHECK_FALSE(insertResult.value()); // no old value
+
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
 }
 
 #endif
