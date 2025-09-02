@@ -104,7 +104,7 @@ std::optional<const void*> sy::RawMapUnmanaged::findScript(const void* key, cons
 }
 
 std::optional<void*> sy::RawMapUnmanaged::findMut(const void* key, size_t (*hash)(const void* key), size_t keyAlign,
-                                                  size_t keySize, size_t valueAlign) const noexcept {
+                                                  size_t keySize, size_t valueAlign) noexcept {
     if (this->count_ == 0)
         return std::nullopt;
 
@@ -120,7 +120,7 @@ std::optional<void*> sy::RawMapUnmanaged::findMut(const void* key, size_t (*hash
 }
 
 std::optional<void*> sy::RawMapUnmanaged::findMutScript(const void* key, const Type* keyType,
-                                                        const Type* valueType) const noexcept {
+                                                        const Type* valueType) noexcept {
     if (this->count_ == 0)
         return std::nullopt;
 
@@ -139,7 +139,7 @@ std::optional<void*> sy::RawMapUnmanaged::findMutScript(const void* key, const T
 sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
                                                   size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
                                                   void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign,
-                                                  size_t valueSize, size_t valueAlign) {
+                                                  size_t valueSize, size_t valueAlign) noexcept {
     if (auto ensureCapacityResult = this->ensureCapacityForInsert(alloc); ensureCapacityResult.hasValue() == false) {
         return sy::AllocExpect<bool>();
     }
@@ -184,7 +184,7 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
 
 bool sy::RawMapUnmanaged::erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key),
                                 void (*destructKey)(void* ptr), void (*destructValue)(void* ptr), size_t keySize,
-                                size_t keyAlign, size_t valueSize, size_t valueAlign) {
+                                size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept {
     Group* groups = asGroupsMut(this->groups_);
     size_t hashCode = hash(key);
     auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
@@ -331,3 +331,52 @@ sy::RawMapUnmanaged::Iterator sy::RawMapUnmanaged::end() {
     it.currentHeader_ = nullptr;
     return it;
 }
+
+#if SYNC_LIB_WITH_TESTS
+
+#include "../../doctest.h"
+
+using sy::RawMapUnmanaged;
+
+TEST_CASE("RawMapUnmanaged default construct/destruct") {
+    RawMapUnmanaged map;
+    CHECK_EQ(map.size(), 0);
+}
+
+TEST_CASE("RawMapUnmanaged empty find no value") {
+    RawMapUnmanaged map;
+    const size_t key = 10;
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    { // const
+        auto findResult = map.find(&key, hashKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+        CHECK_FALSE(findResult);
+    }
+    { // mutable
+        auto findResult = map.findMut(&key, hashKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+        CHECK_FALSE(findResult);
+    }
+    { // const script
+        auto findResult = map.findScript(&key, sy::Type::TYPE_USIZE, sy::Type::TYPE_F32);
+        CHECK_FALSE(findResult);
+    }
+    { // mutable script
+        auto findResult = map.findMutScript(&key, sy::Type::TYPE_USIZE, sy::Type::TYPE_F32);
+        CHECK_FALSE(findResult);
+    }
+}
+
+TEST_CASE("RawMapUnmanaged insert one") {
+    RawMapUnmanaged map;
+    size_t key = 10;
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    float value = 5.0;
+    
+
+}
+
+#endif
