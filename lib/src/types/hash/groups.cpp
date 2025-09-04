@@ -79,7 +79,8 @@ const Group::Header* const* Group::headers() const {
     return reinterpret_cast<const Header* const*>(&this->hashMasks_[this->capacity_]);
 }
 
-std::optional<uint32_t> Group::find(PairBitmask pair) const {
+std::optional<uint32_t> Group::find(PairBitmask pair, const void* inKey, bool (*eq)(const void* key, const void* found),
+                                    size_t keyAlign) const {
     const ByteSimd<16>* simdMasks = this->hashMasks();
     const uint32_t maskCount = this->simdHashMaskCount();
     for (uint32_t i = 0; i < maskCount; i++) {
@@ -87,7 +88,11 @@ std::optional<uint32_t> Group::find(PairBitmask pair) const {
         auto begin = found.begin();
         auto end = found.end();
         if (begin != end) {
-            std::optional<uint32_t>((i * 16) + *begin);
+            const uint32_t index = (i * 16) + *begin;
+            const void* potentialMatch = this->headers()[index]->key(keyAlign);
+            if (eq(inKey, potentialMatch)) {
+                return std::optional<uint32_t>(index);
+            }
         }
     }
     return std::nullopt;
@@ -129,8 +134,6 @@ void Group::setMaskAt(uint32_t index, PairBitmask pairMask) {
 sy::AllocExpect<void> Group::insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode,
                                             size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign,
                                             Header** iterFirst, Header** iterLast) {
-    sy_assert(this->find(hashCode).has_value() == false, "Duplicate entry");
-
     if (auto ensureResult = this->ensureCapacityFor(alloc, this->itemCount_ + 1); ensureResult.hasValue() == false) {
         return ensureResult;
     }
@@ -230,7 +233,8 @@ const void* Group::Header::value(size_t keyAlign, size_t keySize, size_t valueAl
 void Group::Header::destroyKeyOnly(sy::Allocator alloc, void (*destruct)(void* key), size_t keyAlign, size_t keySize) {
     const size_t byteOffsetForKey = byteOffsetForAlignedMember(sizeof(Header), keyAlign);
     uint8_t* asBytes = reinterpret_cast<uint8_t*>(this);
-    if(destruct) destruct(&asBytes[byteOffsetForKey]);
+    if (destruct)
+        destruct(&asBytes[byteOffsetForKey]);
 
     const size_t allocSize = byteOffsetForKey + keySize;
     const size_t allocAlign = keyAlign > alignof(Header) ? keyAlign : alignof(Header);
@@ -253,8 +257,10 @@ void Group::Header::destroyKeyValue(sy::Allocator alloc, void (*destructKey)(voi
     const size_t byteOffsetForKey = byteOffsetForAlignedMember(sizeof(Header), keyAlign);
     const size_t byteOffsetForValue = byteOffsetForAlignedMember(byteOffsetForKey + keySize, valueAlign);
     uint8_t* asBytes = reinterpret_cast<uint8_t*>(this);
-    if(destructKey) destructKey(&asBytes[byteOffsetForKey]);
-    if(destructValue) destructValue(&asBytes[byteOffsetForValue]);
+    if (destructKey)
+        destructKey(&asBytes[byteOffsetForKey]);
+    if (destructValue)
+        destructValue(&asBytes[byteOffsetForValue]);
 
     const size_t allocSize = byteOffsetForValue + valueSize;
     const size_t allocAlign = [keyAlign, valueAlign]() {
@@ -349,24 +355,21 @@ TEST_SUITE("header") {
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(
-                Allocator(), [](void*) {}, alignof(uint8_t), sizeof(uint8_t));
+            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(uint8_t), sizeof(uint8_t));
         }
         { // same as header align
             auto result = Header::createKeyOnly(Allocator(), alignof(void*), sizeof(void*));
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(
-                Allocator(), [](void*) {}, alignof(void*), alignof(void*));
+            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(void*), alignof(void*));
         }
         { // greater than header align
             auto result = Header::createKeyOnly(Allocator(), alignof(ByteSimd<64>), sizeof(ByteSimd<64>));
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(
-                Allocator(), [](void*) {}, alignof(ByteSimd<64>), alignof(ByteSimd<64>));
+            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(ByteSimd<64>), alignof(ByteSimd<64>));
         }
     }
 }

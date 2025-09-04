@@ -22,28 +22,31 @@ class SY_API RawMapUnmanaged final {
 
     void destroyScript(Allocator& alloc, const Type* keyType, const Type* valueType) noexcept;
 
-    [[nodiscard]] size_t size() const { return this->count_; }
+    [[nodiscard]] size_t len() const { return this->count_; }
 
-    [[nodiscard]] std::optional<const void*> find(const void* key, size_t (*hash)(const void* key), size_t keyAlign,
+    [[nodiscard]] std::optional<const void*> find(const void* key, size_t (*hash)(const void* key),
+                                                  bool (*eq)(const void* key, const void* found), size_t keyAlign,
                                                   size_t keySize, size_t valueAlign) const noexcept;
 
-    [[nodiscard]] std::optional<const void*> findScript(const void* key, const Type* keyType,
-                                                        const Type* valueType) const noexcept;
+    // [[nodiscard]] std::optional<const void*> findScript(const void* key, const Type* keyType,
+    //                                                     const Type* valueType) const noexcept;
 
-    [[nodiscard]] std::optional<void*> findMut(const void* key, size_t (*hash)(const void* key), size_t keyAlign,
+    [[nodiscard]] std::optional<void*> findMut(const void* key, size_t (*hash)(const void* key),
+                                               bool (*eq)(const void* key, const void* found), size_t keyAlign,
                                                size_t keySize, size_t valueAlign) noexcept;
 
-    [[nodiscard]] std::optional<void*> findMutScript(const void* key, const Type* keyType,
-                                                     const Type* valueType) noexcept;
+    // [[nodiscard]] std::optional<void*> findMutScript(const void* key, const Type* keyType,
+    //                                                  const Type* valueType) noexcept;
 
     [[nodiscard]] AllocExpect<bool> insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
                                            size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
-                                           void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign,
-                                           size_t valueSize, size_t valueAlign) noexcept;
+                                           void (*destructValue)(void* ptr),
+                                           bool (*eq)(const void* searchKey, const void* found), size_t keySize,
+                                           size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept;
 
     bool erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
-               void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign, size_t valueSize,
-               size_t valueAlign) noexcept;
+               void (*destructValue)(void* ptr), bool (*eq)(const void* searchKey, const void* found), size_t keySize,
+               size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept;
 
     class SY_API Iterator {
         friend class RawMapUnmanaged;

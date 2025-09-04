@@ -55,13 +55,14 @@ struct FoundGroup {
     bool hasValue;
 };
 
-static FoundGroup findImpl(const Group* groups, size_t groupCount, size_t hashCode) noexcept {
+static FoundGroup findImpl(const Group* groups, size_t groupCount, size_t hashCode, const void* key,
+                           bool (*eq)(const void* key, const void* found), size_t keyAlign) noexcept {
     Group::IndexBitmask index(hashCode);
     Group::PairBitmask pair(hashCode);
     const size_t groupIndex = index.value % groupCount;
 
     const Group& group = groups[groupIndex];
-    auto foundIndex = group.find(pair);
+    auto foundIndex = group.find(pair, key, eq, keyAlign);
     if (foundIndex.has_value() == false) {
         return {0, 0, false};
     } else {
@@ -70,14 +71,15 @@ static FoundGroup findImpl(const Group* groups, size_t groupCount, size_t hashCo
     }
 }
 
-std::optional<const void*> sy::RawMapUnmanaged::find(const void* key, size_t (*hash)(const void* key), size_t keyAlign,
+std::optional<const void*> sy::RawMapUnmanaged::find(const void* key, size_t (*hash)(const void* key),
+                                                     bool (*eq)(const void* key, const void* found), size_t keyAlign,
                                                      size_t keySize, size_t valueAlign) const noexcept {
     if (this->count_ == 0)
         return std::nullopt;
 
     const Group* groups = asGroups(this->groups_);
     size_t hashCode = hash(key);
-    auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
+    auto foundIndex = findImpl(groups, this->groupCount_, hashCode, key, eq, keyAlign);
     if (foundIndex.hasValue == false) {
         return std::nullopt;
     } else {
@@ -86,31 +88,32 @@ std::optional<const void*> sy::RawMapUnmanaged::find(const void* key, size_t (*h
     }
 }
 
-std::optional<const void*> sy::RawMapUnmanaged::findScript(const void* key, const Type* keyType,
-                                                           const Type* valueType) const noexcept {
-    if (this->count_ == 0)
-        return std::nullopt;
+// std::optional<const void*> sy::RawMapUnmanaged::findScript(const void* key, const Type* keyType,
+//                                                            const Type* valueType) const noexcept {
+//     if (this->count_ == 0)
+//         return std::nullopt;
 
-    const Group* groups = asGroups(this->groups_);
-    size_t hashCode = keyType->hashObj(key);
-    auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
-    if (foundIndex.hasValue == false) {
-        return std::nullopt;
-    } else {
-        const Group& group = groups[foundIndex.groupIndex];
-        return group.headers()[foundIndex.valueIndex]->value(keyType->alignType, keyType->sizeType,
-                                                             valueType->alignType);
-    }
-}
+//     const Group* groups = asGroups(this->groups_);
+//     size_t hashCode = keyType->hashObj(key);
+//     auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
+//     if (foundIndex.hasValue == false) {
+//         return std::nullopt;
+//     } else {
+//         const Group& group = groups[foundIndex.groupIndex];
+//         return group.headers()[foundIndex.valueIndex]->value(keyType->alignType, keyType->sizeType,
+//                                                              valueType->alignType);
+//     }
+// }
 
-std::optional<void*> sy::RawMapUnmanaged::findMut(const void* key, size_t (*hash)(const void* key), size_t keyAlign,
+std::optional<void*> sy::RawMapUnmanaged::findMut(const void* key, size_t (*hash)(const void* key),
+                                                  bool (*eq)(const void* key, const void* found), size_t keyAlign,
                                                   size_t keySize, size_t valueAlign) noexcept {
     if (this->count_ == 0)
         return std::nullopt;
 
     Group* groups = asGroupsMut(this->groups_);
     size_t hashCode = hash(key);
-    auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
+    auto foundIndex = findImpl(groups, this->groupCount_, hashCode, key, eq, keyAlign);
     if (foundIndex.hasValue == false) {
         return std::nullopt;
     } else {
@@ -119,27 +122,28 @@ std::optional<void*> sy::RawMapUnmanaged::findMut(const void* key, size_t (*hash
     }
 }
 
-std::optional<void*> sy::RawMapUnmanaged::findMutScript(const void* key, const Type* keyType,
-                                                        const Type* valueType) noexcept {
-    if (this->count_ == 0)
-        return std::nullopt;
+// std::optional<void*> sy::RawMapUnmanaged::findMutScript(const void* key, const Type* keyType,
+//                                                         const Type* valueType) noexcept {
+//     if (this->count_ == 0)
+//         return std::nullopt;
 
-    Group* groups = asGroupsMut(this->groups_);
-    size_t hashCode = keyType->hashObj(key);
-    auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
-    if (foundIndex.hasValue == false) {
-        return std::nullopt;
-    } else {
-        Group& group = groups[foundIndex.groupIndex];
-        return group.headers()[foundIndex.valueIndex]->value(keyType->alignType, keyType->sizeType,
-                                                             valueType->alignType);
-    }
-}
+//     Group* groups = asGroupsMut(this->groups_);
+//     size_t hashCode = keyType->hashObj(key);
+//     auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
+//     if (foundIndex.hasValue == false) {
+//         return std::nullopt;
+//     } else {
+//         Group& group = groups[foundIndex.groupIndex];
+//         return group.headers()[foundIndex.valueIndex]->value(keyType->alignType, keyType->sizeType,
+//                                                              valueType->alignType);
+//     }
+// }
 
 sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
                                                   size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
-                                                  void (*destructValue)(void* ptr), size_t keySize, size_t keyAlign,
-                                                  size_t valueSize, size_t valueAlign) noexcept {
+                                                  void (*destructValue)(void* ptr),
+                                                  bool (*eq)(const void* searchKey, const void* found), size_t keySize,
+                                                  size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept {
     if (auto ensureCapacityResult = this->ensureCapacityForInsert(alloc); ensureCapacityResult.hasValue() == false) {
         return sy::AllocExpect<bool>();
     }
@@ -148,18 +152,20 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
     Group* groups = asGroupsMut(this->groups_);
 
     if (this->count_ != 0) {
-        auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
+        auto foundIndex = findImpl(groups, this->groupCount_, hashCode, key, eq, keyAlign);
         if (foundIndex.hasValue) {
             Group& group = groups[foundIndex.groupIndex];
             Group::Header* pair = group.headers()[foundIndex.valueIndex];
 
-            if(destructKey) destructKey(key); // don't need duplicates
+            if (destructKey)
+                destructKey(key); // don't need duplicates
             void* oldValue = pair->value(keyAlign, keySize, valueAlign);
 
             if (optionalOldValue) {
                 memcpy(optionalOldValue, oldValue, keySize);
             } else { // discard old value
-                if(destructValue) destructValue(oldValue);
+                if (destructValue)
+                    destructValue(oldValue);
             }
 
             memcpy(oldValue, value, valueSize);
@@ -183,11 +189,12 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
 }
 
 bool sy::RawMapUnmanaged::erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key),
-                                void (*destructKey)(void* ptr), void (*destructValue)(void* ptr), size_t keySize,
-                                size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept {
+                                void (*destructKey)(void* ptr), void (*destructValue)(void* ptr),
+                                bool (*eq)(const void* searchKey, const void* found), size_t keySize, size_t keyAlign,
+                                size_t valueSize, size_t valueAlign) noexcept {
     Group* groups = asGroupsMut(this->groups_);
     size_t hashCode = hash(key);
-    auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
+    auto foundIndex = findImpl(groups, this->groupCount_, hashCode, key, eq, keyAlign);
     if (foundIndex.hasValue == false) {
         return false;
     } else {
@@ -204,7 +211,6 @@ sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& al
 
     if (this->available_ != 0)
         return sy::AllocExpect<void>(std::true_type{});
-    
 
     const size_t newGroupCount = [](size_t currentGroupCount) -> size_t {
         constexpr size_t DEFAULT_GROUP_COUNT = 1;
@@ -341,52 +347,92 @@ using sy::RawMapUnmanaged;
 
 TEST_CASE("RawMapUnmanaged default construct/destruct") {
     RawMapUnmanaged map;
-    CHECK_EQ(map.size(), 0);
+    CHECK_EQ(map.len(), 0);
 }
 
 TEST_CASE("RawMapUnmanaged empty find no value") {
     RawMapUnmanaged map;
     const size_t key = 10;
     auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
 
     constexpr size_t KEY_SIZE = sizeof(size_t);
     constexpr size_t KEY_ALIGN = alignof(size_t);
     constexpr size_t VALUE_ALIGN = alignof(float);
 
     { // const
-        auto findResult = map.find(&key, hashKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+        auto findResult = map.find(&key, hashKey, eqKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
         CHECK_FALSE(findResult);
     }
     { // mutable
-        auto findResult = map.findMut(&key, hashKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+        auto findResult = map.findMut(&key, hashKey, eqKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
         CHECK_FALSE(findResult);
     }
-    { // const script
-        auto findResult = map.findScript(&key, sy::Type::TYPE_USIZE, sy::Type::TYPE_F32);
-        CHECK_FALSE(findResult);
-    }
-    { // mutable script
-        auto findResult = map.findMutScript(&key, sy::Type::TYPE_USIZE, sy::Type::TYPE_F32);
-        CHECK_FALSE(findResult);
-    }
+    // { // const script
+    //     auto findResult = map.findScript(&key, sy::Type::TYPE_USIZE, sy::Type::TYPE_F32);
+    //     CHECK_FALSE(findResult);
+    // }
+    // { // mutable script
+    //     auto findResult = map.findMutScript(&key, sy::Type::TYPE_USIZE, sy::Type::TYPE_F32);
+    //     CHECK_FALSE(findResult);
+    // }
 }
 
 TEST_CASE("RawMapUnmanaged insert one simple") {
     RawMapUnmanaged map;
     size_t key = 10;
     auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
     float value = 5.0;
-    
-        constexpr size_t KEY_SIZE = sizeof(size_t);
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
     constexpr size_t KEY_ALIGN = alignof(size_t);
-        constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_SIZE = sizeof(float);
     constexpr size_t VALUE_ALIGN = alignof(float);
 
     Allocator alloc;
-    auto insertResult = map.insert(alloc, nullptr, &key, &value, hashKey, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+    auto insertResult = map.insert(alloc, nullptr, &key, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE, KEY_ALIGN,
+                                   VALUE_SIZE, VALUE_ALIGN);
 
-    CHECK(insertResult.hasValue()); // successfully allocated
+    CHECK(insertResult.hasValue());    // successfully allocated
     CHECK_FALSE(insertResult.value()); // no old value
+    CHECK_EQ(map.len(), 1);
+
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+}
+
+TEST_CASE("RawMapUnmanaged insert one find") {
+    RawMapUnmanaged map;
+    size_t key = 11;
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
+    float value = 5.5;
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    Allocator alloc;
+    auto insertResult = map.insert(alloc, nullptr, &key, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE, KEY_ALIGN,
+                                   VALUE_SIZE, VALUE_ALIGN);
+
+    CHECK(insertResult.hasValue());    // successfully allocated
+    CHECK_FALSE(insertResult.value()); // no old value
+    CHECK_EQ(map.len(), 1);
+
+    { // check value is
+        auto findResult = map.find(&key, hashKey, eqKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+        CHECK(findResult.has_value());
+        const void* foundValue = findResult.value();
+        CHECK_EQ(*reinterpret_cast<const float*>(foundValue), 5.5);
+    }
 
     map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
 }

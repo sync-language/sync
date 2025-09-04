@@ -77,7 +77,8 @@ class Group {
         constexpr PairBitmask(size_t hashCode) : value((hashCode & BITMASK) | 0b10000000) {}
     };
 
-    std::optional<uint32_t> find(PairBitmask pair) const;
+    std::optional<uint32_t> find(PairBitmask pair, const void* inKey, bool (*eq)(const void* key, const void* found),
+                                 size_t keyAlign) const;
 
     sy::AllocExpect<void> ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity);
 

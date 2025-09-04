@@ -101,6 +101,7 @@
         "deque": "cpp",
         "queue": "cpp",
         "stack": "cpp",
-        "forward_list": "cpp"
+        "forward_list": "cpp",
+        "filesystem": "cpp"
     }
 }
