@@ -437,4 +437,53 @@ TEST_CASE("RawMapUnmanaged insert one find") {
     map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
 }
 
+TEST_CASE("RawMapUnmanaged insert two find") {
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
+
+    RawMapUnmanaged map;
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    Allocator alloc;
+
+    for (size_t i = 0; i < 2; i++) {
+        float value = 1.0;
+        auto insertResult = map.insert(alloc, nullptr, &i, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE,
+                                       KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+
+        CHECK(insertResult.hasValue());    // successfully allocated
+        CHECK_FALSE(insertResult.value()); // no old value
+    }
+
+    CHECK_EQ(map.len(), 2);
+
+    const void* first;
+    const void* second;
+
+    {
+        size_t key = 0;
+        auto findFirstResult = map.find(&key, hashKey, eqKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+        CHECK(findFirstResult.has_value());
+        first = findFirstResult.value();
+        CHECK_EQ(*reinterpret_cast<const float*>(first), 1);
+    }
+    {
+        size_t key = 1;
+        auto findSecondResult = map.find(&key, hashKey, eqKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+        CHECK(findSecondResult.has_value());
+        second = findSecondResult.value();
+        CHECK_EQ(*reinterpret_cast<const float*>(second), 1);
+    }
+
+    CHECK_NE(first, second);
+
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+}
+
 #endif

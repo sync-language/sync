@@ -100,7 +100,7 @@ std::optional<uint32_t> Group::find(PairBitmask pair, const void* inKey, bool (*
 
 sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity) {
     if (minCapacity <= this->capacity_)
-        sy::AllocExpect<void>(std::true_type{});
+        return sy::AllocExpect<void>(std::true_type{});
 
     const uint32_t pairAllocCapacity = [minCapacity]() {
         const uint32_t remainder = minCapacity % 16;
@@ -355,21 +355,24 @@ TEST_SUITE("header") {
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(uint8_t), sizeof(uint8_t));
+            self->destroyKeyOnly(
+                Allocator(), [](void*) {}, alignof(uint8_t), sizeof(uint8_t));
         }
         { // same as header align
             auto result = Header::createKeyOnly(Allocator(), alignof(void*), sizeof(void*));
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(void*), alignof(void*));
+            self->destroyKeyOnly(
+                Allocator(), [](void*) {}, alignof(void*), alignof(void*));
         }
         { // greater than header align
             auto result = Header::createKeyOnly(Allocator(), alignof(ByteSimd<64>), sizeof(ByteSimd<64>));
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(ByteSimd<64>), alignof(ByteSimd<64>));
+            self->destroyKeyOnly(
+                Allocator(), [](void*) {}, alignof(ByteSimd<64>), alignof(ByteSimd<64>));
         }
     }
 }
