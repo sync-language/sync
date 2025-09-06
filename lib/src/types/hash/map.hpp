@@ -48,13 +48,13 @@ class SY_API RawMapUnmanaged final {
                void (*destructValue)(void* ptr), bool (*eq)(const void* searchKey, const void* found), size_t keySize,
                size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept;
 
-    class SY_API Iterator {
+    class SY_API Iterator final {
         friend class RawMapUnmanaged;
         RawMapUnmanaged* map_;
         void* currentHeader_;
 
       public:
-        class SY_API Entry {
+        class SY_API Entry final {
             friend class Iterator;
             void* header_;
 
@@ -66,11 +66,87 @@ class SY_API RawMapUnmanaged final {
         bool operator!=(const Iterator& other);
         Entry operator*() const;
         Iterator& operator++();
+        Iterator& operator++(int) { ++(*this); return *this; };
     };
 
     Iterator begin();
 
     Iterator end();
+
+    class SY_API ConstIterator final {
+        friend class RawMapUnmanaged;
+        const RawMapUnmanaged* map_;
+        const void* currentHeader_;
+
+      public:
+        class SY_API Entry final {
+            friend class ConstIterator;
+            const void* header_;
+
+          public:
+            const void* key(size_t keyAlign) const;
+            const void* value(size_t keyAlign, size_t keySize, size_t valueAlign) const;
+        };
+
+        bool operator!=(const ConstIterator& other);
+        Entry operator*() const;
+        ConstIterator& operator++();
+        ConstIterator& operator++(int) { ++(*this); return *this; };
+    };
+
+    ConstIterator begin() const;
+
+    ConstIterator end() const;
+
+    class SY_API ReverseIterator final {
+        friend class RawMapUnmanaged;
+        RawMapUnmanaged* map_;
+        void* currentHeader_;
+
+      public:
+        class SY_API Entry final {
+            friend class ReverseIterator;
+            void* header_;
+
+          public:
+            const void* key(size_t keyAlign) const;
+            void* value(size_t keyAlign, size_t keySize, size_t valueAlign) const;
+        };
+
+        bool operator!=(const ReverseIterator& other);
+        Entry operator*() const;
+        ReverseIterator& operator++();
+        ReverseIterator& operator++(int) { ++(*this); return *this; };
+    };
+
+    ReverseIterator rbegin();
+
+    ReverseIterator rend();
+
+    class SY_API ConstReverseIterator final {
+        friend class RawMapUnmanaged;
+        const RawMapUnmanaged* map_;
+        const void* currentHeader_;
+
+      public:
+        class SY_API Entry final {
+            friend class ConstReverseIterator;
+            const void* header_;
+
+          public:
+            const void* key(size_t keyAlign) const;
+            const void* value(size_t keyAlign, size_t keySize, size_t valueAlign) const;
+        };
+
+        bool operator!=(const ConstReverseIterator& other);
+        Entry operator*() const;
+        ConstReverseIterator& operator++();
+        ConstReverseIterator& operator++(int) { ++(*this); return *this; };
+    };
+
+    ConstReverseIterator rbegin() const;
+
+    ConstReverseIterator rend() const;
 
   private:
     friend class Iterator;

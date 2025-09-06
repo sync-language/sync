@@ -300,6 +300,8 @@ sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& al
     return sy::AllocExpect<void>(std::true_type{});
 }
 
+#pragma region Iterators
+
 bool sy::RawMapUnmanaged::Iterator::operator!=(const Iterator& other) {
     return this->currentHeader_ != other.currentHeader_;
 }
@@ -317,12 +319,12 @@ sy::RawMapUnmanaged::Iterator& sy::RawMapUnmanaged::Iterator::operator++() {
 }
 
 const void* sy::RawMapUnmanaged::Iterator::Entry::key(size_t keyAlign) const {
-    Group::Header* header = reinterpret_cast<Group::Header*>(const_cast<void*>(this->header_));
+    Group::Header* header = reinterpret_cast<Group::Header*>(this->header_);
     return header->key(keyAlign);
 }
 
 void* sy::RawMapUnmanaged::Iterator::Entry::value(size_t keyAlign, size_t keySize, size_t valueAlign) const {
-    Group::Header* header = reinterpret_cast<Group::Header*>(const_cast<void*>(this->header_));
+    Group::Header* header = reinterpret_cast<Group::Header*>(this->header_);
     return header->value(keyAlign, keySize, valueAlign);
 }
 
@@ -339,6 +341,129 @@ sy::RawMapUnmanaged::Iterator sy::RawMapUnmanaged::end() {
     it.currentHeader_ = nullptr;
     return it;
 }
+
+bool sy::RawMapUnmanaged::ConstIterator::operator!=(const ConstIterator& other) {
+    return this->currentHeader_ != other.currentHeader_;
+}
+
+sy::RawMapUnmanaged::ConstIterator::Entry sy::RawMapUnmanaged::ConstIterator::operator*() const {
+    Entry e;
+    e.header_ = this->currentHeader_;
+    return e;
+}
+
+sy::RawMapUnmanaged::ConstIterator& sy::RawMapUnmanaged::ConstIterator::operator++() {
+    const Group::Header* header = reinterpret_cast<const Group::Header*>(this->currentHeader_);
+    this->currentHeader_ = reinterpret_cast<const void*>(header->iterAfter);
+    return *this;
+}
+
+const void* sy::RawMapUnmanaged::ConstIterator::Entry::key(size_t keyAlign) const {
+    const Group::Header* header = reinterpret_cast<const Group::Header*>(this->header_);
+    return header->key(keyAlign);
+}
+
+const void* sy::RawMapUnmanaged::ConstIterator::Entry::value(size_t keyAlign, size_t keySize, size_t valueAlign) const {
+    const Group::Header* header = reinterpret_cast<const Group::Header*>(this->header_);
+    return header->value(keyAlign, keySize, valueAlign);
+}
+
+sy::RawMapUnmanaged::ConstIterator sy::RawMapUnmanaged::begin() const {
+    ConstIterator it;
+    it.map_ = this;
+    it.currentHeader_ = this->iterFirst_;
+    return it;
+}
+
+sy::RawMapUnmanaged::ConstIterator sy::RawMapUnmanaged::end() const {
+    ConstIterator it;
+    it.map_ = this;
+    it.currentHeader_ = nullptr;
+    return it;
+}
+
+bool sy::RawMapUnmanaged::ReverseIterator::operator!=(const ReverseIterator& other) {
+    return this->currentHeader_ != other.currentHeader_;
+}
+
+sy::RawMapUnmanaged::ReverseIterator::Entry sy::RawMapUnmanaged::ReverseIterator::operator*() const {
+    Entry e;
+    e.header_ = this->currentHeader_;
+    return e;
+}
+
+sy::RawMapUnmanaged::ReverseIterator& sy::RawMapUnmanaged::ReverseIterator::operator++() {
+    Group::Header* header = reinterpret_cast<Group::Header*>(this->currentHeader_);
+    this->currentHeader_ = reinterpret_cast<void*>(header->iterBefore);
+    return *this;
+}
+
+const void* sy::RawMapUnmanaged::ReverseIterator::Entry::key(size_t keyAlign) const {
+    Group::Header* header = reinterpret_cast<Group::Header*>(this->header_);
+    return header->key(keyAlign);
+}
+
+void* sy::RawMapUnmanaged::ReverseIterator::Entry::value(size_t keyAlign, size_t keySize, size_t valueAlign) const {
+    Group::Header* header = reinterpret_cast<Group::Header*>(this->header_);
+    return header->value(keyAlign, keySize, valueAlign);
+}
+
+sy::RawMapUnmanaged::ReverseIterator sy::RawMapUnmanaged::rbegin() {
+    ReverseIterator it;
+    it.map_ = this;
+    it.currentHeader_ = this->iterLast_;
+    return it;
+}
+
+sy::RawMapUnmanaged::ReverseIterator sy::RawMapUnmanaged::rend() {
+    ReverseIterator it;
+    it.map_ = this;
+    it.currentHeader_ = nullptr;
+    return it;
+}
+
+bool sy::RawMapUnmanaged::ConstReverseIterator::operator!=(const ConstReverseIterator& other) {
+    return this->currentHeader_ != other.currentHeader_;
+}
+
+sy::RawMapUnmanaged::ConstReverseIterator::Entry sy::RawMapUnmanaged::ConstReverseIterator::operator*() const {
+    Entry e;
+    e.header_ = this->currentHeader_;
+    return e;
+}
+
+sy::RawMapUnmanaged::ConstReverseIterator& sy::RawMapUnmanaged::ConstReverseIterator::operator++() {
+    const Group::Header* header = reinterpret_cast<const Group::Header*>(this->currentHeader_);
+    this->currentHeader_ = reinterpret_cast<const void*>(header->iterBefore);
+    return *this;
+}
+
+const void* sy::RawMapUnmanaged::ConstReverseIterator::Entry::key(size_t keyAlign) const {
+    const Group::Header* header = reinterpret_cast<const Group::Header*>(this->header_);
+    return header->key(keyAlign);
+}
+
+const void* sy::RawMapUnmanaged::ConstReverseIterator::Entry::value(size_t keyAlign, size_t keySize,
+                                                                    size_t valueAlign) const {
+    const Group::Header* header = reinterpret_cast<const Group::Header*>(this->header_);
+    return header->value(keyAlign, keySize, valueAlign);
+}
+
+sy::RawMapUnmanaged::ConstReverseIterator sy::RawMapUnmanaged::rbegin() const {
+    ConstReverseIterator it;
+    it.map_ = this;
+    it.currentHeader_ = this->iterLast_;
+    return it;
+}
+
+sy::RawMapUnmanaged::ConstReverseIterator sy::RawMapUnmanaged::rend() const {
+    ConstReverseIterator it;
+    it.map_ = this;
+    it.currentHeader_ = nullptr;
+    return it;
+}
+
+#pragma endregion
 
 #if SYNC_LIB_WITH_TESTS
 
@@ -820,7 +945,138 @@ TEST_CASE("RawMapUnmanaged mutable iterator") {
             iter += 1;
         }
     }
-    
+
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+}
+
+TEST_CASE("RawMapUnmanaged const iterator") {
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
+
+    RawMapUnmanaged map;
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    Allocator alloc;
+
+    for (size_t i = 0; i < 300; i++) {
+        float value = static_cast<float>(i);
+        auto insertResult = map.insert(alloc, nullptr, &i, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE,
+                                       KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+
+        CHECK(insertResult.hasValue());    // successfully allocated
+        CHECK_FALSE(insertResult.value()); // no old value
+    }
+
+    [=](const RawMapUnmanaged& m) {
+        size_t iter = 0;
+        for (auto entry : m) {
+            const size_t* key = reinterpret_cast<const size_t*>(entry.key(KEY_ALIGN));
+            const float* value = reinterpret_cast<const float*>(entry.value(KEY_ALIGN, KEY_SIZE, VALUE_ALIGN));
+            CHECK_EQ(*key, iter);
+            CHECK_EQ(*value, static_cast<float>(iter));
+            iter += 1;
+        }
+        CHECK_EQ(iter, 300);
+    }(map);
+
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+}
+
+TEST_CASE("RawMapUnmanaged mutable reverse iterator") {
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
+
+    RawMapUnmanaged map;
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    Allocator alloc;
+
+    for (size_t i = 0; i < 300; i++) {
+        float value = static_cast<float>(i);
+        auto insertResult = map.insert(alloc, nullptr, &i, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE,
+                                       KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+
+        CHECK(insertResult.hasValue());    // successfully allocated
+        CHECK_FALSE(insertResult.value()); // no old value
+    }
+
+    {
+        size_t iter = 300;
+        for (auto riter = map.rbegin(); riter != map.rend(); riter++) {
+            auto entry = *riter;
+            const size_t* key = reinterpret_cast<const size_t*>(entry.key(KEY_ALIGN));
+            float* value = reinterpret_cast<float*>(entry.value(KEY_ALIGN, KEY_SIZE, VALUE_ALIGN));
+            CHECK_EQ(*key, iter - 1);
+            *value += 0.1f;
+            iter -= 1;
+        }
+        CHECK_EQ(iter, 0);
+    }
+
+    {
+        size_t iter = 0;
+        for (auto entry : map) {
+            const size_t* key = reinterpret_cast<const size_t*>(entry.key(KEY_ALIGN));
+            float* value = reinterpret_cast<float*>(entry.value(KEY_ALIGN, KEY_SIZE, VALUE_ALIGN));
+            CHECK_EQ(*key, iter);
+            CHECK_EQ(*value, static_cast<float>(iter) + 0.1f);
+            iter += 1;
+        }
+        CHECK_EQ(iter, 300);
+    }
+
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+}
+
+TEST_CASE("RawMapUnmanaged const reverse iterator") {
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
+
+    RawMapUnmanaged map;
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    Allocator alloc;
+
+    for (size_t i = 0; i < 300; i++) {
+        float value = static_cast<float>(i);
+        auto insertResult = map.insert(alloc, nullptr, &i, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE,
+                                       KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+
+        CHECK(insertResult.hasValue());    // successfully allocated
+        CHECK_FALSE(insertResult.value()); // no old value
+    }
+
+    [=](const RawMapUnmanaged& m) {
+        size_t iter = 300;
+        for (auto riter = m.rbegin(); riter != m.rend(); riter++) {
+            auto entry = *riter;
+            const size_t* key = reinterpret_cast<const size_t*>(entry.key(KEY_ALIGN));
+            const float* value = reinterpret_cast<const float*>(entry.value(KEY_ALIGN, KEY_SIZE, VALUE_ALIGN));
+            CHECK_EQ(*key, iter - 1);
+            CHECK_EQ(*value, static_cast<float>(iter - 1));
+            iter -= 1;
+        }
+        CHECK_EQ(iter, 0);
+    }(map);
+
     map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
 }
 

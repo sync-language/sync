@@ -102,6 +102,7 @@
         "queue": "cpp",
         "stack": "cpp",
         "forward_list": "cpp",
-        "filesystem": "cpp"
+        "filesystem": "cpp",
+        "*.rh": "cpp"
     }
 }

@@ -161,6 +161,7 @@ sy::AllocExpect<void> Group::insertKeyValue(sy::Allocator& alloc, void* key, voi
         *iterLast = newHeader;
     } else {
         (*iterLast)->iterAfter = newHeader;
+        newHeader->iterBefore = *iterLast;
         *iterLast = newHeader;
     }
 
