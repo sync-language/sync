@@ -695,8 +695,8 @@ TEST_CASE("RawMapUnmanaged erase entry that isn't in map") {
                      VALUE_ALIGN);
 
     size_t nonExistantKey = 12;
-    bool didErase =
-        map.erase(alloc, &nonExistantKey, hashKey, nullptr, nullptr, eqKey, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+    bool didErase = map.erase(alloc, &nonExistantKey, hashKey, nullptr, nullptr, eqKey, KEY_SIZE, KEY_ALIGN, VALUE_SIZE,
+                              VALUE_ALIGN);
     CHECK_FALSE(didErase);
     CHECK_EQ(map.len(), 1);
 
@@ -760,7 +760,8 @@ TEST_CASE("RawMapUnmanaged properly calls key and value destructors") {
 
     { // remove entry
         KeyT key(0);
-        CHECK(map.erase(alloc, &key, key.hash, key.destroy, ValueT::destroy, key.eql, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN));
+        CHECK(map.erase(alloc, &key, key.hash, key.destroy, ValueT::destroy, key.eql, KEY_SIZE, KEY_ALIGN, VALUE_SIZE,
+                        VALUE_ALIGN));
         KeyT::destroy(&key);
     }
 
@@ -771,6 +772,56 @@ TEST_CASE("RawMapUnmanaged properly calls key and value destructors") {
 
     CHECK_EQ(KeyT::aliveCount, 0);
     CHECK_EQ(ValueT::aliveCount, 0);
+}
+
+TEST_CASE("RawMapUnmanaged mutable iterator") {
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
+
+    RawMapUnmanaged map;
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    Allocator alloc;
+
+    for (size_t i = 0; i < 300; i++) {
+        float value = static_cast<float>(i);
+        auto insertResult = map.insert(alloc, nullptr, &i, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE,
+                                       KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+
+        CHECK(insertResult.hasValue());    // successfully allocated
+        CHECK_FALSE(insertResult.value()); // no old value
+    }
+
+    {
+        size_t iter = 0;
+        for (auto entry : map) {
+            const size_t* key = reinterpret_cast<const size_t*>(entry.key(KEY_ALIGN));
+            float* value = reinterpret_cast<float*>(entry.value(KEY_ALIGN, KEY_SIZE, VALUE_ALIGN));
+            CHECK_EQ(*key, iter);
+            *value += 0.1f;
+            iter += 1;
+        }
+        CHECK_EQ(iter, 300);
+    }
+
+    {
+        size_t iter = 0;
+        for (auto entry : map) {
+            const size_t* key = reinterpret_cast<const size_t*>(entry.key(KEY_ALIGN));
+            float* value = reinterpret_cast<float*>(entry.value(KEY_ALIGN, KEY_SIZE, VALUE_ALIGN));
+            CHECK_EQ(*key, iter);
+            CHECK_EQ(*value, static_cast<float>(iter) + 0.1f);
+            iter += 1;
+        }
+    }
+    
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
 }
 
 #endif
