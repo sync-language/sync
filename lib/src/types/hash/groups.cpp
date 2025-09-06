@@ -84,7 +84,7 @@ std::optional<uint32_t> Group::find(PairBitmask pair, const void* inKey, bool (*
     const ByteSimd<16>* simdMasks = this->hashMasks();
     const uint32_t maskCount = this->simdHashMaskCount();
     for (uint32_t i = 0; i < maskCount; i++) {
-        SimdMask<16> found = simdMasks->equalMask(pair.value);
+        SimdMask<16> found = simdMasks[i].equalMask(pair.value);
         auto begin = found.begin();
         auto end = found.end();
         if (begin != end) {
@@ -118,6 +118,10 @@ sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t mi
     uint8_t* newHashMasks = allocResult.value();
     memcpy(newHashMasks, this->hashMasks_, this->capacity_);
     memset(&newHashMasks[this->capacity_], 0, pairAllocCapacity - this->capacity_);
+    { // copy over headers too
+        Header** newHeaders = reinterpret_cast<Header**>(&newHashMasks[pairAllocCapacity]);
+        memcpy(newHeaders, this->headers(), this->capacity_ * sizeof(Header*));
+    }
 
     this->freeMemory(alloc);
 
@@ -144,6 +148,7 @@ sy::AllocExpect<void> Group::insertKeyValue(sy::Allocator& alloc, void* key, voi
     }
 
     Header* newHeader = headerCreate.value();
+    newHeader->hashCode = hashCode;
     memcpy(newHeader->key(keyAlign), key, keySize);
     memcpy(newHeader->value(keyAlign, keySize, valueAlign), value, valueSize);
     // first element in map
@@ -164,14 +169,15 @@ sy::AllocExpect<void> Group::insertKeyValue(sy::Allocator& alloc, void* key, voi
     this->headers()[zeroIndex] = newHeader;
     this->setMaskAt(zeroIndex, hashCode);
     this->itemCount_ += 1;
-
+    auto byteSimdMasks = this->hashMasks();
+    (void)byteSimdMasks;
     return sy::AllocExpect<void>(std::true_type{});
 }
 
 std::optional<uint32_t> Group::firstZeroIndex() const {
     const ByteSimd<16>* simd = this->hashMasks();
     for (uint32_t i = 0; i < this->simdHashMaskCount(); i++) {
-        auto fz = simd->firstZeroIndex();
+        auto fz = simd[i].firstZeroIndex();
         if (fz.has_value()) {
             return std::optional<uint32_t>(fz.value() + (i * 16));
         }
