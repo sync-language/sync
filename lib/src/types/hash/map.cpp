@@ -676,4 +676,101 @@ TEST_CASE("RawMapUnmanaged erase many half map") {
     map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
 }
 
+TEST_CASE("RawMapUnmanaged erase entry that isn't in map") {
+    RawMapUnmanaged map;
+    size_t key = 11;
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
+    float value = 5.5;
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    Allocator alloc;
+    (void)map.insert(alloc, nullptr, &key, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE, KEY_ALIGN, VALUE_SIZE,
+                     VALUE_ALIGN);
+
+    size_t nonExistantKey = 12;
+    bool didErase =
+        map.erase(alloc, &nonExistantKey, hashKey, nullptr, nullptr, eqKey, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+    CHECK_FALSE(didErase);
+    CHECK_EQ(map.len(), 1);
+
+    auto findResult = map.find(&key, hashKey, eqKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+    CHECK(findResult.has_value());
+
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+}
+
+template <typename T> struct ComplexType {
+    T* ptr;
+    inline static int aliveCount = 0;
+
+    ComplexType(T in) {
+        ptr = new T(in);
+        aliveCount += 1;
+    }
+
+    static void destroy(void* self) { reinterpret_cast<ComplexType*>(self)->destroyImpl(); }
+
+    static size_t hash(const void* self) { return reinterpret_cast<const ComplexType*>(self)->hashImpl(); }
+
+    static bool eql(const void* self, const void* potentialMatch) {
+        return reinterpret_cast<const ComplexType*>(self)->eqlImpl(
+            reinterpret_cast<const ComplexType*>(potentialMatch));
+    }
+
+  private:
+    void destroyImpl() {
+        delete ptr;
+        aliveCount -= 1;
+    }
+
+    size_t hashImpl() const { return *ptr; }
+
+    bool eqlImpl(const ComplexType* other) const { return (*(this->ptr)) == (*(other->ptr)); }
+};
+
+TEST_CASE("RawMapUnmanaged properly calls key and value destructors") {
+    RawMapUnmanaged map;
+
+    using KeyT = ComplexType<size_t>;
+    using ValueT = ComplexType<float>;
+
+    constexpr size_t KEY_SIZE = sizeof(KeyT);
+    constexpr size_t KEY_ALIGN = alignof(KeyT);
+    constexpr size_t VALUE_SIZE = sizeof(ValueT);
+    constexpr size_t VALUE_ALIGN = alignof(ValueT);
+
+    Allocator alloc;
+
+    for (size_t i = 0; i < 1500; i++) {
+        KeyT key(i);
+        ValueT value(static_cast<float>(i) + 0.1f);
+        (void)map.insert(alloc, nullptr, &key, &value, key.hash, key.destroy, value.destroy, key.eql, KEY_SIZE,
+                         KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+    }
+
+    CHECK_EQ(KeyT::aliveCount, 1500);
+    CHECK_EQ(ValueT::aliveCount, 1500);
+
+    { // remove entry
+        KeyT key(0);
+        CHECK(map.erase(alloc, &key, key.hash, key.destroy, ValueT::destroy, key.eql, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN));
+        KeyT::destroy(&key);
+    }
+
+    CHECK_EQ(KeyT::aliveCount, 1499);
+    CHECK_EQ(ValueT::aliveCount, 1499);
+
+    map.destroy(alloc, KeyT::destroy, ValueT::destroy, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+
+    CHECK_EQ(KeyT::aliveCount, 0);
+    CHECK_EQ(ValueT::aliveCount, 0);
+}
+
 #endif
