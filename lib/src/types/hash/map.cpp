@@ -560,4 +560,120 @@ TEST_CASE("RawMapUnmanaged insert a lot") {
     map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
 }
 
+TEST_CASE("RawMapUnmanaged erase one") {
+    RawMapUnmanaged map;
+    size_t key = 11;
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
+    float value = 5.5;
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    Allocator alloc;
+    (void)map.insert(alloc, nullptr, &key, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE, KEY_ALIGN, VALUE_SIZE,
+                     VALUE_ALIGN);
+
+    bool didErase =
+        map.erase(alloc, &key, hashKey, nullptr, nullptr, eqKey, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+    CHECK(didErase);
+    CHECK_EQ(map.len(), 0);
+
+    auto findResult = map.find(&key, hashKey, eqKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+    CHECK_FALSE(findResult.has_value());
+
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+}
+
+TEST_CASE("RawMapUnmanaged erase many entire map") {
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
+
+    RawMapUnmanaged map;
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    Allocator alloc;
+
+    for (size_t i = 0; i < 1000; i++) {
+        float value = static_cast<float>(i);
+        auto insertResult = map.insert(alloc, nullptr, &i, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE,
+                                       KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+
+        CHECK(insertResult.hasValue());    // successfully allocated
+        CHECK_FALSE(insertResult.value()); // no old value
+    }
+
+    for (size_t i = 0; i < 1000; i++) {
+        bool didErase =
+            map.erase(alloc, &i, hashKey, nullptr, nullptr, eqKey, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+        CHECK(didErase);
+    }
+
+    CHECK_EQ(map.len(), 0);
+
+    for (size_t i = 0; i < 1000; i++) {
+        auto findResult = map.find(&i, hashKey, eqKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+        CHECK_FALSE(findResult.has_value());
+    }
+
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+}
+
+TEST_CASE("RawMapUnmanaged erase many half map") {
+    auto hashKey = [](const void* k) { return *reinterpret_cast<const size_t*>(k); };
+    auto eqKey = [](const void* inKey, const void* potentialMatch) {
+        return *reinterpret_cast<const size_t*>(inKey) == *reinterpret_cast<const size_t*>(potentialMatch);
+    };
+
+    RawMapUnmanaged map;
+
+    constexpr size_t KEY_SIZE = sizeof(size_t);
+    constexpr size_t KEY_ALIGN = alignof(size_t);
+    constexpr size_t VALUE_SIZE = sizeof(float);
+    constexpr size_t VALUE_ALIGN = alignof(float);
+
+    Allocator alloc;
+
+    for (size_t i = 0; i < 1000; i++) {
+        float value = static_cast<float>(i);
+        auto insertResult = map.insert(alloc, nullptr, &i, &value, hashKey, nullptr, nullptr, eqKey, KEY_SIZE,
+                                       KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+
+        CHECK(insertResult.hasValue());    // successfully allocated
+        CHECK_FALSE(insertResult.value()); // no old value
+    }
+
+    for (size_t i = 0; i < 500; i++) {
+        bool didErase =
+            map.erase(alloc, &i, hashKey, nullptr, nullptr, eqKey, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+        CHECK(didErase);
+    }
+
+    CHECK_EQ(map.len(), 500);
+
+    for (size_t i = 0; i < 500; i++) {
+        auto findResult = map.find(&i, hashKey, eqKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+        CHECK_FALSE(findResult.has_value());
+    }
+
+    for (size_t i = 500; i < 1000; i++) {
+        auto findResult = map.find(&i, hashKey, eqKey, KEY_ALIGN, KEY_SIZE, VALUE_ALIGN);
+        CHECK(findResult.has_value());
+        const void* findValue = findResult.value();
+        CHECK_EQ(*reinterpret_cast<const float*>(findValue), static_cast<float>(i));
+    }
+
+    map.destroy(alloc, nullptr, nullptr, KEY_SIZE, KEY_ALIGN, VALUE_SIZE, VALUE_ALIGN);
+}
+
 #endif
