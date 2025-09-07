@@ -28,15 +28,15 @@ class SY_API RawMapUnmanaged final {
                                                   bool (*eq)(const void* key, const void* found), size_t keyAlign,
                                                   size_t keySize, size_t valueAlign) const noexcept;
 
-    // [[nodiscard]] std::optional<const void*> findScript(const void* key, const Type* keyType,
-    //                                                     const Type* valueType) const noexcept;
+    [[nodiscard]] std::optional<const void*> findScript(const void* key, const Type* keyType,
+                                                        const Type* valueType) const noexcept;
 
     [[nodiscard]] std::optional<void*> findMut(const void* key, size_t (*hash)(const void* key),
                                                bool (*eq)(const void* key, const void* found), size_t keyAlign,
                                                size_t keySize, size_t valueAlign) noexcept;
 
-    // [[nodiscard]] std::optional<void*> findMutScript(const void* key, const Type* keyType,
-    //                                                  const Type* valueType) noexcept;
+    [[nodiscard]] std::optional<void*> findMutScript(const void* key, const Type* keyType,
+                                                     const Type* valueType) noexcept;
 
     [[nodiscard]] AllocExpect<bool> insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
                                            size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
@@ -44,9 +44,14 @@ class SY_API RawMapUnmanaged final {
                                            bool (*eq)(const void* searchKey, const void* found), size_t keySize,
                                            size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept;
 
+    [[nodiscard]] AllocExpect<bool> insertScript(Allocator& alloc, void* optionalOldValue, void* key, void* value,
+                                                 const Type* keyType, const Type* valueType);
+
     bool erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
                void (*destructValue)(void* ptr), bool (*eq)(const void* searchKey, const void* found), size_t keySize,
                size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept;
+
+    bool eraseScript(Allocator& alloc, const void* key, const Type* keyType, const Type* valueType);
 
     class SY_API Iterator final {
         friend class RawMapUnmanaged;
@@ -66,7 +71,10 @@ class SY_API RawMapUnmanaged final {
         bool operator!=(const Iterator& other);
         Entry operator*() const;
         Iterator& operator++();
-        Iterator& operator++(int) { ++(*this); return *this; };
+        Iterator& operator++(int) {
+            ++(*this);
+            return *this;
+        };
     };
 
     Iterator begin();
@@ -91,7 +99,10 @@ class SY_API RawMapUnmanaged final {
         bool operator!=(const ConstIterator& other);
         Entry operator*() const;
         ConstIterator& operator++();
-        ConstIterator& operator++(int) { ++(*this); return *this; };
+        ConstIterator& operator++(int) {
+            ++(*this);
+            return *this;
+        };
     };
 
     ConstIterator begin() const;
@@ -116,7 +127,10 @@ class SY_API RawMapUnmanaged final {
         bool operator!=(const ReverseIterator& other);
         Entry operator*() const;
         ReverseIterator& operator++();
-        ReverseIterator& operator++(int) { ++(*this); return *this; };
+        ReverseIterator& operator++(int) {
+            ++(*this);
+            return *this;
+        };
     };
 
     ReverseIterator rbegin();
@@ -141,7 +155,10 @@ class SY_API RawMapUnmanaged final {
         bool operator!=(const ConstReverseIterator& other);
         Entry operator*() const;
         ConstReverseIterator& operator++();
-        ConstReverseIterator& operator++(int) { ++(*this); return *this; };
+        ConstReverseIterator& operator++(int) {
+            ++(*this);
+            return *this;
+        };
     };
 
     ConstReverseIterator rbegin() const;

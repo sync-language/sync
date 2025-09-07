@@ -98,6 +98,24 @@ std::optional<uint32_t> Group::find(PairBitmask pair, const void* inKey, bool (*
     return std::nullopt;
 }
 
+std::optional<uint32_t> Group::findScript(PairBitmask pair, const void* inKey, const sy::Type* keyType) const {
+    const ByteSimd<16>* simdMasks = this->hashMasks();
+    const uint32_t maskCount = this->simdHashMaskCount();
+    for (uint32_t i = 0; i < maskCount; i++) {
+        SimdMask<16> found = simdMasks[i].equalMask(pair.value);
+        auto begin = found.begin();
+        auto end = found.end();
+        if (begin != end) {
+            const uint32_t index = (i * 16) + *begin;
+            const void* potentialMatch = this->headers()[index]->key(keyType->alignType);
+            if (keyType->equalObj(inKey, potentialMatch)) {
+                return std::optional<uint32_t>(index);
+            }
+        }
+    }
+    return std::nullopt;
+}
+
 sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity) {
     if (minCapacity <= this->capacity_)
         return sy::AllocExpect<void>(std::true_type{});
@@ -207,6 +225,29 @@ void Group::erase(sy::Allocator& alloc, uint32_t index, void (*destructKey)(void
 
     this->headers()[index]->destroyKeyValue(alloc, destructKey, destructValue, keyAlign, keySize, valueAlign,
                                             valueSize);
+    this->hashMasks_[index] = 0;
+    this->itemCount_ -= 1;
+}
+
+void Group::eraseScript(sy::Allocator& alloc, uint32_t index, const sy::Type* keyType, const sy::Type* valueType,
+                        Header** iterFirst, Header** iterLast) {
+    Header* thisHeader = this->headers()[index];
+    Header* before = thisHeader->iterBefore;
+    Header* after = thisHeader->iterAfter;
+
+    if (before != nullptr) {
+        before->iterAfter = after;
+    } else {
+        *iterFirst = after;
+    }
+
+    if (after != nullptr) {
+        after->iterBefore = before;
+    } else {
+        *iterLast = before;
+    }
+
+    this->headers()[index]->destroyScriptKeyValue(alloc, keyType, valueType);
     this->hashMasks_[index] = 0;
     this->itemCount_ -= 1;
 }

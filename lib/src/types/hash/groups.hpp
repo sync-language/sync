@@ -80,6 +80,8 @@ class Group {
     std::optional<uint32_t> find(PairBitmask pair, const void* inKey, bool (*eq)(const void* key, const void* found),
                                  size_t keyAlign) const;
 
+    std::optional<uint32_t> findScript(PairBitmask pair, const void* inKey, const sy::Type* keyType) const;
+
     sy::AllocExpect<void> ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity);
 
     void setMaskAt(uint32_t index, PairBitmask pairMask);
@@ -101,6 +103,9 @@ class Group {
     void erase(sy::Allocator& alloc, uint32_t index, void (*destructKey)(void* ptr), void (*destructValue)(void* ptr),
                size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign, Header** iterFirst,
                Header** iterLast);
+
+    void eraseScript(sy::Allocator& alloc, uint32_t index, const sy::Type* keyType, const sy::Type* valueType,
+                     Header** iterFirst, Header** iterLast);
 
   private:
     uint8_t* hashMasks_;

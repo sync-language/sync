@@ -72,6 +72,22 @@ static FoundGroup findImpl(const Group* groups, size_t groupCount, size_t hashCo
     }
 }
 
+static FoundGroup findScriptImpl(const Group* groups, size_t groupCount, size_t hashCode, const void* key,
+                                 const sy::Type* keyType) noexcept {
+    Group::IndexBitmask index(hashCode);
+    Group::PairBitmask pair(hashCode);
+    const size_t groupIndex = index.value % groupCount;
+
+    const Group& group = groups[groupIndex];
+    auto foundIndex = group.findScript(pair, key, keyType);
+    if (foundIndex.has_value() == false) {
+        return {0, 0, false};
+    } else {
+        FoundGroup actualFound = {groupIndex, foundIndex.value(), true};
+        return actualFound;
+    }
+}
+
 std::optional<const void*> sy::RawMapUnmanaged::find(const void* key, size_t (*hash)(const void* key),
                                                      bool (*eq)(const void* key, const void* found), size_t keyAlign,
                                                      size_t keySize, size_t valueAlign) const noexcept {
@@ -89,22 +105,22 @@ std::optional<const void*> sy::RawMapUnmanaged::find(const void* key, size_t (*h
     }
 }
 
-// std::optional<const void*> sy::RawMapUnmanaged::findScript(const void* key, const Type* keyType,
-//                                                            const Type* valueType) const noexcept {
-//     if (this->count_ == 0)
-//         return std::nullopt;
+std::optional<const void*> sy::RawMapUnmanaged::findScript(const void* key, const Type* keyType,
+                                                           const Type* valueType) const noexcept {
+    if (this->count_ == 0)
+        return std::nullopt;
 
-//     const Group* groups = asGroups(this->groups_);
-//     size_t hashCode = keyType->hashObj(key);
-//     auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
-//     if (foundIndex.hasValue == false) {
-//         return std::nullopt;
-//     } else {
-//         const Group& group = groups[foundIndex.groupIndex];
-//         return group.headers()[foundIndex.valueIndex]->value(keyType->alignType, keyType->sizeType,
-//                                                              valueType->alignType);
-//     }
-// }
+    const Group* groups = asGroups(this->groups_);
+    size_t hashCode = keyType->hashObj(key);
+    auto foundIndex = findScriptImpl(groups, this->groupCount_, hashCode, key, keyType);
+    if (foundIndex.hasValue == false) {
+        return std::nullopt;
+    } else {
+        const Group& group = groups[foundIndex.groupIndex];
+        return group.headers()[foundIndex.valueIndex]->value(keyType->alignType, keyType->sizeType,
+                                                             valueType->alignType);
+    }
+}
 
 std::optional<void*> sy::RawMapUnmanaged::findMut(const void* key, size_t (*hash)(const void* key),
                                                   bool (*eq)(const void* key, const void* found), size_t keyAlign,
@@ -123,22 +139,22 @@ std::optional<void*> sy::RawMapUnmanaged::findMut(const void* key, size_t (*hash
     }
 }
 
-// std::optional<void*> sy::RawMapUnmanaged::findMutScript(const void* key, const Type* keyType,
-//                                                         const Type* valueType) noexcept {
-//     if (this->count_ == 0)
-//         return std::nullopt;
+std::optional<void*> sy::RawMapUnmanaged::findMutScript(const void* key, const Type* keyType,
+                                                        const Type* valueType) noexcept {
+    if (this->count_ == 0)
+        return std::nullopt;
 
-//     Group* groups = asGroupsMut(this->groups_);
-//     size_t hashCode = keyType->hashObj(key);
-//     auto foundIndex = findImpl(groups, this->groupCount_, hashCode);
-//     if (foundIndex.hasValue == false) {
-//         return std::nullopt;
-//     } else {
-//         Group& group = groups[foundIndex.groupIndex];
-//         return group.headers()[foundIndex.valueIndex]->value(keyType->alignType, keyType->sizeType,
-//                                                              valueType->alignType);
-//     }
-// }
+    Group* groups = asGroupsMut(this->groups_);
+    size_t hashCode = keyType->hashObj(key);
+    auto foundIndex = findScriptImpl(groups, this->groupCount_, hashCode, key, keyType);
+    if (foundIndex.hasValue == false) {
+        return std::nullopt;
+    } else {
+        Group& group = groups[foundIndex.groupIndex];
+        return group.headers()[foundIndex.valueIndex]->value(keyType->alignType, keyType->sizeType,
+                                                             valueType->alignType);
+    }
+}
 
 sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
                                                   size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
@@ -163,7 +179,7 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
             void* oldValue = pair->value(keyAlign, keySize, valueAlign);
 
             if (optionalOldValue) {
-                memcpy(optionalOldValue, oldValue, keySize);
+                memcpy(optionalOldValue, oldValue, valueSize);
             } else { // discard old value
                 if (destructValue)
                     destructValue(oldValue);
@@ -190,6 +206,51 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
     return sy::AllocExpect<bool>();
 }
 
+sy::AllocExpect<bool> sy::RawMapUnmanaged::insertScript(Allocator& alloc, void* optionalOldValue, void* key,
+                                                        void* value, const Type* keyType, const Type* valueType) {
+    if (auto ensureCapacityResult = this->ensureCapacityForInsert(alloc); ensureCapacityResult.hasValue() == false) {
+        return sy::AllocExpect<bool>();
+    }
+
+    size_t hashCode = keyType->hashObj(key);
+    Group* groups = asGroupsMut(this->groups_);
+
+    if (this->count_ != 0) {
+        auto foundIndex = findScriptImpl(groups, this->groupCount_, hashCode, key, keyType);
+        if (foundIndex.hasValue) {
+            Group& group = groups[foundIndex.groupIndex];
+            Group::Header* pair = group.headers()[foundIndex.valueIndex];
+
+            keyType->destroyObject(key);
+            void* oldValue = pair->value(keyType->alignType, keyType->sizeType, valueType->alignType);
+
+            if (optionalOldValue) {
+                memcpy(optionalOldValue, oldValue, valueType->sizeType);
+            } else { // discard old value
+                valueType->destroyObject(oldValue);
+            }
+
+            memcpy(oldValue, value, valueType->sizeType);
+            return sy::AllocExpect<bool>(true);
+        }
+    }
+
+    // no duplicate entry
+    Group::IndexBitmask index(hashCode);
+    const size_t groupIndex = index.value % this->groupCount_;
+    Group& group = groups[groupIndex];
+    auto insertResult = group.insertKeyValue(
+        alloc, key, value, hashCode, keyType->sizeType, keyType->alignType, valueType->sizeType, valueType->alignType,
+        reinterpret_cast<Group::Header**>(&this->iterFirst_), reinterpret_cast<Group::Header**>(&this->iterLast_));
+    if (insertResult.hasValue()) {
+        this->count_ += 1;
+        this->available_ -= 1;
+        return sy::AllocExpect<bool>(false);
+    }
+
+    return sy::AllocExpect<bool>();
+}
+
 bool sy::RawMapUnmanaged::erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key),
                                 void (*destructKey)(void* ptr), void (*destructValue)(void* ptr),
                                 bool (*eq)(const void* searchKey, const void* found), size_t keySize, size_t keyAlign,
@@ -204,6 +265,23 @@ bool sy::RawMapUnmanaged::erase(Allocator& alloc, const void* key, size_t (*hash
         group.erase(alloc, foundIndex.valueIndex, destructKey, destructValue, keySize, keyAlign, valueSize, valueAlign,
                     reinterpret_cast<Group::Header**>(&this->iterFirst_),
                     reinterpret_cast<Group::Header**>(&this->iterLast_));
+        this->count_ -= 1;
+        this->available_ += 1;
+        return true;
+    }
+}
+
+bool sy::RawMapUnmanaged::eraseScript(Allocator& alloc, const void* key, const Type* keyType, const Type* valueType) {
+    Group* groups = asGroupsMut(this->groups_);
+    size_t hashCode = keyType->hashObj(key);
+    auto foundIndex = findScriptImpl(groups, this->groupCount_, hashCode, key, keyType);
+    if (foundIndex.hasValue == false) {
+        return false;
+    } else {
+        Group& group = groups[foundIndex.groupIndex];
+        group.eraseScript(alloc, foundIndex.valueIndex, keyType, valueType,
+                          reinterpret_cast<Group::Header**>(&this->iterFirst_),
+                          reinterpret_cast<Group::Header**>(&this->iterLast_));
         this->count_ -= 1;
         this->available_ += 1;
         return true;
