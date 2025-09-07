@@ -6,6 +6,12 @@
 #include "../../core.h"
 #include <new>
 #include <type_traits>
+#include <utility>
+
+#if _WIN32 // allow non dll-interface types to be used here
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#endif
 
 namespace sy {
 namespace detail {
@@ -126,10 +132,6 @@ template <typename T> class SY_API Option<T, std::enable_if_t<!std::is_reference
     }
 
   private:
-#if _WIN32 // allow non dll-interface types to be used here
-#pragma warning(push)
-#pragma warning(disable : 4251)
-#endif
     union SY_API Val {
         uint8_t empty;
         T val;
@@ -138,13 +140,14 @@ template <typename T> class SY_API Option<T, std::enable_if_t<!std::is_reference
         Val(const T& inVal) noexcept : val(inVal) {}
         ~Val() noexcept {}
     };
-#if _WIN32
-#pragma warning(pop)
-#endif
 
     bool hasVal_ = false;
     Val val_;
 };
 } // namespace sy
+
+#if _WIN32
+#pragma warning(pop)
+#endif
 
 #endif // SY_TYPES_OPTION_OPTION_HPP_
