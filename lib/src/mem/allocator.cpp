@@ -168,7 +168,6 @@ TEST_CASE("C custom allocator") {
     *p = 10;
     sy_allocator_free(&a, (void*)p, sizeof(int), alignof(int));
     
-    CHECK_EQ(obj.ptr, nullptr);
     CHECK(obj.freed);
 }
 
@@ -178,7 +177,6 @@ TEST_CASE("C++ default alloc/free object") {
     CHECK_NE(p, nullptr);
     *p = 10;
     a.freeObject(p);
-    CHECK_EQ(p, nullptr);
 }
 
 TEST_CASE("C++ default alloc/free array") {
@@ -189,7 +187,6 @@ TEST_CASE("C++ default alloc/free array") {
         p[i] = i;
     }
     a.freeArray(p, 10);
-    CHECK_EQ(p, nullptr);
 }
 
 TEST_CASE("C++ default alloc/free aligned object") {
@@ -200,7 +197,6 @@ TEST_CASE("C++ default alloc/free aligned object") {
     CHECK_EQ(alignMod64, 0);
     *p = 10;
     a.freeObject(p);
-    CHECK_EQ(p, nullptr);
 }
 
 TEST_CASE("C++ default alloc/free aligned array") {
@@ -213,7 +209,6 @@ TEST_CASE("C++ default alloc/free aligned array") {
         p[i] = i;
     }
     a.freeObject(p);
-    CHECK_EQ(p, nullptr);
 }
 
 class CustomCppAllocator : public IAllocator {
@@ -252,7 +247,6 @@ TEST_CASE("C++ custom allocator") {
     CHECK_NE(backingAllocator.ptr, nullptr);
     *p = 10;
     a.freeObject(p);
-    CHECK_EQ(p, nullptr);  
     CHECK(backingAllocator.freed);
 }
 

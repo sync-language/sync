@@ -13,8 +13,6 @@ class Allocator;
 
 /// Interface for C++ specific allocators
 class SY_API IAllocator {
-    friend class Allocator;
-
   public:
     virtual ~IAllocator() {}
 
@@ -26,6 +24,8 @@ class SY_API IAllocator {
     virtual void free(void* buf, size_t len, size_t align) = 0;
 
   private:
+    friend class Allocator;
+
     static void* allocImpl(IAllocator* self, size_t len, size_t align);
     static void freeImpl(IAllocator* self, void* buf, size_t len, size_t align);
 };
@@ -78,26 +78,22 @@ class SY_API Allocator final {
         return reinterpret_cast<T*>(this->allocImpl(sizeof(T) * len, actualAlign));
     }
 
-    template <typename T> void freeObject(T*& obj) {
+    template <typename T> void freeObject(T* obj) {
         this->freeImpl(obj, sizeof(T), alignof(T));
-        obj = nullptr;
     }
 
-    template <typename T> void freeArray(T*& obj, size_t len) {
+    template <typename T> void freeArray(T* obj, size_t len) {
         this->freeImpl(obj, sizeof(T) * len, alignof(T));
-        obj = nullptr;
     }
 
-    template <typename T> void freeAlignedObject(T*& obj, size_t align) {
+    template <typename T> void freeAlignedObject(T* obj, size_t align) {
         const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
         this->freeImpl(obj, sizeof(T), actualAlign);
-        obj = nullptr;
     }
 
-    template <typename T> void freeAlignedArray(T*& obj, size_t len, size_t align) {
+    template <typename T> void freeAlignedArray(T* obj, size_t len, size_t align) {
         const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
         this->freeImpl(obj, sizeof(T) * len, actualAlign);
-        obj = nullptr;
     }
 
   private:
