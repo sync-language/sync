@@ -38,13 +38,13 @@ class SY_API RawMapUnmanaged final {
     [[nodiscard]] std::optional<void*> findMutScript(const void* key, const Type* keyType,
                                                      const Type* valueType) noexcept;
 
-    [[nodiscard]] AllocExpect<bool> insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
+    [[nodiscard]] Result<bool, AllocErr> insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
                                            size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
                                            void (*destructValue)(void* ptr),
                                            bool (*eq)(const void* searchKey, const void* found), size_t keySize,
                                            size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept;
 
-    [[nodiscard]] AllocExpect<bool> insertScript(Allocator& alloc, void* optionalOldValue, void* key, void* value,
+    [[nodiscard]] Result<bool, AllocErr> insertScript(Allocator& alloc, void* optionalOldValue, void* key, void* value,
                                                  const Type* keyType, const Type* valueType);
 
     bool erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
@@ -168,7 +168,7 @@ class SY_API RawMapUnmanaged final {
   private:
     friend class Iterator;
 
-    AllocExpect<void> ensureCapacityForInsert(Allocator& alloc);
+    Result<void, AllocErr> ensureCapacityForInsert(Allocator& alloc);
 
   private:
     size_t count_ = 0;

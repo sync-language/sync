@@ -48,8 +48,8 @@ sy::Allocator sy::IAllocator::asAllocator()
         reinterpret_cast<Allocator::VTable::free_fn>(IAllocator::freeImpl)
     };
     Allocator a;
-    a.ptr = reinterpret_cast<void*>(this);
-    a.vtable = &vtable;
+    a.ptr_ = reinterpret_cast<void*>(this);
+    a.vtable_ = &vtable;
     return a;
 }
 
@@ -65,8 +65,8 @@ void sy::IAllocator::freeImpl(IAllocator *self, void *buf, size_t len, size_t al
 
 sy::Allocator::Allocator() 
 {
-    static_assert(offsetof(Allocator, ptr) == offsetof(SyAllocator, ptr));
-    static_assert(offsetof(Allocator, vtable) == offsetof(SyAllocator, vtable));
+    static_assert(offsetof(Allocator, ptr_) == offsetof(SyAllocator, ptr));
+    static_assert(offsetof(Allocator, vtable_) == offsetof(SyAllocator, vtable));
 
     *this = *reinterpret_cast<Allocator*>(sy_defaultAllocator);
 }

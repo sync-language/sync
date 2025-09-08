@@ -4,7 +4,7 @@
 #define SY_MEM_ALLOCATOR_HPP_
 
 #include "../core.h"
-#include "alloc_expect.hpp"
+#include "../types/result/result.hpp"
 
 namespace sy {
 enum class AllocErr : int { OutOfMemory };
@@ -59,32 +59,44 @@ class SY_API Allocator final {
     Allocator& operator=(Allocator&& other) = default;
 
     /// Allocate memory for a single instance of T. Does not call constructor.
-    template <typename T> AllocExpect<T*> allocObject() {
-        return reinterpret_cast<T*>(this->allocImpl(sizeof(T), alignof(T)));
+    template <typename T> Result<T*, AllocErr> allocObject() {
+        T* ptr = reinterpret_cast<T*>(this->allocImpl(sizeof(T), alignof(T)));
+        if (ptr == nullptr) {
+            return Error(AllocErr::OutOfMemory);
+        }
+        return ptr;
     }
 
-    template <typename T> AllocExpect<T*> allocArray(size_t len) {
-        return reinterpret_cast<T*>(this->allocImpl(sizeof(T) * len, alignof(T)));
+    template <typename T> Result<T*, AllocErr> allocArray(size_t len) {
+        T* ptr = reinterpret_cast<T*>(this->allocImpl(sizeof(T) * len, alignof(T)));
+        if (ptr == nullptr) {
+            return Error(AllocErr::OutOfMemory);
+        }
+        return ptr;
     }
 
     /// Allocate memory for a single instance of T. Does not call constructor.
-    template <typename T> AllocExpect<T*> allocAlignedObject(size_t align) {
+    template <typename T> Result<T*, AllocErr> allocAlignedObject(size_t align) {
         const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
-        return reinterpret_cast<T*>(this->allocImpl(sizeof(T), actualAlign));
+        T* ptr = reinterpret_cast<T*>(this->allocImpl(sizeof(T), actualAlign));
+        if (ptr == nullptr) {
+            return Error(AllocErr::OutOfMemory);
+        }
+        return ptr;
     }
 
-    template <typename T> AllocExpect<T*> allocAlignedArray(size_t len, size_t align) {
+    template <typename T> Result<T*, AllocErr> allocAlignedArray(size_t len, size_t align) {
         const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
-        return reinterpret_cast<T*>(this->allocImpl(sizeof(T) * len, actualAlign));
+        T* ptr = reinterpret_cast<T*>(this->allocImpl(sizeof(T) * len, actualAlign));
+        if (ptr == nullptr) {
+            return Error(AllocErr::OutOfMemory);
+        }
+        return ptr;
     }
 
-    template <typename T> void freeObject(T* obj) {
-        this->freeImpl(obj, sizeof(T), alignof(T));
-    }
+    template <typename T> void freeObject(T* obj) { this->freeImpl(obj, sizeof(T), alignof(T)); }
 
-    template <typename T> void freeArray(T* obj, size_t len) {
-        this->freeImpl(obj, sizeof(T) * len, alignof(T));
-    }
+    template <typename T> void freeArray(T* obj, size_t len) { this->freeImpl(obj, sizeof(T) * len, alignof(T)); }
 
     template <typename T> void freeAlignedObject(T* obj, size_t align) {
         const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
@@ -104,8 +116,8 @@ class SY_API Allocator final {
   private:
     friend class IAllocator;
 
-    void* ptr;
-    const VTable* vtable;
+    void* ptr_;
+    const VTable* vtable_;
 };
 } // namespace sy
 

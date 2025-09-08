@@ -34,13 +34,13 @@ class Group {
 
         void destroyScriptKeyValue(sy::Allocator alloc, const sy::Type* keyType, const sy::Type* valueType);
 
-        static sy::AllocExpect<Header*> createKeyOnly(sy::Allocator alloc, size_t keyAlign, size_t keySize);
+        static sy::Result<Header*, sy::AllocErr> createKeyOnly(sy::Allocator alloc, size_t keyAlign, size_t keySize);
 
-        static sy::AllocExpect<Header*> createKeyValue(sy::Allocator alloc, size_t keyAlign, size_t keySize,
+        static sy::Result<Header*, sy::AllocErr> createKeyValue(sy::Allocator alloc, size_t keyAlign, size_t keySize,
                                                        size_t valueAlign, size_t valueSize);
     };
 
-    static sy::AllocExpect<Group> create(sy::Allocator& alloc);
+    static sy::Result<Group, sy::AllocErr> create(sy::Allocator& alloc);
 
     void freeMemory(sy::Allocator& alloc);
 
@@ -82,7 +82,7 @@ class Group {
 
     std::optional<uint32_t> findScript(PairBitmask pair, const void* inKey, const sy::Type* keyType) const;
 
-    sy::AllocExpect<void> ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity);
+    sy::Result<void, sy::AllocErr> ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity);
 
     void setMaskAt(uint32_t index, PairBitmask pairMask);
 
@@ -94,7 +94,7 @@ class Group {
 
     uint32_t capacity() const { return capacity_; }
 
-    sy::AllocExpect<void> insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode, size_t keySize,
+    sy::Result<void, sy::AllocErr> insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode, size_t keySize,
                                          size_t keyAlign, size_t valueSize, size_t valueAlign, Header** iterFirst,
                                          Header** iterLast);
 

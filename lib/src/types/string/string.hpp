@@ -15,7 +15,7 @@ namespace sy {
     namespace detail {
         /// @param inCapacity will be rounded up to the nearest multiple of `STRING_ALLOC_ALIGN`.
         /// @return Non-zeroed memory
-        sy::AllocExpect<char*> mallocStringBuffer(size_t& inCapacity, sy::Allocator alloc);
+        Result<char*, AllocErr> mallocStringBuffer(size_t& inCapacity, sy::Allocator alloc);
 
         void freeStringBuffer(char* buff, size_t inCapacity, sy::Allocator alloc);
 
@@ -44,22 +44,22 @@ namespace sy {
 
         StringUnmanaged(const StringUnmanaged&) = delete;
 
-        [[nodiscard]] static AllocExpect<StringUnmanaged> copyConstruct(
+        [[nodiscard]] static Result<StringUnmanaged, AllocErr> copyConstruct(
             const StringUnmanaged& other, Allocator& alloc) noexcept;
         
         StringUnmanaged& operator=(const StringUnmanaged& other) = delete;
 
-        [[nodiscard]] AllocExpect<void> copyAssign(const StringUnmanaged& other, Allocator& alloc) noexcept;
+        [[nodiscard]] Result<void, AllocErr> copyAssign(const StringUnmanaged& other, Allocator& alloc) noexcept;
 
-        [[nodiscard]] static AllocExpect<StringUnmanaged> copyConstructSlice(
+        [[nodiscard]] static Result<StringUnmanaged, AllocErr> copyConstructSlice(
             const StringSlice& slice, Allocator& alloc) noexcept;
 
-        [[nodiscard]] AllocExpect<void> copyAssignSlice(const StringSlice& slice, Allocator& alloc) noexcept;
+        [[nodiscard]] Result<void, AllocErr> copyAssignSlice(const StringSlice& slice, Allocator& alloc) noexcept;
 
-        [[nodiscard]] static AllocExpect<StringUnmanaged> copyConstructCStr(
+        [[nodiscard]] static Result<StringUnmanaged, AllocErr> copyConstructCStr(
             const char* str, Allocator& alloc) noexcept;
 
-        [[nodiscard]] AllocExpect<void> copyAssignCStr(const char* str, Allocator& alloc) noexcept;
+        [[nodiscard]] Result<void, AllocErr> copyAssignCStr(const char* str, Allocator& alloc) noexcept;
 
         /// Length in bytes, not utf8 characters or graphemes.
         [[nodiscard]] size_t len() const { return len_; }

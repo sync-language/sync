@@ -156,13 +156,13 @@ std::optional<void*> sy::RawMapUnmanaged::findMutScript(const void* key, const T
     }
 }
 
-sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
+sy::Result<bool, sy::AllocErr> sy::RawMapUnmanaged::insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
                                                   size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
                                                   void (*destructValue)(void* ptr),
                                                   bool (*eq)(const void* searchKey, const void* found), size_t keySize,
                                                   size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept {
     if (auto ensureCapacityResult = this->ensureCapacityForInsert(alloc); ensureCapacityResult.hasValue() == false) {
-        return sy::AllocExpect<bool>();
+        return Error(AllocErr::OutOfMemory);
     }
 
     size_t hashCode = hash(key);
@@ -186,7 +186,7 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
             }
 
             memcpy(oldValue, value, valueSize);
-            return sy::AllocExpect<bool>(true);
+            return true;
         }
     }
 
@@ -200,16 +200,16 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insert(Allocator& alloc, void* option
     if (insertResult.hasValue()) {
         this->count_ += 1;
         this->available_ -= 1;
-        return sy::AllocExpect<bool>(false);
+        return false;
     }
 
-    return sy::AllocExpect<bool>();
+    return Error(AllocErr::OutOfMemory);
 }
 
-sy::AllocExpect<bool> sy::RawMapUnmanaged::insertScript(Allocator& alloc, void* optionalOldValue, void* key,
+sy::Result<bool, sy::AllocErr> sy::RawMapUnmanaged::insertScript(Allocator& alloc, void* optionalOldValue, void* key,
                                                         void* value, const Type* keyType, const Type* valueType) {
     if (auto ensureCapacityResult = this->ensureCapacityForInsert(alloc); ensureCapacityResult.hasValue() == false) {
-        return sy::AllocExpect<bool>();
+        return Error(AllocErr::OutOfMemory);
     }
 
     size_t hashCode = keyType->hashObj(key);
@@ -231,7 +231,7 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insertScript(Allocator& alloc, void* 
             }
 
             memcpy(oldValue, value, valueType->sizeType);
-            return sy::AllocExpect<bool>(true);
+            return true;
         }
     }
 
@@ -245,10 +245,10 @@ sy::AllocExpect<bool> sy::RawMapUnmanaged::insertScript(Allocator& alloc, void* 
     if (insertResult.hasValue()) {
         this->count_ += 1;
         this->available_ -= 1;
-        return sy::AllocExpect<bool>(false);
+        return false;
     }
 
-    return sy::AllocExpect<bool>();
+    return Error(AllocErr::OutOfMemory);
 }
 
 bool sy::RawMapUnmanaged::erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key),
@@ -288,9 +288,9 @@ bool sy::RawMapUnmanaged::eraseScript(Allocator& alloc, const void* key, const T
     }
 }
 
-sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& alloc) {
+sy::Result<void, sy::AllocErr> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& alloc) {
     if (this->available_ != 0)
-        return sy::AllocExpect<void>(std::true_type{});
+        return {};
 
     const size_t newGroupCount = [](size_t currentGroupCount) -> size_t {
         constexpr size_t DEFAULT_GROUP_COUNT = 1;
@@ -301,7 +301,7 @@ sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& al
 
     auto allocResult = alloc.allocArray<Group>(newGroupCount);
     if (allocResult.hasValue() == false) {
-        return sy::AllocExpect<void>();
+        return Error(AllocErr::OutOfMemory);
     }
 
     Group* newGroups = allocResult.value();
@@ -312,10 +312,10 @@ sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& al
                 newGroups[j].freeMemory(alloc);
             }
             alloc.freeArray(newGroups, newGroupCount);
-            return sy::AllocExpect<void>();
+            return Error(AllocErr::OutOfMemory);
         }
 
-        newGroups[i] = groupAllocResult.take();
+        newGroups[i] = groupAllocResult.takeValue();
     }
 
     const size_t newAvailable = [newGroupCount](size_t cnt) {
@@ -328,7 +328,7 @@ sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& al
         this->available_ = newAvailable;
         this->groupCount_ = newGroupCount;
         this->groups_ = newGroups;
-        return sy::AllocExpect<void>(std::true_type{});
+        return {};
     }
 
     // move over all pairs
@@ -353,7 +353,7 @@ sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& al
                     newGroups[cleanupIter].freeMemory(alloc);
                 }
                 alloc.freeArray(newGroups, newGroupCount);
-                return sy::AllocExpect<void>();
+                return Error(AllocErr::OutOfMemory);
             }
 
             newGroup.setMaskAt(newGroup.itemCount(), pair->hashCode);
@@ -375,7 +375,7 @@ sy::AllocExpect<void> sy::RawMapUnmanaged::ensureCapacityForInsert(Allocator& al
     this->groupCount_ = newGroupCount;
     this->available_ = newAvailable;
 
-    return sy::AllocExpect<void>(std::true_type{});
+    return {};
 }
 
 #pragma region Iterators

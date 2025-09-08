@@ -62,7 +62,7 @@ static AllocBuffer* asAllocMut(size_t* raw) {
 
 /// @param inCapacity will be rounded up to the nearest multiple of `STRING_ALLOC_ALIGN`.
 /// @return Non-zeroed memory
-sy::AllocExpect<char*> sy::detail::mallocStringBuffer(size_t& inCapacity, sy::Allocator alloc) {
+sy::Result<char*, sy::AllocErr> sy::detail::mallocStringBuffer(size_t& inCapacity, sy::Allocator alloc) {
     const size_t remainder = inCapacity % STRING_ALLOC_ALIGN;
     if(remainder != 0){
         inCapacity = inCapacity + (STRING_ALLOC_ALIGN - remainder);
@@ -166,7 +166,7 @@ void sy::StringUnmanaged::moveAssign(StringUnmanaged &&other, Allocator& alloc) 
     asAllocMut(this->raw_)->flag = 0;
 }
 
-sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstruct(
+sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::copyConstruct(
     const StringUnmanaged &other, Allocator &alloc) noexcept
 {
     sy::StringUnmanaged self;
@@ -177,14 +177,14 @@ sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstruct(
         for(size_t i = 0; i < 3; i++){
             self.raw_[i] = other.raw_[i];
         }
-        return AllocExpect<StringUnmanaged>(std::move(self));
+        return self;
     }
     
     //capacity is length + 1 for \0 (null terminator)
     size_t cap = self.len_ + 1;
     auto res = sy::detail::mallocStringBuffer(cap, alloc);
     if(!res) {
-        return AllocExpect<StringUnmanaged>();
+        return Error(AllocErr::OutOfMemory);
     }
     char* buffer = res.value();
     const AllocBuffer* otherHeap = asAlloc(other.raw_);
@@ -197,10 +197,10 @@ sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstruct(
     AllocBuffer* thisHeap = asAllocMut(self.raw_);
     thisHeap->ptr = buffer;
     thisHeap->capacity = cap;
-    return AllocExpect<StringUnmanaged>(std::move(self));
+    return self;
 }
 
-sy::AllocExpect<void> sy::StringUnmanaged::copyAssign(const StringUnmanaged &other, Allocator &alloc) noexcept
+sy::Result<void, sy::AllocErr> sy::StringUnmanaged::copyAssign(const StringUnmanaged &other, Allocator &alloc) noexcept
 {
     const size_t requiredCapacity = other.len_ + 1; // for null terminator
     const StringSlice otherSlice = other.asSlice();
@@ -219,7 +219,7 @@ sy::AllocExpect<void> sy::StringUnmanaged::copyAssign(const StringUnmanaged &oth
         }
         // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting the flag bit
         this->setSsoFlag();
-        return AllocExpect<void>(std::true_type());
+        return {};
     }
 
     if(this->hasEnoughCapacity(requiredCapacity)) {
@@ -234,7 +234,7 @@ sy::AllocExpect<void> sy::StringUnmanaged::copyAssign(const StringUnmanaged &oth
         size_t newCapacity = requiredCapacity;
         auto res = sy::detail::mallocStringBuffer(newCapacity, alloc);
         if(!res) {
-            return AllocExpect<void>();
+            return Error(AllocErr::OutOfMemory);
         }
 
         char* buffer = res.value();
@@ -254,10 +254,10 @@ sy::AllocExpect<void> sy::StringUnmanaged::copyAssign(const StringUnmanaged &oth
         heap->capacity = newCapacity;
     }
 
-    return AllocExpect<void>(std::true_type());
+    return {};
 }
 
-sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstructSlice(
+sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::copyConstructSlice(
     const StringSlice &slice, Allocator &alloc) noexcept
 {
     StringUnmanaged self;
@@ -267,14 +267,14 @@ sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstructSlice(
         for(size_t i = 0; i < slice.len(); i++){
             asSsoMut(self.raw_)->arr[i] = slice[i];
         }
-        return AllocExpect<StringUnmanaged>(std::move(self));
+        return std::move(self);
     }
 
     //capacity is length + 1 for \0 (null terminator)
     size_t cap = slice.len() + 1;
     auto res = sy::detail::mallocStringBuffer(cap, alloc);
     if(!res) {
-        return AllocExpect<StringUnmanaged>();
+        return Error(AllocErr::OutOfMemory);
     }
 
     char* buffer = res.value();
@@ -287,10 +287,10 @@ sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstructSlice(
     AllocBuffer* thisHeap = asAllocMut(self.raw_);
     thisHeap->ptr = buffer;
     thisHeap->capacity = cap;
-    return AllocExpect<StringUnmanaged>(std::move(self));
+    return self;
 }
 
-sy::AllocExpect<void> sy::StringUnmanaged::copyAssignSlice(const StringSlice &slice, Allocator &alloc) noexcept
+sy::Result<void, sy::AllocErr> sy::StringUnmanaged::copyAssignSlice(const StringSlice &slice, Allocator &alloc) noexcept
 {
     const size_t requiredCapacity = slice.len() + 1; // for null terminator
 
@@ -306,7 +306,7 @@ sy::AllocExpect<void> sy::StringUnmanaged::copyAssignSlice(const StringSlice &sl
         }
         // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting the flag bit
         this->setSsoFlag();
-        return AllocExpect<void>(std::true_type());
+        return {};
     }
 
     if(this->hasEnoughCapacity(requiredCapacity)) {
@@ -321,7 +321,7 @@ sy::AllocExpect<void> sy::StringUnmanaged::copyAssignSlice(const StringSlice &sl
         size_t newCapacity = requiredCapacity;
         auto res = sy::detail::mallocStringBuffer(newCapacity, alloc);
         if(!res) {
-            return AllocExpect<void>();
+            return Error(AllocErr::OutOfMemory);
         }
 
         char* buffer = res.value();
@@ -341,17 +341,17 @@ sy::AllocExpect<void> sy::StringUnmanaged::copyAssignSlice(const StringSlice &sl
         heap->capacity = newCapacity;
     }
 
-    return AllocExpect<void>(std::true_type());
+    return {};
 }
 
-sy::AllocExpect<sy::StringUnmanaged> sy::StringUnmanaged::copyConstructCStr(
+sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::copyConstructCStr(
     const char *str, Allocator &alloc) noexcept
 {
     const size_t len = std::strlen(str);
     return StringUnmanaged::copyConstructSlice(StringSlice(str, len), alloc);
 }
 
-sy::AllocExpect<void> sy::StringUnmanaged::copyAssignCStr(
+sy::Result<void, sy::AllocErr> sy::StringUnmanaged::copyAssignCStr(
     const char *str, Allocator &alloc) noexcept
 {
     const size_t len = std::strlen(str);
@@ -407,7 +407,7 @@ sy::String::String(const String &other)
     Allocator defaultAlloc;
     auto res = StringUnmanaged::copyConstruct(other.inner, defaultAlloc);
     sy_assert(res.hasValue(), "Memory allocation failed");
-    new (&this->inner) StringUnmanaged(std::move(res.take()));
+    new (&this->inner) StringUnmanaged(std::move(res.takeValue()));
 }
 
 sy::String::String(String&& other) noexcept
@@ -433,7 +433,7 @@ sy::String::String(const StringSlice &str)
     Allocator defaultAlloc;
     auto res = StringUnmanaged::copyConstructSlice(str, defaultAlloc);
     sy_assert(res.hasValue(), "Memory allocation failed");
-    new (&this->inner) StringUnmanaged(std::move(res.take()));
+    new (&this->inner) StringUnmanaged(std::move(res.takeValue()));
 }
 
 sy::String& sy::String::operator=(const StringSlice& str) 
@@ -449,7 +449,7 @@ sy::String::String(const char* str)
     Allocator defaultAlloc;
     auto res = StringUnmanaged::copyConstructCStr(str, defaultAlloc);
     sy_assert(res.hasValue(), "Memory allocation failed");
-    new (&this->inner) StringUnmanaged(std::move(res.take()));
+    new (&this->inner) StringUnmanaged(std::move(res.takeValue()));
 }
 
 sy::String& sy::String::operator=(const char* str) 

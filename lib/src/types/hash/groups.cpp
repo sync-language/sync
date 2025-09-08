@@ -9,13 +9,13 @@ constexpr static uint32_t groupAllocationSize(uint32_t requiredCapacity) {
 
 constexpr size_t GROUP_ALLOC_ALIGN = 16;
 
-sy::AllocExpect<Group> Group::create(sy::Allocator& alloc) {
+sy::Result<Group, sy::AllocErr> Group::create(sy::Allocator& alloc) {
     constexpr uint32_t INITIAL_CAPACITY = 16;
     constexpr uint32_t INITIAL_ALLOCATION_SIZE = groupAllocationSize(INITIAL_CAPACITY);
 
     auto allocResult = alloc.allocAlignedArray<uint8_t>(INITIAL_ALLOCATION_SIZE, GROUP_ALLOC_ALIGN);
     if (allocResult.hasValue() == false) {
-        return sy::AllocExpect<Group>();
+        return sy::Error(sy::AllocErr::OutOfMemory);
     }
 
     Group group;
@@ -23,7 +23,7 @@ sy::AllocExpect<Group> Group::create(sy::Allocator& alloc) {
     memset(group.hashMasks_, 0, INITIAL_CAPACITY);
     group.capacity_ = INITIAL_CAPACITY;
     group.itemCount_ = 0;
-    return sy::AllocExpect<Group>(group);
+    return group;
 }
 
 void Group::freeMemory(sy::Allocator& alloc) {
@@ -116,9 +116,9 @@ std::optional<uint32_t> Group::findScript(PairBitmask pair, const void* inKey, c
     return std::nullopt;
 }
 
-sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity) {
+sy::Result<void, sy::AllocErr> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t minCapacity) {
     if (minCapacity <= this->capacity_)
-        return sy::AllocExpect<void>(std::true_type{});
+        return {};
 
     const uint32_t pairAllocCapacity = [minCapacity]() {
         const uint32_t remainder = minCapacity % 16;
@@ -130,7 +130,7 @@ sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t mi
 
     auto allocResult = alloc.allocAlignedArray<uint8_t>(allocSize, GROUP_ALLOC_ALIGN);
     if (allocResult.hasValue() == false) {
-        return sy::AllocExpect<void>();
+        return sy::Error(sy::AllocErr::OutOfMemory);
     }
 
     uint8_t* newHashMasks = allocResult.value();
@@ -145,7 +145,7 @@ sy::AllocExpect<void> Group::ensureCapacityFor(sy::Allocator& alloc, uint32_t mi
 
     this->hashMasks_ = newHashMasks;
     this->capacity_ = pairAllocCapacity;
-    return sy::AllocExpect<void>(std::true_type{});
+    return {};
 }
 
 void Group::setMaskAt(uint32_t index, PairBitmask pairMask) {
@@ -153,7 +153,7 @@ void Group::setMaskAt(uint32_t index, PairBitmask pairMask) {
     this->hashMasks_[index] = pairMask.value;
 }
 
-sy::AllocExpect<void> Group::insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode,
+sy::Result<void, sy::AllocErr> Group::insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode,
                                             size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign,
                                             Header** iterFirst, Header** iterLast) {
     if (auto ensureResult = this->ensureCapacityFor(alloc, this->itemCount_ + 1); ensureResult.hasValue() == false) {
@@ -162,7 +162,7 @@ sy::AllocExpect<void> Group::insertKeyValue(sy::Allocator& alloc, void* key, voi
 
     auto headerCreate = Header::createKeyValue(alloc, keyAlign, keySize, valueAlign, valueSize);
     if (headerCreate.hasValue() == false) {
-        return sy::AllocExpect<void>();
+        return sy::Error(sy::AllocErr::OutOfMemory);
     }
 
     Header* newHeader = headerCreate.value();
@@ -190,7 +190,7 @@ sy::AllocExpect<void> Group::insertKeyValue(sy::Allocator& alloc, void* key, voi
     this->itemCount_ += 1;
     auto byteSimdMasks = this->hashMasks();
     (void)byteSimdMasks;
-    return sy::AllocExpect<void>(std::true_type{});
+    return {};
 }
 
 std::optional<uint32_t> Group::firstZeroIndex() const {
@@ -348,19 +348,19 @@ void Group::Header::destroyScriptKeyValue(sy::Allocator alloc, const sy::Type* k
     alloc.freeAlignedArray(asBytes, allocSize, allocAlign);
 }
 
-sy::AllocExpect<Group::Header*> Group::Header::createKeyOnly(sy::Allocator alloc, size_t keyAlign, size_t keySize) {
+sy::Result<Group::Header*, sy::AllocErr> Group::Header::createKeyOnly(sy::Allocator alloc, size_t keyAlign, size_t keySize) {
     const size_t byteOffsetForKey = byteOffsetForAlignedMember(sizeof(Header), keyAlign);
     const size_t allocSize = byteOffsetForKey + keySize;
     const size_t allocAlign = keyAlign > alignof(Header) ? keyAlign : alignof(Header);
 
     auto result = alloc.allocAlignedArray<uint8_t>(allocSize, allocAlign);
     if (result.hasValue() == false) {
-        return sy::AllocExpect<Header*>();
+        return sy::Error(sy::AllocErr::OutOfMemory);
     }
-    return sy::AllocExpect<Header*>(reinterpret_cast<Header*>(result.value()));
+    return reinterpret_cast<Header*>(result.value());
 }
 
-sy::AllocExpect<Group::Header*> Group::Header::createKeyValue(sy::Allocator alloc, size_t keyAlign, size_t keySize,
+sy::Result<Group::Header*, sy::AllocErr> Group::Header::createKeyValue(sy::Allocator alloc, size_t keyAlign, size_t keySize,
                                                               size_t valueAlign, size_t valueSize) {
     const size_t byteOffsetForKey = byteOffsetForAlignedMember(sizeof(Header), keyAlign);
     const size_t byteOffsetForValue = byteOffsetForAlignedMember(byteOffsetForKey + keySize, valueAlign);
@@ -379,14 +379,14 @@ sy::AllocExpect<Group::Header*> Group::Header::createKeyValue(sy::Allocator allo
 
     auto result = alloc.allocAlignedArray<uint8_t>(allocSize, allocAlign);
     if (result.hasValue() == false) {
-        return sy::AllocExpect<Header*>();
+        return sy::Error(sy::AllocErr::OutOfMemory);
     }
 
     Header* self = reinterpret_cast<Header*>(result.value());
     self->hashCode = 0;
     self->iterBefore = nullptr;
     self->iterAfter = nullptr;
-    return sy::AllocExpect<Header*>(self);
+    return self;
 }
 
 #if SYNC_LIB_WITH_TESTS

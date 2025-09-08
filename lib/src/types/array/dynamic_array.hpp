@@ -35,7 +35,7 @@ namespace sy {
 
         RawDynArrayUnmanaged(const RawDynArrayUnmanaged& other) = delete;
 
-        [[nodiscard]] static AllocExpect<RawDynArrayUnmanaged> copyConstruct(
+        [[nodiscard]] static Result<RawDynArrayUnmanaged, AllocErr> copyConstruct(
             const RawDynArrayUnmanaged& other,
             Allocator& alloc,
             void (*copyConstructFn)(void* dst, const void* src),
@@ -52,7 +52,7 @@ namespace sy {
 
         RawDynArrayUnmanaged& operator=(const RawDynArrayUnmanaged& other) = delete;
 
-        [[nodiscard]] AllocExpect<void> copyAssign(
+        [[nodiscard]] Result<void, AllocErr> copyAssign(
             const RawDynArrayUnmanaged& other,
             Allocator& alloc,
             void (*destruct)(void *ptr),
@@ -78,14 +78,14 @@ namespace sy {
 
         [[nodiscard]] void* data() { return this->data_; }
 
-        [[nodiscard]] AllocExpect<void> pushBack(
+        [[nodiscard]] Result<void, AllocErr> pushBack(
             void* element,
             Allocator& alloc,
             size_t size,
             size_t align
         ) noexcept;
 
-        [[nodiscard]] AllocExpect<void> pushBackCustomMove(
+        [[nodiscard]] Result<void, AllocErr> pushBackCustomMove(
             void* element,
             Allocator& alloc,
             size_t size,
@@ -93,20 +93,20 @@ namespace sy {
             void(*moveConstructFn)(void* dst, void* src)
         ) noexcept;
 
-        [[nodiscard]] AllocExpect<void> pushBackScript(
+        [[nodiscard]] Result<void, AllocErr> pushBackScript(
             void* element,
             Allocator& alloc,
             const Type* typeInfo
         ) noexcept;
 
-        [[nodiscard]] AllocExpect<void> pushFront(
+        [[nodiscard]] Result<void, AllocErr> pushFront(
             void* element,
             Allocator& alloc, 
             size_t size, 
             size_t align
         ) noexcept;
 
-        [[nodiscard]] AllocExpect<void> pushFrontCustomMove(
+        [[nodiscard]] Result<void, AllocErr> pushFrontCustomMove(
             void* element,
             Allocator& alloc,
             size_t size,
@@ -114,7 +114,7 @@ namespace sy {
             void(*moveConstructFn)(void* dst, void* src)
         ) noexcept;
 
-        [[nodiscard]] AllocExpect<void> pushFrontScript(
+        [[nodiscard]] Result<void, AllocErr> pushFrontScript(
             void* element,
             Allocator& alloc,
             const Type* typeInfo
@@ -122,26 +122,26 @@ namespace sy {
 
     private:
 
-        [[nodiscard]] AllocExpect<void> reallocateBack(
+        [[nodiscard]] Result<void, AllocErr> reallocateBack(
             Allocator& alloc,
             const size_t size,
             const size_t align
         ) noexcept;
 
-        [[nodiscard]] AllocExpect<void> reallocateBackCustomMove(
+        [[nodiscard]] Result<void, AllocErr> reallocateBackCustomMove(
             Allocator& alloc,
             const size_t size,
             const size_t align,
             void(*moveConstructFn)(void* dst, void* src)
         ) noexcept;
 
-        [[nodiscard]] AllocExpect<void> reallocateFront(
+        [[nodiscard]] Result<void, AllocErr> reallocateFront(
             Allocator& alloc,
             const size_t size,
             const size_t align
         ) noexcept;
 
-        [[nodiscard]] AllocExpect<void> reallocateFrontCustomMove(
+        [[nodiscard]] Result<void, AllocErr> reallocateFrontCustomMove(
             Allocator& alloc,
             const size_t size,
             const size_t align,
