@@ -1,10 +1,11 @@
 #include "allocator.h"
-#include "allocator.hpp"
 #include "../util/assert.hpp"
+#include "allocator.hpp"
 #include "os_mem.hpp"
 #include <cstdlib>
-#include <utility>
 #include <iostream>
+#include <utility>
+
 
 static_assert(sizeof(sy::Allocator) == sizeof(SyAllocator));
 static_assert(alignof(sy::Allocator) == alignof(SyAllocator));
@@ -14,80 +15,64 @@ static_assert(offsetof(sy::Allocator::VTable, allocFn) == offsetof(SyAllocatorVT
 static_assert(offsetof(sy::Allocator::VTable, freeFn) == offsetof(SyAllocatorVTable, freeFn));
 
 extern "C" {
-    SY_API void* sy_allocator_alloc(SyAllocator* self, size_t len, size_t align) {
-        return self->vtable->allocFn(self->ptr, len, align);
-    }
+SY_API void* sy_allocator_alloc(SyAllocator* self, size_t len, size_t align) {
+    return self->vtable->allocFn(self->ptr, len, align);
+}
 
-    SY_API void sy_allocator_free(SyAllocator* self, void* buf, size_t len, size_t align) {
-        self->vtable->freeFn(self->ptr, buf, len, align);
-    }
+SY_API void sy_allocator_free(SyAllocator* self, void* buf, size_t len, size_t align) {
+    self->vtable->freeFn(self->ptr, buf, len, align);
+}
 
-    static void* default_alloc(void* self, size_t len, size_t align) {
-        (void)self;
-        return aligned_malloc(len, align);
-    }
+static void* default_alloc(void* self, size_t len, size_t align) {
+    (void)self;
+    return aligned_malloc(len, align);
+}
 
-    static void default_free(void* self, void* buf, size_t len, size_t align) {
-        (void)self;
-        (void)len;
-        (void)align;
-        aligned_free(buf);
-    }
+static void default_free(void* self, void* buf, size_t len, size_t align) {
+    (void)self;
+    (void)len;
+    (void)align;
+    aligned_free(buf);
+}
 
 #ifndef SY_CUSTOM_DEFAULT_ALLOCATOR
-    static SyAllocatorVTable defaultVTable = {&default_alloc, &default_free};
-    static SyAllocator defaultAllocator = {nullptr, &defaultVTable};
-    SyAllocator* const sy_defaultAllocator = &defaultAllocator;
+static SyAllocatorVTable defaultVTable = {&default_alloc, &default_free};
+static SyAllocator defaultAllocator = {nullptr, &defaultVTable};
+SyAllocator* const sy_defaultAllocator = &defaultAllocator;
 #endif
 }
 
-sy::Allocator sy::IAllocator::asAllocator()
-{
-    static const Allocator::VTable vtable = {
-        reinterpret_cast<Allocator::VTable::alloc_fn>(IAllocator::allocImpl), 
-        reinterpret_cast<Allocator::VTable::free_fn>(IAllocator::freeImpl)
-    };
+sy::Allocator sy::IAllocator::asAllocator() {
+    static const Allocator::VTable vtable = {reinterpret_cast<Allocator::VTable::alloc_fn>(IAllocator::allocImpl),
+                                             reinterpret_cast<Allocator::VTable::free_fn>(IAllocator::freeImpl)};
     Allocator a;
     a.ptr_ = reinterpret_cast<void*>(this);
     a.vtable_ = &vtable;
     return a;
 }
 
-void *sy::IAllocator::allocImpl(IAllocator *self, size_t len, size_t align)
-{
-    return self->alloc(len, align);
-}
+void* sy::IAllocator::allocImpl(IAllocator* self, size_t len, size_t align) { return self->alloc(len, align); }
 
-void sy::IAllocator::freeImpl(IAllocator *self, void *buf, size_t len, size_t align)
-{
-    self->free(buf, len, align);
-}
+void sy::IAllocator::freeImpl(IAllocator* self, void* buf, size_t len, size_t align) { self->free(buf, len, align); }
 
-sy::Allocator::Allocator() 
-{
+sy::Allocator::Allocator() {
     static_assert(offsetof(Allocator, ptr_) == offsetof(SyAllocator, ptr));
     static_assert(offsetof(Allocator, vtable_) == offsetof(SyAllocator, vtable));
 
     *this = *reinterpret_cast<Allocator*>(sy_defaultAllocator);
 }
 
-void* sy::Allocator::allocImpl(size_t len, size_t align)
-{
+void* sy::Allocator::allocImpl(size_t len, size_t align) {
     return sy_allocator_alloc(reinterpret_cast<SyAllocator*>(this), len, align);
 }
 
-void sy::Allocator::freeImpl(void *buf, size_t len, size_t align)
-{
+void sy::Allocator::freeImpl(void* buf, size_t len, size_t align) {
     sy_allocator_free(reinterpret_cast<SyAllocator*>(this), buf, len, align);
 }
 
-void sy::detail::debugAssertNonNull(void *ptr)
-{
-    sy_assert(ptr != nullptr, "Expected non-null pointer");
-}
+void sy::detail::debugAssertNonNull(void* ptr) { sy_assert(ptr != nullptr, "Expected non-null pointer"); }
 
-void sy::detail::debugAssertHasVal(bool hasVal)
-{
+void sy::detail::debugAssertHasVal(bool hasVal) {
     sy_assert(hasVal, "Expected allocator error result object to have a value");
 }
 
@@ -109,7 +94,7 @@ TEST_CASE("C default alloc/free array") {
     Allocator a;
     int* p = (int*)sy_allocator_alloc(sy_defaultAllocator, sizeof(int) * 10, alignof(int));
     CHECK_NE(p, nullptr);
-    for(int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++) {
         p[i] = i;
     }
     sy_allocator_free(sy_defaultAllocator, (void*)p, sizeof(int) * 10, alignof(int));
@@ -131,7 +116,7 @@ TEST_CASE("C default alloc/free aligned array") {
     CHECK_NE(p, nullptr);
     const size_t alignMod64 = reinterpret_cast<size_t>(p) % 64;
     CHECK_EQ(alignMod64, 0);
-    for(int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++) {
         p[i] = i;
     }
     sy_allocator_free(sy_defaultAllocator, (void*)p, sizeof(int) * 10, 64);
@@ -153,10 +138,7 @@ static void customFree(CustomCAllocator* self, void* buf, size_t len, size_t ali
     self->ptr = nullptr;
 }
 
-static SyAllocatorVTable customVTable = {
-    (sy_allocator_alloc_fn)&customAlloc, 
-    (sy_allocator_free_fn)&customFree
-};
+static SyAllocatorVTable customVTable = {(sy_allocator_alloc_fn)&customAlloc, (sy_allocator_free_fn)&customFree};
 
 TEST_CASE("C custom allocator") {
     CustomCAllocator obj = {nullptr, false};
@@ -167,7 +149,7 @@ TEST_CASE("C custom allocator") {
     CHECK_NE(obj.ptr, nullptr);
     *p = 10;
     sy_allocator_free(&a, (void*)p, sizeof(int), alignof(int));
-    
+
     CHECK(obj.freed);
 }
 
@@ -183,7 +165,7 @@ TEST_CASE("C++ default alloc/free array") {
     Allocator a;
     int* p = a.allocArray<int>(10).value();
     CHECK_NE(p, nullptr);
-    for(int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++) {
         p[i] = i;
     }
     a.freeArray(p, 10);
@@ -205,20 +187,19 @@ TEST_CASE("C++ default alloc/free aligned array") {
     CHECK_NE(p, nullptr);
     const size_t alignMod64 = reinterpret_cast<size_t>(p) % 64;
     CHECK_EQ(alignMod64, 0);
-    for(int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++) {
         p[i] = i;
     }
     a.freeObject(p);
 }
 
 class CustomCppAllocator : public IAllocator {
-public:
+  public:
     CustomCppAllocator() = default;
 
     CustomCppAllocator(int s) : some(s) {}
 
-    void *alloc(size_t len, size_t align)
-    {
+    void* alloc(size_t len, size_t align) {
         this->ptr = (int*)sy_allocator_alloc(sy_defaultAllocator, len, align);
         return this->ptr;
     }
@@ -228,7 +209,7 @@ public:
         this->freed = true;
     }
 
-    public:
+  public:
     int* ptr = nullptr;
     bool freed = false;
     int some = 0;
@@ -241,7 +222,7 @@ TEST_CASE("C++ custom allocator") {
     CHECK_EQ(backingAllocator.ptr, nullptr);
     CHECK_EQ(backingAllocator.freed, false);
     CHECK_EQ(backingAllocator.some, 0);
-    
+
     int* p = a.allocObject<int>().value();
     CHECK_NE(p, nullptr);
     CHECK_NE(backingAllocator.ptr, nullptr);

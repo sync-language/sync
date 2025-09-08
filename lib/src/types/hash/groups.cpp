@@ -154,8 +154,8 @@ void Group::setMaskAt(uint32_t index, PairBitmask pairMask) {
 }
 
 sy::Result<void, sy::AllocErr> Group::insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode,
-                                            size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign,
-                                            Header** iterFirst, Header** iterLast) {
+                                                     size_t keySize, size_t keyAlign, size_t valueSize,
+                                                     size_t valueAlign, Header** iterFirst, Header** iterLast) {
     if (auto ensureResult = this->ensureCapacityFor(alloc, this->itemCount_ + 1); ensureResult.hasValue() == false) {
         return ensureResult;
     }
@@ -348,7 +348,8 @@ void Group::Header::destroyScriptKeyValue(sy::Allocator alloc, const sy::Type* k
     alloc.freeAlignedArray(asBytes, allocSize, allocAlign);
 }
 
-sy::Result<Group::Header*, sy::AllocErr> Group::Header::createKeyOnly(sy::Allocator alloc, size_t keyAlign, size_t keySize) {
+sy::Result<Group::Header*, sy::AllocErr> Group::Header::createKeyOnly(sy::Allocator alloc, size_t keyAlign,
+                                                                      size_t keySize) {
     const size_t byteOffsetForKey = byteOffsetForAlignedMember(sizeof(Header), keyAlign);
     const size_t allocSize = byteOffsetForKey + keySize;
     const size_t allocAlign = keyAlign > alignof(Header) ? keyAlign : alignof(Header);
@@ -360,8 +361,9 @@ sy::Result<Group::Header*, sy::AllocErr> Group::Header::createKeyOnly(sy::Alloca
     return reinterpret_cast<Header*>(result.value());
 }
 
-sy::Result<Group::Header*, sy::AllocErr> Group::Header::createKeyValue(sy::Allocator alloc, size_t keyAlign, size_t keySize,
-                                                              size_t valueAlign, size_t valueSize) {
+sy::Result<Group::Header*, sy::AllocErr> Group::Header::createKeyValue(sy::Allocator alloc, size_t keyAlign,
+                                                                       size_t keySize, size_t valueAlign,
+                                                                       size_t valueSize) {
     const size_t byteOffsetForKey = byteOffsetForAlignedMember(sizeof(Header), keyAlign);
     const size_t byteOffsetForValue = byteOffsetForAlignedMember(byteOffsetForKey + keySize, valueAlign);
     const size_t allocSize = byteOffsetForValue + valueSize;

@@ -39,13 +39,13 @@ class SY_API RawMapUnmanaged final {
                                                      const Type* valueType) noexcept;
 
     [[nodiscard]] Result<bool, AllocErr> insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
-                                           size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
-                                           void (*destructValue)(void* ptr),
-                                           bool (*eq)(const void* searchKey, const void* found), size_t keySize,
-                                           size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept;
+                                                size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
+                                                void (*destructValue)(void* ptr),
+                                                bool (*eq)(const void* searchKey, const void* found), size_t keySize,
+                                                size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept;
 
     [[nodiscard]] Result<bool, AllocErr> insertScript(Allocator& alloc, void* optionalOldValue, void* key, void* value,
-                                                 const Type* keyType, const Type* valueType);
+                                                      const Type* keyType, const Type* valueType);
 
     bool erase(Allocator& alloc, const void* key, size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
                void (*destructValue)(void* ptr), bool (*eq)(const void* searchKey, const void* found), size_t keySize,

@@ -37,7 +37,7 @@ class Group {
         static sy::Result<Header*, sy::AllocErr> createKeyOnly(sy::Allocator alloc, size_t keyAlign, size_t keySize);
 
         static sy::Result<Header*, sy::AllocErr> createKeyValue(sy::Allocator alloc, size_t keyAlign, size_t keySize,
-                                                       size_t valueAlign, size_t valueSize);
+                                                                size_t valueAlign, size_t valueSize);
     };
 
     static sy::Result<Group, sy::AllocErr> create(sy::Allocator& alloc);
@@ -94,9 +94,9 @@ class Group {
 
     uint32_t capacity() const { return capacity_; }
 
-    sy::Result<void, sy::AllocErr> insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode, size_t keySize,
-                                         size_t keyAlign, size_t valueSize, size_t valueAlign, Header** iterFirst,
-                                         Header** iterLast);
+    sy::Result<void, sy::AllocErr> insertKeyValue(sy::Allocator& alloc, void* key, void* value, size_t hashCode,
+                                                  size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign,
+                                                  Header** iterFirst, Header** iterLast);
 
     std::optional<uint32_t> firstZeroIndex() const;
 

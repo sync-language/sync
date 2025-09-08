@@ -156,11 +156,11 @@ std::optional<void*> sy::RawMapUnmanaged::findMutScript(const void* key, const T
     }
 }
 
-sy::Result<bool, sy::AllocErr> sy::RawMapUnmanaged::insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
-                                                  size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
-                                                  void (*destructValue)(void* ptr),
-                                                  bool (*eq)(const void* searchKey, const void* found), size_t keySize,
-                                                  size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept {
+sy::Result<bool, sy::AllocErr>
+sy::RawMapUnmanaged::insert(Allocator& alloc, void* optionalOldValue, void* key, void* value,
+                            size_t (*hash)(const void* key), void (*destructKey)(void* ptr),
+                            void (*destructValue)(void* ptr), bool (*eq)(const void* searchKey, const void* found),
+                            size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept {
     if (auto ensureCapacityResult = this->ensureCapacityForInsert(alloc); ensureCapacityResult.hasValue() == false) {
         return Error(AllocErr::OutOfMemory);
     }
@@ -207,7 +207,8 @@ sy::Result<bool, sy::AllocErr> sy::RawMapUnmanaged::insert(Allocator& alloc, voi
 }
 
 sy::Result<bool, sy::AllocErr> sy::RawMapUnmanaged::insertScript(Allocator& alloc, void* optionalOldValue, void* key,
-                                                        void* value, const Type* keyType, const Type* valueType) {
+                                                                 void* value, const Type* keyType,
+                                                                 const Type* valueType) {
     if (auto ensureCapacityResult = this->ensureCapacityForInsert(alloc); ensureCapacityResult.hasValue() == false) {
         return Error(AllocErr::OutOfMemory);
     }
