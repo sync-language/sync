@@ -5,7 +5,10 @@
 
 #include "../../core.h"
 #include "../../mem/allocator.hpp"
+#include "../option/option.hpp"
+#include <new>
 #include <optional>
+#include <type_traits>
 #include <utility>
 
 namespace sy {
@@ -43,6 +46,13 @@ class SY_API RawMapUnmanaged final {
                                                 void (*destructValue)(void* ptr),
                                                 bool (*eq)(const void* searchKey, const void* found), size_t keySize,
                                                 size_t keyAlign, size_t valueSize, size_t valueAlign) noexcept;
+
+    [[nodiscard]] Result<bool, AllocErr>
+    insertCustomMove(Allocator& alloc, void* optionalOldValue, void* key, void* value, size_t (*hash)(const void* key),
+                     void (*destructKey)(void* ptr), void (*destructValue)(void* ptr),
+                     bool (*eq)(const void* searchKey, const void* found),
+                     void (*keyMoveConstruct)(void* dst, void* src), void (*valueMoveConstruct)(void* dst, void* src),
+                     size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign);
 
     [[nodiscard]] Result<bool, AllocErr> insertScript(Allocator& alloc, void* optionalOldValue, void* key, void* value,
                                                       const Type* keyType, const Type* valueType);
@@ -178,6 +188,291 @@ class SY_API RawMapUnmanaged final {
     void* iterFirst_ = nullptr;
     void* iterLast_ = nullptr;
 };
+
+namespace detail {
+using DestructFn = void (*)(void* ptr);
+using HashKeyFn = size_t (*)(const void* key);
+using EqualKeyFn = bool (*)(const void* searchKey, const void* found);
+using MoveConstructFn = void (*)(void* dst, void* src);
+
+template <typename T> constexpr DestructFn makeDestructor() {
+    if constexpr (!std::is_destructible_v<T> && std::is_trivially_destructible_v<T>) {
+        return nullptr;
+    }
+
+    return [](void* ptr) {
+        T* asT = reinterpret_cast<T*>(ptr);
+        return asT->~T();
+    };
+}
+
+template <typename T> constexpr HashKeyFn makeHashKey() {
+    return [](const void* key) -> size_t {
+        const T* asT = reinterpret_cast<const T*>(key);
+        std::hash<T> h;
+        return h(*asT);
+    };
+}
+
+template <typename T> constexpr EqualKeyFn makeEqualKey() {
+    return [](const void* searchKey, const void* found) -> bool {
+        const T* searchAsT = reinterpret_cast<const T*>(searchKey);
+        const T* foundAsT = reinterpret_cast<const T*>(found);
+        return (*searchAsT) == (*foundAsT);
+    };
+}
+
+template <typename T> constexpr MoveConstructFn makeMoveConstructor() {
+    return [](void* dst, void* src) {
+        T* dstAsT = reinterpret_cast<T*>(dst);
+        T* srcAsT = reinterpret_cast<T*>(src);
+        T* _ = new (dstAsT) T(std::move(*srcAsT));
+        (void)_;
+    };
+}
+} // namespace detail
+
+template <typename K, typename V> class SY_API MapUnmanaged final {
+
+  public:
+    MapUnmanaged() = default;
+
+    ~MapUnmanaged() noexcept = default;
+
+    void destroy(Allocator& alloc) noexcept;
+
+    [[nodiscard]] size_t len() const { return this->inner_.len(); }
+
+    [[nodiscard]] Option<V&> find(const K& key) noexcept;
+
+    [[nodiscard]] Option<const V&> find(const K& key) const noexcept;
+
+    [[nodiscard]] Result<Option<V>, AllocErr> insert(Allocator& alloc, K&& key, V&& value) noexcept;
+
+    [[nodiscard]] Result<Option<V>, AllocErr> insert(Allocator& alloc, const K& key, V&& value) noexcept;
+
+    [[nodiscard]] Result<Option<V>, AllocErr> insert(Allocator& alloc, K&& key, const V& value) noexcept;
+
+    [[nodiscard]] Result<Option<V>, AllocErr> insert(Allocator& alloc, const K& key, const V& value) noexcept;
+
+    bool erase(Allocator& alloc, const K& key) noexcept;
+
+    class SY_API Iterator final {
+        friend class MapUnmanaged;
+        RawMapUnmanaged::Iterator iter_;
+
+      public:
+        struct SY_API Entry final {
+            const K& key;
+            V& value;
+        };
+
+        bool operator!=(const Iterator& other) { return this->iter_ != other.iter_; }
+        Entry operator*() const {
+            auto entry = *this->iter_;
+            return {
+                *reinterpret_cast<const K*>(entry.key(alignof(K))),
+                *reinterpret_cast<V*>(entry.value(alignof(K), sizeof(K), alignof(V))),
+            };
+        }
+        Iterator& operator++() {
+            ++(this->iter_);
+            return *this;
+        }
+        Iterator& operator++(int) {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    Iterator begin() { return {this->inner_.begin()}; }
+
+    Iterator end() { return {this->inner_.end()}; }
+
+    class SY_API ConstIterator final {
+        friend class MapUnmanaged;
+        RawMapUnmanaged::ConstIterator iter_;
+
+      public:
+        struct SY_API Entry final {
+            const K& key;
+            const V& value;
+        };
+
+        bool operator!=(const ConstIterator& other) { return this->iter_ != other.iter_; }
+        Entry operator*() const {
+            auto entry = *this->iter_;
+            return {
+                *reinterpret_cast<const K*>(entry.key(alignof(K))),
+                *reinterpret_cast<const V*>(entry.value(alignof(K), sizeof(K), alignof(V))),
+            };
+        }
+        ConstIterator& operator++() {
+            ++(this->iter_);
+            return *this;
+        }
+        ConstIterator& operator++(int) {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    ConstIterator begin() const { return {this->inner_.begin()}; }
+
+    ConstIterator end() const { return {this->inner_.end()}; }
+
+    class SY_API ReverseIterator final {
+        friend class MapUnmanaged;
+        RawMapUnmanaged::ReverseIterator iter_;
+
+      public:
+        struct SY_API Entry final {
+            const K& key;
+            V& value;
+        };
+
+        bool operator!=(const ReverseIterator& other) { return this->iter_ != other.iter_; }
+        Entry operator*() const {
+            auto entry = *this->iter_;
+            return {
+                *reinterpret_cast<const K*>(entry.key(alignof(K))),
+                *reinterpret_cast<V*>(entry.value(alignof(K), sizeof(K), alignof(V))),
+            };
+        }
+        ReverseIterator& operator++() {
+            ++(this->iter_);
+            return *this;
+        }
+        ReverseIterator& operator++(int) {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    ReverseIterator rbegin() { return {this->inner_.rbegin()}; }
+
+    ReverseIterator rend() { return {this->inner_.rend()}; }
+
+    class SY_API ConstReverseIterator final {
+        friend class MapUnmanaged;
+        RawMapUnmanaged::ConstReverseIterator iter_;
+
+      public:
+        struct SY_API Entry final {
+            const K& key;
+            const V& value;
+        };
+
+        bool operator!=(const ConstReverseIterator& other) { return this->iter_ != other.iter_; }
+        Entry operator*() const {
+            auto entry = *this->iter_;
+            return {
+                *reinterpret_cast<const K*>(entry.key(alignof(K))),
+                *reinterpret_cast<const V*>(entry.value(alignof(K), sizeof(K), alignof(V))),
+            };
+        }
+        ConstReverseIterator& operator++() {
+            ++(this->iter_);
+            return *this;
+        }
+        ConstReverseIterator& operator++(int) {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    ConstReverseIterator rbegin() const { return {this->inner_.rbegin()}; }
+
+    ConstReverseIterator rend() const { return {this->inner_.rend()}; }
+
+  private:
+    constexpr static detail::DestructFn keyDestruct = detail::makeDestructor<K>();
+    constexpr static detail::DestructFn valueDestruct = detail::makeDestructor<V>();
+    constexpr static detail::HashKeyFn hashKey = detail::makeHashKey<K>();
+    constexpr static detail::EqualKeyFn equalKey = detail::makeEqualKey<K>();
+    constexpr static detail::MoveConstructFn keyMoveConstruct = detail::makeMoveConstructor<K>();
+    constexpr static detail::MoveConstructFn valueMoveConstruct = detail::makeMoveConstructor<V>();
+    constexpr static bool keyTriviallyCopyable = std::is_trivially_copyable_v<K>;
+    constexpr static bool valueTriviallyCopyable = std::is_trivially_copyable_v<V>;
+
+  private:
+    RawMapUnmanaged inner_;
+};
+
+template <typename K, typename V> void MapUnmanaged<K, V>::destroy(Allocator& alloc) noexcept {
+    this->inner_.destroy(alloc, keyDestruct, valueDestruct, sizeof(K), alignof(K), sizeof(V), alignof(V));
+}
+
+template <typename K, typename V> inline Option<V&> MapUnmanaged<K, V>::find(const K& key) noexcept {
+    std::optional<void*> found = this->inner_.find(&key, hashKey, equalKey, alignof(K), sizeof(K), alignof(V));
+    if (found.has_value()) {
+        void* ptr = found.value();
+        return *reinterpret_cast<K*>(ptr);
+    }
+    return {};
+}
+
+template <typename K, typename V> inline Option<const V&> MapUnmanaged<K, V>::find(const K& key) const noexcept {
+    std::optional<const void*> found = this->inner_.find(&key, hashKey, equalKey, alignof(K), sizeof(K), alignof(V));
+    if (found.has_value()) {
+        const void* ptr = found.value();
+        return *reinterpret_cast<const K*>(ptr);
+    }
+    return {};
+}
+
+template <typename K, typename V>
+inline Result<Option<V>, AllocErr> MapUnmanaged<K, V>::insert(Allocator& alloc, K&& key, V&& value) noexcept {
+    K* keyPtr = &key;
+    V* valuePtr = &value;
+    alignas(alignof(V)) uint8_t outBuffer[sizeof(V)];
+    Result<bool, AllocErr> result = [this, keyPtr, valuePtr, &outBuffer, alloc]() {
+        if constexpr (keyTriviallyCopyable && valueTriviallyCopyable) {
+            return this->inner_.insert(alloc, outBuffer, keyPtr, valuePtr, hashKey, keyDestruct, valueDestruct,
+                                       equalKey, sizeof(K), alignof(K), sizeof(V), alignof(V));
+        } else {
+            return this->inner_.insertCustomMove(alloc, outBuffer, keyPtr, valuePtr, hashKey, keyDestruct,
+                                                 valueDestruct, equalKey, keyMoveConstruct, valueMoveConstruct,
+                                                 sizeof(K), alignof(K), sizeof(V), alignof(V));
+        }
+    }();
+
+    if (result.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    bool replacedValue = result.value();
+    if (replacedValue) {
+        return Option(std::move(*reinterpret_cast<V*>(outBuffer)));
+    } else {
+        return Option<V>();
+    }
+}
+
+template <typename K, typename V>
+inline Result<Option<V>, AllocErr> MapUnmanaged<K, V>::insert(Allocator& alloc, const K& key, V&& value) noexcept {
+    K k = key;
+    return this->insert(alloc, std::move(k), std::move(value));
+}
+
+template <typename K, typename V>
+inline Result<Option<V>, AllocErr> MapUnmanaged<K, V>::insert(Allocator& alloc, K&& key, const V& value) noexcept {
+    V v = value;
+    return this->insert(alloc, std::move(key), std::move(v));
+}
+
+template <typename K, typename V>
+inline Result<Option<V>, AllocErr> MapUnmanaged<K, V>::insert(Allocator& alloc, const K& key, const V& value) noexcept {
+    K k = key;
+    V v = value;
+    return this->insert(alloc, std::move(k), std::move(v));
+}
+
+template <typename K, typename V> inline bool MapUnmanaged<K, V>::erase(Allocator& alloc, const K& key) noexcept {
+    return this->inner_.erase(alloc, &key, hashKey, keyDestruct, valueDestruct, equalKey, sizeof(K), alignof(K),
+                              sizeof(V), alignof(V));
+}
+
 } // namespace sy
 
 #endif // SY_TYPES_HASH_MAP_HPP_

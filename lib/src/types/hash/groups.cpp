@@ -193,6 +193,48 @@ sy::Result<void, sy::AllocErr> Group::insertKeyValue(sy::Allocator& alloc, void*
     return {};
 }
 
+sy::Result<void, sy::AllocErr>
+Group::insertKeyValueCustomMove(sy::Allocator& alloc, void* key, void* value, size_t hashCode,
+                                void (*keyMoveConstruct)(void* dst, void* src),
+                                void (*valueMoveConstruct)(void* dst, void* src), size_t keySize, size_t keyAlign,
+                                size_t valueSize, size_t valueAlign, Header** iterFirst, Header** iterLast) {
+    if (auto ensureResult = this->ensureCapacityFor(alloc, this->itemCount_ + 1); ensureResult.hasValue() == false) {
+        return ensureResult;
+    }
+
+    auto headerCreate = Header::createKeyValue(alloc, keyAlign, keySize, valueAlign, valueSize);
+    if (headerCreate.hasValue() == false) {
+        return sy::Error(sy::AllocErr::OutOfMemory);
+    }
+
+    Header* newHeader = headerCreate.value();
+    newHeader->hashCode = hashCode;
+    keyMoveConstruct(newHeader->key(keyAlign), key);
+    valueMoveConstruct(newHeader->value(keyAlign, keySize, valueAlign), value);
+    // first element in map
+    if (*iterFirst == nullptr) {
+        *iterFirst = newHeader;
+    }
+
+    // set last element or update linked list
+    if (*iterLast == nullptr) {
+        *iterLast = newHeader;
+    } else {
+        (*iterLast)->iterAfter = newHeader;
+        newHeader->iterBefore = *iterLast;
+        *iterLast = newHeader;
+    }
+
+    const uint32_t zeroIndex = this->firstZeroIndex().value();
+
+    this->headers()[zeroIndex] = newHeader;
+    this->setMaskAt(zeroIndex, hashCode);
+    this->itemCount_ += 1;
+    auto byteSimdMasks = this->hashMasks();
+    (void)byteSimdMasks;
+    return {};
+}
+
 std::optional<uint32_t> Group::firstZeroIndex() const {
     const ByteSimd<16>* simd = this->hashMasks();
     for (uint32_t i = 0; i < this->simdHashMaskCount(); i++) {
@@ -405,24 +447,21 @@ TEST_SUITE("header") {
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(
-                Allocator(), [](void*) {}, alignof(uint8_t), sizeof(uint8_t));
+            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(uint8_t), sizeof(uint8_t));
         }
         { // same as header align
             auto result = Header::createKeyOnly(Allocator(), alignof(void*), sizeof(void*));
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(
-                Allocator(), [](void*) {}, alignof(void*), alignof(void*));
+            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(void*), alignof(void*));
         }
         { // greater than header align
             auto result = Header::createKeyOnly(Allocator(), alignof(ByteSimd<64>), sizeof(ByteSimd<64>));
             CHECK(result.hasValue());
 
             Header* self = result.value();
-            self->destroyKeyOnly(
-                Allocator(), [](void*) {}, alignof(ByteSimd<64>), alignof(ByteSimd<64>));
+            self->destroyKeyOnly(Allocator(), [](void*) {}, alignof(ByteSimd<64>), alignof(ByteSimd<64>));
         }
     }
 }

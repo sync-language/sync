@@ -98,6 +98,13 @@ class Group {
                                                   size_t keySize, size_t keyAlign, size_t valueSize, size_t valueAlign,
                                                   Header** iterFirst, Header** iterLast);
 
+    sy::Result<void, sy::AllocErr> insertKeyValueCustomMove(sy::Allocator& alloc, void* key, void* value,
+                                                            size_t hashCode,
+                                                            void (*keyMoveConstruct)(void* dst, void* src),
+                                                            void (*valueMoveConstruct)(void* dst, void* src),
+                                                            size_t keySize, size_t keyAlign, size_t valueSize,
+                                                            size_t valueAlign, Header** iterFirst, Header** iterLast);
+
     std::optional<uint32_t> firstZeroIndex() const;
 
     void erase(sy::Allocator& alloc, uint32_t index, void (*destructKey)(void* ptr), void (*destructValue)(void* ptr),

@@ -206,6 +206,57 @@ sy::RawMapUnmanaged::insert(Allocator& alloc, void* optionalOldValue, void* key,
     return Error(AllocErr::OutOfMemory);
 }
 
+sy::Result<bool, sy::AllocErr> sy::RawMapUnmanaged::insertCustomMove(
+    Allocator& alloc, void* optionalOldValue, void* key, void* value, size_t (*hash)(const void* key),
+    void (*destructKey)(void* ptr), void (*destructValue)(void* ptr),
+    bool (*eq)(const void* searchKey, const void* found), void (*keyMoveConstruct)(void* dst, void* src),
+    void (*valueMoveConstruct)(void* dst, void* src), size_t keySize, size_t keyAlign, size_t valueSize,
+    size_t valueAlign) {
+    if (auto ensureCapacityResult = this->ensureCapacityForInsert(alloc); ensureCapacityResult.hasValue() == false) {
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    size_t hashCode = hash(key);
+    Group* groups = asGroupsMut(this->groups_);
+
+    if (this->count_ != 0) {
+        auto foundIndex = findImpl(groups, this->groupCount_, hashCode, key, eq, keyAlign);
+        if (foundIndex.hasValue) {
+            Group& group = groups[foundIndex.groupIndex];
+            Group::Header* pair = group.headers()[foundIndex.valueIndex];
+
+            if (destructKey)
+                destructKey(key); // don't need duplicates
+            void* oldValue = pair->value(keyAlign, keySize, valueAlign);
+
+            if (optionalOldValue) {
+                valueMoveConstruct(optionalOldValue, oldValue);
+            } else { // discard old value
+                if (destructValue)
+                    destructValue(oldValue);
+            }
+
+            valueMoveConstruct(oldValue, value);
+            return true;
+        }
+    }
+
+    // no duplicate entry
+    Group::IndexBitmask index(hashCode);
+    const size_t groupIndex = index.value % this->groupCount_;
+    Group& group = groups[groupIndex];
+    auto insertResult = group.insertKeyValueCustomMove(
+        alloc, key, value, hashCode, keyMoveConstruct, valueMoveConstruct, keySize, keyAlign, valueSize, valueAlign,
+        reinterpret_cast<Group::Header**>(&this->iterFirst_), reinterpret_cast<Group::Header**>(&this->iterLast_));
+    if (insertResult.hasValue()) {
+        this->count_ += 1;
+        this->available_ -= 1;
+        return false;
+    }
+
+    return Error(AllocErr::OutOfMemory);
+}
+
 sy::Result<bool, sy::AllocErr> sy::RawMapUnmanaged::insertScript(Allocator& alloc, void* optionalOldValue, void* key,
                                                                  void* value, const Type* keyType,
                                                                  const Type* valueType) {
