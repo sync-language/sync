@@ -123,6 +123,8 @@ typedef struct SyType {
     /// Can be NULL.
     const SyFunction*   optionalDestructor;
     /// Can be NULL.
+    const SyFunction*   copyConstructor;
+    /// Can be NULL.
     const SyFunction*   optionalEquality;
     /// Can be NULL.
     const SyFunction*   optionalHash;

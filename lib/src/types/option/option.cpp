@@ -1,6 +1,10 @@
 #include "option.hpp"
 #include "../../util/assert.hpp"
 
+static_assert(sizeof(sy::Option<void*>) == sizeof(void*), "Optional pointer is same size as pointer always");
+static_assert(sizeof(sy::Option<int*>) == sizeof(int*), "Optional pointer is same size as pointer always");
+static_assert(sizeof(sy::Option<sy::Option<int>*>) == sizeof(void*), "Optional pointer is same size as pointer always");
+
 void sy::detail::debugAssertPtrNotNull(const void* ptr, const char* errMsg) { sy_assert(ptr != nullptr, errMsg); }
 
 void sy::detail::debugAssertOptionHasValue(bool hasVal, const char* errMsg) { sy_assert(hasVal, errMsg); }

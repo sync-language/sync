@@ -56,7 +56,9 @@ static_assert(offsetof(Type, sizeType) == offsetof(SyType, sizeType));
 static_assert(offsetof(Type, alignType) == offsetof(SyType, alignType));
 static_assert(offsetof(Type, name) == offsetof(SyType, name));
 static_assert(offsetof(Type, optionalDestructor) == offsetof(SyType, optionalDestructor));
+static_assert(offsetof(Type, copyConstructor) == offsetof(SyType, copyConstructor));
 static_assert(offsetof(Type, optionalEquality) == offsetof(SyType, optionalEquality));
+static_assert(offsetof(Type, optionalHash) == offsetof(SyType, optionalHash));
 static_assert(offsetof(Type, tag) == offsetof(SyType, tag));
 static_assert(offsetof(Type, extra) == offsetof(SyType, extra));
 static_assert(offsetof(Type, constRef) == offsetof(SyType, constRef));
@@ -180,12 +182,34 @@ void sy::Type::destroyObjectImpl(void *obj) const
     sy_assert(this->mutRef->alignType == alignof(void*), 
         "Mutable reference type should have the same align as void*");
 
-    Function::CallArgs callArgs = this->optionalDestructor->startCall();
+    Function::CallArgs callArgs = this->copyConstructor.value()->startCall();
     const bool pushSuccess = callArgs.push(&obj, this->mutRef);
     sy_assert(pushSuccess, "TODO overflow when destructor call"); // TODO decide what to do if destructor overflows
 
     const ProgramRuntimeError err = callArgs.call(nullptr);
     sy_assert(err.ok(), "Destructors may not throw/cause errors"); // TODO what do to if error?
+}
+
+void sy::Type::copyConstructObjectImpl(void* dst, const void* src) const {
+    sy_assert(dst != nullptr, "Cannot copy to null object");
+    sy_assert(src != nullptr, "Cannot copy from null object");
+    sy_assert(this->copyConstructor.hasValue(), "Cannot do equality comparison without an equality function");
+
+    // TODO immediate copy construction for simple types
+
+    sy_assert(this->mutRef != nullptr, "Copy constructor takes mutable reference");
+    sy_assert(this->mutRef->sizeType == sizeof(void*), "Mutable reference types should be the same size as void*");
+    sy_assert(this->mutRef->alignType == alignof(void*), "Mutable reference types should be the same align as void*");
+    sy_assert(this->constRef != nullptr, "Copy constructor takes const reference");
+    sy_assert(this->constRef->sizeType == sizeof(void*), "Const reference types should be the same size as void*");
+    sy_assert(this->constRef->alignType == alignof(void*), "Const reference types should be the same align as void*");
+
+    Function::CallArgs callArgs = this->optionalEquality->startCall();
+    (void)callArgs.push(&dst, this->mutRef);
+    (void)callArgs.push(&src, this->constRef);
+    
+    const ProgramRuntimeError err = callArgs.call(nullptr);
+    sy_assert(err.ok(), "Equality may not throw/cause errors"); // TODO what do to if error?
 }
 
 bool sy::Type::equalObjectsImpl(const void *self, const void *other) const
