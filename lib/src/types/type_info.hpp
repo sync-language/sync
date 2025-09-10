@@ -91,19 +91,16 @@ class SY_API Type {
     /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported.
     uint16_t alignType;
     StringSlice name;
-    const Function* optionalDestructor = nullptr;
+    Option<const Function*> destructor;
     Option<const Function*> copyConstructor;
-    const Function* optionalEquality = nullptr;
-    const Function* optionalHash = nullptr;
+    Option<const Function*> equality;
+    Option<const Function*> hash;
     Tag tag;
     ExtraInfo extra;
     const Type* constRef;
     const Type* mutRef;
 
-    template <typename T>
-    static const Type* makeType(StringSlice inName, Tag inTag, ExtraInfo inExtra,
-                                const Function* inOptionalDestructor = nullptr) {
-        (void)inOptionalDestructor;
+    template <typename T> static const Type* makeType(StringSlice inName, Tag inTag, ExtraInfo inExtra) {
         static const Type* actualType = createType<T>(inName, inTag, inExtra);
         return actualType;
     }
@@ -115,7 +112,7 @@ class SY_API Type {
         this->destroyObjectImpl(reinterpret_cast<void*>(obj));
     }
 
-    template<typename T> void copyConstructObj(T* dst, const T* src) const { 
+    template <typename T> void copyConstructObj(T* dst, const T* src) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -200,10 +197,10 @@ class SY_API Type {
             sizeof(T),                         // sizeType
             static_cast<uint16_t>(alignof(T)), // alignType
             inName,                            // name
-            nullptr,                           // optionalDestructor
+            nullptr,                           // destructor
             nullptr,                           // copyConstructor
-            nullptr,                           // optionalEquality
-            nullptr,                           // optionalHash
+            nullptr,                           // equality
+            nullptr,                           // hash
             inTag,                             // tag
             inExtra,                           // extra
             nullptr,                           // constRef
@@ -251,7 +248,7 @@ class SY_API Type {
                                           SY_FUNCTION_MIN_ALIGN, // alignment
                                           Function::CallType::C,
                                           reinterpret_cast<const void*>(func)};
-            concreteType.optionalDestructor = &cEqualFunc;
+            concreteType.destructor = &cEqualFunc;
         }
 
         // Copy Constructor
@@ -281,7 +278,7 @@ class SY_API Type {
                                           SY_FUNCTION_MIN_ALIGN, // alignment
                                           Function::CallType::C,
                                           reinterpret_cast<const void*>(func)};
-            concreteType.optionalEquality = &cEqualFunc;
+            concreteType.equality = &cEqualFunc;
         }
 
         // Hash
@@ -296,7 +293,7 @@ class SY_API Type {
                                          SY_FUNCTION_MIN_ALIGN, // alignment
                                          Function::CallType::C,
                                          reinterpret_cast<const void*>(func)};
-            concreteType.optionalHash = &cHashFunc;
+            concreteType.hash = &cHashFunc;
         }
 
         return &concreteType;

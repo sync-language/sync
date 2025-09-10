@@ -1,39 +1,39 @@
 #include "interpreter.hpp"
 #include "../program/program.hpp"
 #include "../program/program_internal.hpp"
-#include "../util/assert.hpp"
-#include "stack/stack.hpp"
-#include "bytecode.hpp"
 #include "../types/function/function.hpp"
 #include "../types/type_info.hpp"
+#include "../util/assert.hpp"
 #include "../util/unreachable.hpp"
+#include "bytecode.hpp"
+#include "stack/stack.hpp"
 #include <cstring>
 
-using sy::ProgramRuntimeError;
-using sy::Program;
-using sy::Type;
+
 using sy::Function;
+using sy::Program;
+using sy::ProgramRuntimeError;
+using sy::Type;
 
 static ProgramRuntimeError interpreterExecuteContinuous(const Program* program);
 static ProgramRuntimeError interpreterExecuteOperation(const Program* program);
 static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len);
 
-ProgramRuntimeError sy::interpreterExecuteScriptFunction(const Function *scriptFunction, void *outReturnValue)
-{
-    sy_assert(scriptFunction->tag == Function::CallType::Script, 
-        "Interpreter can only start executing from script functions");
-    if(scriptFunction->returnType != nullptr) {
+ProgramRuntimeError sy::interpreterExecuteScriptFunction(const Function* scriptFunction, void* outReturnValue) {
+    sy_assert(scriptFunction->tag == Function::CallType::Script,
+              "Interpreter can only start executing from script functions");
+    if (scriptFunction->returnType != nullptr) {
         sy_assert(outReturnValue != nullptr, "Function returns a value, which cannot be safely ignored");
     } else {
-        sy_assert(outReturnValue == nullptr, 
-            "Function does not return a value, so no return value address should be used");
+        sy_assert(outReturnValue == nullptr,
+                  "Function does not return a value, so no return value address should be used");
     }
 
     Stack& activeStack = Stack::getActiveStack();
     FrameGuard guard = activeStack.pushFunctionFrame(scriptFunction, outReturnValue);
 
-    const sy::InterpreterFunctionScriptInfo* scriptInfo
-        = reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(scriptFunction->fptr);
+    const sy::InterpreterFunctionScriptInfo* scriptInfo =
+        reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(scriptFunction->fptr);
 
     activeStack.setInstructionPointer(scriptInfo->bytecode);
 
@@ -48,13 +48,13 @@ ProgramRuntimeError sy::interpreterExecuteScriptFunction(const Function *scriptF
 }
 
 static ProgramRuntimeError interpreterExecuteContinuous(const Program* program) {
-    while(true) {
+    while (true) {
         const Bytecode ipBytecode = *Stack::getActiveStack().getInstructionPointer();
         const OpCode opcode = ipBytecode.getOpcode();
         const bool isReturn = opcode == OpCode::Return;
 
         const ProgramRuntimeError err = interpreterExecuteOperation(program);
-        if(err.ok() || isReturn) {
+        if (err.ok() || isReturn) {
             return err;
         }
     }
@@ -62,9 +62,9 @@ static ProgramRuntimeError interpreterExecuteContinuous(const Program* program) 
 
 static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len) {
     Stack& activeStack = Stack::getActiveStack();
-    for(uint16_t i = 0; i < len; i++) {
+    for (uint16_t i = 0; i < len; i++) {
         const Type* type = activeStack.typeAt(unwindSlots[i]);
-        if(type == nullptr || type->optionalDestructor == nullptr) {
+        if (type == nullptr || !type->destructor.hasValue()) {
             continue;
         }
 
@@ -97,74 +97,72 @@ static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
     const OpCode opcode = instructionPointer->getOpcode();
 
     ProgramRuntimeError potentialErr{}; // Initialize as ok
-    switch(opcode) {
-        case OpCode::Nop: break;
-        case OpCode::Return: {
-            executeReturn(*instructionPointer);
-        } break;
-        case OpCode::ReturnValue: {
-            executeReturnValue(*instructionPointer);
-        } break;
-        case OpCode::CallImmediateNoReturn: {
-            potentialErr = executeCallImmediateNoReturn(ipChange, instructionPointer);
-        } break;
-        case OpCode::CallSrcNoReturn: {
-            potentialErr = executeCallSrcNoReturn(ipChange, instructionPointer);
-        } break;
-        case OpCode::CallImmediateWithReturn: {
-            potentialErr = executeCallImmediateWithReturn(ipChange, instructionPointer);
-        } break;
-        case OpCode::CallSrcWithReturn: {
-            potentialErr = executeCallSrcWithReturn(ipChange, instructionPointer);
-        } break;
-        case OpCode::LoadDefault: {
-            potentialErr = executeLoadDefault(ipChange, instructionPointer);
-        } break;
-        case OpCode::LoadImmediateScalar: {
-            executeLoadImmediateScalar(ipChange, instructionPointer);
-        } break;
-        case OpCode::MemsetUninitialized: {
-            executeMemsetUninitialized(*instructionPointer);
-        } break;
-        case OpCode::SetType: {
-            executeSetType(ipChange, instructionPointer);
-        } break;
-        case OpCode::SetNullType: {
-            executeSetNullType(*instructionPointer);
-        } break;
-        case OpCode::Jump: {
-            executeJump(ipChange, *instructionPointer);
-        } break;
-        case OpCode::JumpIfFalse: {
-            executeJumpIfFalse(ipChange, *instructionPointer);
-        } break;
-        case OpCode::Destruct: {
-            executeDestruct(*instructionPointer);
-        } break;
+    switch (opcode) {
+    case OpCode::Nop:
+        break;
+    case OpCode::Return: {
+        executeReturn(*instructionPointer);
+    } break;
+    case OpCode::ReturnValue: {
+        executeReturnValue(*instructionPointer);
+    } break;
+    case OpCode::CallImmediateNoReturn: {
+        potentialErr = executeCallImmediateNoReturn(ipChange, instructionPointer);
+    } break;
+    case OpCode::CallSrcNoReturn: {
+        potentialErr = executeCallSrcNoReturn(ipChange, instructionPointer);
+    } break;
+    case OpCode::CallImmediateWithReturn: {
+        potentialErr = executeCallImmediateWithReturn(ipChange, instructionPointer);
+    } break;
+    case OpCode::CallSrcWithReturn: {
+        potentialErr = executeCallSrcWithReturn(ipChange, instructionPointer);
+    } break;
+    case OpCode::LoadDefault: {
+        potentialErr = executeLoadDefault(ipChange, instructionPointer);
+    } break;
+    case OpCode::LoadImmediateScalar: {
+        executeLoadImmediateScalar(ipChange, instructionPointer);
+    } break;
+    case OpCode::MemsetUninitialized: {
+        executeMemsetUninitialized(*instructionPointer);
+    } break;
+    case OpCode::SetType: {
+        executeSetType(ipChange, instructionPointer);
+    } break;
+    case OpCode::SetNullType: {
+        executeSetNullType(*instructionPointer);
+    } break;
+    case OpCode::Jump: {
+        executeJump(ipChange, *instructionPointer);
+    } break;
+    case OpCode::JumpIfFalse: {
+        executeJumpIfFalse(ipChange, *instructionPointer);
+    } break;
+    case OpCode::Destruct: {
+        executeDestruct(*instructionPointer);
+    } break;
 
-        default: {
-            sy_assert(static_cast<uint8_t>(opcode) && false, "Unimplemented opcode");
-        }
+    default: {
+        sy_assert(static_cast<uint8_t>(opcode) && false, "Unimplemented opcode");
+    }
     }
     return potentialErr;
 }
 
-
-static void executeReturn(const Bytecode b)
-{
-    // No meaningful work needs to be done. Compiler should optimize this call away.
-    #if _DEBUG
+static void executeReturn(const Bytecode b) {
+// No meaningful work needs to be done. Compiler should optimize this call away.
+#if _DEBUG
     const operators::Return operands = b.toOperands<operators::Return>();
     (void)operands;
-    #else
+#else
     (void)b;
-    #endif // _DEBUG
+#endif // _DEBUG
 
     // Frame is automatically unwinded
 }
 
-static void executeReturnValue(const Bytecode b)
-{
+static void executeReturnValue(const Bytecode b) {
     const operators::ReturnValue operands = b.toOperands<operators::ReturnValue>();
 
     Stack& activeStack = Stack::getActiveStack();
@@ -182,34 +180,35 @@ static void executeReturnValue(const Bytecode b)
 
 static bool pushScriptFunctionArgs(const Function* function, const uint16_t argsCount, const uint16_t* argsSrc) {
     sy_assert(function->argsLen == argsCount, "Mismatched number of arguments passed to function");
-    sy_assert(function->tag == Function::CallType::Script, 
-        "Cannot push script function arguments to non scirpt function");
-    
+    sy_assert(function->tag == Function::CallType::Script,
+              "Cannot push script function arguments to non scirpt function");
+
     Function::CallArgs callArgs = function->startCall();
     Stack& activeStack = Stack::getActiveStack();
 
-    for(uint16_t i = 0; i < argsCount; i++) {
+    for (uint16_t i = 0; i < argsCount; i++) {
         const uint16_t argSrc = argsSrc[i];
         const Type* type = activeStack.typeAt(argSrc);
         sy_assert(type != nullptr, "Cannot push null type to function");
-        if(callArgs.push(activeStack.frameValueAt<void>(argSrc), type) == false) {
+        if (callArgs.push(activeStack.frameValueAt<void>(argSrc), type) == false) {
             return false;
         }
     }
     return true;
 }
 
-static ProgramRuntimeError performCall(const Function* function, void* retDst, const uint16_t argsCount, const uint16_t* argsSrc) {
-    if(function->tag == Function::CallType::Script) {
+static ProgramRuntimeError performCall(const Function* function, void* retDst, const uint16_t argsCount,
+                                       const uint16_t* argsSrc) {
+    if (function->tag == Function::CallType::Script) {
         const bool success = pushScriptFunctionArgs(function, argsCount, argsSrc);
-        if(!success) {
+        if (!success) {
             return ProgramRuntimeError::initStackOverflow();
         }
         return sy::interpreterExecuteScriptFunction(function, retDst);
     } else {
         sy_assert(false, "Cannot handle C function calling currently");
     }
-    
+
     unreachable();
 }
 
@@ -228,7 +227,7 @@ static ProgramRuntimeError executeCallSrcNoReturn(ptrdiff_t& ipChange, const Byt
     const operators::CallSrcNoReturn operands = bytecodes[0].toOperands<operators::CallSrcNoReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
-    
+
     sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function, "Expected function to call");
     const Function* function = activeStack.frameValueAt<const Function>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
@@ -256,7 +255,7 @@ static ProgramRuntimeError executeCallSrcWithReturn(ptrdiff_t& ipChange, const B
     const operators::CallSrcWithReturn operands = bytecodes[0].toOperands<operators::CallSrcWithReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
-    
+
     sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function, "Expected function to call");
     const Function* function = activeStack.frameValueAt<const Function>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
@@ -268,14 +267,13 @@ static ProgramRuntimeError executeCallSrcWithReturn(ptrdiff_t& ipChange, const B
     return performCall(function, returnDst, operands.argCount, argsSrcs);
 }
 
-ProgramRuntimeError executeLoadDefault(ptrdiff_t &ipChange, const Bytecode *bytecodes)
-{
+ProgramRuntimeError executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::LoadDefault operands = bytecodes[0].toOperands<operators::LoadDefault>();
 
     Stack& activeStack = Stack::getActiveStack();
     void* destination = activeStack.frameValueAt<void>(operands.dst);
 
-    if(operands.isScalar) {
+    if (operands.isScalar) {
         const Type* scalarType = scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
         memset(destination, 0, scalarType->sizeType);
     } else {
@@ -287,21 +285,20 @@ ProgramRuntimeError executeLoadDefault(ptrdiff_t &ipChange, const Bytecode *byte
     return ProgramRuntimeError();
 }
 
-void executeLoadImmediateScalar(ptrdiff_t &ipChange, const Bytecode *bytecodes)
-{
+void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::LoadImmediateScalar operands = bytecodes[0].toOperands<operators::LoadImmediateScalar>();
     const ScalarTag scalarTag = static_cast<ScalarTag>(operands.scalarTag);
 
     Stack& activeStack = Stack::getActiveStack();
     void* destination = activeStack.frameValueAt<void>(operands.dst);
     const Type* type = scalarTypeFromTag(scalarTag);
-    if(type->sizeType <= 4) { // 32 bits
+    if (type->sizeType <= 4) { // 32 bits
         uint32_t rawValue = static_cast<uint32_t>(operands.immediate);
         *reinterpret_cast<uint32_t*>(destination) = rawValue;
     } else {
         // All scalar types have alignment less than or equal to alignof(Bytecode), so this is fine.
-        sy_assert(type->alignType <= alignof(Bytecode), 
-            "Scalar types must have less than or equal alignment to Bytecode");
+        sy_assert(type->alignType <= alignof(Bytecode),
+                  "Scalar types must have less than or equal alignment to Bytecode");
         const void* valueMemory = reinterpret_cast<const void*>(&bytecodes[1]);
         memcpy(destination, valueMemory, type->sizeType);
 
@@ -311,27 +308,25 @@ void executeLoadImmediateScalar(ptrdiff_t &ipChange, const Bytecode *bytecodes)
     }
 }
 
-void executeMemsetUninitialized(const Bytecode bytecode)
-{
+void executeMemsetUninitialized(const Bytecode bytecode) {
     const operators::MemsetUninitialized operands = bytecode.toOperands<operators::MemsetUninitialized>();
 
     Stack& activeStack = Stack::getActiveStack();
     void* destination = activeStack.frameValueAt<void>(operands.dst);
-    #if _DEBUG
+#if _DEBUG
     const uint32_t frameLength = activeStack.getCurrentFrame().value().frameLength;
     sy_assert(frameLength >= (operands.dst + operands.slots), "Trying to uninitialize memory outside of stack frame");
-    #endif
+#endif
     const size_t bytesToSet = sizeof(void*) * static_cast<size_t>(operands.slots);
     memset(destination, 0xAA, bytesToSet);
 }
 
-void executeSetType(ptrdiff_t &ipChange, const Bytecode *bytecodes)
-{
+void executeSetType(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::SetType operands = bytecodes[0].toOperands<operators::SetType>();
 
     Stack& activeStack = Stack::getActiveStack();
     const Type* type = nullptr;
-    if(operands.isScalar) {
+    if (operands.isScalar) {
         type = scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
     } else {
         const Bytecode next = bytecodes[1];
@@ -341,8 +336,7 @@ void executeSetType(ptrdiff_t &ipChange, const Bytecode *bytecodes)
     activeStack.setTypeAt(Node::TypeOfValue(type, true), operands.dst);
 }
 
-void executeSetNullType(const Bytecode bytecode)
-{    
+void executeSetNullType(const Bytecode bytecode) {
     const operators::SetNullType operands = bytecode.toOperands<operators::SetNullType>();
     Stack& activeStack = Stack::getActiveStack();
     activeStack.setTypeAt(nullptr, operands.dst);
@@ -361,7 +355,7 @@ static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode) {
     const Type* srcType = activeStack.typeAt(operands.src);
     sy_assert(srcType == Type::TYPE_BOOL, "Can only conditionally jump on boolean types");
 
-    if(*activeStack.frameValueAt<bool>(operands.src) == false) {
+    if (*activeStack.frameValueAt<bool>(operands.src) == false) {
         int32_t jumpAmount = static_cast<int32_t>(operands.amount);
         ipChange = jumpAmount;
     }

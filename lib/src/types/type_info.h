@@ -18,7 +18,7 @@ typedef enum SyTypeTag {
     /// Maps to 2 `SyType` instances, depending on bit width. The options are 32 or 64 bits.
     SyTypeTagFloat = 2,
     /// Maps to a singular `SyType` instance.
-    //SyTypeTagChar = 3,
+    // SyTypeTagChar = 3,
     /// Maps to a singular `SyType` instance. Is an owned string. For string references, see `SyTypeTagStringSlice`.
     SyTypeTagString = 4,
     /// Maps to a singular `SyType` instance.
@@ -49,14 +49,14 @@ typedef enum SyTypeTag {
     /// appear null when invalidated, but they still hold a valid pointer to the freed object.
     SyTypeTagOption = 13,
     /// Maps to effectively infinite `SyType` instances, depending on the optional type of the error value.
-    /// TODO For the error type, look into other really good error types, such as anyhow and thiserror for Rust. 
+    /// TODO For the error type, look into other really good error types, such as anyhow and thiserror for Rust.
     /// Having stack traces in error may be really smart
     /// https://docs.rs/anyhow/latest/anyhow/ https://github.com/dtolnay/thiserror
     SyTypeTagError = 14,
     /// Maps to effectively infinite `SyType` instances, depending on the type of the ok value and the error value.
     /// Holds ownership over the values.
     SyTypeTagResult = 15,
-    /// Maps to a few `SyType` instances, depending on the type of each component for the integer and float types, 
+    /// Maps to a few `SyType` instances, depending on the type of each component for the integer and float types,
     /// along with the dimensions, being `2`, `3`, or `4`. These can map to GLSL types.
     SyTypeTagVector = 16,
     /// Maps to a few `SyType` instances, depending on the `32` or `64` bit floats, along with the X and Y dimensions,
@@ -79,7 +79,7 @@ typedef enum SyTypeTag {
 
 typedef struct SyTypeInfoInt {
     /// If `true`, this is a signed integer, otherwise unsigned.
-    bool    isSigned;
+    bool isSigned;
     /// Must be one of `8`, `16`, `32`, or `64`.
     uint8_t bits;
 } SyTypeInfoInt;
@@ -90,8 +90,8 @@ typedef struct SyTypeInfoFloat {
 } SyTypeInfoFloat;
 
 typedef struct SyTypeInfoReference {
-    bool            isMutable;
-    const SyType*   childType;
+    bool isMutable;
+    const SyType* childType;
 } SyTypeInfoReference;
 
 typedef struct SyTypeInfoFunction {
@@ -104,38 +104,37 @@ typedef struct SyTypeInfoFunction {
 } SyTypeInfoFunction;
 
 typedef union SyTypeExtraInfo {
-    void*               _boolInfo;
-    SyTypeInfoInt       intInfo;
-    SyTypeInfoFloat     floatInfo;
-    //void*    _charInfo;
-    void*               _stringSliceInfo;
-    void*               _stringInfo;
-    SyTypeInfoFunction  functionInfo;
+    void* _boolInfo;
+    SyTypeInfoInt intInfo;
+    SyTypeInfoFloat floatInfo;
+    // void*    _charInfo;
+    void* _stringSliceInfo;
+    void* _stringInfo;
+    SyTypeInfoFunction functionInfo;
     SyTypeInfoReference referenceInfo;
 } SyTypeExtraInfo;
 
 typedef struct SyType {
     /// Actual size of the type in bytes.
-    size_t              sizeType;
-    /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported. 
-    uint16_t            alignType;
-    SyStringSlice       name;
+    size_t sizeType;
+    /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported.
+    uint16_t alignType;
+    SyStringSlice name;
     /// Can be NULL.
-    const SyFunction*   optionalDestructor;
+    const SyFunction* destructor;
     /// Can be NULL.
-    const SyFunction*   copyConstructor;
+    const SyFunction* copyConstructor;
     /// Can be NULL.
-    const SyFunction*   optionalEquality;
+    const SyFunction* equality;
     /// Can be NULL.
-    const SyFunction*   optionalHash;
+    const SyFunction* hash;
     /// Used as a tagged union with the payload being `extra`.
-    SyTypeTag           tag;
+    SyTypeTag tag;
     /// Used as a tagged union, with the tags being `tag`.
-    SyTypeExtraInfo     extra;
-    const SyType*       constRef;
-    const SyType*       mutRef;
+    SyTypeExtraInfo extra;
+    const SyType* constRef;
+    const SyType* mutRef;
 } SyType;
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -143,7 +142,7 @@ extern "C" {
 
 SY_API extern const SyType* SY_TYPE_BOOL;
 SY_API extern const SyType* SY_TYPE_I8;
-SY_API extern const SyType* SY_TYPE_I16; 
+SY_API extern const SyType* SY_TYPE_I16;
 SY_API extern const SyType* SY_TYPE_I32;
 SY_API extern const SyType* SY_TYPE_I64;
 SY_API extern const SyType* SY_TYPE_U8;
@@ -153,7 +152,7 @@ SY_API extern const SyType* SY_TYPE_U64;
 SY_API extern const SyType* SY_TYPE_USIZE;
 SY_API extern const SyType* SY_TYPE_F32;
 SY_API extern const SyType* SY_TYPE_F64;
-//SY_API extern const SyType* SY_TYPE_CHAR;
+// SY_API extern const SyType* SY_TYPE_CHAR;
 SY_API extern const SyType* SY_TYPE_STRING_SLICE;
 SY_API extern const SyType* SY_TYPE_STRING;
 

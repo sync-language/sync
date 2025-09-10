@@ -9,7 +9,6 @@
 #include <cstring>
 #include <tuple>
 
-
 static constexpr size_t initialArrayCapacity = 4;
 
 static size_t capacityIncrease(const size_t inCapacity) {
@@ -99,12 +98,12 @@ void sy::RawDynArrayUnmanaged::destroyScript(Allocator& alloc, const sy::Type* t
 
     uint8_t* asBytes = reinterpret_cast<uint8_t*>(this->data_);
 
-    if (typeInfo->optionalDestructor != nullptr) {
+    if (typeInfo->destructor.hasValue()) {
         for (size_t i = 0; i < this->len_; i++) {
             const size_t offset = i * typeInfo->sizeType;
             void* obj = &asBytes[offset];
 
-            sy::Function::CallArgs callArgs = typeInfo->optionalDestructor->startCall();
+            sy::Function::CallArgs callArgs = typeInfo->destructor.value()->startCall();
             callArgs.push(obj, typeInfo->mutRef);
             const sy::ProgramRuntimeError err = callArgs.call(nullptr);
             sy_assert(err.ok(), "Destructors should not fail");
