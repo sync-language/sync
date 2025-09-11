@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <cstring>
 
-
 #if defined(__AVX512BW__)
 // _mm512_cmpeq_epi8_mask
 constexpr size_t STRING_ALLOC_ALIGN = 64;
@@ -348,6 +347,8 @@ const char* sy::StringUnmanaged::cstr() const {
     }
     return asAlloc(this->raw_)->ptr;
 }
+
+size_t sy::StringUnmanaged::hash() const { return this->asSlice().hash(); }
 
 bool sy::StringUnmanaged::isSso() const { return !(asAlloc(this->raw_)->flag & FLAG_BIT); }
 

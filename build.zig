@@ -97,6 +97,8 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/interpreter/bytecode.cpp",
     "lib/src/interpreter/interpreter.cpp",
     "lib/src/compiler/compile_info.cpp",
+    "lib/src/compiler/compiler.cpp",
+    "lib/src/compiler/module.cpp",
     "lib/src/compiler/tokenizer/token.cpp",
     "lib/src/compiler/tokenizer/tokenizer.cpp",
     "lib/src/compiler/tokenizer/file_literals.cpp",

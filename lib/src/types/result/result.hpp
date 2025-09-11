@@ -27,9 +27,7 @@ template <typename E> class SY_API Error final {
   public:
     Error(E&& err) : err_(std::move(err)) {}
     Error(const E& err) : err_(err) {}
-    E&& take() && {
-        return std::move(err_);
-    }
+    E&& take() && { return std::move(err_); }
 };
 
 template <typename T, typename E> class SY_API Result<T, E, std::enable_if_t<std::is_same_v<T, void>>> final {
@@ -186,7 +184,6 @@ template <typename T, typename E> class SY_API Result<T, E, std::enable_if_t<!st
         detail::debugAssertResultIsOk(!hasErr_, "Bad sy::Result access: Result is an error");
         return std::move(val_.ok);
     }
-
 
     [[nodiscard]] E& err() {
         detail::debugAssertResultIsErr(hasErr_, "Bad sy::Result access: Result is not an error");

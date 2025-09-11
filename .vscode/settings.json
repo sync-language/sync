@@ -6,7 +6,8 @@
     "editor.tabSize": 4,
     "rust-analyzer.testExplorer": true,
     "C_Cpp.formatting": "clangFormat",
-
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "xaver.clang-format",
     "files.associations": {
         "cstdint": "cpp",
         "cuchar": "cpp",

@@ -8,7 +8,6 @@
 #include "string_slice.hpp"
 #include <iostream>
 
-
 namespace sy {
 
 class StringUnmanaged;
@@ -70,6 +69,8 @@ class SY_API StringUnmanaged SY_CLASS_FINAL {
     // Get as const char*
     [[nodiscard]] const char* cstr() const;
 
+    [[nodiscard]] size_t hash() const;
+
     SY_CLASS_TEST_PRIVATE :
 
         friend class detail::StringUtils;
@@ -121,9 +122,20 @@ class SY_API String final {
     // Get as const char*
     const char* cstr() const { return inner.cstr(); }
 
+    [[nodiscard]] size_t hash() const { return inner.hash(); }
+
   private:
     StringUnmanaged inner;
 };
 } // namespace sy
+
+namespace std {
+template <> struct hash<sy::StringUnmanaged> {
+    size_t operator()(const sy::StringUnmanaged& obj) { return obj.hash(); }
+};
+template <> struct hash<sy::String> {
+    size_t operator()(const sy::String& obj) { return obj.hash(); }
+};
+} // namespace std
 
 #endif // SY_TYPES_STRING_STRING_HPP_
