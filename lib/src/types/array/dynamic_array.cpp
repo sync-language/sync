@@ -78,10 +78,12 @@ void sy::RawDynArrayUnmanaged::destroy(Allocator& alloc, void (*destruct)(void* 
 
     uint8_t* asBytes = reinterpret_cast<uint8_t*>(this->data_);
 
-    for (size_t i = 0; i < this->len_; i++) {
-        const size_t offset = i * size;
-        void* obj = &asBytes[offset];
-        destruct(obj);
+    if (destruct) {
+        for (size_t i = 0; i < this->len_; i++) {
+            const size_t offset = i * size;
+            void* obj = &asBytes[offset];
+            destruct(obj);
+        }
     }
 
     alloc.freeAlignedArray(asBytes, this->capacity_ * size, align);
@@ -242,8 +244,8 @@ void* sy::RawDynArrayUnmanaged::at(size_t index, size_t size) {
     return &selfAsBytes[byteOffset];
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushBack(void* element, Allocator& alloc, size_t size,
-                                                                  size_t align) noexcept {
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::push(void* element, Allocator& alloc, size_t size,
+                                                              size_t align) noexcept {
     if (remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, size) == 0) {
         if (this->reallocateBack(alloc, size, align) == false) {
             return Error(AllocErr::OutOfMemory);
@@ -258,8 +260,8 @@ sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushBack(void* element,
 }
 
 sy::Result<void, sy::AllocErr>
-sy::RawDynArrayUnmanaged::pushBackCustomMove(void* element, Allocator& alloc, size_t size, size_t align,
-                                             void (*moveConstructFn)(void* dst, void* src)) noexcept {
+sy::RawDynArrayUnmanaged::pushCustomMove(void* element, Allocator& alloc, size_t size, size_t align,
+                                         void (*moveConstructFn)(void* dst, void* src)) noexcept {
     if (remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, size) == 0) {
         if (this->reallocateBackCustomMove(alloc, size, align, moveConstructFn) == false) {
             return Error(AllocErr::OutOfMemory);
@@ -273,8 +275,8 @@ sy::RawDynArrayUnmanaged::pushBackCustomMove(void* element, Allocator& alloc, si
     return {};
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushBackScript(void* element, Allocator& alloc,
-                                                                        const Type* typeInfo) noexcept {
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushScript(void* element, Allocator& alloc,
+                                                                    const Type* typeInfo) noexcept {
     if (remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, typeInfo->sizeType) == 0) {
         if (this->reallocateBack(alloc, typeInfo->sizeType, typeInfo->alignType) == false) {
             return Error(AllocErr::OutOfMemory);
@@ -332,6 +334,72 @@ sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushFrontScript(void* e
     uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
     this->data_ = selfAsBytes - typeInfo->sizeType;
     return {};
+}
+
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::insertAt(void* element, Allocator& alloc, size_t index,
+                                                                  size_t size, size_t align) noexcept {
+    sy_assert(index < this->len_, "Index out of bounds");
+
+    if (index == 0) {
+        return this->pushFront(element, alloc, size, align);
+    } else if (index == (this->len_ - 1)) {
+        return this->push(element, alloc, size, align);
+    }
+
+    if (remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, size) == 0) {
+        if (this->reallocateBack(alloc, size, align) == false) {
+            return Error(AllocErr::OutOfMemory);
+        }
+    }
+
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+
+    for (size_t i = index; i < this->len_; i++) {
+        const size_t srcByteOffset = i * size;
+        const size_t dstByteOffset = (i + 1) * size;
+        memcpy(&selfAsBytes[dstByteOffset], &selfAsBytes[srcByteOffset], size);
+    }
+
+    const size_t newElementByteOffset = index * size;
+    memcpy(&selfAsBytes[newElementByteOffset], element, size);
+    this->len_ += 1;
+    return {};
+}
+
+sy::Result<void, sy::AllocErr>
+sy::RawDynArrayUnmanaged::insertAtCustomMove(void* element, Allocator& alloc, size_t index, size_t size, size_t align,
+                                             void (*moveConstructFn)(void* dst, void* src)) noexcept {
+    sy_assert(index < this->len_, "Index out of bounds");
+
+    if (index == 0) {
+        return this->pushFront(element, alloc, size, align);
+    } else if (index == (this->len_ - 1)) {
+        return this->push(element, alloc, size, align);
+    }
+
+    if (remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, size) == 0) {
+        if (this->reallocateBackCustomMove(alloc, size, align, moveConstructFn) == false) {
+            return Error(AllocErr::OutOfMemory);
+        }
+    }
+
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+
+    for (size_t i = index; i < this->len_; i++) {
+        const size_t srcByteOffset = i * size;
+        const size_t dstByteOffset = (i + 1) * size;
+        moveConstructFn(&selfAsBytes[dstByteOffset], &selfAsBytes[srcByteOffset]);
+    }
+
+    const size_t newElementByteOffset = index * size;
+    moveConstructFn(&selfAsBytes[newElementByteOffset], element);
+    this->len_ += 1;
+    return {};
+}
+
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::insertAtScript(void* element, Allocator& alloc, size_t index,
+                                                                        const Type* typeInfo) noexcept {
+    return this->insertAt(element, alloc, index, typeInfo->sizeType, typeInfo->alignType);
 }
 
 sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reallocateBack(Allocator& alloc, const size_t size,

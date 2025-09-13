@@ -6,6 +6,7 @@
 #include "../../core.h"
 #include "../../mem/allocator.hpp"
 #include "../option/option.hpp"
+#include "../template_type_operations.hpp"
 #include <new>
 #include <optional>
 #include <type_traits>
@@ -188,49 +189,6 @@ class SY_API RawMapUnmanaged final {
     void* iterFirst_ = nullptr;
     void* iterLast_ = nullptr;
 };
-
-namespace detail {
-using DestructFn = void (*)(void* ptr);
-using HashKeyFn = size_t (*)(const void* key);
-using EqualKeyFn = bool (*)(const void* searchKey, const void* found);
-using MoveConstructFn = void (*)(void* dst, void* src);
-
-template <typename T> constexpr DestructFn makeDestructor() {
-    if constexpr (!std::is_destructible_v<T> && std::is_trivially_destructible_v<T>) {
-        return nullptr;
-    }
-
-    return [](void* ptr) {
-        T* asT = reinterpret_cast<T*>(ptr);
-        return asT->~T();
-    };
-}
-
-template <typename T> constexpr HashKeyFn makeHashKey() {
-    return [](const void* key) -> size_t {
-        const T* asT = reinterpret_cast<const T*>(key);
-        std::hash<T> h;
-        return h(*asT);
-    };
-}
-
-template <typename T> constexpr EqualKeyFn makeEqualKey() {
-    return [](const void* searchKey, const void* found) -> bool {
-        const T* searchAsT = reinterpret_cast<const T*>(searchKey);
-        const T* foundAsT = reinterpret_cast<const T*>(found);
-        return (*searchAsT) == (*foundAsT);
-    };
-}
-
-template <typename T> constexpr MoveConstructFn makeMoveConstructor() {
-    return [](void* dst, void* src) {
-        T* dstAsT = reinterpret_cast<T*>(dst);
-        T* srcAsT = reinterpret_cast<T*>(src);
-        T* _ = new (dstAsT) T(std::move(*srcAsT));
-        (void)_;
-    };
-}
-} // namespace detail
 
 template <typename K, typename V> class SY_API MapUnmanaged final {
 
