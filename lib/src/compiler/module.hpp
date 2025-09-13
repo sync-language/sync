@@ -10,15 +10,17 @@
 
 namespace sy {
 struct SemVer {
-    int major;
-    int minor;
-    int patch;
+    uint32_t major = 0;
+    uint32_t minor = 0;
+    uint32_t patch = 0;
 
-    bool operator==(const SemVer& other) const {
+    constexpr SemVer() = default;
+
+    constexpr bool operator==(const SemVer& other) const {
         return this->major == other.major && this->minor == other.minor && this->patch == other.patch;
     }
 
-    bool operator<(const SemVer& other) const {
+    constexpr bool operator<(const SemVer& other) const {
         if (this->major < other.major)
             return true;
         else if (this->major > other.major)
@@ -34,7 +36,7 @@ struct SemVer {
         return false;
     }
 
-    bool operator>(const SemVer& other) const {
+    constexpr bool operator>(const SemVer& other) const {
         if (this->major > other.major)
             return true;
         else if (this->major < other.major)
