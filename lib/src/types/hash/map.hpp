@@ -218,6 +218,7 @@ template <typename K, typename V> class SY_API MapUnmanaged final {
     class SY_API Iterator final {
         friend class MapUnmanaged;
         RawMapUnmanaged::Iterator iter_;
+        Iterator(RawMapUnmanaged::Iterator it) : iter_(it) {}
 
       public:
         struct SY_API Entry final {
@@ -243,13 +244,14 @@ template <typename K, typename V> class SY_API MapUnmanaged final {
         };
     };
 
-    Iterator begin() { return {this->inner_.begin()}; }
+    Iterator begin() { return Iterator(this->inner_.begin()); }
 
-    Iterator end() { return {this->inner_.end()}; }
+    Iterator end() { return Iterator(this->inner_.end()); }
 
     class SY_API ConstIterator final {
         friend class MapUnmanaged;
         RawMapUnmanaged::ConstIterator iter_;
+        ConstIterator(RawMapUnmanaged::ConstIterator it) : iter_(it) {}
 
       public:
         struct SY_API Entry final {
@@ -275,13 +277,14 @@ template <typename K, typename V> class SY_API MapUnmanaged final {
         };
     };
 
-    ConstIterator begin() const { return {this->inner_.begin()}; }
+    ConstIterator begin() const { return ConstIterator(this->inner_.begin()); }
 
-    ConstIterator end() const { return {this->inner_.end()}; }
+    ConstIterator end() const { return ConstIterator(this->inner_.end()); }
 
     class SY_API ReverseIterator final {
         friend class MapUnmanaged;
         RawMapUnmanaged::ReverseIterator iter_;
+        ReverseIterator(RawMapUnmanaged::ReverseIterator it) : iter_(it) {}
 
       public:
         struct SY_API Entry final {
@@ -307,13 +310,14 @@ template <typename K, typename V> class SY_API MapUnmanaged final {
         };
     };
 
-    ReverseIterator rbegin() { return {this->inner_.rbegin()}; }
+    ReverseIterator rbegin() { return ReverseIterator(this->inner_.rbegin()); }
 
-    ReverseIterator rend() { return {this->inner_.rend()}; }
+    ReverseIterator rend() { return ReverseIterator(this->inner_.rend()); }
 
     class SY_API ConstReverseIterator final {
         friend class MapUnmanaged;
         RawMapUnmanaged::ConstReverseIterator iter_;
+        ConstReverseIterator(RawMapUnmanaged::ConstReverseIterator it) : iter_(it) {}
 
       public:
         struct SY_API Entry final {
@@ -339,9 +343,9 @@ template <typename K, typename V> class SY_API MapUnmanaged final {
         };
     };
 
-    ConstReverseIterator rbegin() const { return {this->inner_.rbegin()}; }
+    ConstReverseIterator rbegin() const { return ConstReverseIterator(this->inner_.rbegin()); }
 
-    ConstReverseIterator rend() const { return {this->inner_.rend()}; }
+    ConstReverseIterator rend() const { return ConstReverseIterator(this->inner_.rend()); }
 
   private:
     constexpr static detail::DestructFn keyDestruct = detail::makeDestructor<K>();
@@ -362,10 +366,10 @@ template <typename K, typename V> void MapUnmanaged<K, V>::destroy(Allocator& al
 }
 
 template <typename K, typename V> inline Option<V&> MapUnmanaged<K, V>::find(const K& key) noexcept {
-    std::optional<void*> found = this->inner_.find(&key, hashKey, equalKey, alignof(K), sizeof(K), alignof(V));
+    std::optional<void*> found = this->inner_.findMut(&key, hashKey, equalKey, alignof(K), sizeof(K), alignof(V));
     if (found.has_value()) {
         void* ptr = found.value();
-        return *reinterpret_cast<K*>(ptr);
+        return *reinterpret_cast<V*>(ptr);
     }
     return {};
 }
@@ -374,7 +378,7 @@ template <typename K, typename V> inline Option<const V&> MapUnmanaged<K, V>::fi
     std::optional<const void*> found = this->inner_.find(&key, hashKey, equalKey, alignof(K), sizeof(K), alignof(V));
     if (found.has_value()) {
         const void* ptr = found.value();
-        return *reinterpret_cast<const K*>(ptr);
+        return *reinterpret_cast<const V*>(ptr);
     }
     return {};
 }
@@ -384,7 +388,7 @@ inline Result<Option<V>, AllocErr> MapUnmanaged<K, V>::insert(Allocator& alloc, 
     K* keyPtr = &key;
     V* valuePtr = &value;
     alignas(alignof(V)) uint8_t outBuffer[sizeof(V)];
-    Result<bool, AllocErr> result = [this, keyPtr, valuePtr, &outBuffer, alloc]() {
+    Result<bool, AllocErr> result = [this, keyPtr, valuePtr, &outBuffer, &alloc]() {
         if constexpr (keyTriviallyCopyable && valueTriviallyCopyable) {
             return this->inner_.insert(alloc, outBuffer, keyPtr, valuePtr, hashKey, keyDestruct, valueDestruct,
                                        equalKey, sizeof(K), alignof(K), sizeof(V), alignof(V));
@@ -401,7 +405,7 @@ inline Result<Option<V>, AllocErr> MapUnmanaged<K, V>::insert(Allocator& alloc, 
 
     bool replacedValue = result.value();
     if (replacedValue) {
-        return Option(std::move(*reinterpret_cast<V*>(outBuffer)));
+        return Option<V>(std::move(*reinterpret_cast<V*>(outBuffer)));
     } else {
         return Option<V>();
     }

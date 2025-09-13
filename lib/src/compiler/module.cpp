@@ -46,7 +46,8 @@ StringSlice sy::Module::name() const { return reinterpret_cast<const ModuleImpl*
 
 SemVer sy::Module::version() const { return reinterpret_cast<const ModuleImpl*>(this->inner_)->version; }
 
-Result<Module, AllocErr> Module::create(Allocator& alloc, StringSlice inName, SemVer inVersion) noexcept {
+Result<Module*, AllocErr> Module::create(Allocator& alloc, StringSlice inName, SemVer inVersion) noexcept {
+    Module* self;
     ModuleImpl* impl;
     {
         auto implAllocResult = alloc.allocObject<ModuleImpl>();
@@ -54,8 +55,15 @@ Result<Module, AllocErr> Module::create(Allocator& alloc, StringSlice inName, Se
             return Error(AllocErr::OutOfMemory);
         }
         impl = implAllocResult.value();
-        memset(impl, 0, sizeof(ModuleImpl));
 
+        auto selfAllocResult = alloc.allocObject<Module>();
+        if (selfAllocResult.hasErr()) {
+            alloc.freeObject(impl);
+            return Error(AllocErr::OutOfMemory);
+        }
+        self = selfAllocResult.value();
+
+        memset(impl, 0, sizeof(ModuleImpl));
         impl->alloc = alloc;
         auto nameAllocResult = StringUnmanaged::copyConstructSlice(inName, alloc);
         if (nameAllocResult.hasErr()) {
@@ -67,7 +75,6 @@ Result<Module, AllocErr> Module::create(Allocator& alloc, StringSlice inName, Se
         impl->version = inVersion;
     }
 
-    Module self{};
-    self.inner_ = reinterpret_cast<void*>(impl);
+    self->inner_ = reinterpret_cast<void*>(impl);
     return self;
 }

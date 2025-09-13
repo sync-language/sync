@@ -402,6 +402,61 @@ sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::insertAtScript(void* el
     return this->insertAt(element, alloc, index, typeInfo->sizeType, typeInfo->alignType);
 }
 
+void sy::RawDynArrayUnmanaged::removeAt(size_t index, void (*destruct)(void* ptr), size_t size) noexcept {
+    sy_assert(this->len_ > 0, "Nothing to remove");
+    sy_assert(index < this->len_, "Index out of bounds");
+
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+
+    const size_t removedElementOffset = index * size;
+    destruct(&selfAsBytes[removedElementOffset]);
+
+    for (size_t i = (index + 1); i < this->len_; i++) {
+        const size_t srcByteOffset = i * size;
+        const size_t dstByteOffset = (i + 1) * size;
+        memcpy(&selfAsBytes[dstByteOffset], &selfAsBytes[srcByteOffset], size);
+    }
+
+    this->len_ -= 1;
+}
+
+void sy::RawDynArrayUnmanaged::removeAtCustomMove(size_t index, void (*destruct)(void* ptr), size_t size,
+                                                  void (*moveConstructFn)(void* dst, void* src)) noexcept {
+    sy_assert(this->len_ > 0, "Nothing to remove");
+    sy_assert(index < this->len_, "Index out of bounds");
+
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+
+    const size_t removedElementOffset = index * size;
+    destruct(&selfAsBytes[removedElementOffset]);
+
+    for (size_t i = (index + 1); i < this->len_; i++) {
+        const size_t srcByteOffset = i * size;
+        const size_t dstByteOffset = (i + 1) * size;
+        moveConstructFn(&selfAsBytes[dstByteOffset], &selfAsBytes[srcByteOffset]);
+    }
+
+    this->len_ -= 1;
+}
+
+void sy::RawDynArrayUnmanaged::removeAtScript(size_t index, const Type* typeInfo) noexcept {
+    sy_assert(this->len_ > 0, "Nothing to remove");
+    sy_assert(index < this->len_, "Index out of bounds");
+
+    uint8_t* selfAsBytes = reinterpret_cast<uint8_t*>(this->data_);
+
+    const size_t removedElementOffset = index * typeInfo->sizeType;
+    typeInfo->destroyObject(&selfAsBytes[removedElementOffset]);
+
+    for (size_t i = (index + 1); i < this->len_; i++) {
+        const size_t srcByteOffset = i * typeInfo->sizeType;
+        const size_t dstByteOffset = (i + 1) * typeInfo->sizeType;
+        memcpy(&selfAsBytes[dstByteOffset], &selfAsBytes[srcByteOffset], typeInfo->sizeType);
+    }
+
+    this->len_ -= 1;
+}
+
 sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reallocateBack(Allocator& alloc, const size_t size,
                                                                         const size_t align) noexcept {
     const size_t newCapacity = capacityIncrease(this->capacity_);

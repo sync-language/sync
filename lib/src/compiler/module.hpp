@@ -13,6 +13,42 @@ struct SemVer {
     int major;
     int minor;
     int patch;
+
+    bool operator==(const SemVer& other) const {
+        return this->major == other.major && this->minor == other.minor && this->patch == other.patch;
+    }
+
+    bool operator<(const SemVer& other) const {
+        if (this->major < other.major)
+            return true;
+        else if (this->major > other.major)
+            return false;
+
+        if (this->minor < other.minor)
+            return true;
+        else if (this->minor > other.minor)
+            return false;
+
+        if (this->patch < other.patch)
+            return true;
+        return false;
+    }
+
+    bool operator>(const SemVer& other) const {
+        if (this->major > other.major)
+            return true;
+        else if (this->major < other.major)
+            return false;
+
+        if (this->minor > other.minor)
+            return true;
+        else if (this->minor < other.minor)
+            return false;
+
+        if (this->patch > other.patch)
+            return true;
+        return false;
+    }
 };
 
 class Compiler;
@@ -38,7 +74,7 @@ class SY_API Module final {
 
     Module() : inner_(nullptr) {}
 
-    static Result<Module, AllocErr> create(Allocator& alloc, StringSlice inName, SemVer inVersion) noexcept;
+    static Result<Module*, AllocErr> create(Allocator& alloc, StringSlice inName, SemVer inVersion) noexcept;
 
     void* inner_;
 };

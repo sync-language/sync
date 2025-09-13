@@ -90,6 +90,13 @@ class SY_API RawDynArrayUnmanaged SY_CLASS_FINAL {
     [[nodiscard]] Result<void, AllocErr> insertAtScript(void* element, Allocator& alloc, size_t index,
                                                         const Type* typeInfo) noexcept;
 
+    [[nodiscard]] void removeAt(size_t index, void (*destruct)(void* ptr), size_t size) noexcept;
+
+    [[nodiscard]] void removeAtCustomMove(size_t index, void (*destruct)(void* ptr), size_t size,
+                                          void (*moveConstructFn)(void* dst, void* src)) noexcept;
+
+    [[nodiscard]] void removeAtScript(size_t index, const Type* typeInfo) noexcept;
+
   private:
     [[nodiscard]] Result<void, AllocErr> reallocateBack(Allocator& alloc, const size_t size,
                                                         const size_t align) noexcept;
@@ -162,6 +169,8 @@ template <typename T> class SY_API DynArrayUnmanaged final {
     [[nodiscard]] Result<void, AllocErr> insertAt(T&& element, Allocator& alloc, size_t index) noexcept;
 
     [[nodiscard]] Result<void, AllocErr> insertAt(const T& element, Allocator& alloc, size_t index) noexcept;
+
+    [[nodiscard]] void removeAt(size_t index) noexcept;
 
   private:
     constexpr static detail::DestructFn elementDestruct = detail::makeDestructor<T>();
@@ -314,6 +323,14 @@ inline Result<void, AllocErr> DynArrayUnmanaged<T>::insertAt(const T& element, A
                                                              size_t index) noexcept {
     T elem = element;
     return this->insertAt(std::move(elem), alloc, index);
+}
+
+template <typename T> inline void DynArrayUnmanaged<T>::removeAt(size_t index) noexcept {
+    if constexpr (std::is_trivially_copyable_v<T>) {
+        this->inner_.removeAt(index, elementDestruct, sizeof(T));
+    } else {
+        this->inner_.removeAtCustomMove(index, elementDestruct, sizeof(T), detail::makeMoveConstructor<T>());
+    }
 }
 
 }; // namespace sy

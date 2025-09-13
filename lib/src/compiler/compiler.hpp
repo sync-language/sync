@@ -5,6 +5,7 @@
 
 #include "../core.h"
 #include "../mem/allocator.hpp"
+#include "../types/array/dynamic_array.hpp"
 #include "../types/result/result.hpp"
 #include "../types/string/string_slice.hpp"
 #include "module.hpp"
@@ -30,7 +31,12 @@ class SY_API Compiler final {
 
     Compiler& operator=(const Compiler& other) = delete;
 
-    [[nodiscard]] Result<Module*, AllocErr> addEmptyModule(StringSlice name, SemVer version) noexcept;
+    enum class AddEmptyModuleErr : int {
+        OutOfMemory = AllocErr::OutOfMemory,
+        DuplicateModuleVersion,
+    };
+
+    [[nodiscard]] Result<Module*, AddEmptyModuleErr> addEmptyModule(StringSlice name, SemVer version) noexcept;
 
   private:
     Compiler() : inner_(nullptr){};
