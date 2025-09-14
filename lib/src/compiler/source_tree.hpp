@@ -18,12 +18,26 @@ enum class SourceTreeError : int {
     NotDirectory,
     NoFiles,
     ErrorOpeningSourceFile,
+    UnknownError,
 };
 
 class SourceTree;
 
-class SourceFile {
+class SY_API SourceFile final {
     friend class SourceTree;
+
+  public:
+    /// Includes file name
+    StringSlice absolutePath() const { return absolutePath_.asSlice(); }
+
+    /// Does not include file name
+    StringSlice relativePath() const { return relativePath_.asSlice(); }
+
+    /// Does not include extension
+    StringSlice fileName() const { return fileName_.asSlice(); }
+
+    /// @return Full file contents
+    StringSlice contents() const { return fileContents_.asSlice(); }
 
   private:
     void destroy(Allocator& alloc) noexcept;
@@ -44,7 +58,9 @@ class SourceTree {
     /// @brief
     /// @param dir Directory to read from.
     /// @return
-    static Result<SourceTree, SourceTreeError> fromDirectory(Allocator alloc, StringSlice dir) noexcept;
+    static Result<SourceTree, SourceTreeError> allFilesInDirectoryRecursive(Allocator alloc, StringSlice dir) noexcept;
+
+    const DynArrayUnmanaged<SourceFile>& files() const { return files_; }
 
   private:
     SourceTree(Allocator alloc) : alloc_(alloc) {}

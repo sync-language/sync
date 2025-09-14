@@ -24,7 +24,8 @@ sy::SourceTree::~SourceTree() noexcept {
     this->files_.destroy(this->alloc_);
 }
 
-Result<SourceTree, SourceTreeError> sy::SourceTree::fromDirectory(Allocator alloc, StringSlice dir) noexcept {
+Result<SourceTree, SourceTreeError> sy::SourceTree::allFilesInDirectoryRecursive(Allocator alloc,
+                                                                                 StringSlice dir) noexcept {
     SourceTree self(alloc);
     SourceFile file;
 
@@ -64,9 +65,17 @@ Result<SourceTree, SourceTreeError> sy::SourceTree::fromDirectory(Allocator allo
                 auto copyPath = entryPath;
                 copyPath.remove_filename();
                 std::string u8relative = copyPath.u8string();
-                StringSlice absoluteSlice(u8relative.c_str(), u8relative.size());
-                // don't include leading slash
-                StringSlice relativeSlice(absoluteSlice.data() + dir.len() + 1, absoluteSlice.len() - dir.len() - 1);
+                StringSlice noFileNameSlice(u8relative.c_str(), u8relative.size());
+
+                StringSlice relativeSlice = [&noFileNameSlice, &dir]() {
+                    // dont include leading slash
+                    StringSlice temp(noFileNameSlice.data() + dir.len() + 1, noFileNameSlice.len() - dir.len() - 1);
+                    if (temp.len() == 0)
+                        return temp;
+                    // dont include ending slash
+                    return StringSlice(temp.data(), temp.len() - 1);
+                }();
+
                 auto pathResult = StringUnmanaged::copyConstructSlice(relativeSlice, alloc);
                 if (pathResult.hasErr()) {
                     file.destroy(alloc);
@@ -115,17 +124,12 @@ Result<SourceTree, SourceTreeError> sy::SourceTree::fromDirectory(Allocator allo
 
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "Filesystem error: " << e.what() << std::endl;
+        file.destroy(alloc); // no leak
+        return Error(SourceTreeError::UnknownError);
     } catch (const std::bad_alloc& e) {
         (void)e;
         file.destroy(alloc); // no leak
         return Error(SourceTreeError::OutOfMemory);
-    }
-
-    for (size_t i = 0; i < self.files_.len(); i++) {
-        std::cout << "File: " << self.files_[i].absolutePath_.cstr() << std::endl;
-        std::cout << "Relative: " << self.files_[i].relativePath_.cstr() << std::endl;
-        std::cout << "Name: " << self.files_[i].fileName_.cstr() << std::endl;
-        std::cout << "Contents:\n" << self.files_[i].fileContents_.cstr() << '\n' << std::endl;
     }
 
     return self;
@@ -136,9 +140,18 @@ Result<SourceTree, SourceTreeError> sy::SourceTree::fromDirectory(Allocator allo
 #include "../doctest.h"
 
 TEST_CASE("guh") {
-    auto res =
-        SourceTree::fromDirectory(Allocator(), "C:\\Users\\Admin\\Documents\\sync\\lib\\test\\source_tree_stuff");
+    auto res = SourceTree::allFilesInDirectoryRecursive(
+        Allocator(), "C:\\Users\\Admin\\Documents\\sync\\lib\\test\\source_tree_stuff");
     CHECK(res.hasValue());
+
+    SourceTree tree = res.takeValue();
+
+    for (size_t i = 0; i < tree.files().len(); i++) {
+        std::cout << "File: " << tree.files()[i].absolutePath().data() << std::endl;
+        std::cout << "Relative: " << tree.files()[i].relativePath().data() << std::endl;
+        std::cout << "Name: " << tree.files()[i].fileName().data() << std::endl;
+        std::cout << "Contents:\n" << tree.files()[i].contents().data() << '\n' << std::endl;
+    }
 }
 
 #endif // SYNC_LIB_WITH_TESTS
