@@ -42,6 +42,7 @@ set(SyncLibSources
     "lib/src/compiler/compile_info.cpp"
     "lib/src/compiler/compiler.cpp"
     "lib/src/compiler/module.cpp"
+    "lib/src/compiler/source_tree.cpp"
     "lib/src/compiler/tokenizer/token.cpp"
     "lib/src/compiler/tokenizer/tokenizer.cpp"
     "lib/src/compiler/tokenizer/file_literals.cpp"
@@ -49,7 +50,7 @@ set(SyncLibSources
 )
 
 add_library(SyncLib STATIC ${SyncLibSources})
-add_executable(SyncLibTests "lib/src/test.cpp" ${SyncLibSources})
+add_executable(SyncLibTests "lib/test/test.cpp" ${SyncLibSources})
 
 include(scripts/vendor/doctest/doctest.cmake)
 doctest_discover_tests(SyncLibTests)

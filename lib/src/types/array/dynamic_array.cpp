@@ -42,7 +42,7 @@ static size_t capacityIncrease(const size_t inCapacity) {
 static size_t remainingFrontCapacity(const void* data, const void* alloc, const size_t size) {
     const uintptr_t dataAsInt = reinterpret_cast<uintptr_t>(data);
     const uintptr_t allocAsInt = reinterpret_cast<uintptr_t>(alloc);
-    sy_assert(dataAsInt > allocAsInt, "Invalid memory");
+    sy_assert(dataAsInt >= allocAsInt, "Invalid memory");
 
     const size_t difference = static_cast<size_t>(dataAsInt - allocAsInt);
     return difference / size;

@@ -60,6 +60,8 @@ class SY_API StringUnmanaged SY_CLASS_FINAL {
 
     [[nodiscard]] Result<void, AllocErr> copyAssignCStr(const char* str, Allocator& alloc) noexcept;
 
+    [[nodiscard]] static Result<StringUnmanaged, AllocErr> fillConstruct(Allocator& alloc, size_t size, char toFill);
+
     /// Length in bytes, not utf8 characters or graphemes.
     [[nodiscard]] size_t len() const { return len_; }
 
@@ -68,6 +70,8 @@ class SY_API StringUnmanaged SY_CLASS_FINAL {
 
     // Get as const char*
     [[nodiscard]] const char* cstr() const;
+
+    [[nodiscard]] char* data();
 
     [[nodiscard]] size_t hash() const;
 

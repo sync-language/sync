@@ -104,6 +104,7 @@
         "stack": "cpp",
         "forward_list": "cpp",
         "filesystem": "cpp",
-        "*.rh": "cpp"
+        "*.rh": "cpp",
+        "chrono": "cpp"
     }
 }

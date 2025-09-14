@@ -339,6 +339,38 @@ sy::Result<void, sy::AllocErr> sy::StringUnmanaged::copyAssignCStr(const char* s
     return this->copyAssignSlice(StringSlice(str, len), alloc);
 }
 
+sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::fillConstruct(Allocator& alloc, size_t size,
+                                                                                 char toFill) {
+    StringUnmanaged self;
+    self.len_ = size;
+
+    if (size <= MAX_SSO_LEN) {
+        for (size_t i = 0; i < size; i++) {
+            asSsoMut(self.raw_)->arr[i] = toFill;
+        }
+        return self;
+    }
+
+    // capacity is length + 1 for \0 (null terminator)
+    size_t cap = size + 1;
+    auto res = sy::detail::mallocStringBuffer(cap, alloc);
+    if (!res) {
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    char* buffer = res.value();
+    for (size_t i = 0; i < size; i++) {
+        buffer[i] = toFill;
+    }
+    zeroSetLastSIMDElement(buffer, size);
+
+    self.setHeapFlag();
+    AllocBuffer* thisHeap = asAllocMut(self.raw_);
+    thisHeap->ptr = buffer;
+    thisHeap->capacity = cap;
+    return self;
+}
+
 sy::StringSlice sy::StringUnmanaged::asSlice() const { return StringSlice(this->cstr(), this->len_); }
 
 const char* sy::StringUnmanaged::cstr() const {
@@ -346,6 +378,13 @@ const char* sy::StringUnmanaged::cstr() const {
         return asSso(this->raw_)->arr;
     }
     return asAlloc(this->raw_)->ptr;
+}
+
+char* sy::StringUnmanaged::data() {
+    if (this->isSso()) {
+        return asSsoMut(this->raw_)->arr;
+    }
+    return asAllocMut(this->raw_)->ptr;
 }
 
 size_t sy::StringUnmanaged::hash() const { return this->asSlice().hash(); }
