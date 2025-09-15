@@ -50,7 +50,8 @@ class SourceTree {
     /// @brief
     /// @param dir Directory to read from.
     /// @return
-    static Result<SourceTree, SourceTreeError> allFilesInDirectoryRecursive(Allocator alloc, StringSlice dir) noexcept;
+    static Result<SourceTree, SourceTreeError> allFilesInAbsoluteDirectoryRecursive(Allocator alloc,
+                                                                                    StringSlice dir) noexcept;
 
     class SY_API Iterator final {
         friend class SourceTree;

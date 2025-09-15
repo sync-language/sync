@@ -53,8 +53,7 @@ struct Tree {
         Allocator alloc_;
         Node* parent_;
         StringUnmanaged name_;
-        path fullPath_;
-        StringUnmanaged fullPathAsString_;
+        StringUnmanaged path_;
         SourceEntry::Kind kind_;
         Element elem_;
     };
@@ -73,6 +72,8 @@ struct Tree {
 
     Result<void, SourceTreeError> addSyncSourceFile(const path& fullPath, const path& parentPath,
                                                     const path& name) noexcept;
+
+    Result<void, AllocErr> addOtherFile(const path& fullPath, const path& parentPath, const path& name);
 
   private:
     Tree(Allocator alloc) : alloc_(alloc) {}
@@ -106,13 +107,12 @@ Result<Tree*, AllocErr> Tree::initDir(Allocator alloc, const path& root) noexcep
 
     self->topNode_->alloc_ = alloc;
     {
-        self->topNode_->fullPath_ = root;
         auto res = pathToString(alloc, root);
         if (res.hasErr()) {
             alloc.freeObject(self->topNode_);
             alloc.freeObject(self);
         }
-        new (&self->topNode_->fullPathAsString_) StringUnmanaged(std::move(res.takeValue()));
+        new (&self->topNode_->path_) StringUnmanaged(std::move(res.takeValue()));
     }
     self->topNode_->kind_ = SourceEntry::Kind::Directory;
     // elem map already zero initialized
@@ -121,8 +121,19 @@ Result<Tree*, AllocErr> Tree::initDir(Allocator alloc, const path& root) noexcep
 }
 
 Result<Tree::Node*, AllocErr> Tree::findDir(const path& path) noexcept {
-    if (path == this->topNode_->fullPath_)
-        return this->topNode_;
+    { // is root
+        auto rootResult = pathToString(this->alloc_, path);
+        if (rootResult.hasErr()) {
+            return Error(AllocErr::OutOfMemory);
+        }
+
+        StringUnmanaged root = rootResult.takeValue();
+        if (root.asSlice() == this->topNode_->path_.asSlice()) {
+            root.destroy(this->alloc_);
+            return this->topNode_;
+        }
+        root.destroy(this->alloc_);
+    }
 
     size_t last = 0;
     for (const auto& _ : path) {
@@ -251,6 +262,43 @@ Result<void, SourceTreeError> Tree::addSyncSourceFile(const path& fullPath, cons
     return {};
 }
 
+Result<void, AllocErr> Tree::addOtherFile(const path& fullPath, const path& parentPath, const path& name) {
+    auto findResult = this->findDir(parentPath);
+    if (findResult.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    }
+    Node* parentNode = findResult.value();
+    sy_assert(parentNode != nullptr, "Must find");
+
+    Node* newNode;
+    {
+        auto newNodeResult = Node::init(this->alloc_, parentNode, fullPath, name);
+        if (newNodeResult.hasErr()) {
+            return Error(AllocErr::OutOfMemory);
+        }
+        newNode = newNodeResult.value();
+    }
+
+    newNode->kind_ = SourceEntry::Kind::OtherFile;
+
+    if (!this->allNodes_.push(newNode, this->alloc_)) {
+        newNode->~Node();
+        this->alloc_.freeObject(newNode);
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    auto insertResult = parentNode->elem_.directory_.insert(this->alloc_, newNode->name_.asSlice(), newNode);
+    if (insertResult.hasErr()) {
+        this->allNodes_.removeAt(this->allNodes_.len() - 1);
+        newNode->~Node();
+        this->alloc_.freeObject(newNode);
+        return Error(AllocErr::OutOfMemory);
+    }
+    sy_assert(insertResult.value().hasValue() == false, "what");
+
+    return {};
+}
+
 Result<Tree::Node*, AllocErr> Tree::Node::init(Allocator alloc, Node* parent, const path& fullPath, const path& name) {
     Node* newNode;
     {
@@ -273,14 +321,6 @@ Result<Tree::Node*, AllocErr> Tree::Node::init(Allocator alloc, Node* parent, co
         }
         new (&newNode->name_) StringUnmanaged(std::move(nameRes.takeValue()));
     }
-    try {
-        newNode->fullPath_ = fullPath;
-    } catch (const std::bad_alloc& e) {
-        (void)e;
-        newNode->~Node();
-        alloc.freeObject(newNode);
-        return Error(AllocErr::OutOfMemory);
-    }
     {
         auto fullPathRes = pathToString(alloc, fullPath);
         if (fullPathRes.hasErr()) {
@@ -288,7 +328,7 @@ Result<Tree::Node*, AllocErr> Tree::Node::init(Allocator alloc, Node* parent, co
             alloc.freeObject(newNode);
             return Error(AllocErr::OutOfMemory);
         }
-        new (&newNode->fullPathAsString_) StringUnmanaged(std::move(fullPathRes.takeValue()));
+        new (&newNode->path_) StringUnmanaged(std::move(fullPathRes.takeValue()));
     }
 
     return newNode;
@@ -296,7 +336,7 @@ Result<Tree::Node*, AllocErr> Tree::Node::init(Allocator alloc, Node* parent, co
 
 Tree::Node::~Node() {
     this->name_.destroy(this->alloc_);
-    this->fullPathAsString_.destroy(this->alloc_);
+    this->path_.destroy(this->alloc_);
     switch (this->kind_) {
     case SourceEntry::Kind::Directory: {
         this->elem_.directory_.destroy(this->alloc_);
@@ -318,7 +358,7 @@ SourceEntry::Kind SourceEntry::kind() const noexcept {
 
 StringSlice SourceEntry::absolutePath() const noexcept {
     const Tree::Node* node = reinterpret_cast<const Tree::Node*>(this->node_);
-    return node->fullPathAsString_.asSlice();
+    return node->path_.asSlice();
 }
 
 SourceTree::~SourceTree() noexcept {
@@ -334,13 +374,14 @@ SourceTree::~SourceTree() noexcept {
 
 SourceTree::SourceTree(SourceTree&& other) noexcept : tree_(other.tree_) { other.tree_ = nullptr; }
 
-Result<SourceTree, SourceTreeError> sy::SourceTree::allFilesInDirectoryRecursive(Allocator alloc,
-                                                                                 StringSlice dir) noexcept {
+Result<SourceTree, SourceTreeError> sy::SourceTree::allFilesInAbsoluteDirectoryRecursive(Allocator alloc,
+                                                                                         StringSlice dir) noexcept {
     SourceTree self;
 
     try {
         const std::filesystem::path syncExtension = ".sync";
         const std::filesystem::path path(dir.data(), dir.data() + dir.len());
+        sy_assert(path.is_absolute(), "Expected absolute path");
 
         if (!std::filesystem::exists(path)) {
             return Error(SourceTreeError::DirectoryNotExist);
@@ -366,8 +407,6 @@ Result<SourceTree, SourceTreeError> sy::SourceTree::allFilesInDirectoryRecursive
             const std::filesystem::path parentPath = entryPath.parent_path();
             const std::filesystem::path name = entryPath.filename();
 
-            std::cout << entry << std::endl;
-
             if (entry.is_directory()) {
                 if (!tree->addDir(entryPath, parentPath, name)) {
                     return Error(SourceTreeError::OutOfMemory);
@@ -378,6 +417,9 @@ Result<SourceTree, SourceTreeError> sy::SourceTree::allFilesInDirectoryRecursive
                         return Error(res.err());
                     }
                 } else {
+                    if (auto res = tree->addOtherFile(entryPath, parentPath, name); res.hasErr()) {
+                        return Error(SourceTreeError::OutOfMemory);
+                    }
                 }
             }
         }
@@ -429,7 +471,7 @@ SourceEntry sy::SourceTree::makeEntry(const void* node) {
 #include "../doctest.h"
 
 TEST_CASE("some stuff") {
-    auto res = SourceTree::allFilesInDirectoryRecursive(
+    auto res = SourceTree::allFilesInAbsoluteDirectoryRecursive(
         Allocator(), "C:\\Users\\Admin\\Documents\\sync\\lib\\test\\source_tree_stuff");
     CHECK(res.hasValue());
 
