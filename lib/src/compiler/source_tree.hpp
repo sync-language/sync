@@ -23,52 +23,65 @@ enum class SourceTreeError : int {
 
 class SourceTree;
 
-class SY_API SourceFile final {
-    friend class SourceTree;
-
+/// Is either a file or directory
+class SourceEntry {
   public:
-    /// Includes file name
-    StringSlice absolutePath() const { return absolutePath_.asSlice(); }
+    enum class Kind {
+        Directory,
+        SyncSourceFile,
+        OtherFile,
+    };
 
-    /// Does not include file name
-    StringSlice relativePath() const { return relativePath_.asSlice(); }
+    Kind kind() const noexcept;
 
-    /// Does not include extension
-    StringSlice fileName() const { return fileName_.asSlice(); }
-
-    /// @return Full file contents
-    StringSlice contents() const { return fileContents_.asSlice(); }
+    StringSlice absolutePath() const noexcept;
 
   private:
-    void destroy(Allocator& alloc) noexcept;
-
-  private:
-    StringUnmanaged absolutePath_;
-    StringUnmanaged relativePath_;
-    StringUnmanaged fileName_;
-    StringUnmanaged fileContents_;
+    friend class SourceTree;
+    const void* node_;
 };
 
 class SourceTree {
   public:
     ~SourceTree() noexcept;
 
-    SourceTree(SourceTree&&) = default;
+    SourceTree(SourceTree&& other) noexcept;
 
     /// @brief
     /// @param dir Directory to read from.
     /// @return
     static Result<SourceTree, SourceTreeError> allFilesInDirectoryRecursive(Allocator alloc, StringSlice dir) noexcept;
 
-    const DynArrayUnmanaged<SourceFile>& files() const { return files_; }
+    class SY_API Iterator final {
+        friend class SourceTree;
+        Iterator(const void* tree, const void* const* node) : tree_(tree), node_(node) {}
+        const void* tree_;
+        const void* const* node_;
+
+      public:
+        bool operator!=(const Iterator& other) const;
+        SourceEntry operator*() const;
+        Iterator& operator++();
+        Iterator& operator++(int) {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    friend class Iterator;
+
+    Iterator begin() const;
+
+    Iterator end() const;
 
   private:
-    SourceTree(Allocator alloc) : alloc_(alloc) {}
+    SourceTree() = default;
 
-  private:
-    Allocator alloc_;
-    DynArrayUnmanaged<SourceFile> files_{};
+    static SourceEntry makeEntry(const void* node);
+
+    void* tree_ = nullptr;
 };
+
 } // namespace sy
 
 #endif // SY_COMPILER_SOURCE_TREE_HPP_
