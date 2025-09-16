@@ -32,14 +32,14 @@ class SY_API Compiler final {
     Compiler& operator=(const Compiler& other) = delete;
 
     enum class AddEmptyModuleErr : int {
-        OutOfMemory = AllocErr::OutOfMemory,
+        OutOfMemory = static_cast<int>(AllocErr::OutOfMemory),
         DuplicateModuleVersion,
     };
 
     [[nodiscard]] Result<Module*, AddEmptyModuleErr> addEmptyModule(StringSlice name, SemVer version) noexcept;
 
   private:
-    Compiler() : inner_(nullptr){};
+    Compiler() : inner_(nullptr) {};
 
     void* inner_;
 };

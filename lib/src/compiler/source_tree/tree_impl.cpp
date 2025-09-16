@@ -1,6 +1,11 @@
 #include "tree_impl.hpp"
+#include "../../util/unreachable.hpp"
+#include <filesystem>
+#include <iostream>
+#include <string>
 
 using namespace sy;
+namespace fs = std::filesystem;
 
 SourceTreeNode::~SourceTreeNode() noexcept {
     this->name.destroy(this->alloc);
@@ -18,36 +23,8 @@ SourceTreeNode::~SourceTreeNode() noexcept {
     }
 }
 
-sy::Result<SourceTreeNode*, sy::AllocErr>
-SourceTreeNode::initDir(sy::Allocator inAlloc, sy::Option<SourceTreeNode*> inParent, sy::StringSlice inName) {
-    auto res = SourceTreeNode::init(inAlloc, inParent, inName);
-    if (res.hasValue()) {
-        res.value()->kind = sy::SourceFileKind::Directory;
-    }
-    return res;
-}
-
-sy::Result<SourceTreeNode*, sy::AllocErr> SourceTreeNode::initSyncSourceFile(sy::Allocator inAlloc,
-                                                                             sy::Option<SourceTreeNode*> inParent,
-                                                                             sy::StringSlice inName) {
-    auto res = SourceTreeNode::init(inAlloc, inParent, inName);
-    if (res.hasValue()) {
-        res.value()->kind = sy::SourceFileKind::SyncSourceFile;
-    }
-    return res;
-}
-
-sy::Result<SourceTreeNode*, sy::AllocErr>
-SourceTreeNode::initOtherFile(sy::Allocator inAlloc, sy::Option<SourceTreeNode*> inParent, sy::StringSlice inName) {
-    auto res = SourceTreeNode::init(inAlloc, inParent, inName);
-    if (res.hasValue()) {
-        res.value()->kind = sy::SourceFileKind::OtherFile;
-    }
-    return res;
-}
-
 Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option<SourceTreeNode*> inParent,
-                                                       StringSlice inName) {
+                                                       StringSlice inName, sy::SourceFileKind inKind) {
     SourceTreeNode* newNode;
     {
         auto newNodeResult = inAlloc.allocObject<SourceTreeNode>();
@@ -60,6 +37,7 @@ Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option
 
     newNode->alloc = inAlloc;
     newNode->parent = inParent;
+    newNode->kind = inKind;
     {
         auto nameRes = StringUnmanaged::copyConstructSlice(inName, inAlloc);
         if (nameRes.hasErr()) {
@@ -75,5 +53,211 @@ Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option
 
 TreeImpl::~TreeImpl() noexcept {
     this->rootNode->~SourceTreeNode();
-    this->allNodes.destroy(this->alloc);
+    // this->allNodes.destroy(this->alloc);
 }
+
+Result<SourceTreeNode*, SourceTreeErr> TreeImpl::insert(sy::StringSlice absolutePath, sy::SourceFileKind kind) {
+    try {
+        const fs::path path(absolutePath.data(), absolutePath.data() + absolutePath.len());
+
+        size_t depth = 0;
+
+        { // make sure root is valid
+            // todo improve this
+            for (auto _ : path) {
+                (void)_;
+                depth += 1;
+            }
+            if (depth == 0) {
+                return Error(SourceTreeErr::InvalidRoot);
+            }
+        }
+
+        // make root node if doesn't exist
+        if (rootNode == nullptr) {
+            auto rootDir = *path.begin();
+            std::string root = rootDir.u8string();
+            auto rootRes = SourceTreeNode::init(this->alloc, nullptr, StringSlice(root.c_str(), root.size()),
+                                                SourceFileKind::Directory);
+            if (rootRes.hasErr()) {
+                return Error(SourceTreeErr::OutOfMemory);
+            }
+            this->rootNode = rootRes.value();
+        }
+
+        auto pathIter = path.begin();
+        { // check root matches this tree's root
+            std::string rootStr = (*pathIter).u8string();
+            sy::StringSlice rootSlice(rootStr.c_str(), rootStr.size());
+            if (rootSlice != rootNode->name.asSlice()) {
+                return Error(SourceTreeErr::InvalidRoot);
+            }
+            ++pathIter;
+        }
+
+        if (depth == 1) {
+            return this->rootNode;
+        }
+
+        SourceTreeNode* current = this->rootNode;
+        size_t i = 1; // already did root
+        for (; i < depth; i++) {
+            if (current->kind != SourceFileKind::Directory) {
+                return Error(SourceTreeErr::UsingFileAsDirectory);
+            }
+
+            std::string entryStr = (*pathIter).u8string();
+            sy::StringSlice entrySlice(entryStr.c_str(), entryStr.size());
+            if (entrySlice.len() == 0) { // path ends with '/' for instance
+                return current;
+            }
+            auto findResult = current->elem.directory.find(entrySlice);
+
+            const bool isLastEntry = i == (depth - 1);
+            if (isLastEntry) {
+                if (findResult.hasValue()) {
+                    SourceTreeNode* found = findResult.value();
+                    if (found->kind != kind) {
+                        return Error(SourceTreeErr::MismatchedType);
+                    }
+                    return found;
+                }
+
+                auto nodeResult = SourceTreeNode::init(this->alloc, current, entrySlice, kind);
+                if (nodeResult.hasErr()) {
+                    return Error(SourceTreeErr::OutOfMemory);
+                }
+                SourceTreeNode* newNode = nodeResult.value();
+                auto insertResult = current->elem.directory.insert(current->alloc, newNode->name.asSlice(), newNode);
+                return newNode;
+            } else {
+                if (findResult.hasValue()) {
+                    current = findResult.value();
+                    continue;
+                }
+
+                auto nodeResult = SourceTreeNode::init(this->alloc, current, entrySlice, SourceFileKind::Directory);
+                if (nodeResult.hasErr()) {
+                    return Error(SourceTreeErr::OutOfMemory);
+                }
+                SourceTreeNode* newNode = nodeResult.value();
+                auto insertResult = current->elem.directory.insert(current->alloc, newNode->name.asSlice(), newNode);
+                current = newNode;
+            }
+
+            ++pathIter;
+        }
+    } catch (const std::bad_alloc& e) {
+        (void)e;
+        return Error(SourceTreeErr::OutOfMemory);
+    }
+
+    unreachable();
+}
+
+#if SYNC_LIB_WITH_TESTS
+
+#include "../../doctest.h"
+
+TEST_CASE("only root") {
+    {
+        Allocator alloc;
+        TreeImpl tree(alloc);
+        SourceTreeNode* node = tree.insert("/", SourceFileKind::Directory).value();
+        CHECK_EQ(node->name.asSlice(), "/");
+        CHECK_FALSE(node->parent);
+        CHECK_EQ(node, tree.rootNode);
+    }
+    {
+        Allocator alloc;
+        TreeImpl tree(alloc);
+        SourceTreeNode* node = tree.insert("C:", SourceFileKind::Directory).value();
+        CHECK_EQ(node->name.asSlice(), "C:");
+        CHECK_FALSE(node->parent);
+        CHECK_EQ(node, tree.rootNode);
+    }
+    {
+        Allocator alloc;
+        TreeImpl tree(alloc);
+        SourceTreeNode* node = tree.insert("D:", SourceFileKind::Directory).value();
+        CHECK_EQ(node->name.asSlice(), "D:");
+        CHECK_FALSE(node->parent);
+        CHECK_EQ(node, tree.rootNode);
+    }
+    {
+        Allocator alloc;
+        TreeImpl tree(alloc);
+        SourceTreeNode* node = tree.insert("C:/", SourceFileKind::Directory).value();
+        CHECK_EQ(node->name.asSlice(), "C:");
+        CHECK_FALSE(node->parent);
+        CHECK_EQ(node, tree.rootNode);
+    }
+}
+
+TEST_CASE("multiple directories without ending slash") {
+    {
+        Allocator alloc;
+        TreeImpl tree(alloc);
+        SourceTreeNode* node = tree.insert("/thing/example/stuff", SourceFileKind::Directory).value();
+        CHECK_EQ(node->name.asSlice(), "stuff");
+        SourceTreeNode* parentExample = node->parent.value();
+        CHECK_EQ(parentExample->name.asSlice(), "example");
+        SourceTreeNode* parentThing = parentExample->parent.value();
+        CHECK_EQ(parentThing->name.asSlice(), "thing");
+        SourceTreeNode* root = parentThing->parent.value();
+        CHECK_EQ(root->name.asSlice(), "/");
+        CHECK_FALSE(root->parent);
+        CHECK_EQ(root, tree.rootNode);
+    }
+#if defined(_WIN32)
+    {
+        Allocator alloc;
+        TreeImpl tree(alloc);
+        SourceTreeNode* node = tree.insert("\\thing\\example\\stuff", SourceFileKind::Directory).value();
+        CHECK_EQ(node->name.asSlice(), "stuff");
+        SourceTreeNode* parentExample = node->parent.value();
+        CHECK_EQ(parentExample->name.asSlice(), "example");
+        SourceTreeNode* parentThing = parentExample->parent.value();
+        CHECK_EQ(parentThing->name.asSlice(), "thing");
+        SourceTreeNode* root = parentThing->parent.value();
+        CHECK_EQ(root->name.asSlice(), "\\");
+        CHECK_FALSE(root->parent);
+        CHECK_EQ(root, tree.rootNode);
+    }
+#endif // _WIN32
+}
+
+TEST_CASE("multiple directories with ending slash") {
+    {
+        Allocator alloc;
+        TreeImpl tree(alloc);
+        SourceTreeNode* node = tree.insert("/thing/example/stuff/", SourceFileKind::Directory).value();
+        CHECK_EQ(node->name.asSlice(), "stuff");
+        SourceTreeNode* parentExample = node->parent.value();
+        CHECK_EQ(parentExample->name.asSlice(), "example");
+        SourceTreeNode* parentThing = parentExample->parent.value();
+        CHECK_EQ(parentThing->name.asSlice(), "thing");
+        SourceTreeNode* root = parentThing->parent.value();
+        CHECK_EQ(root->name.asSlice(), "/");
+        CHECK_FALSE(root->parent);
+        CHECK_EQ(root, tree.rootNode);
+    }
+#if defined(_WIN32)
+    {
+        Allocator alloc;
+        TreeImpl tree(alloc);
+        SourceTreeNode* node = tree.insert("\\thing\\example\\stuff\\", SourceFileKind::Directory).value();
+        CHECK_EQ(node->name.asSlice(), "stuff");
+        SourceTreeNode* parentExample = node->parent.value();
+        CHECK_EQ(parentExample->name.asSlice(), "example");
+        SourceTreeNode* parentThing = parentExample->parent.value();
+        CHECK_EQ(parentThing->name.asSlice(), "thing");
+        SourceTreeNode* root = parentThing->parent.value();
+        CHECK_EQ(root->name.asSlice(), "\\");
+        CHECK_FALSE(root->parent);
+        CHECK_EQ(root, tree.rootNode);
+    }
+#endif // _WIN32
+}
+
+#endif // SYNC_LIB_WITH_TESTS

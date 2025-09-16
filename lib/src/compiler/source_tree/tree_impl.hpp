@@ -34,27 +34,20 @@ struct alignas(ALLOC_CACHE_ALIGN) SourceTreeNode {
 
     ~SourceTreeNode() noexcept;
 
-    static sy::Result<SourceTreeNode*, sy::AllocErr>
-    initDir(sy::Allocator inAlloc, sy::Option<SourceTreeNode*> inParent, sy::StringSlice inName);
-
-    static sy::Result<SourceTreeNode*, sy::AllocErr>
-    initSyncSourceFile(sy::Allocator inAlloc, sy::Option<SourceTreeNode*> inParent, sy::StringSlice inName);
-
-    static sy::Result<SourceTreeNode*, sy::AllocErr>
-    initOtherFile(sy::Allocator inAlloc, sy::Option<SourceTreeNode*> inParent, sy::StringSlice inName);
-
-  private:
     static sy::Result<SourceTreeNode*, sy::AllocErr> init(sy::Allocator inAlloc, sy::Option<SourceTreeNode*> inParent,
-                                                          sy::StringSlice inName);
+                                                          sy::StringSlice inName, sy::SourceFileKind inKind);
 };
 
 struct TreeImpl {
-    Allocator alloc;
-    SourceTreeNode* rootNode;
-    sy::StringUnmanaged rootDir;
-    sy::DynArrayUnmanaged<SourceTreeNode*> allNodes;
+    sy::Allocator alloc;
+    SourceTreeNode* rootNode = nullptr;
+    // sy::DynArrayUnmanaged<SourceTreeNode*> allNodes{};
+
+    TreeImpl(sy::Allocator inAlloc) : alloc(inAlloc) {}
 
     ~TreeImpl() noexcept;
+
+    sy::Result<SourceTreeNode*, sy::SourceTreeErr> insert(sy::StringSlice absolutePath, sy::SourceFileKind kind);
 };
 
 #endif // SY_COMPILER_SOURCE_TREE_TREE_IMPL_HPP_

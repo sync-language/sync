@@ -7,7 +7,7 @@
 #include "../types/result/result.hpp"
 
 namespace sy {
-enum class AllocErr : int { OutOfMemory };
+enum class AllocErr : int { OutOfMemory = 0 };
 
 class Allocator;
 

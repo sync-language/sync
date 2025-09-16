@@ -90,12 +90,12 @@ class SY_API RawDynArrayUnmanaged SY_CLASS_FINAL {
     [[nodiscard]] Result<void, AllocErr> insertAtScript(void* element, Allocator& alloc, size_t index,
                                                         const Type* typeInfo) noexcept;
 
-    [[nodiscard]] void removeAt(size_t index, void (*destruct)(void* ptr), size_t size) noexcept;
+    void removeAt(size_t index, void (*destruct)(void* ptr), size_t size) noexcept;
 
-    [[nodiscard]] void removeAtCustomMove(size_t index, void (*destruct)(void* ptr), size_t size,
-                                          void (*moveConstructFn)(void* dst, void* src)) noexcept;
+    void removeAtCustomMove(size_t index, void (*destruct)(void* ptr), size_t size,
+                            void (*moveConstructFn)(void* dst, void* src)) noexcept;
 
-    [[nodiscard]] void removeAtScript(size_t index, const Type* typeInfo) noexcept;
+    void removeAtScript(size_t index, const Type* typeInfo) noexcept;
 
   private:
     [[nodiscard]] Result<void, AllocErr> reallocateBack(Allocator& alloc, const size_t size,
@@ -170,7 +170,7 @@ template <typename T> class SY_API DynArrayUnmanaged final {
 
     [[nodiscard]] Result<void, AllocErr> insertAt(const T& element, Allocator& alloc, size_t index) noexcept;
 
-    [[nodiscard]] void removeAt(size_t index) noexcept;
+    void removeAt(size_t index) noexcept;
 
   private:
     constexpr static detail::DestructFn elementDestruct = detail::makeDestructor<T>();
@@ -295,7 +295,7 @@ inline Result<void, AllocErr> DynArrayUnmanaged<T>::push(const T& element, Alloc
 template <typename T>
 inline Result<void, AllocErr> DynArrayUnmanaged<T>::pushFront(T&& element, Allocator& alloc) noexcept {
     if constexpr (std::is_trivially_copyable_v<T>) {
-        return this->inner_.pushFrom(&element, alloc, sizeof(T), alignof(T));
+        return this->inner_.pushFront(&element, alloc, sizeof(T), alignof(T));
     } else {
         return this->inner_.pushFrontCustomMove(&element, alloc, sizeof(T), alignof(T),
                                                 detail::makeMoveConstructor<T>());

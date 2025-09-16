@@ -470,15 +470,15 @@ SourceEntry sy::SourceTree::makeEntry(const void* node) {
 
 #include "../doctest.h"
 
-TEST_CASE("some stuff") {
-    auto res = SourceTree::allFilesInAbsoluteDirectoryRecursive(
-        Allocator(), "C:\\Users\\Admin\\Documents\\sync\\lib\\test\\source_tree_stuff");
-    CHECK(res.hasValue());
+// TEST_CASE("some stuff") {
+//     auto res = SourceTree::allFilesInAbsoluteDirectoryRecursive(
+//         Allocator(), "C:\\Users\\Admin\\Documents\\sync\\lib\\test\\source_tree_stuff");
+//     CHECK(res.hasValue());
 
-    SourceTree tree = res.takeValue();
-    for (auto entry : tree) {
-        std::cout << entry.absolutePath().data() << std::endl;
-    }
-}
+//     SourceTree tree = res.takeValue();
+//     for (auto entry : tree) {
+//         std::cout << entry.absolutePath().data() << std::endl;
+//     }
+// }
 
 #endif // SYNC_LIB_WITH_TESTS

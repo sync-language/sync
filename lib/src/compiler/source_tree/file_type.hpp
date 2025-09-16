@@ -9,6 +9,13 @@ enum class SourceFileKind : int {
     SyncSourceFile = 1,
     OtherFile = 2,
 };
-}
+
+enum class SourceTreeErr : int {
+    OutOfMemory = 0,
+    InvalidRoot,
+    UsingFileAsDirectory,
+    MismatchedType,
+};
+} // namespace sy
 
 #endif // SY_COMPILER_SOURCE_TREE_FILE_TYPE_HPP_
