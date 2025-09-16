@@ -204,6 +204,7 @@ template <typename T, typename E> class SY_API Result<T, E, std::enable_if_t<!st
     union SY_API Val {
         T ok;
         E err;
+        Val() noexcept {}
         Val(T&& inOk) noexcept : ok(std::move(inOk)) {}
         Val(const T& inOk) noexcept : ok(inOk) {}
         Val(Error<E>&& inErr) noexcept : err(std::move(inErr).take()) {}

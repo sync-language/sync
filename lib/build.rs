@@ -34,6 +34,7 @@ fn main()
         .file("src/compiler/tokenizer/token.cpp")
         .file("src/compiler/tokenizer/tokenizer.cpp")
         .file("src/compiler/tokenizer/file_literals.cpp")
+        .file("src/compiler/source_tree/tree_impl.cpp")
         .file("src/program/program.cpp")
         .compile("SyncLib");
 }
