@@ -361,110 +361,110 @@ StringSlice SourceEntry::absolutePath() const noexcept {
     return node->path_.asSlice();
 }
 
-SourceTree::~SourceTree() noexcept {
-    if (this->tree_ == nullptr)
-        return;
+// SourceTree::~SourceTree() noexcept {
+//     if (this->tree_ == nullptr)
+//         return;
 
-    Tree* tree = reinterpret_cast<Tree*>(this->tree_);
-    Allocator alloc = tree->alloc_;
-    tree->~Tree();
-    alloc.freeObject(tree);
-    this->tree_ = nullptr;
-}
+//     Tree* tree = reinterpret_cast<Tree*>(this->tree_);
+//     Allocator alloc = tree->alloc_;
+//     tree->~Tree();
+//     alloc.freeObject(tree);
+//     this->tree_ = nullptr;
+// }
 
-SourceTree::SourceTree(SourceTree&& other) noexcept : tree_(other.tree_) { other.tree_ = nullptr; }
+// SourceTree::SourceTree(SourceTree&& other) noexcept : tree_(other.tree_) { other.tree_ = nullptr; }
 
-Result<SourceTree, SourceTreeError> sy::SourceTree::allFilesInAbsoluteDirectoryRecursive(Allocator alloc,
-                                                                                         StringSlice dir) noexcept {
-    SourceTree self;
+// Result<SourceTree, SourceTreeError> sy::SourceTree::allFilesInAbsoluteDirectoryRecursive(Allocator alloc,
+//                                                                                          StringSlice dir) noexcept {
+//     SourceTree self;
 
-    try {
-        const std::filesystem::path syncExtension = ".sync";
-        const std::filesystem::path path(dir.data(), dir.data() + dir.len());
-        sy_assert(path.is_absolute(), "Expected absolute path");
+//     try {
+//         const std::filesystem::path syncExtension = ".sync";
+//         const std::filesystem::path path(dir.data(), dir.data() + dir.len());
+//         sy_assert(path.is_absolute(), "Expected absolute path");
 
-        if (!std::filesystem::exists(path)) {
-            return Error(SourceTreeError::DirectoryNotExist);
-        }
-        if (!std::filesystem::is_directory(path)) {
-            return Error(SourceTreeError::NotDirectory);
-        }
+//         if (!std::filesystem::exists(path)) {
+//             return Error(SourceTreeError::DirectoryNotExist);
+//         }
+//         if (!std::filesystem::is_directory(path)) {
+//             return Error(SourceTreeError::NotDirectory);
+//         }
 
-        Tree* tree;
-        { // init tree
-            auto res = Tree::initDir(alloc, path);
-            if (res.hasErr()) {
-                return Error(SourceTreeError::OutOfMemory);
-            }
-            tree = res.value();
-        }
+//         Tree* tree;
+//         { // init tree
+//             auto res = Tree::initDir(alloc, path);
+//             if (res.hasErr()) {
+//                 return Error(SourceTreeError::OutOfMemory);
+//             }
+//             tree = res.value();
+//         }
 
-        self.tree_ = reinterpret_cast<void*>(tree);
-        // if exception occurs, SourceTree destructor will ensure no leaks
+//         self.tree_ = reinterpret_cast<void*>(tree);
+//         // if exception occurs, SourceTree destructor will ensure no leaks
 
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
-            const std::filesystem::path& entryPath = entry.path();
-            const std::filesystem::path parentPath = entryPath.parent_path();
-            const std::filesystem::path name = entryPath.filename();
+//         for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
+//             const std::filesystem::path& entryPath = entry.path();
+//             const std::filesystem::path parentPath = entryPath.parent_path();
+//             const std::filesystem::path name = entryPath.filename();
 
-            if (entry.is_directory()) {
-                if (!tree->addDir(entryPath, parentPath, name)) {
-                    return Error(SourceTreeError::OutOfMemory);
-                }
-            } else if (entry.is_regular_file()) {
-                if (name.extension() == syncExtension) {
-                    if (auto res = tree->addSyncSourceFile(entryPath, parentPath, name); res.hasErr()) {
-                        return Error(res.err());
-                    }
-                } else {
-                    if (auto res = tree->addOtherFile(entryPath, parentPath, name); res.hasErr()) {
-                        return Error(SourceTreeError::OutOfMemory);
-                    }
-                }
-            }
-        }
+//             if (entry.is_directory()) {
+//                 if (!tree->addDir(entryPath, parentPath, name)) {
+//                     return Error(SourceTreeError::OutOfMemory);
+//                 }
+//             } else if (entry.is_regular_file()) {
+//                 if (name.extension() == syncExtension) {
+//                     if (auto res = tree->addSyncSourceFile(entryPath, parentPath, name); res.hasErr()) {
+//                         return Error(res.err());
+//                     }
+//                 } else {
+//                     if (auto res = tree->addOtherFile(entryPath, parentPath, name); res.hasErr()) {
+//                         return Error(SourceTreeError::OutOfMemory);
+//                     }
+//                 }
+//             }
+//         }
 
-    } catch (const std::filesystem::filesystem_error& e) {
-        std::cerr << "Filesystem error: " << e.what() << std::endl;
-        return Error(SourceTreeError::UnknownError);
-    } catch (const std::bad_alloc& e) {
-        (void)e;
-        return Error(SourceTreeError::OutOfMemory);
-    }
+//     } catch (const std::filesystem::filesystem_error& e) {
+//         std::cerr << "Filesystem error: " << e.what() << std::endl;
+//         return Error(SourceTreeError::UnknownError);
+//     } catch (const std::bad_alloc& e) {
+//         (void)e;
+//         return Error(SourceTreeError::OutOfMemory);
+//     }
 
-    return self;
-}
+//     return self;
+// }
 
-bool SourceTree::Iterator::operator!=(const Iterator& other) const { return this->node_ != other.node_; }
+// bool SourceTree::Iterator::operator!=(const Iterator& other) const { return this->node_ != other.node_; }
 
-SourceEntry SourceTree::Iterator::operator*() const { return makeEntry(*this->node_); }
+// SourceEntry SourceTree::Iterator::operator*() const { return makeEntry(*this->node_); }
 
-SourceTree::Iterator& SourceTree::Iterator::operator++() {
-    const Tree* tree = reinterpret_cast<const Tree*>(this->tree_);
-    const Tree::Node* const* node = reinterpret_cast<const Tree::Node* const*>(this->node_);
-    const Tree::Node* const* maxNode = tree->allNodes_.data() + tree->allNodes_.len();
-    node++;
-    if (node == maxNode) {
-        this->node_ = nullptr;
-    } else {
-        this->node_ = reinterpret_cast<const void* const*>(node);
-    }
-    return *this;
-}
+// SourceTree::Iterator& SourceTree::Iterator::operator++() {
+//     const Tree* tree = reinterpret_cast<const Tree*>(this->tree_);
+//     const Tree::Node* const* node = reinterpret_cast<const Tree::Node* const*>(this->node_);
+//     const Tree::Node* const* maxNode = tree->allNodes_.data() + tree->allNodes_.len();
+//     node++;
+//     if (node == maxNode) {
+//         this->node_ = nullptr;
+//     } else {
+//         this->node_ = reinterpret_cast<const void* const*>(node);
+//     }
+//     return *this;
+// }
 
-SourceTree::Iterator SourceTree::begin() const {
-    const Tree* tree = reinterpret_cast<const Tree*>(this->tree_);
-    const Tree::Node* const* allNodes = tree->allNodes_.data();
-    return Iterator(this->tree_, reinterpret_cast<const void* const*>(allNodes));
-}
+// SourceTree::Iterator SourceTree::begin() const {
+//     const Tree* tree = reinterpret_cast<const Tree*>(this->tree_);
+//     const Tree::Node* const* allNodes = tree->allNodes_.data();
+//     return Iterator(this->tree_, reinterpret_cast<const void* const*>(allNodes));
+// }
 
-SourceTree::Iterator SourceTree::end() const { return Iterator(this->tree_, nullptr); }
+// SourceTree::Iterator SourceTree::end() const { return Iterator(this->tree_, nullptr); }
 
-SourceEntry sy::SourceTree::makeEntry(const void* node) {
-    SourceEntry entry;
-    entry.node_ = node;
-    return entry;
-}
+// SourceEntry sy::SourceTree::makeEntry(const void* node) {
+//     SourceEntry entry;
+//     entry.node_ = node;
+//     return entry;
+// }
 
 #if SYNC_LIB_WITH_TESTS
 

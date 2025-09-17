@@ -21,7 +21,7 @@ enum class SourceTreeError : int {
     UnknownError,
 };
 
-class SourceTree;
+// class SourceTree;
 
 /// Is either a file or directory
 class SourceEntry {
@@ -41,47 +41,47 @@ class SourceEntry {
     const void* node_;
 };
 
-class SourceTree {
-  public:
-    ~SourceTree() noexcept;
+// class SourceTree {
+//   public:
+//     ~SourceTree() noexcept;
 
-    SourceTree(SourceTree&& other) noexcept;
+//     SourceTree(SourceTree&& other) noexcept;
 
-    /// @brief
-    /// @param dir Directory to read from.
-    /// @return
-    static Result<SourceTree, SourceTreeError> allFilesInAbsoluteDirectoryRecursive(Allocator alloc,
-                                                                                    StringSlice dir) noexcept;
+//     /// @brief
+//     /// @param dir Directory to read from.
+//     /// @return
+//     static Result<SourceTree, SourceTreeError> allFilesInAbsoluteDirectoryRecursive(Allocator alloc,
+//                                                                                     StringSlice dir) noexcept;
 
-    class SY_API Iterator final {
-        friend class SourceTree;
-        Iterator(const void* tree, const void* const* node) : tree_(tree), node_(node) {}
-        const void* tree_;
-        const void* const* node_;
+//     class SY_API Iterator final {
+//         friend class SourceTree;
+//         Iterator(const void* tree, const void* const* node) : tree_(tree), node_(node) {}
+//         const void* tree_;
+//         const void* const* node_;
 
-      public:
-        bool operator!=(const Iterator& other) const;
-        SourceEntry operator*() const;
-        Iterator& operator++();
-        Iterator& operator++(int) {
-            ++(*this);
-            return *this;
-        };
-    };
+//       public:
+//         bool operator!=(const Iterator& other) const;
+//         SourceEntry operator*() const;
+//         Iterator& operator++();
+//         Iterator& operator++(int) {
+//             ++(*this);
+//             return *this;
+//         };
+//     };
 
-    friend class Iterator;
+//     friend class Iterator;
 
-    Iterator begin() const;
+//     Iterator begin() const;
 
-    Iterator end() const;
+//     Iterator end() const;
 
-  private:
-    SourceTree() = default;
+//   private:
+//     SourceTree() = default;
 
-    static SourceEntry makeEntry(const void* node);
+//     static SourceEntry makeEntry(const void* node);
 
-    void* tree_ = nullptr;
-};
+//     void* tree_ = nullptr;
+// };
 
 } // namespace sy
 

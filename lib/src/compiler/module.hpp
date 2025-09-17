@@ -53,6 +53,13 @@ struct SemVer {
     }
 };
 
+enum class ModuleErr : int {
+    OutOfMemory = 0,
+    FileNotSyncSource,
+    ErrorOpeningSourceFile,
+    Unknown,
+};
+
 class Compiler;
 
 class SY_API Module final {
@@ -70,6 +77,10 @@ class SY_API Module final {
     StringSlice name() const;
 
     SemVer version() const;
+
+    /// @brief Sets the root file of the source tree.
+    /// @param path Either absolute or relative
+    [[nodiscard]] Result<void, ModuleErr> setRootFileFromDisk(StringSlice path) noexcept;
 
   private:
     friend class Compiler;

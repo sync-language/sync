@@ -1,11 +1,14 @@
-#include "tree_impl.hpp"
+#include "source_tree.hpp"
 #include "../../util/unreachable.hpp"
+#include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <string>
 
 using namespace sy;
 namespace fs = std::filesystem;
+
+SourceTreeNode::Element::Element() noexcept { memset(this, 0, sizeof(Element)); }
 
 SourceTreeNode::~SourceTreeNode() noexcept {
     this->name.destroy(this->alloc);
@@ -24,7 +27,7 @@ SourceTreeNode::~SourceTreeNode() noexcept {
 }
 
 Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option<SourceTreeNode*> inParent,
-                                                       StringSlice inName, sy::SourceFileKind inKind) {
+                                                       StringSlice inName, sy::SourceFileKind inKind) noexcept {
     SourceTreeNode* newNode;
     {
         auto newNodeResult = inAlloc.allocObject<SourceTreeNode>();
@@ -51,12 +54,13 @@ Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option
     return newNode;
 }
 
-TreeImpl::~TreeImpl() noexcept {
+SourceTree::~SourceTree() noexcept {
     this->rootNode->~SourceTreeNode();
     // this->allNodes.destroy(this->alloc);
 }
 
-Result<SourceTreeNode*, SourceTreeErr> TreeImpl::insert(sy::StringSlice absolutePath, sy::SourceFileKind kind) {
+Result<SourceTreeNode*, SourceTreeErr> SourceTree::insert(sy::StringSlice absolutePath,
+                                                          sy::SourceFileKind kind) noexcept {
     try {
         const fs::path path(absolutePath.data(), absolutePath.data() + absolutePath.len());
 
@@ -162,7 +166,7 @@ Result<SourceTreeNode*, SourceTreeErr> TreeImpl::insert(sy::StringSlice absolute
 TEST_CASE("only root") {
     {
         Allocator alloc;
-        TreeImpl tree(alloc);
+        SourceTree tree(alloc);
         SourceTreeNode* node = tree.insert("/", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "/");
         CHECK_FALSE(node->parent);
@@ -170,7 +174,7 @@ TEST_CASE("only root") {
     }
     {
         Allocator alloc;
-        TreeImpl tree(alloc);
+        SourceTree tree(alloc);
         SourceTreeNode* node = tree.insert("C:", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "C:");
         CHECK_FALSE(node->parent);
@@ -178,7 +182,7 @@ TEST_CASE("only root") {
     }
     {
         Allocator alloc;
-        TreeImpl tree(alloc);
+        SourceTree tree(alloc);
         SourceTreeNode* node = tree.insert("D:", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "D:");
         CHECK_FALSE(node->parent);
@@ -186,7 +190,7 @@ TEST_CASE("only root") {
     }
     {
         Allocator alloc;
-        TreeImpl tree(alloc);
+        SourceTree tree(alloc);
         SourceTreeNode* node = tree.insert("C:/", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "C:");
         CHECK_FALSE(node->parent);
@@ -197,7 +201,7 @@ TEST_CASE("only root") {
 TEST_CASE("multiple directories without ending slash") {
     {
         Allocator alloc;
-        TreeImpl tree(alloc);
+        SourceTree tree(alloc);
         SourceTreeNode* node = tree.insert("/thing/example/stuff", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "stuff");
         SourceTreeNode* parentExample = node->parent.value();
@@ -230,7 +234,7 @@ TEST_CASE("multiple directories without ending slash") {
 TEST_CASE("multiple directories with ending slash") {
     {
         Allocator alloc;
-        TreeImpl tree(alloc);
+        SourceTree tree(alloc);
         SourceTreeNode* node = tree.insert("/thing/example/stuff/", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "stuff");
         SourceTreeNode* parentExample = node->parent.value();
