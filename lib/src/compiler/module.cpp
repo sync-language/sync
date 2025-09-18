@@ -11,6 +11,30 @@ namespace fs = std::filesystem;
 
 // Sync modules use semver https://semver.org/
 
+static Result<StringUnmanaged, ModuleErr> loadFileToString(Allocator& alloc, const fs::path& path) {
+    std::ifstream sourceFile(path);
+    StringUnmanaged contents;
+    if (!sourceFile.is_open()) {
+        return Error(ModuleErr::ErrorOpeningSourceFile);
+    }
+
+    { // read file contents
+      // go to end
+        sourceFile.seekg(0, std::ios::end);
+        size_t fileSize = sourceFile.tellg();
+        auto contentResult = StringUnmanaged::fillConstruct(alloc, fileSize, '\0');
+        if (contentResult.hasErr()) {
+            return Error(ModuleErr::OutOfMemory);
+        }
+
+        new (&contents) StringUnmanaged(std::move(contentResult.takeValue()));
+        sourceFile.seekg(0, std::ios::beg);         // back to beginning to read from
+        sourceFile.read(contents.data(), fileSize); // directly into string
+    }
+
+    return contents;
+}
+
 namespace {
 struct ModuleImpl {
     Allocator alloc;
@@ -69,6 +93,8 @@ Result<void, ModuleErr> ModuleImpl::setRootFileFromDisk(StringSlice path) noexce
         (void)e;
         return Error(ModuleErr::OutOfMemory);
     }
+
+    return {};
 }
 } // namespace
 
@@ -78,30 +104,6 @@ static void deleteImpl(void* impl) noexcept {
     self->name.destroy(alloc);
     self->~ModuleImpl();
     alloc.freeObject(self);
-}
-
-static Result<StringUnmanaged, ModuleErr> loadFileToString(Allocator& alloc, const fs::path& path) {
-    std::ifstream sourceFile(path);
-    StringUnmanaged contents;
-    if (!sourceFile.is_open()) {
-        return Error(ModuleErr::ErrorOpeningSourceFile);
-    }
-
-    { // read file contents
-      // go to end
-        sourceFile.seekg(0, std::ios::end);
-        size_t fileSize = sourceFile.tellg();
-        auto contentResult = StringUnmanaged::fillConstruct(alloc, fileSize, '\0');
-        if (contentResult.hasErr()) {
-            return Error(ModuleErr::OutOfMemory);
-        }
-
-        new (&contents) StringUnmanaged(std::move(contentResult.takeValue()));
-        sourceFile.seekg(0, std::ios::beg);         // back to beginning to read from
-        sourceFile.read(contents.data(), fileSize); // directly into string
-    }
-
-    return contents;
 }
 
 sy::Module::~Module() noexcept {

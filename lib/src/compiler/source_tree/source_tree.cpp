@@ -264,4 +264,33 @@ TEST_CASE("multiple directories with ending slash") {
 #endif // _WIN32
 }
 
+TEST_CASE("source code file") {
+    Allocator alloc;
+    SourceTree tree(alloc);
+    SourceTreeNode* node = tree.insert("example/file.sync", SourceFileKind::SyncSourceFile).value();
+    CHECK_EQ(node->name.asSlice(), "file.sync");
+    CHECK_EQ(node->kind, SourceFileKind::SyncSourceFile);
+    SourceTreeNode* parentExample = node->parent.value();
+    CHECK_EQ(parentExample->name.asSlice(), "example");
+    CHECK_EQ(parentExample->kind, SourceFileKind::Directory);
+    CHECK_FALSE(parentExample->parent);
+    CHECK_EQ(parentExample, tree.rootNode);
+}
+
+TEST_CASE("two files same directory") {
+    Allocator alloc;
+    SourceTree tree(alloc);
+    SourceTreeNode* node1 = tree.insert("example/file1.sync", SourceFileKind::SyncSourceFile).value();
+    CHECK_EQ(node1->name.asSlice(), "file1.sync");
+    CHECK_EQ(node1->kind, SourceFileKind::SyncSourceFile);
+    SourceTreeNode* node2 = tree.insert("example/file2.sync", SourceFileKind::SyncSourceFile).value();
+    CHECK_EQ(node2->name.asSlice(), "file2.sync");
+    CHECK_EQ(node2->kind, SourceFileKind::SyncSourceFile);
+    SourceTreeNode* parent1 = node1->parent.value();
+    SourceTreeNode* parent2 = node2->parent.value();
+    CHECK_EQ(parent1, parent2);
+    CHECK_EQ(parent1->name.asSlice(), "example");
+    CHECK_EQ(parent1->kind, SourceFileKind::Directory);
+}
+
 #endif // SYNC_LIB_WITH_TESTS

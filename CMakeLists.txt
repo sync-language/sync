@@ -42,7 +42,6 @@ set(SyncLibSources
     "lib/src/compiler/compile_info.cpp"
     "lib/src/compiler/compiler.cpp"
     "lib/src/compiler/module.cpp"
-    "lib/src/compiler/source_tree.cpp"
     "lib/src/compiler/tokenizer/token.cpp"
     "lib/src/compiler/tokenizer/tokenizer.cpp"
     "lib/src/compiler/tokenizer/file_literals.cpp"
