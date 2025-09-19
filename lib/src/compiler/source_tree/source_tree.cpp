@@ -112,7 +112,7 @@ Result<SourceTreeNode*, SourceTreeErr> SourceTree::insert(sy::StringSlice absolu
 
             std::string entryStr = (*pathIter).u8string();
             sy::StringSlice entrySlice(entryStr.c_str(), entryStr.size());
-            if (entrySlice.len() == 0) { // path ends with '/' for instance
+            if (entrySlice.len() == 0 || entrySlice == "/") { // path ends with '/' for instance
                 return current;
             }
             auto findResult = current->elem.directory.find(entrySlice);
@@ -216,7 +216,7 @@ TEST_CASE("multiple directories without ending slash") {
 #if defined(_WIN32)
     {
         Allocator alloc;
-        TreeImpl tree(alloc);
+        SourceTree tree(alloc);
         SourceTreeNode* node = tree.insert("\\thing\\example\\stuff", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "stuff");
         SourceTreeNode* parentExample = node->parent.value();
@@ -249,7 +249,7 @@ TEST_CASE("multiple directories with ending slash") {
 #if defined(_WIN32)
     {
         Allocator alloc;
-        TreeImpl tree(alloc);
+        SourceTree tree(alloc);
         SourceTreeNode* node = tree.insert("\\thing\\example\\stuff\\", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "stuff");
         SourceTreeNode* parentExample = node->parent.value();

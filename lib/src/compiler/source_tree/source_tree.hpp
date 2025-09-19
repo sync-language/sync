@@ -15,6 +15,12 @@
 namespace sy {
 struct SourceTreeNode;
 
+#if defined(_MSC_VER)
+// Supress warning for struct padding due to alignment specifier
+// https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warning-level-4-c4324?view=msvc-170
+#pragma warning(push)
+#pragma warning(disable : 4324)
+#endif
 struct alignas(ALLOC_CACHE_ALIGN) SourceTreeNode {
     /// @brief Uses `SourceFileKind` for variant access
     union Element {
@@ -37,6 +43,9 @@ struct alignas(ALLOC_CACHE_ALIGN) SourceTreeNode {
     static Result<SourceTreeNode*, AllocErr> init(Allocator inAlloc, Option<SourceTreeNode*> inParent,
                                                   StringSlice inName, SourceFileKind inKind) noexcept;
 };
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 struct SourceTree {
     Allocator alloc;
