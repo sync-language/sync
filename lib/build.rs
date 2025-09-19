@@ -35,5 +35,6 @@ fn main()
         .file("src/compiler/tokenizer/file_literals.cpp")
         .file("src/compiler/source_tree/source_tree.cpp")
         .file("src/program/program.cpp")
+        .file("src/testing/child_process.cpp")
         .compile("SyncLib");
 }

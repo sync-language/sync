@@ -47,6 +47,7 @@ set(SyncLibSources
     "lib/src/compiler/tokenizer/file_literals.cpp"
     "lib/src/compiler/source_tree/source_tree.cpp"
     "lib/src/program/program.cpp"
+    "lib/src/testing/child_process.cpp"
 )
 
 add_library(SyncLib STATIC ${SyncLibSources})

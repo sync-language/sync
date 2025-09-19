@@ -118,13 +118,15 @@ class SY_API String final {
     String& operator=(const char* str);
 
     /// Length in bytes, not utf8 characters or graphemes.
-    size_t len() const { return inner.len(); }
+    [[nodiscard]] size_t len() const { return inner.len(); }
 
     /// Any mutation operations on `this` may invalidate the returned slice.
-    StringSlice asSlice() const { return inner.asSlice(); }
+    [[nodiscard]] StringSlice asSlice() const { return inner.asSlice(); }
 
     // Get as const char*
-    const char* cstr() const { return inner.cstr(); }
+    [[nodiscard]] const char* cstr() const { return inner.cstr(); }
+
+    [[nodiscard]] char* data() { return inner.data(); };
 
     [[nodiscard]] size_t hash() const { return inner.hash(); }
 

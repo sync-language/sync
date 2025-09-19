@@ -505,4 +505,4 @@ TEST_SUITE("const char* constructor") {
     }
 }
 
-#endif // SYNC_LIB_NO_TESTS
+#endif // SYNC_LIB_WITH_TESTS
