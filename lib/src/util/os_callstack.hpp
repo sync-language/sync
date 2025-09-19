@@ -7,10 +7,9 @@
 #include <vector>
 
 class Backtrace {
-public:
-
+  public:
     class StackFrameInfo {
-    public:
+      public:
         std::string obj{};
         std::string functionName{};
         std::string fullFilePath{};
@@ -27,7 +26,7 @@ public:
 };
 
 extern "C" {
-    SY_API void test_backtrace_stuff();
+SY_API void test_backtrace_stuff();
 }
 
 #endif // SY_UTIL_OS_CALLSTACK_HPP_
