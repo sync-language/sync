@@ -409,57 +409,60 @@ bool sy::StringUnmanaged::hasEnoughCapacity(const size_t requiredCapacity) const
     }
 }
 
-sy::String::~String() noexcept {
-    Allocator defaultAlloc;
-    this->inner.destroy(defaultAlloc);
-}
+sy::String::~String() noexcept { this->inner_.destroy(this->alloc_); }
 
 sy::String::String(const String& other) {
-    Allocator defaultAlloc;
-    auto res = StringUnmanaged::copyConstruct(other.inner, defaultAlloc);
+    auto res = String::copyConstruct(other);
     sy_assert(res.hasValue(), "Memory allocation failed");
-    new (&this->inner) StringUnmanaged(std::move(res.takeValue()));
+    new (this) String(std::move(res.takeValue()));
 }
 
-sy::String::String(String&& other) noexcept : inner(std::move(other.inner)) {}
+sy::Result<sy::String, sy::AllocErr> sy::String::copyConstruct(const String& other) {
+    Allocator alloc = other.alloc_;
+    auto result = StringUnmanaged::copyConstruct(other.inner_, alloc);
+    if (result.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    }
+    return String(result.takeValue(), alloc);
+}
+
+sy::String::String(String&& other) noexcept : inner_(std::move(other.inner_)), alloc_(other.alloc_) {}
 
 sy::String& sy::String::operator=(const String& other) {
-    Allocator defaultAlloc;
-    auto res = this->inner.copyAssign(other.inner, defaultAlloc);
+    auto res = this->copyAssign(other);
     sy_assert(res.hasValue(), "Memory allocation failed");
     return *this;
 }
 
+sy::Result<void, sy::AllocErr> sy::String::copyAssign(const String& other) {
+    return this->inner_.copyAssign(other.inner_, this->alloc_);
+}
+
 sy::String& sy::String::operator=(String&& other) noexcept {
-    Allocator defaultAlloc;
-    this->inner.moveAssign(std::move(other.inner), defaultAlloc);
+    this->inner_.moveAssign(std::move(other.inner_), this->alloc_);
     return *this;
 }
 
 sy::String::String(const StringSlice& str) {
-    Allocator defaultAlloc;
-    auto res = StringUnmanaged::copyConstructSlice(str, defaultAlloc);
+    auto res = StringUnmanaged::copyConstructSlice(str, this->alloc_);
     sy_assert(res.hasValue(), "Memory allocation failed");
-    new (&this->inner) StringUnmanaged(std::move(res.takeValue()));
+    new (&this->inner_) StringUnmanaged(std::move(res.takeValue()));
 }
 
 sy::String& sy::String::operator=(const StringSlice& str) {
-    Allocator defaultAlloc;
-    auto res = this->inner.copyAssignSlice(str, defaultAlloc);
+    auto res = this->inner_.copyAssignSlice(str, this->alloc_);
     sy_assert(res.hasValue(), "Memory allocation failed");
     return *this;
 }
 
 sy::String::String(const char* str) {
-    Allocator defaultAlloc;
-    auto res = StringUnmanaged::copyConstructCStr(str, defaultAlloc);
+    auto res = StringUnmanaged::copyConstructCStr(str, this->alloc_);
     sy_assert(res.hasValue(), "Memory allocation failed");
-    new (&this->inner) StringUnmanaged(std::move(res.takeValue()));
+    new (&this->inner_) StringUnmanaged(std::move(res.takeValue()));
 }
 
 sy::String& sy::String::operator=(const char* str) {
-    Allocator defaultAlloc;
-    auto res = inner.copyAssignCStr(str, defaultAlloc);
+    auto res = inner_.copyAssignCStr(str, this->alloc_);
     sy_assert(res.hasValue(), "Memory allocation failed");
     return *this;
 }

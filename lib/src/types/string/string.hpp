@@ -103,7 +103,11 @@ class SY_API String final {
 
     String(const String& other);
 
+    [[nodiscard]] static Result<String, AllocErr> copyConstruct(const String& other);
+
     String& operator=(const String& other);
+
+    [[nodiscard]] Result<void, AllocErr> copyAssign(const String& other);
 
     String(String&& other) noexcept;
 
@@ -118,20 +122,24 @@ class SY_API String final {
     String& operator=(const char* str);
 
     /// Length in bytes, not utf8 characters or graphemes.
-    [[nodiscard]] size_t len() const { return inner.len(); }
+    [[nodiscard]] size_t len() const { return inner_.len(); }
 
     /// Any mutation operations on `this` may invalidate the returned slice.
-    [[nodiscard]] StringSlice asSlice() const { return inner.asSlice(); }
+    [[nodiscard]] StringSlice asSlice() const { return inner_.asSlice(); }
 
     // Get as const char*
-    [[nodiscard]] const char* cstr() const { return inner.cstr(); }
+    [[nodiscard]] const char* cstr() const { return inner_.cstr(); }
 
-    [[nodiscard]] char* data() { return inner.data(); };
+    [[nodiscard]] char* data() { return inner_.data(); };
 
-    [[nodiscard]] size_t hash() const { return inner.hash(); }
+    [[nodiscard]] size_t hash() const { return inner_.hash(); }
 
   private:
-    StringUnmanaged inner;
+    String(StringUnmanaged&& inner, Allocator alloc) : inner_(std::move(inner)), alloc_(alloc) {}
+
+  private:
+    StringUnmanaged inner_{};
+    Allocator alloc_{};
 };
 } // namespace sy
 

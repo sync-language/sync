@@ -577,6 +577,8 @@ void* sy::RawDynArrayUnmanaged::beforeFront(const size_t size) {
     return selfAsBytes - size;
 }
 
+void SY_API sy::detail::dynArrayDebugAssertNoErr(bool hasErr) { sy_assert(!hasErr, "Expected no dynamic array error"); }
+
 #if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
