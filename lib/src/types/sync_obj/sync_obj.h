@@ -4,6 +4,7 @@
 #define SY_TYPES_SYNC_OBJ_SYNC_OBJ_H_
 
 #include "../../core.h"
+#include "../../mem/allocator.h"
 #include "../../threading/sync_queue.h"
 
 struct SyType;
@@ -33,7 +34,7 @@ SY_API SyOwned sy_owned_init_empty(const size_t sizeType, const size_t alignType
 
 SY_API SyOwned sy_owned_init_script_typed(void* value, const struct SyType* typeInfo);
 
-SY_API void sy_owned_destroy(SyOwned* self, void (*destruct)(void* ptr), const size_t sizeType);
+SY_API void sy_owned_destroy(SyOwned* self, void (*destruct)(void* ptr));
 
 SY_API void sy_owned_destroy_script_typed(SyOwned* self, const struct SyType* typeInfo);
 
@@ -65,7 +66,7 @@ SY_API SyShared sy_shared_init_script_typed(void* value, const struct SyType* ty
 
 SY_API SyShared sy_shared_clone(const SyShared* self);
 
-SY_API void sy_shared_destroy(SyShared* self, void (*destruct)(void* ptr), const size_t sizeType);
+SY_API void sy_shared_destroy(SyShared* self, void (*destruct)(void* ptr));
 
 SY_API void sy_shared_destroy_script_typed(SyShared* self, const struct SyType* typeInfo);
 
