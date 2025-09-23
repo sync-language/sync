@@ -349,7 +349,7 @@ template <typename T> inline Result<DynArray<T>, AllocErr> DynArray<T>::copyCons
     if (result.hasErr()) {
         return Error(AllocErr::OutOfMemory);
     }
-    DynArray self(result.takeValue(), other.alloc);
+    DynArray self(result.takeValue(), other.alloc_);
     return self;
 }
 
@@ -372,19 +372,19 @@ template <typename T> inline Result<void, AllocErr> DynArray<T>::push(const T& e
 }
 
 template <typename T> inline Result<void, AllocErr> DynArray<T>::pushFront(T&& element) noexcept {
-    return this->inner_.pushFront(std::move(element), this->alloc);
+    return this->inner_.pushFront(std::move(element), this->alloc_);
 }
 
 template <typename T> inline Result<void, AllocErr> DynArray<T>::pushFront(const T& element) noexcept {
-    return this->inner_.pushFront(element, this->alloc);
+    return this->inner_.pushFront(element, this->alloc_);
 }
 
 template <typename T> inline Result<void, AllocErr> DynArray<T>::insertAt(T&& element, size_t index) noexcept {
-    return this->inner_.insertAt(element, this->alloc, index);
+    return this->inner_.insertAt(element, this->alloc_, index);
 }
 
 template <typename T> inline Result<void, AllocErr> DynArray<T>::insertAt(const T& element, size_t index) noexcept {
-    return this->inner_.insertAt(element, this->alloc, index);
+    return this->inner_.insertAt(element, this->alloc_, index);
 }
 
 }; // namespace sy

@@ -239,10 +239,11 @@ inline Owned<T>::Owned(T value) : BaseSyncObj(detail::syncObjCreate(Allocator(),
 }
 
 template <typename T> inline Result<Owned<T>, AllocErr> Owned<T>::init(Allocator alloc, T value) {
-    auto res = detail::syncObjCreate(Allocator(), sizeof(T), alignof(T));
+    auto res = detail::syncObjCreate(alloc, sizeof(T), alignof(T));
     if (res.hasErr()) {
         return Error(AllocErr::OutOfMemory);
     }
+    new (detail::syncObjValueMemMut(res.value())) T(std::move(value));
     return Owned(res.value());
 }
 
@@ -269,6 +270,7 @@ template <typename T> inline Result<Shared<T>, AllocErr> Shared<T>::init(Allocat
     if (res.hasErr()) {
         return Error(AllocErr::OutOfMemory);
     }
+    new (detail::syncObjValueMemMut(res.value())) T(std::move(value));
     return Shared(res.value());
 }
 
