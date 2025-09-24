@@ -8,7 +8,7 @@
 using namespace sy;
 namespace fs = std::filesystem;
 
-SourceTreeNode::Element::Element() noexcept { memset(this, 0, sizeof(Element)); }
+SourceTreeNode::Element::Element() noexcept {}
 
 SourceTreeNode::~SourceTreeNode() noexcept {
     this->name.destroy(this->alloc);
@@ -36,11 +36,9 @@ Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option
         }
         newNode = newNodeResult.value();
         new (newNode) SourceTreeNode{inAlloc, inParent, StringUnmanaged(), inKind, {}};
+        new (&newNode->elem.directory) MapUnmanaged<StringSlice, SourceTreeNode*>();
     }
 
-    newNode->alloc = inAlloc;
-    newNode->parent = inParent;
-    newNode->kind = inKind;
     {
         auto nameRes = StringUnmanaged::copyConstructSlice(inName, inAlloc);
         if (nameRes.hasErr()) {
