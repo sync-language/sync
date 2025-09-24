@@ -131,28 +131,23 @@ enum class TokenType : uint8_t {
 sy::StringSlice tokenTypeToString(TokenType tokenType);
 
 class Token {
-public:
-
-    constexpr Token(TokenType inTag, uint32_t inLocation) 
-        : tag_(static_cast<uint8_t>(inTag))
-        , location_(inLocation)
-    {}
+  public:
+    constexpr Token(TokenType inTag, uint32_t inLocation) : tag_(static_cast<uint8_t>(inTag)), location_(inLocation) {}
 
     /// @return First tuple value is the token. Second tuple value is the next
     /// location to start. If the second tuple value is `-1`, then the end of
-    /// file has been reached but a token was at the end.
-    static std::tuple<Token, uint32_t> parseToken(
-        const sy::StringSlice source,
-        const uint32_t start
-    );
+    /// file has been reached but a token was at the end. Third tuple value
+    /// is the line number
+    static std::tuple<Token, uint32_t> parseToken(const sy::StringSlice source, const uint32_t start,
+                                                  uint32_t* lineNumber);
 
     [[nodiscard]] constexpr TokenType tag() const { return static_cast<TokenType>(tag_); }
 
     [[nodiscard]] constexpr uint32_t location() const { return location_; }
 
-private:
+  private:
     uint32_t tag_ : 8;
     uint32_t location_ : 24;
 };
 
-#endif //SY_COMPILER_TOKENIZER_TOKEN_HPP_
+#endif // SY_COMPILER_TOKENIZER_TOKEN_HPP_
