@@ -33,7 +33,7 @@ Result<StringUnmanaged, AllocErr> sy::getCurrentExecutablePath(Allocator& alloc)
 #elif defined(__GNUC__)
     char buffer[PATH_MAX] = {'\0'};
     ssize_t length = readlink("/proc/self/exe", buffer, PATH_MAX);
-    sy_assert(len != -1, "Failed to get current executable path");
+    sy_assert(length != -1, "Failed to get current executable path");
     StringSlice slice(buffer, length);
     return StringUnmanaged::copyConstructSlice(slice, alloc);
 #endif

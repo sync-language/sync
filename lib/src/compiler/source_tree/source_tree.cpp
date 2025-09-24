@@ -35,7 +35,7 @@ Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option
             return Error(AllocErr::OutOfMemory);
         }
         newNode = newNodeResult.value();
-        memset(newNode, 0, sizeof(SourceTreeNode));
+        new (newNode) SourceTreeNode{inAlloc, inParent, StringUnmanaged(), inKind, {}};
     }
 
     newNode->alloc = inAlloc;

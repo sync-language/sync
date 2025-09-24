@@ -341,7 +341,7 @@ template <typename T> inline DynArray<T>& DynArray<T>::operator=(DynArray&& othe
 template <typename T> inline DynArray<T>::DynArray(const DynArray& other) noexcept {
     auto result = DynArray::copyConstruct(other);
     detail::dynArrayDebugAssertNoErr(result.hasErr());
-    return result.takeValue();
+    new (this) DynArray<T>(result.takeValue());
 }
 
 template <typename T> inline Result<DynArray<T>, AllocErr> DynArray<T>::copyConstruct(const DynArray& other) {

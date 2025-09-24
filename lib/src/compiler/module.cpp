@@ -38,10 +38,12 @@ static Result<StringUnmanaged, ModuleErr> loadFileToString(Allocator& alloc, con
 namespace {
 struct ModuleImpl {
     Allocator alloc;
-    StringUnmanaged name;
-    SemVer version;
+    StringUnmanaged name{};
+    SemVer version{};
     SourceTree sourceTree;
-    SourceTreeNode* rootFile;
+    SourceTreeNode* rootFile = nullptr;
+
+    ModuleImpl(Allocator inAlloc) : alloc(inAlloc), sourceTree(inAlloc) {}
 
     Result<void, ModuleErr> setRootFileFromDisk(StringSlice path) noexcept;
 };
@@ -153,8 +155,7 @@ Result<Module*, AllocErr> Module::create(Allocator& alloc, StringSlice inName, S
         }
         self = selfAllocResult.value();
 
-        memset(impl, 0, sizeof(ModuleImpl));
-        impl->alloc = alloc;
+        new (impl) ModuleImpl(alloc);
         auto nameAllocResult = StringUnmanaged::copyConstructSlice(inName, alloc);
         if (nameAllocResult.hasErr()) {
             alloc.freeObject(impl);

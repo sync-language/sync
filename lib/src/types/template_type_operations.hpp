@@ -4,6 +4,7 @@
 #define SY_TYPES_TEMPLATE_TYPE_OPERATIONS_HPP_
 
 #include "../core.h"
+#include <functional>
 #include <type_traits>
 
 namespace sy {

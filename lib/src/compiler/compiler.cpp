@@ -55,8 +55,7 @@ Result<Compiler, AllocErr> Compiler::create(Allocator alloc) noexcept {
             return Error(AllocErr::OutOfMemory);
         }
         impl = implAllocResult.value();
-        memset(impl, 0, sizeof(CompilerImpl));
-
+        new (impl) CompilerImpl();
         impl->alloc = alloc;
     }
 

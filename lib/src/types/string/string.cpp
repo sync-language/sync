@@ -252,7 +252,7 @@ sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::copyConstruct
         for (size_t i = 0; i < slice.len(); i++) {
             asSsoMut(self.raw_)->arr[i] = slice[i];
         }
-        return std::move(self);
+        return self;
     }
 
     // capacity is length + 1 for \0 (null terminator)
