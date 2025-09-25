@@ -3,9 +3,4 @@
 #include "../src/testing/child_process.hpp"
 #include <cstring>
 
-int main(int argc, char** argv) {
-
-    std::cout << "hi" << std::endl;
-
-    return doctest::Context(argc, argv).run();
-}
+int main(int argc, char** argv) { return doctest::Context(argc, argv).run(); }
