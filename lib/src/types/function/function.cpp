@@ -295,7 +295,7 @@ ArgBufArray::~ArgBufArray() {
     if (this->bufs == nullptr)
         return;
 
-    for (uint32_t i = 0; i < this->len; i++) {
+    for (uint32_t i = 0; i < this->capacity; i++) {
         ArgBuf& buf = this->bufs[i];
         buf.~ArgBuf();
     }
@@ -481,7 +481,31 @@ using sy::Function;
 using sy::StringSlice;
 using sy::Type;
 
-TEST_CASE("push and get arg") {
+TEST_CASE("non-global push and get arg") {
+    ArgBuf buf;
+    int32_t val = 45;
+    const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
+    buf.push(arg);
+    int32_t outVal = 99;
+    buf.take(&outVal, 0);
+    CHECK_EQ(outVal, 45);
+}
+
+TEST_CASE("non-global array push and get arg") {
+    ArgBufArray arr;
+    (void)arr.pushNewBuf();
+    ArgBuf& buf = arr.bufAt(0);
+    int32_t val = 45;
+    const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
+    buf.push(arg);
+    int32_t outVal = 99;
+    buf.take(&outVal, 0);
+    CHECK_EQ(outVal, 45);
+
+    arr.popBuf();
+}
+
+TEST_CASE("global array push and get arg") {
     (void)cArgBufs.pushNewBuf();
     ArgBuf& buf = cArgBufs.bufAt(0);
     int32_t val = 45;
