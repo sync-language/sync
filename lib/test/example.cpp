@@ -1,3 +1,11 @@
 #include <iostream>
+#define DOCTEST_CONFIG_IMPLEMENT
+#include "../src/doctest.h"
 
-int main() { std::cout << "hi\n"; }
+int main(int argc, char** argv) {
+    std::cout << "hi\n";
+
+    return doctest::Context(argc, argv).run();
+}
+
+TEST_CASE("guh") { CHECK(false); }
