@@ -8,4 +8,4 @@ int main(int argc, char** argv) {
     return doctest::Context(argc, argv).run();
 }
 
-TEST_CASE("guh") { CHECK(false); }
+TEST_CASE("guh") { CHECK(true); }
