@@ -13,6 +13,8 @@ jobs:
     - name: Configure CMake
       run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
     - name: Build
-      run: cmake --build build --parallel
+      run: cmake --build build --config Debug --parallel
+    - name: Executable Permissions
+      run: chmod +x ./build/SyncLibTests
     - name: Test
       run: ./build/SyncLibTests
