@@ -1,4 +1,4 @@
-name: "Cross Platform Test"
+name: "Cross Platform Tests"
 
 on:
     workflow_dispatch:
@@ -84,35 +84,3 @@ jobs:
       run: cmake --build build --config Debug --parallel
     - name: Test
       run: ./build/SyncLibTests
-  
-# jobs:
-#   ubuntu-x64:
-#     runs-on: ubuntu-latest
-#     steps:
-#     - uses: actions/checkout@v4
-#     - name: Build
-#       run: g++ lib/test/example.cpp -o example
-#     - name: Permissions
-#       run: chmod +x example
-#     - name: Test
-#       run: ./example
-
-      #cmake -S ./lib/test -B lib/test/build -DCMAKE_BUILD_TYPE=Debug
-      #cmake --build lib/test/build --config Debug --parallel  
-
-    #     example:
-    # runs-on: ubuntu-latest
-    # steps:
-    # - uses: actions/checkout@v4
-    # - name: Install CMake
-    #   uses: lukka/get-cmake@latest 
-    # - name: Configure CMake
-    #   run: cmake -S ./lib/test -B lib/test/build -DCMAKE_BUILD_TYPE=Debug
-    # - name: Build
-    #   run: cmake --build lib/test/build --config Debug --parallel 
-    # - name: Executable Permissions
-    #   run: chmod +x ./lib/test/build/Example
-    # - name: List Build Dir
-    #   run: ls lib/test/build
-    # - name: Test
-    #   run: ./lib/test/build/Example
