@@ -68,7 +68,6 @@ class alignas(ALLOC_CACHE_ALIGN) ArgBuf {
 
     void setReturnValue(const void* value, const size_t sizeOfType);
 
-  private:
     static constexpr size_t INVALID_OFFSET = static_cast<size_t>(-1);
 
     /// May return INVALID_OFFSET, in which case reallocation is required.
@@ -76,7 +75,6 @@ class alignas(ALLOC_CACHE_ALIGN) ArgBuf {
 
     void reallocate(const size_t sizeNewType);
 
-  private:
     uint8_t* values = nullptr;
     const Type** types = nullptr;
     size_t* offsets = nullptr;
@@ -110,6 +108,9 @@ class ArgBufArray {
 
     void popBuf() {
         sy_assert(len > 0, "Cannot pop arg buffer");
+        ArgBuf& buf = bufAt(len - 1);
+
+        buf.count = 0;
         len -= 1;
     }
 
@@ -235,13 +236,13 @@ size_t ArgBuf::nextOffset(const size_t sizeType, const size_t alignType) const {
 void ArgBuf::reallocate(const size_t sizeNewType) {
     { // check current capacity
         const size_t lastOffset = [this]() -> size_t {
-            if (this->offsets != nullptr) {
+            if (this->count > 0) {
                 return this->offsets[this->count - 1];
             }
             return 0;
         }();
         const size_t lastSize = [this]() -> size_t {
-            if (this->types != nullptr) {
+            if (this->count > 0) {
                 return this->types[this->count - 1]->sizeType;
             }
             return 0;
