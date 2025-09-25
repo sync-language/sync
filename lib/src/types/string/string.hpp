@@ -99,6 +99,8 @@ class SY_API String final {
   public:
     String() = default;
 
+    String(Allocator inAlloc) noexcept : alloc_(inAlloc) {}
+
     ~String() noexcept;
 
     String(const String& other);
