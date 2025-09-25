@@ -21,22 +21,22 @@ jobs:
     - name: Test
       run: ./lib/test/build/Example
 
-#   ubuntu-x64:
-#     runs-on: ubuntu-latest
-#     steps:
-#     - uses: actions/checkout@v4
-#     - name: Install CMake
-#       uses: lukka/get-cmake@latest 
-#     - name: Configure CMake
-#       run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
-#     - name: Build
-#       run: cmake --build build --config Debug --parallel
-#     - name: Executable Permissions
-#       run: chmod +x ./build/SyncLibTests
-#     - name: List Build Dir
-#       run: ls build
-#     - name: Test
-#       run: ./build/SyncLibTests
+  ubuntu-x64:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install CMake
+      uses: lukka/get-cmake@latest 
+    - name: Configure CMake
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
+    - name: Build
+      run: cmake --build build --config Debug --parallel
+    - name: Executable Permissions
+      run: chmod +x ./build/SyncLibTests
+    - name: List Build Dir
+      run: ls build
+    - name: Test
+      run: ./build/SyncLibTests
   
 # jobs:
 #   ubuntu-x64:
