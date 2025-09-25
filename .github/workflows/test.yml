@@ -27,7 +27,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build
-      uses: g++ lib/test/example.cpp -o example
+      run: g++ lib/test/example.cpp -o example
     - name: Permissions
       run: chmod +x example
     - name: Test
