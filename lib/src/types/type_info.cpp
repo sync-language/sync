@@ -221,7 +221,7 @@ size_t sy::Type::hashObjectImpl(const void* self) const {
     sy_assert(this->constRef->sizeType == sizeof(void*), "Const reference types should be the same size as void*");
     sy_assert(this->constRef->alignType == alignof(void*), "Const reference types should be the same align as void*");
 
-    Function::CallArgs callArgs = this->equality.value()->startCall();
+    Function::CallArgs callArgs = this->hash.value()->startCall();
     (void)callArgs.push(&self, this->constRef);
     size_t hashResult;
 
@@ -252,6 +252,7 @@ TEST_CASE("string destructor") {
     // create with new so that destructor doesn't automatically get called
     String* s = new String("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     Type::TYPE_STRING->destroyObject(s);
+    delete s;
 }
 
 TEST_CASE("equality") {

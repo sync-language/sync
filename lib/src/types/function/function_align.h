@@ -5,7 +5,7 @@
 
 #include "../../core.h"
 
-#if defined(__x86_64__) || defined (_M_AMD64)
+#if defined(__x86_64__) || defined(_M_AMD64)
 
 #ifdef SY_FUNCTION_MIN_ALIGN
 #error "Do not override default minimum function alignment for X86_64"
@@ -15,7 +15,7 @@
 // required alignment for `SyFunction` calls must be 16. It's possible that functions will have special alignment,
 // for example when using specially aligned types or some implementation specific SIMD operations.
 // # Sources
-// http://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-optimization-manual.pdf 
+// http://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-optimization-manual.pdf
 // https://learn.microsoft.com/en-us/cpp/build/stack-usage?view=msvc-170
 
 #ifdef __cplusplus

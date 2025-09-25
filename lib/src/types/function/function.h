@@ -4,9 +4,9 @@
 #define SY_TYPES_FUNCTION_FUNCTION_H_
 
 #include "../../core.h"
+#include "../../program/program.h"
 #include "../string/string_slice.h"
 #include "function_align.h"
-#include "../../program/program.h"
 
 struct SyType;
 
@@ -22,35 +22,35 @@ typedef enum SyFunctionType {
 /// Script type as const reference.
 typedef struct SyFunction {
     /// As fully qualified name, namespaced.
-    SyStringSlice           name;
+    SyStringSlice name;
     /// Un-namespaced name. For example if `name == "example.func"` then `identifierName == "func"`.
-    SyStringSlice           identifierName;
+    SyStringSlice identifierName;
     /// If `NULL`, the function does not return any value
-    const struct SyType*    returnType;
+    const struct SyType* returnType;
     /// If `NULL`, the function take no arguments, otherwise valid when `i < argsLen`.
-    const struct SyType**   argsTypes;
+    const struct SyType** argsTypes;
     /// If zero, the function take no arguments
-    uint16_t                argsLen;
+    uint16_t argsLen;
     /// Alignment required for this function call. Any value under `SY_FUNCTION_MIN_ALIGN` will be rounded up to it.
     /// This is used to determine the necessary alignment of function calls for both script and C functions.
     /// It is possible that a function will have non-standard alignment, such as functions using SIMD types.
     /// # Debug Asserts
     /// Alignment must be a multiple of 2.
     /// `alignment % 2 == 0`.
-    uint16_t                  alignment;
+    uint16_t alignment;
     /// Determines if this function is a C function or script function.
-    SyFunctionType          tag;
+    SyFunctionType tag;
     /// Both for C functions and script functions. Given `tag` and `info`, the function will be correctly called.
     /// For C functions, this should be a function with the signature of `sy_c_function_t`.
-    const void*             fptr;
+    const void* fptr;
 } SyFunction;
 
 /// Helper struct to push function arguments to C functions or into the next script stack frame.
 typedef struct SyFunctionCallArgs {
-    const SyFunction*   func;
-    uint16_t            pushedCount;
+    const SyFunction* func;
+    uint16_t pushedCount;
     /// Internal use only.
-    uint16_t            _offset;
+    uint16_t _offset;
 } SyFunctionCallArgs;
 
 typedef struct SyCFunctionHandler {
@@ -58,7 +58,7 @@ typedef struct SyCFunctionHandler {
 } SyCFunctionHandler;
 
 /// Function singature for C functions.
-typedef SyProgramRuntimeError(*sy_c_function_t)(SyCFunctionHandler handler);
+typedef SyProgramRuntimeError (*sy_c_function_t)(SyCFunctionHandler handler);
 
 #ifdef __cplusplus
 extern "C" {
@@ -75,8 +75,8 @@ SY_API SyProgramRuntimeError sy_function_call(SyFunctionCallArgs self, void* ret
 
 SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler* self, void* outValue, size_t argIndex);
 
-SY_API void sy_c_function_handler_set_return_value(
-    SyCFunctionHandler* self, const void* retValue, const struct SyType* type);
+SY_API void sy_c_function_handler_set_return_value(SyCFunctionHandler* self, const void* retValue,
+                                                   const struct SyType* type);
 
 #ifdef __cplusplus
 } // extern "C"
