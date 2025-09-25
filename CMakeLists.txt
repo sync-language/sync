@@ -83,6 +83,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_definitions(SyncLib PRIVATE SYNC_LIB_NO_TESTS)
 endif()
 
+# GITHUB ACTIONS HATES THIS. WHY?
+
 # SIMD
 # include(CheckCXXCompilerFlag)
 
