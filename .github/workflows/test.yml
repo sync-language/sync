@@ -16,5 +16,7 @@ jobs:
       run: cmake --build build --config Debug --parallel
     - name: Executable Permissions
       run: chmod +x ./build/SyncLibTests
+    - name: List Build Dir
+      run: ls build
     - name: Test
       run: ./build/SyncLibTests
