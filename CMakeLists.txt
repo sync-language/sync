@@ -54,11 +54,6 @@ set(SyncLibSources
 add_library(SyncLib STATIC ${SyncLibSources})
 add_executable(SyncLibTests "lib/test/test.cpp" ${SyncLibSources})
 
-if(SYNC_LIB_DOCTEST_ADD_CTESTS)
-    include(scripts/vendor/doctest/doctest.cmake)
-    doctest_discover_tests(SyncLibTests)
-endif()
-
 # Doctest Shenanigans
 target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS)
 
@@ -150,3 +145,9 @@ set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY
 install(TARGETS SyncLib DESTINATION .)
 
 enable_testing()
+if(SYNC_LIB_DOCTEST_ADD_CTESTS)
+    include(scripts/vendor/doctest/doctest.cmake)
+    doctest_discover_tests(SyncLibTests)
+else()
+    add_test(NAME SyncLibTests COMMAND SyncLibTests)
+endif()
