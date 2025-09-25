@@ -11,6 +11,7 @@ endif()
 project("Sync")
 
 option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" OFF)
+option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -53,8 +54,10 @@ set(SyncLibSources
 add_library(SyncLib STATIC ${SyncLibSources})
 add_executable(SyncLibTests "lib/test/test.cpp" ${SyncLibSources})
 
-include(scripts/vendor/doctest/doctest.cmake)
-doctest_discover_tests(SyncLibTests)
+if(SYNC_LIB_DOCTEST_ADD_CTESTS)
+    include(scripts/vendor/doctest/doctest.cmake)
+    doctest_discover_tests(SyncLibTests)
+endif()
 
 # Doctest Shenanigans
 target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS)
