@@ -11,9 +11,13 @@ namespace fs = std::filesystem;
 SourceTreeNode::Element::Element() noexcept {}
 
 SourceTreeNode::~SourceTreeNode() noexcept {
-    this->name.destroy(this->alloc);
+    Allocator allocator = this->alloc;
+    this->name.destroy(allocator);
     switch (this->kind) {
     case SourceFileKind::Directory: {
+        for (auto entry : this->elem.directory) {
+            entry.value->~SourceTreeNode();
+        }
         this->elem.directory.destroy(this->alloc);
     } break;
     case SourceFileKind::SyncSourceFile: {
@@ -24,6 +28,7 @@ SourceTreeNode::~SourceTreeNode() noexcept {
     default:
         break;
     }
+    allocator.freeObject(this);
 }
 
 Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option<SourceTreeNode*> inParent,

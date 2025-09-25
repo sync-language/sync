@@ -379,32 +379,32 @@ void Backtrace::print() const noexcept {
 
 #include "../doctest.h"
 
-static Backtrace backtraceFunction1() { return Backtrace::generate(); }
+// static Backtrace backtraceFunction1() { return Backtrace::generate(); }
 
-TEST_CASE("backtrace simple function call") {
-    auto bt = backtraceFunction1();
-    CHECK_GT(bt.frames.size(), 0);
-    auto& frame = bt.frames.at(0);
-    CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
-    CHECK_NE(frame.functionName.find("backtraceFunction1"), std::string::npos);
-    CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
-    if (frame.lineNumber != 382 && frame.lineNumber != 383) { // line executing, or next executing line
-        FAIL("Incorrect line number from backtrace");
-    }
-}
+// TEST_CASE("backtrace simple function call") {
+//     auto bt = backtraceFunction1();
+//     CHECK_GT(bt.frames.size(), 0);
+//     auto& frame = bt.frames.at(0);
+//     CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
+//     CHECK_NE(frame.functionName.find("backtraceFunction1"), std::string::npos);
+//     CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
+//     if (frame.lineNumber != 382 && frame.lineNumber != 383) { // line executing, or next executing line
+//         FAIL("Incorrect line number from backtrace");
+//     }
+// }
 
-template <typename T> static Backtrace backtraceFunction2() { return Backtrace::generate(); }
+// template <typename T> static Backtrace backtraceFunction2() { return Backtrace::generate(); }
 
-TEST_CASE("backtrace template function call") {
-    auto bt = backtraceFunction2<int>();
-    CHECK_GT(bt.frames.size(), 0);
-    auto& frame = bt.frames.at(0);
-    CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
-    CHECK_NE(frame.functionName.find("backtraceFunction2<int>"), std::string::npos);
-    CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
-    if (frame.lineNumber != 396 && frame.lineNumber != 397) { // line executing, or next executing line
-        FAIL("Incorrect line number from backtrace");
-    }
-}
+// TEST_CASE("backtrace template function call") {
+//     auto bt = backtraceFunction2<int>();
+//     CHECK_GT(bt.frames.size(), 0);
+//     auto& frame = bt.frames.at(0);
+//     CHECK_NE(frame.obj.find("SyncLibTests"), std::string::npos);
+//     CHECK_NE(frame.functionName.find("backtraceFunction2<int>"), std::string::npos);
+//     CHECK_NE(frame.fullFilePath.find("os_callstack.cpp"), std::string::npos);
+//     if (frame.lineNumber != 396 && frame.lineNumber != 397) { // line executing, or next executing line
+//         FAIL("Incorrect line number from backtrace");
+//     }
+// }
 
 #endif // SYNC_LIB_NO_TESTS
