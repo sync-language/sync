@@ -25,3 +25,7 @@ You may optionally need to pass a `CMAKE_TOOLCHAIN_FILE` to emcmake, but this is
 ```sh
 emcmake <...> -DCMAKE_TOOLCHAIN_FILE="{EMSDK_DIRECTORY}\upstream\emscripten\cmake\Modules\Platform\Emscripten.cmake"
 ```
+
+## Running
+
+[Local Web Server Issues](https://emscripten.org/docs/getting_started/FAQ.html#how-do-i-run-a-local-webserver-for-testing-why-does-my-program-stall-in-downloading-or-preparing)
