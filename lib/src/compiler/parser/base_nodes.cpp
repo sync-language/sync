@@ -32,7 +32,6 @@ void sy::detail::IBaseParserNode::operator delete(void* self, Allocator inAlloc)
     if (self == nullptr)
         return;
     IBaseParserNode* actualSelf = reinterpret_cast<IBaseParserNode*>(self);
-    Allocator allocator = actualSelf->alloc();
     inAlloc.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_, PARSER_NODE_ALIGN);
 }
 
