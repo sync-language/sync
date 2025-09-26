@@ -64,7 +64,7 @@ class Group {
     const Header* const* headers() const;
 
     struct IndexBitmask {
-        static constexpr size_t BITMASK = ~0b01111111ULL;
+        static constexpr size_t BITMASK = ~static_cast<size_t>(0b01111111ULL);
         size_t value;
 
         constexpr IndexBitmask(size_t hashCode) : value((hashCode & BITMASK) >> 7) {}

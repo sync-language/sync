@@ -9,7 +9,6 @@
 #include "stack/stack.hpp"
 #include <cstring>
 
-
 using sy::Function;
 using sy::Program;
 using sy::ProgramRuntimeError;

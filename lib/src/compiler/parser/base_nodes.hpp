@@ -21,9 +21,9 @@ class IBaseParserNode {
 
     virtual String toString() const;
 
-    static void* operator new(size_t size, Allocator inAlloc) noexcept;
+    // static void* operator new(size_t size, Allocator inAlloc) noexcept;
 
-    static void operator delete(void* self, size_t size);
+    // static void operator delete(void* self, size_t size);
 
   private:
     Allocator alloc_;

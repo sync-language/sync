@@ -16,6 +16,7 @@
 #include <dbghelp.h>
 #include <process.h>
 
+#elif defined(__EMSCRIPTEN__)
 #elif defined(__APPLE__) || defined(__GNUC__)
 #include <dlfcn.h>
 #include <execinfo.h>
@@ -136,6 +137,10 @@ Backtrace Backtrace::generate() noexcept {
         return Backtrace();
     }
 }
+
+#elif defined(__EMSCRIPTEN__)
+
+Backtrace Backtrace::generate() noexcept { return Backtrace(); }
 
 #elif defined(__APPLE__) || defined(__GNUC__)
 

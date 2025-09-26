@@ -652,7 +652,7 @@ TEST_SUITE("string literal") {
 
             CHECK(std::holds_alternative<StringLiteral>(result));
             StringLiteral& parsedStr = std::get<StringLiteral>(result);
-            CHECK_EQ(std::strcmp(parsedStr.str.cstr(), str), 0);
+            CHECK_EQ(parsedStr.str.asSlice(), sy::StringSlice(str, std::strlen(str)));
             CHECK_EQ(parsedStr.str.len(), std::strlen(str));
         };
 

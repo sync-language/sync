@@ -7,6 +7,7 @@
 #include <malloc.h>
 #include <memoryapi.h>
 // clang-format on
+#elif defined(__EMSCRIPTEN__)
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
 #elif defined(__GNUC__)
@@ -30,6 +31,9 @@ Result<StringUnmanaged, AllocErr> sy::getCurrentExecutablePath(Allocator& alloc)
     sy_assert(result != -1, "Failed to get current executable path");
     StringSlice slice(buffer, length);
     return StringUnmanaged::copyConstructSlice(slice, alloc);
+#elif defined(__EMSCRIPTEN__)
+    (void)alloc;
+    return StringUnmanaged();
 #elif defined(__GNUC__)
     char buffer[PATH_MAX] = {'\0'};
     ssize_t length = readlink("/proc/self/exe", buffer, PATH_MAX);

@@ -6,7 +6,7 @@
 #include "stack/stack.hpp"
 
 namespace sy {
-    class Type;
+class Type;
 }
 
 enum class OpCode : uint8_t {
@@ -89,8 +89,7 @@ struct Bytecode {
 
     Bytecode() = default;
 
-    template<typename OperandsT>
-    Bytecode(const OperandsT& operands) {
+    template <typename OperandsT> Bytecode(const OperandsT& operands) {
         static_assert(sizeof(OperandsT) == sizeof(Bytecode));
         static_assert(alignof(OperandsT) == alignof(Bytecode));
         assertOpCodeMatch(operands.reserveOpcode, OperandsT::OPCODE); // make sure mistakes arent made
@@ -99,15 +98,14 @@ struct Bytecode {
 
     OpCode getOpcode() const;
 
-    template<typename OperandsT>
-    OperandsT toOperands() const {
+    template <typename OperandsT> OperandsT toOperands() const {
         static_assert(sizeof(OperandsT) == sizeof(Bytecode));
         static_assert(alignof(OperandsT) == alignof(Bytecode));
         assertOpCodeMatch(this->getOpcode(), OperandsT::OPCODE);
         return *reinterpret_cast<const OperandsT*>(this);
     }
 
-private:
+  private:
     static void assertOpCodeMatch(OpCode actual, OpCode expected);
 };
 
@@ -130,141 +128,141 @@ constexpr size_t SCALAR_TAG_USED_BITS = 6;
 
 const sy::Type* scalarTypeFromTag(ScalarTag tag);
 
-/// Holds all operand types. All operands are expected to have a static constexpr member named `OPCODE` of type 
+/// Holds all operand types. All operands are expected to have a static constexpr member named `OPCODE` of type
 /// `OpCode`, matching the opcode of the operation. This is used for validation.
 /// They are also all expected to have the first `OPCODE_USED_BITS` be a bitfield named `reserveOpcode`.
 /// Lastly, all operand types must be of size `sizeof(Bytecode)`, and align `alignof(Bytecode)`.
 namespace operators {
 
-    /// Returns from a function without a return value.
-    struct Return {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
+/// Returns from a function without a return value.
+struct Return {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
 
-        static constexpr OpCode OPCODE = OpCode::Return;
-    };
+    static constexpr OpCode OPCODE = OpCode::Return;
+};
 
-    /// Returns from a function with a value.
-    struct ReturnValue {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        uint64_t src: Stack::BITS_PER_STACK_OPERAND;
+/// Returns from a function with a value.
+struct ReturnValue {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    uint64_t src : Stack::BITS_PER_STACK_OPERAND;
 
-        static constexpr OpCode OPCODE = OpCode::ReturnValue;
-    };
+    static constexpr OpCode OPCODE = OpCode::ReturnValue;
+};
 
-    struct CallImmediateNoReturn {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        uint64_t argCount: 16;
+struct CallImmediateNoReturn {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    uint64_t argCount : 16;
 
-        static size_t bytecodeUsed(uint16_t argCount);
-        
-        static constexpr OpCode OPCODE = OpCode::CallImmediateNoReturn;
-    };
+    static size_t bytecodeUsed(uint16_t argCount);
 
-    struct CallSrcNoReturn {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        uint64_t src: Stack::BITS_PER_STACK_OPERAND;
-        uint64_t argCount: 16;
+    static constexpr OpCode OPCODE = OpCode::CallImmediateNoReturn;
+};
 
-        static size_t bytecodeUsed(uint16_t argCount);
-        
-        static constexpr OpCode OPCODE = OpCode::CallSrcNoReturn;
-    };
+struct CallSrcNoReturn {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    uint64_t src : Stack::BITS_PER_STACK_OPERAND;
+    uint64_t argCount : 16;
 
-    struct CallImmediateWithReturn {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        uint64_t argCount: 16;
-        uint64_t retDst: Stack::BITS_PER_STACK_OPERAND;
+    static size_t bytecodeUsed(uint16_t argCount);
 
-        static size_t bytecodeUsed(uint16_t argCount);
-        
-        static constexpr OpCode OPCODE = OpCode::CallImmediateWithReturn;
-    };
+    static constexpr OpCode OPCODE = OpCode::CallSrcNoReturn;
+};
 
-    struct CallSrcWithReturn {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        uint64_t src: Stack::BITS_PER_STACK_OPERAND;
-        uint64_t argCount: 16;
-        uint64_t retDst: Stack::BITS_PER_STACK_OPERAND;
+struct CallImmediateWithReturn {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    uint64_t argCount : 16;
+    uint64_t retDst : Stack::BITS_PER_STACK_OPERAND;
 
-        static size_t bytecodeUsed(uint16_t argCount);
-        
-        static constexpr OpCode OPCODE = OpCode::CallSrcWithReturn;
-    };
-    
-    /// If `isScalar == false`, this is a wide instruction, with the second "bytecode" being a 
-    /// `const Sy::Type*` instance.
-    struct LoadDefault {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        /// Boolean
-        uint64_t isScalar: 1;
-        /// Used if `isScalar == true`
-        uint64_t scalarTag: SCALAR_TAG_USED_BITS;
-        uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
+    static size_t bytecodeUsed(uint16_t argCount);
 
-        static constexpr OpCode OPCODE = OpCode::LoadDefault;
-    };
+    static constexpr OpCode OPCODE = OpCode::CallImmediateWithReturn;
+};
 
-    struct LoadImmediateScalar {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        uint64_t scalarTag: SCALAR_TAG_USED_BITS;
-        uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
-        uint64_t immediate: 32;
+struct CallSrcWithReturn {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    uint64_t src : Stack::BITS_PER_STACK_OPERAND;
+    uint64_t argCount : 16;
+    uint64_t retDst : Stack::BITS_PER_STACK_OPERAND;
 
-        static size_t bytecodeUsed(ScalarTag scalarTag);
+    static size_t bytecodeUsed(uint16_t argCount);
 
-        static constexpr OpCode OPCODE = OpCode::LoadImmediateScalar;
-    };
+    static constexpr OpCode OPCODE = OpCode::CallSrcWithReturn;
+};
 
-    struct MemsetUninitialized {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        /// Boolean
-        uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
-        uint64_t slots: 16;
+/// If `isScalar == false`, this is a wide instruction, with the second "bytecode" being a
+/// `const Sy::Type*` instance.
+struct LoadDefault {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    /// Boolean
+    uint64_t isScalar : 1;
+    /// Used if `isScalar == true`
+    uint64_t scalarTag : SCALAR_TAG_USED_BITS;
+    uint64_t dst : Stack::BITS_PER_STACK_OPERAND;
 
-        static constexpr OpCode OPCODE = OpCode::MemsetUninitialized;
-    };
+    static constexpr OpCode OPCODE = OpCode::LoadDefault;
+};
 
-    struct SetType {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        /// Boolean
-        uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
-        uint64_t isScalar: 1;
-        /// Used if `isScalar == true`
-        uint64_t scalarTag: SCALAR_TAG_USED_BITS;
+struct LoadImmediateScalar {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    uint64_t scalarTag : SCALAR_TAG_USED_BITS;
+    uint64_t dst : Stack::BITS_PER_STACK_OPERAND;
+    uint64_t immediate : 32;
 
-        static constexpr OpCode OPCODE = OpCode::SetType;
-    };
+    static size_t bytecodeUsed(ScalarTag scalarTag);
 
-    struct SetNullType {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        /// Boolean
-        uint64_t dst: Stack::BITS_PER_STACK_OPERAND;
+    static constexpr OpCode OPCODE = OpCode::LoadImmediateScalar;
+};
 
-        static constexpr OpCode OPCODE = OpCode::SetNullType;
-    };
+struct MemsetUninitialized {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    /// Boolean
+    uint64_t dst : Stack::BITS_PER_STACK_OPERAND;
+    uint64_t slots : 16;
 
-    struct Jump {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        int64_t amount: 32;
+    static constexpr OpCode OPCODE = OpCode::MemsetUninitialized;
+};
 
-        static constexpr OpCode OPCODE = OpCode::Jump;
-    };
+struct SetType {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    /// Boolean
+    uint64_t dst : Stack::BITS_PER_STACK_OPERAND;
+    uint64_t isScalar : 1;
+    /// Used if `isScalar == true`
+    uint64_t scalarTag : SCALAR_TAG_USED_BITS;
 
-    struct JumpIfFalse {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        uint64_t src: Stack::BITS_PER_STACK_OPERAND;
-        int64_t amount: 32;
+    static constexpr OpCode OPCODE = OpCode::SetType;
+};
 
-        static constexpr OpCode OPCODE = OpCode::JumpIfFalse;
-    };
+struct SetNullType {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    /// Boolean
+    uint64_t dst : Stack::BITS_PER_STACK_OPERAND;
 
-    struct Destruct {
-        uint64_t reserveOpcode: OPCODE_USED_BITS;
-        uint64_t src: Stack::BITS_PER_STACK_OPERAND;
+    static constexpr OpCode OPCODE = OpCode::SetNullType;
+};
 
-        static constexpr OpCode OPCODE = OpCode::Destruct;
-    };
+struct Jump {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    int64_t amount : 32;
 
-}
+    static constexpr OpCode OPCODE = OpCode::Jump;
+};
+
+struct JumpIfFalse {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    uint64_t src : Stack::BITS_PER_STACK_OPERAND;
+    int64_t amount : 32;
+
+    static constexpr OpCode OPCODE = OpCode::JumpIfFalse;
+};
+
+struct Destruct {
+    uint64_t reserveOpcode : OPCODE_USED_BITS;
+    uint64_t src : Stack::BITS_PER_STACK_OPERAND;
+
+    static constexpr OpCode OPCODE = OpCode::Destruct;
+};
+
+} // namespace operators
 
 #endif // SY_INTERPRETER_BYTECODE_HPP_

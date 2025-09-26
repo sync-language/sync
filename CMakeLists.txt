@@ -18,6 +18,17 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(EMSCRIPTEN)
+    message("Building Sync for Emscripten")
+    # find_path(EMSCRIPTEN_DIR NAMES "em++")
+    # message(${EMSCRIPTEN_DIR})
+    # if(EMSCRIPTEN_DIR)
+        
+    # endif()
+    # message(STATUS "Emscripten Root Directory: ${EMSCRIPTEN_ROOT}")
+    # message(STATUS "guh")
+endif()
+
 set(SyncLibSources 
     "lib/src/util/panic.cpp"
     "lib/src/util/os_callstack.cpp"
@@ -64,7 +75,13 @@ if(SYNC_LIB_WITH_TESTS)
 endif()
 
 # Ensure all warnings are caught
-if(MSVC)
+if(EMSCRIPTEN)
+    if (CMAKE_GENERATOR MATCHES "Visual Studio")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17 /W4 /WX /EHsc /Zi") 
+    else()
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -Wpedantic -Werror") 
+    endif()
+elseif(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX /EHsc /Zi")
     target_compile_options(SyncLib PRIVATE /W4 /WX)
     target_compile_options(SyncLibTests PRIVATE /W4 /WX)

@@ -84,3 +84,19 @@ jobs:
       run: cmake --build build --config Debug --parallel
     - name: Test
       run: ./build/SyncLibTests
+  emscripten:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+    - name: Setup Emscripten
+      uses: numworks/setup-emscripten@v1
+      with:
+        sdk: latest-fastcomp
+    - name: Configure CMake
+      run: emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
+    - name: Build
+      run: cmake --build build --config Debug --parallel
+    - name: Test
+      run: node ./build/SyncLibTests.js
