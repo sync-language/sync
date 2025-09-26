@@ -8,38 +8,50 @@ using sy::detail::IBaseParserNode;
 String IBaseParserNode::toString() const { return String(this->alloc_); }
 
 // force 8 byte alignment
-// static constexpr size_t PARSER_NODE_ALIGN = alignof(uint64_t);
+static constexpr size_t PARSER_NODE_ALIGN = alignof(uint64_t);
 
-// void* sy::detail::IBaseParserNode::operator new(size_t size, Allocator inAlloc) noexcept {
-//     auto res = inAlloc.allocAlignedArray<uint8_t>(size, PARSER_NODE_ALIGN);
-//     if (!res) {
-//         return nullptr;
-//     }
-//     return res.value();
-// }
+void* sy::detail::IBaseParserNode::operator new(size_t size, Allocator inAlloc) noexcept {
+    auto res = inAlloc.allocAlignedArray<uint8_t>(size, PARSER_NODE_ALIGN);
+    if (!res) {
+        return nullptr;
+    }
+    IBaseParserNode* actualSelf = reinterpret_cast<IBaseParserNode*>(res.value());
+    actualSelf->size_ = size;
+    actualSelf->alloc_ = inAlloc;
+    return reinterpret_cast<void*>(actualSelf);
+}
 
-// void sy::detail::IBaseParserNode::operator delete(void* self, size_t size) {
-//     IBaseParserNode* actualSelf = reinterpret_cast<IBaseParserNode*>(self);
-//     Allocator allocator = actualSelf->alloc();
-//     allocator.freeAlignedArray(reinterpret_cast<uint8_t*>(self), size, PARSER_NODE_ALIGN);
-// }
+void sy::detail::IBaseParserNode::operator delete(void* self) noexcept {
+    if (self == nullptr)
+        return;
+    IBaseParserNode* actualSelf = reinterpret_cast<IBaseParserNode*>(self);
+    actualSelf->alloc_.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_, PARSER_NODE_ALIGN);
+}
 
-// #if SYNC_LIB_WITH_TESTS
+void sy::detail::IBaseParserNode::operator delete(void* self, Allocator inAlloc) noexcept {
+    if (self == nullptr)
+        return;
+    IBaseParserNode* actualSelf = reinterpret_cast<IBaseParserNode*>(self);
+    Allocator allocator = actualSelf->alloc();
+    inAlloc.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_, PARSER_NODE_ALIGN);
+}
 
-// #include "../../doctest.h"
+#if SYNC_LIB_WITH_TESTS
 
-// namespace {
-// class TestParserNodeThing : public IBaseParserNode {
-//   public:
-//     TestParserNodeThing(Allocator inAlloc) : IBaseParserNode(inAlloc) {}
-//     virtual Result<void, int> init(sy::ParseInfo*) override { return {}; }
-// };
-// } // namespace
+#include "../../doctest.h"
 
-// TEST_CASE("IBaseParserNode new and delete") {
-//     Allocator alloc;
-//     TestParserNodeThing* ouh = new (alloc) TestParserNodeThing(alloc);
-//     delete ouh;
-// }
+namespace {
+class TestParserNodeThing : public IBaseParserNode {
+  public:
+    TestParserNodeThing(Allocator inAlloc) : IBaseParserNode(inAlloc) {}
+    virtual Result<void, int> init(sy::ParseInfo*) override { return {}; }
+};
+} // namespace
 
-// #endif // SYNC_LIB_WITH_TESTS
+TEST_CASE("IBaseParserNode new and delete") {
+    Allocator alloc;
+    TestParserNodeThing* ouh = new (alloc) TestParserNodeThing(alloc);
+    delete ouh;
+}
+
+#endif // SYNC_LIB_WITH_TESTS

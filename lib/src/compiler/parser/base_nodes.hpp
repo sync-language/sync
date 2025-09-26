@@ -21,11 +21,15 @@ class IBaseParserNode {
 
     virtual String toString() const;
 
-    // static void* operator new(size_t size, Allocator inAlloc) noexcept;
+    static void* operator new(size_t size, Allocator inAlloc) noexcept;
 
-    // static void operator delete(void* self, size_t size);
+    static void operator delete(void* self) noexcept;
+
+    static void operator delete(void* self, Allocator inAlloc) noexcept;
 
   private:
+    /// Stupid. Necessary to make operator delete work properly with allocators.
+    size_t size_;
     Allocator alloc_;
 };
 } // namespace detail
