@@ -2,7 +2,9 @@
 #define SY_COMPILER_PARSER_PARSER_HPP_
 
 #include "../../mem/allocator.hpp"
+#include "../../types/array/dynamic_array.hpp"
 #include "../../types/sync_obj/sync_obj.hpp"
+#include "../graph/scope.hpp"
 #include "../source_tree/source_tree.hpp"
 #include "../tokenizer/tokenizer.hpp"
 
@@ -13,6 +15,19 @@ struct ParseInfo {
     Tokenizer tokenizer;
     /// Will always be of type `SourceFileKind::SyncSourceFile`
     const volatile SourceTreeNode* fileSource;
+};
+
+class IFunctionDefinition;
+class ITypeDefNode;
+
+class FileAst final {
+
+  private:
+    Allocator alloc_;
+    DynArrayUnmanaged<IFunctionDefinition*> functions_;
+    DynArrayUnmanaged<ITypeDefNode*> structs_;
+    Scope scope_;
+    // TODO imports
 };
 } // namespace sy
 

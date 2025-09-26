@@ -16,6 +16,6 @@
 
 #define _ST_DEBUG_BREAK() ((void)0)
 
-#endif // NDEBUG 
+#endif // NDEBUG
 
 #endif // SY_UTIL_DEBUG_HPP_

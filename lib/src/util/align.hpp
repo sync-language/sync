@@ -5,7 +5,8 @@
 constexpr size_t byteOffsetForAlignedMember(size_t existingSize, size_t otherAlign) {
     const size_t remainder = existingSize % otherAlign;
 
-    if(remainder == 0) return existingSize;
+    if (remainder == 0)
+        return existingSize;
 
     return existingSize + (otherAlign - remainder);
 }

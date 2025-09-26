@@ -24,59 +24,52 @@ constexpr size_t SUGGESTED_SIMD_WIDTH = alignof(uint64_t);
 #endif
 
 namespace simd_detail {
-    std::optional<uint32_t> countTrailingZeroes32(uint32_t mask);
+std::optional<uint32_t> countTrailingZeroes32(uint32_t mask);
 
-    std::optional<uint32_t> countTrailingZeroes64(uint64_t mask);
+std::optional<uint32_t> countTrailingZeroes64(uint64_t mask);
 
-    std::optional<uint32_t> firstZeroIndex8x16(const uint8_t* alignedPtr);
-}
+std::optional<uint32_t> firstZeroIndex8x16(const uint8_t* alignedPtr);
+} // namespace simd_detail
 
-template<int Width>
-class SimdMask final {
-public:
-    using integer_t = 
-        std::conditional_t<Width == 16, uint16_t, 
-            std::conditional_t<Width == 32, uint32_t, uint64_t>>;
+template <int Width> class SimdMask final {
+  public:
+    using integer_t = std::conditional_t<Width == 16, uint16_t, std::conditional_t<Width == 32, uint32_t, uint64_t>>;
 
     integer_t mask;
 
     struct Iterator {
 
         bool operator!=(const Iterator& other) const { return this->index != other.index; }
-        
-        uint32_t operator*() const {
-            return index;
-        }
+
+        uint32_t operator*() const { return index; }
 
         Iterator& operator++() {
             this->calculateNewIndex();
             return *this;
         }
 
-    private:
+      private:
         friend class SimdMask;
 
         Iterator() : data(0), index(static_cast<uint32_t>(-1)) {}
 
-        Iterator(integer_t inData) : data(inData) {
-            this->calculateNewIndex();
-        }
+        Iterator(integer_t inData) : data(inData) { this->calculateNewIndex(); }
 
         void calculateNewIndex() {
-            std::optional<uint32_t> optFound = [](integer_t d){
-                if constexpr(std::is_same_v<integer_t, uint64_t>) {
+            std::optional<uint32_t> optFound = [](integer_t d) {
+                if constexpr (std::is_same_v<integer_t, uint64_t>) {
                     return simd_detail::countTrailingZeroes64(d);
                 } else {
                     return simd_detail::countTrailingZeroes32(d);
                 }
             }(this->data);
 
-            if(!optFound.has_value()) {
+            if (!optFound.has_value()) {
                 data = 0;
                 index = static_cast<uint32_t>(-1);
             } else {
                 index = optFound.value();
-                if constexpr(std::is_same_v<integer_t, uint64_t>) {
+                if constexpr (std::is_same_v<integer_t, uint64_t>) {
                     data = data & (~1ULL << index);
                 } else {
                     data = data & (~1U << index);
@@ -96,25 +89,22 @@ public:
 };
 
 namespace simd_detail {
-    SimdMask<16> equalMask8x16(const uint8_t* alignedPtr, uint8_t value);
+SimdMask<16> equalMask8x16(const uint8_t* alignedPtr, uint8_t value);
 
-    SimdMask<32> equalMask8x32(const uint8_t* alignedPtr, uint8_t value);
+SimdMask<32> equalMask8x32(const uint8_t* alignedPtr, uint8_t value);
 
-    SimdMask<64> equalMask8x64(const uint8_t* alignedPtr, uint8_t value);
+SimdMask<64> equalMask8x64(const uint8_t* alignedPtr, uint8_t value);
 
-    bool equalBytes8x16(const uint8_t* lhs, const uint8_t* rhs);
+bool equalBytes8x16(const uint8_t* lhs, const uint8_t* rhs);
 
-    bool equalBytes8x32(const uint8_t* lhs, const uint8_t* rhs);
+bool equalBytes8x32(const uint8_t* lhs, const uint8_t* rhs);
 
-    bool equalBytes8x64(const uint8_t* lhs, const uint8_t* rhs);
-}
+bool equalBytes8x64(const uint8_t* lhs, const uint8_t* rhs);
+} // namespace simd_detail
 
-template<int Width>
-class alignas(Width) ByteSimd final {
-public:
-
-    static_assert(Width == 16 || Width == 32 || Width == 64, 
-        "Byte simd width must be 16, 32, or 64");
+template <int Width> class alignas(Width) ByteSimd final {
+  public:
+    static_assert(Width == 16 || Width == 32 || Width == 64, "Byte simd width must be 16, 32, or 64");
 
     uint8_t bytes[Width]{};
 
@@ -133,88 +123,76 @@ public:
     bool operator!=(const ByteSimd& other) const { return (*this == other) == false; } // the freak?
 };
 
-template <int Width>
-inline ByteSimd<Width>::ByteSimd(uint8_t fill)
-{    
-    for(int i = 0; i < Width; i++) {
+template <int Width> inline ByteSimd<Width>::ByteSimd(uint8_t fill) {
+    for (int i = 0; i < Width; i++) {
         this->bytes[i] = fill;
     }
 }
 
-template <int Width>
-inline ByteSimd<Width>::ByteSimd(const uint8_t *inBytes)
-{
-    for(int i = 0; i < Width; i++) {
+template <int Width> inline ByteSimd<Width>::ByteSimd(const uint8_t* inBytes) {
+    for (int i = 0; i < Width; i++) {
         this->bytes[i] = inBytes[i];
     }
 }
 
-template <int Width>
-inline std::optional<uint32_t> ByteSimd<Width>::firstZeroIndex() const
-{
+template <int Width> inline std::optional<uint32_t> ByteSimd<Width>::firstZeroIndex() const {
     if constexpr (Width == 16) {
         return simd_detail::firstZeroIndex8x16(this->bytes);
-    } 
-    else if constexpr (Width == 32) {
+    } else if constexpr (Width == 32) {
         { // first 16
             auto result = simd_detail::firstZeroIndex8x16(this->bytes);
-            if(result.has_value()) return result;
+            if (result.has_value())
+                return result;
         }
         { // second 16
             auto result = simd_detail::firstZeroIndex8x16(&this->bytes[16]);
-            if(result.has_value()) return std::optional<uint32_t>(result.value() + 16);
+            if (result.has_value())
+                return std::optional<uint32_t>(result.value() + 16);
             return std::nullopt;
         }
-    }
-    else {
+    } else {
         { // first 16
             auto result = simd_detail::firstZeroIndex8x16(this->bytes);
-            if(result.has_value()) return result;
+            if (result.has_value())
+                return result;
         }
         { // second 16
             auto result = simd_detail::firstZeroIndex8x16(&this->bytes[16]);
-            if(result.has_value()) return std::optional<uint32_t>(result.value() + 16);
+            if (result.has_value())
+                return std::optional<uint32_t>(result.value() + 16);
         }
         { // third 16
             auto result = simd_detail::firstZeroIndex8x16(&this->bytes[32]);
-            if(result.has_value()) return std::optional<uint32_t>(result.value() + 32);
+            if (result.has_value())
+                return std::optional<uint32_t>(result.value() + 32);
         }
         { // last 16
             auto result = simd_detail::firstZeroIndex8x16(&this->bytes[48]);
-            if(result.has_value()) return std::optional<uint32_t>(result.value() + 48);
+            if (result.has_value())
+                return std::optional<uint32_t>(result.value() + 48);
             return std::nullopt;
         }
     }
 }
 
-template <int Width>
-inline SimdMask<Width> ByteSimd<Width>::equalMask(const uint8_t value) const
-{
+template <int Width> inline SimdMask<Width> ByteSimd<Width>::equalMask(const uint8_t value) const {
     if constexpr (Width == 16) {
         return simd_detail::equalMask8x16(this->bytes, value);
-    } 
-    else if constexpr (Width == 32) {
+    } else if constexpr (Width == 32) {
         return simd_detail::equalMask8x32(this->bytes, value);
-    }
-    else {
+    } else {
         return simd_detail::equalMask8x64(this->bytes, value);
     }
 }
 
-template <int Width>
-inline bool ByteSimd<Width>::operator==(const ByteSimd &other) const
-{
+template <int Width> inline bool ByteSimd<Width>::operator==(const ByteSimd& other) const {
     if constexpr (Width == 16) {
         return simd_detail::equalBytes8x16(this->bytes, other.bytes);
-    } 
-    else if constexpr (Width == 32) {
+    } else if constexpr (Width == 32) {
         return simd_detail::equalBytes8x32(this->bytes, other.bytes);
-    }
-    else {
+    } else {
         return simd_detail::equalBytes8x64(this->bytes, other.bytes);
     }
 }
 
 #endif // SY_UTIL_SIMD_HPP_
-
-

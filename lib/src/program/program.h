@@ -8,7 +8,7 @@
 struct SyFunction;
 
 typedef struct SyProgram {
-    //void* _inner;
+    // void* _inner;
 } SyProgram;
 
 typedef enum SyProgramRuntimeErrorKind {
@@ -19,13 +19,13 @@ typedef enum SyProgramRuntimeErrorKind {
 } SyProgramRuntimeErrorKind;
 
 typedef struct SyProgramRuntimeError {
-    SyProgramRuntimeErrorKind   kind;
-    //void*                       _inner;
+    SyProgramRuntimeErrorKind kind;
+    // void*                       _inner;
 } SyProgramRuntimeError;
 
 typedef struct SyCallStack {
     const struct SyFunction* const* functions;
-    size_t                          len;
+    size_t len;
 } SyCallStack;
 
 #endif // _SY_PROGRAM_PROGRAM_H_

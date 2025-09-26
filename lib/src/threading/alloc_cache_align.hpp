@@ -11,5 +11,4 @@ constexpr size_t ALLOC_CACHE_ALIGN = std::hardware_destructive_interference_size
 constexpr size_t ALLOC_CACHE_ALIGN = 64;
 #endif
 
-
 #endif // SY_THREADING_ALLOC_CACHE_ALIGN

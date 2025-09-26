@@ -54,9 +54,9 @@ class IFunctionDefinition : public detail::IBaseParserNode {
 
 /// Handles type definitions. This includes structs, enums, unions, aliases,
 /// and whatever else.
-class IParserTypeDefNode : public detail::IBaseParserNode {
+class ITypeDefNode : public detail::IBaseParserNode {
   public:
-    IParserTypeDefNode(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
+    ITypeDefNode(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
 
     virtual void defineType() const = 0;
 };

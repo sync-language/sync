@@ -6,7 +6,6 @@
 #include <iostream>
 #include <utility>
 
-
 static_assert(sizeof(sy::Allocator) == sizeof(SyAllocator));
 static_assert(alignof(sy::Allocator) == alignof(SyAllocator));
 static_assert(sizeof(sy::Allocator::VTable) == sizeof(SyAllocatorVTable));

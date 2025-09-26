@@ -12,30 +12,38 @@ struct SyncVariable {
     bool isMutable;
 };
 
+struct Scope;
+
 struct ScopeSymbol {
     enum class Tag : int {
         /// Local to a function
         LocalVariable = 0,
         Function = 1,
-        Struct = 2,
-        Global = 3,
+        Scope = 2,
+        Struct = 3,
+        Global = 4,
+    };
+
+    union Data {
+        StringSlice localVariable;
+        StringSlice function;
+        Scope* scope;
+        StringSlice structName;
+        StringSlice global;
     };
 
     Tag symbolType;
-    StringSlice name;
+    Data data;
 
-    bool operator==(const ScopeSymbol& other) const { return symbolType == other.symbolType && name == other.name; }
+    bool operator==(const ScopeSymbol& other) const noexcept;
 };
 } // namespace sy
 
 namespace std {
-template <> struct hash<sy::ScopeSymbol> {
-    size_t operator()(const sy::ScopeSymbol& obj) { return obj.name.hash(); }
-};
+template <> struct hash<sy::ScopeSymbol> { size_t operator()(const sy::ScopeSymbol& obj); };
 } // namespace std
 
 namespace sy {
-struct Scope;
 struct Scope {
     /// If this scope is within a function, then variables may be stack variables.
     bool isInFunction;
@@ -44,8 +52,12 @@ struct Scope {
     bool isSync;
     /// Will contain elements if `isSync == true`
     DynArrayUnmanaged<SyncVariable> syncVariables;
-    /// The symbols defined within this scope.
-    MapUnmanaged<ScopeSymbol, bool> symbols;
+    /// The symbols defined within this scope. The value type corresponds to
+    /// the definition order. This ordering is only relevant for local
+    /// variables and scopes within functions (that also contain variables).
+    /// While `MapUnmanaged`'s iterator does store
+    /// ordering, this allows to quickly check if a symbol exists.
+    MapUnmanaged<ScopeSymbol, size_t> symbols;
     Option<Scope*> parent;
 
     /// Returns true if the symbol named `symbolName` is found and synchronized

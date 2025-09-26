@@ -5,12 +5,12 @@
 
 #include "../core.h"
 
-typedef void(*SySyncQueueLockExclusive)(void* lock);
-typedef bool(*SySyncQueueTryLockExclusive)(void* lock);
-typedef void(*SySyncQueueUnlockExclusive)(void* lock);
-typedef void(*SySyncQueueLockShared)(const void* lock);
-typedef bool(*SySyncQueueTryLockShared)(const void* lock);
-typedef void(*SySyncQueueUnlockShared)(const void* lock);
+typedef void (*SySyncQueueLockExclusive)(void* lock);
+typedef bool (*SySyncQueueTryLockExclusive)(void* lock);
+typedef void (*SySyncQueueUnlockExclusive)(void* lock);
+typedef void (*SySyncQueueLockShared)(const void* lock);
+typedef bool (*SySyncQueueTryLockShared)(const void* lock);
+typedef void (*SySyncQueueUnlockShared)(const void* lock);
 
 typedef struct SySyncObjectVTable {
     SySyncQueueLockExclusive lockExclusive;
@@ -43,6 +43,5 @@ SY_API void sy_sync_queue_add_shared(SySyncObject obj);
 #ifdef __cplusplus
 } // extern "C"
 #endif
-
 
 #endif // SY_THREADING_SYNC_QUEUE_H_
