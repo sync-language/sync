@@ -3,6 +3,7 @@
 
 #include "../../mem/allocator.hpp"
 #include "../../types/array/dynamic_array.hpp"
+#include "../../types/hash/map.hpp"
 #include "../../types/sync_obj/sync_obj.hpp"
 #include "../graph/scope.hpp"
 #include "../source_tree/source_tree.hpp"
@@ -15,6 +16,7 @@ struct ParseInfo {
     Tokenizer tokenizer;
     /// Will always be of type `SourceFileKind::SyncSourceFile`
     const volatile SourceTreeNode* fileSource;
+    MapUnmanaged<StringSlice, bool> imports;
 };
 
 class IFunctionDefinition;

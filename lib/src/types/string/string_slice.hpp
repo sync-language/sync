@@ -35,9 +35,9 @@ class SY_API StringSlice {
 
   private:
     /// Must be UTF8. Does not have to be null terminated. Is not read from if `len == 0`.
-    const char* _ptr;
+    const char* _ptr = nullptr;
     /// Does not include possible null terminator. Is measured in bytes.
-    size_t _len;
+    size_t _len = 0;
 };
 } // namespace sy
 

@@ -7,6 +7,7 @@
 
 namespace sy {
 struct ParseInfo;
+struct Scope;
 
 namespace detail {
 class IBaseParserNode {
@@ -15,7 +16,7 @@ class IBaseParserNode {
 
     virtual ~IBaseParserNode() noexcept {}
 
-    virtual Result<void, int> init(ParseInfo* parseInfo) = 0;
+    virtual Result<void, int> init(ParseInfo* parseInfo, Scope* outerScope) = 0;
 
     Allocator alloc() const { return this->alloc_; }
 
