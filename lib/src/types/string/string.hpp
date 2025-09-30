@@ -117,6 +117,8 @@ class SY_API String final {
 
     String(const StringSlice& str);
 
+    [[nodiscard]] static Result<String, AllocErr> copyConstructSlice(const StringSlice& str, Allocator alloc);
+
     String& operator=(const StringSlice& str);
 
     String(const char* str);

@@ -7,7 +7,7 @@
 
 namespace sy {
 struct StackVariable {
-    StringUnmanaged name;
+    String name;
     bool isTemporary;
     bool isMutable;
     TypeResolutionInfo typeInfo;

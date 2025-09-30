@@ -449,6 +449,14 @@ sy::String::String(const StringSlice& str) {
     new (&this->inner_) StringUnmanaged(std::move(res.takeValue()));
 }
 
+sy::Result<sy::String, sy::AllocErr> sy::String::copyConstructSlice(const StringSlice& str, Allocator alloc) {
+    auto result = StringUnmanaged::copyConstructSlice(str, alloc);
+    if (result.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    }
+    return String(result.takeValue(), alloc);
+}
+
 sy::String& sy::String::operator=(const StringSlice& str) {
     auto res = this->inner_.copyAssignSlice(str, this->alloc_);
     sy_assert(res.hasValue(), "Memory allocation failed");

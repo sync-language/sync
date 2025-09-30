@@ -315,4 +315,73 @@ TEST_CASE("more tokens") {
     }
 }
 
+TEST_CASE("parse i8") {
+    uint32_t lineNumber = 0;
+    const StringSlice source = "i8,";
+    auto [token, end] = Token::parseToken(source, 0, &lineNumber);
+    CHECK_EQ(token.tag(), TokenType::I8Primitive);
+    CHECK_EQ(end, 2);
+    auto [comma, newEnd] = Token::parseToken(source, end, &lineNumber);
+    CHECK_EQ(comma.tag(), TokenType::CommaSymbol);
+}
+
+TEST_CASE("function arguments") {
+    Allocator alloc;
+    const Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64)").takeValue();
+    TokenIter iter = tokenizer.iter();
+
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::LeftParenthesesSymbol);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::Identifier);
+        CHECK_EQ(iter.currentSlice(), "arg1");
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::ColonSymbol);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::I8Primitive);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::CommaSymbol);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::MutKeyword);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::Identifier);
+        CHECK_EQ(iter.currentSlice(), "arg2");
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::ColonSymbol);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::U64Primitive);
+    }
+    {
+        auto curr = iter.next();
+        CHECK(curr.has_value());
+        CHECK_EQ(curr.value().tag(), TokenType::RightParenthesesSymbol);
+    }
+}
+
 #endif // SYNC_LIB_NO_TESTS

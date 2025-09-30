@@ -58,6 +58,8 @@ class Tokenizer {
 
 class TokenIter {
   public:
+    TokenIter() = default;
+
     TokenIter(const Tokenizer* tokenizer) noexcept;
 
     /// @brief Steps forward the iterator by one token. If there are no more
@@ -88,8 +90,8 @@ class TokenIter {
     [[nodiscard]] sy::StringSlice currentSlice() const noexcept;
 
   private:
-    const Token* current_;
-    const Tokenizer* tokenizer_;
+    const Token* current_ = nullptr;
+    const Tokenizer* tokenizer_ = nullptr;
 };
 } // namespace sy
 

@@ -4,6 +4,7 @@
 #include "../../mem/allocator.hpp"
 #include "../../types/result/result.hpp"
 #include "../../types/string/string.hpp"
+#include "../compile_info.hpp"
 
 namespace sy {
 struct ParseInfo;
@@ -16,7 +17,7 @@ class IBaseParserNode {
 
     virtual ~IBaseParserNode() noexcept {}
 
-    virtual Result<void, int> init(ParseInfo* parseInfo, Scope* outerScope) = 0;
+    virtual Result<void, CompileError> init(ParseInfo* parseInfo, Scope* outerScope) = 0;
 
     Allocator alloc() const { return this->alloc_; }
 
