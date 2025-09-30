@@ -143,6 +143,37 @@ Result<void, CompileError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
             return Error(parseResult.takeErr());
         }
         new (&this->args) DynArray<StackVariable>(parseResult.takeValue());
+        sy_assert(parseInfo->tokenIter.current().tag() == TokenType::RightParenthesesSymbol,
+                  "Expected to end with right parentheses");
+    }
+
+    { // return type
+        auto nextResult = parseInfo->tokenIter.next();
+        if (nextResult.has_value() == false) {
+            return makeEndOfFileError();
+        }
+        const Token token = nextResult.value();
+        if (token.tag() == TokenType::RightBraceSymbol) {
+            this->retType = Option<TypeResolutionInfo>();
+        } else {
+            auto typeParseRes = TypeResolutionInfo::parse(parseInfo);
+            if (typeParseRes.hasErr()) {
+                return Error(CompileError::createInvalidFunctionSignature(
+                    detail::sourceLocationFromFileLocation(source, parseInfo->tokenIter.current().location())));
+            }
+            this->retType = Option<TypeResolutionInfo>(typeParseRes.takeValue());
+            // step forward
+            if (parseInfo->tokenIter.next().has_value() == false) {
+                return makeEndOfFileError();
+            }
+        }
+    }
+
+    { // function body
+        if (parseInfo->tokenIter.current().tag() != TokenType::RightBraceSymbol) {
+            return Error(CompileError::createInvalidFunctionSignature(
+                detail::sourceLocationFromFileLocation(source, parseInfo->tokenIter.current().location())));
+        }
     }
 
     (void)outerScope;

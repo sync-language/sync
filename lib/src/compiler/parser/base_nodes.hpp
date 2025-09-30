@@ -2,9 +2,11 @@
 #define SY_COMPILER_PARSER_BASE_NODES_HPP_
 
 #include "../../mem/allocator.hpp"
+#include "../../types/array/dynamic_array.hpp"
 #include "../../types/result/result.hpp"
 #include "../../types/string/string.hpp"
 #include "../compile_info.hpp"
+#include "stack_variables.hpp"
 
 namespace sy {
 struct ParseInfo;
@@ -16,8 +18,6 @@ class IBaseParserNode {
     IBaseParserNode(Allocator inAlloc) noexcept : alloc_(inAlloc) {}
 
     virtual ~IBaseParserNode() noexcept {}
-
-    virtual Result<void, CompileError> init(ParseInfo* parseInfo, Scope* outerScope) = 0;
 
     Allocator alloc() const { return this->alloc_; }
 
@@ -41,6 +41,9 @@ class IFunctionLogicNode : public detail::IBaseParserNode {
   public:
     IFunctionLogicNode(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
 
+    virtual Result<void, CompileError> init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+                                            Scope* currentScope) = 0;
+
     virtual void buildFunction() const = 0;
 };
 
@@ -50,6 +53,8 @@ class IFunctionLogicNode : public detail::IBaseParserNode {
 class IFunctionDefinition : public detail::IBaseParserNode {
   public:
     IFunctionDefinition(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
+
+    virtual Result<void, CompileError> init(ParseInfo* parseInfo, Scope* outerScope) = 0;
 
     virtual void compile() const = 0;
 };

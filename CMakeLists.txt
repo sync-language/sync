@@ -60,6 +60,7 @@ set(SyncLibSources
     "lib/src/compiler/tokenizer/tokenizer.cpp"
     "lib/src/compiler/tokenizer/file_literals.cpp"
     "lib/src/compiler/source_tree/source_tree.cpp"
+    "lib/src/compiler/parser/parser.cpp"
     "lib/src/compiler/parser/base_nodes.cpp"
     "lib/src/compiler/parser/stack_variables.cpp"
     "lib/src/compiler/parser/type_resolution.cpp"

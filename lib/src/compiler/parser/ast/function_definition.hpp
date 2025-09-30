@@ -20,6 +20,7 @@ class FunctionDefinitionNode : public IFunctionDefinition {
     StringSlice functionName{};
     DynArray<StackVariable> args{};
     Option<TypeResolutionInfo> retType{};
+    DynArray<StackVariable> localVariables{};
     Scope* scope = nullptr;
 };
 } // namespace sy

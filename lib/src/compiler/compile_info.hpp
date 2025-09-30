@@ -31,6 +31,7 @@ class SY_API CompileError {
         UnsupportedChar,
         InvalidEscapeSequence,
         InvalidFunctionSignature,
+        InvalidFunctionStatement,
     };
 
     struct FileTooBig {
@@ -59,6 +60,8 @@ class SY_API CompileError {
     static CompileError createInvalidEscapeSequence();
 
     static CompileError createInvalidFunctionSignature(SourceLocation loc);
+
+    static CompileError createInvalidFunctionStatement(SourceLocation loc);
 
     [[nodiscard]] Kind kind() const { return this->kind_; }
 

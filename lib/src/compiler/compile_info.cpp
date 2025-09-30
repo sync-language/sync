@@ -66,7 +66,14 @@ CompileError sy::CompileError::createInvalidEscapeSequence() {
 
 CompileError sy::CompileError::createInvalidFunctionSignature(SourceLocation loc) {
     CompileError err;
-    err.kind_ = Kind::InvalidEscapeSequence;
+    err.kind_ = Kind::InvalidFunctionSignature;
+    err.location_ = loc;
+    return err;
+}
+
+CompileError sy::CompileError::createInvalidFunctionStatement(SourceLocation loc) {
+    CompileError err;
+    err.kind_ = Kind::InvalidFunctionStatement;
     err.location_ = loc;
     return err;
 }

@@ -43,7 +43,6 @@ namespace {
 class TestParserNodeThing : public IBaseParserNode {
   public:
     TestParserNodeThing(Allocator inAlloc) : IBaseParserNode(inAlloc) {}
-    virtual Result<void, sy::CompileError> init(sy::ParseInfo*, sy::Scope*) override { return {}; }
 };
 } // namespace
 
