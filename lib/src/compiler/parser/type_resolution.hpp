@@ -16,7 +16,7 @@ struct TypeResolutionInfo {
         NotAType,
     };
 
-    static Result<TypeResolutionInfo, Err> parse(ParseInfo* parseInfo);
+    static Result<TypeResolutionInfo, Err> parse(ParseInfo* parseInfo) noexcept;
 };
 } // namespace sy
 

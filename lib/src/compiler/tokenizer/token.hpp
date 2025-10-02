@@ -15,7 +15,9 @@ enum class TokenType : uint8_t {
 
     ConstKeyword,
     MutKeyword,
+    ComptimeKeyword,
     ReturnKeyword,
+    ThrowKeyword,
     FnKeyword,
     PubKeyword,
     IfKeyword,
@@ -29,7 +31,7 @@ enum class TokenType : uint8_t {
     EnumKeyword,
     // UnionKeyword,
     // DynKeyword,
-    // InterfaceKeyword,
+    TraitKeyword,
     SyncKeyword,
     // UnsafeKeyword,
     TrueKeyword,
@@ -67,6 +69,7 @@ enum class TokenType : uint8_t {
     SyncWeakPrimitive,
     // SyncMapPrimitive,
     // SyncSetPrimitive,
+    TypePrimitive,
 
     NumberLiteral,
     CharLiteral,

@@ -4,7 +4,7 @@
 
 using namespace sy;
 
-static Option<TypeResolutionInfo> tryParseNormalType(const TokenIter* tokenIter) {
+static Option<TypeResolutionInfo> tryParseNormalType(const TokenIter* tokenIter) noexcept {
     const Token current = tokenIter->current();
     switch (current.tag()) {
     case TokenType::BoolPrimitive: {
@@ -53,7 +53,7 @@ static Option<TypeResolutionInfo> tryParseNormalType(const TokenIter* tokenIter)
     }
 }
 
-Result<TypeResolutionInfo, TypeResolutionInfo::Err> sy::TypeResolutionInfo::parse(ParseInfo* parseInfo) {
+Result<TypeResolutionInfo, TypeResolutionInfo::Err> sy::TypeResolutionInfo::parse(ParseInfo* parseInfo) noexcept {
     if (auto normalParse = tryParseNormalType(&parseInfo->tokenIter); normalParse.hasValue()) {
         return normalParse.take();
     }

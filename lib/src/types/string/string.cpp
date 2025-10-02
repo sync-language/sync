@@ -371,23 +371,46 @@ sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::fillConstruct
     return self;
 }
 
-sy::StringSlice sy::StringUnmanaged::asSlice() const { return StringSlice(this->cstr(), this->len_); }
+sy::StringSlice sy::StringUnmanaged::asSlice() const noexcept { return StringSlice(this->cstr(), this->len_); }
 
-const char* sy::StringUnmanaged::cstr() const {
+const char* sy::StringUnmanaged::cstr() const noexcept {
     if (this->isSso()) {
         return asSso(this->raw_)->arr;
     }
     return asAlloc(this->raw_)->ptr;
 }
 
-char* sy::StringUnmanaged::data() {
+char* sy::StringUnmanaged::data() noexcept {
     if (this->isSso()) {
         return asSsoMut(this->raw_)->arr;
     }
     return asAllocMut(this->raw_)->ptr;
 }
 
-size_t sy::StringUnmanaged::hash() const { return this->asSlice().hash(); }
+size_t sy::StringUnmanaged::hash() const noexcept { return this->asSlice().hash(); }
+
+sy::Result<void, sy::AllocErr> sy::StringUnmanaged::append(StringSlice slice, Allocator alloc) noexcept {
+    size_t newCapacity = this->len_ + slice.len() + 1;
+    if (!hasEnoughCapacity(newCapacity)) {
+        auto res = detail::mallocStringBuffer(newCapacity, alloc);
+        if (res.hasErr()) {
+            return Error(AllocErr::OutOfMemory);
+        }
+        memcpy(res.value(), this->cstr(), this->len_);
+        this->setHeapFlag();
+        AllocBuffer* thisHeap = asAllocMut(this->raw_);
+        thisHeap->ptr = res.value();
+        thisHeap->capacity = newCapacity;
+    }
+
+    char* thisData = this->data();
+    memcpy(thisData + this->len_, slice.data(), slice.len());
+    this->len_ += slice.len();
+    if (!isSso()) {
+        zeroSetLastSIMDElement(thisData, slice.len());
+    }
+    return {};
+}
 
 bool sy::StringUnmanaged::isSso() const { return !(asAlloc(this->raw_)->flag & FLAG_BIT); }
 
@@ -473,6 +496,10 @@ sy::String& sy::String::operator=(const char* str) {
     auto res = inner_.copyAssignCStr(str, this->alloc_);
     sy_assert(res.hasValue(), "Memory allocation failed");
     return *this;
+}
+
+sy::Result<void, sy::AllocErr> sy::String::append(StringSlice slice) noexcept {
+    return this->inner_.append(slice, this->alloc_);
 }
 
 #if SYNC_LIB_WITH_TESTS

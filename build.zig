@@ -108,6 +108,7 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/compiler/parser/parser.cpp",
     "lib/src/compiler/parser/stack_variables.cpp",
     "lib/src/compiler/parser/type_resolution.cpp",
+    "lib/src/compiler/parser/expression.cpp",
     "lib/src/compiler/parser/ast/function_definition.cpp",
     "lib/src/program/program.cpp",
     "lib/src/testing/child_process.cpp",

@@ -8,7 +8,9 @@ All tokens are whitespace sensitive. For instance, `11 11` would not be the inte
 
 - const
 - mut
+- comptime
 - return
+- throw
 - fn
 - pub
 - if
@@ -23,8 +25,7 @@ All tokens are whitespace sensitive. For instance, `11 11` would not be the inte
 - union
   - Should maybe be like rust enums instead for simplicity?
 - dyn
-- interface
-  - Trait better? To be determined.
+- trait
 - sync
 - unsafe
   - Is this necessary?
@@ -89,6 +90,7 @@ Naturally there are more primitive types, such as arrays. The ones here are the 
   - Is this necessary? Like [Java ConcurrentHashMap](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentHashMap.html). How should this look? Maybe `SyncMap[K]V`?  Tokenizer would check for `SyncMap` string.
 - Sync Set
   - Is this necessary? Similar to above. How should this look? Maybe `SyncSet[K]`? Tokenizer would check for `SyncSet` string.
+- Type
 
 ### Literals
 

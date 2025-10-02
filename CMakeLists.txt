@@ -64,6 +64,7 @@ set(SyncLibSources
     "lib/src/compiler/parser/base_nodes.cpp"
     "lib/src/compiler/parser/stack_variables.cpp"
     "lib/src/compiler/parser/type_resolution.cpp"
+    "lib/src/compiler/parser/expression.cpp"
     "lib/src/compiler/graph/scope.cpp"
     "lib/src/compiler/parser/ast/function_definition.cpp"
     "lib/src/program/program.cpp"

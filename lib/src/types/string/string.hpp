@@ -66,14 +66,16 @@ class SY_API StringUnmanaged SY_CLASS_FINAL {
     [[nodiscard]] size_t len() const { return len_; }
 
     /// Any mutation operations on `this` may invalidate the returned slice.
-    [[nodiscard]] StringSlice asSlice() const;
+    [[nodiscard]] StringSlice asSlice() const noexcept;
 
     // Get as const char*
-    [[nodiscard]] const char* cstr() const;
+    [[nodiscard]] const char* cstr() const noexcept;
 
-    [[nodiscard]] char* data();
+    [[nodiscard]] char* data() noexcept;
 
-    [[nodiscard]] size_t hash() const;
+    [[nodiscard]] size_t hash() const noexcept;
+
+    [[nodiscard]] Result<void, AllocErr> append(StringSlice slice, Allocator alloc) noexcept;
 
     SY_CLASS_TEST_PRIVATE :
 
@@ -137,6 +139,8 @@ class SY_API String final {
     [[nodiscard]] char* data() { return inner_.data(); };
 
     [[nodiscard]] size_t hash() const { return inner_.hash(); }
+
+    Result<void, AllocErr> append(StringSlice slice) noexcept;
 
   private:
     String(StringUnmanaged&& inner, Allocator alloc) : inner_(std::move(inner)), alloc_(alloc) {}

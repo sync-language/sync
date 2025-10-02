@@ -3,7 +3,10 @@
 #ifndef SY_CORE_H_
 #define SY_CORE_H_
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#define SY_API EMSCRIPTEN_KEEPALIVE
+#elif defined(__GNUC__) || defined(__clang__)
 #define SY_API __attribute__((visibility("default")))
 #elif defined(_MSC_VER)
 #define SY_API __declspec(dllexport)
