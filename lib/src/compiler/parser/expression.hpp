@@ -12,6 +12,7 @@
 namespace sy {
 class IFunctionStatement;
 struct ParseInfo;
+struct FunctionBuilder;
 
 struct Expression {
     struct Deref {
@@ -54,6 +55,8 @@ struct Expression {
 
     static Result<Expression, CompileError> parse(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                                   Option<size_t> dstVarIndex) noexcept;
+
+    Result<void, CompileError> compileExpression(FunctionBuilder* builder) const;
 };
 } // namespace sy
 

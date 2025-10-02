@@ -108,7 +108,7 @@ sy::StringUnmanaged sy::detail::StringUtils::makeRaw(char*& buf, size_t length, 
 
 sy::StringUnmanaged::~StringUnmanaged() noexcept {
 // Ensure no leaks
-#if _DEBUG
+#ifndef NDEBUG
     if (this->isSso() == false) {
         try {
             std::cerr << "StringUnmanaged not properly destroyed." << std::endl;

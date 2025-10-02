@@ -15,7 +15,7 @@ class ReturnNode : public IFunctionStatement {
     virtual Result<void, CompileError> init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                             Scope* currentScope) noexcept override;
 
-    virtual void compileStatement() const noexcept {};
+    virtual Result<void, CompileError> compileStatement(FunctionBuilder* builder) const noexcept;
 };
 } // namespace sy
 

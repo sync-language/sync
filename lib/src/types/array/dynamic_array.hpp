@@ -100,6 +100,9 @@ class SY_API RawDynArrayUnmanaged SY_CLASS_FINAL {
 
     void removeAtScript(size_t index, const Type* typeInfo) noexcept;
 
+    [[nodiscard]] Result<void, AllocErr> reserve(Allocator& alloc, size_t minCapacity, size_t size,
+                                                 size_t align) noexcept;
+
   private:
     [[nodiscard]] Result<void, AllocErr> reallocateBack(Allocator& alloc, const size_t size,
                                                         const size_t align) noexcept;
@@ -175,6 +178,8 @@ template <typename T> class SY_API DynArrayUnmanaged final {
 
     void removeAt(size_t index) noexcept;
 
+    [[nodiscard]] Result<void, AllocErr> reserve(Allocator& alloc, size_t minCapacity) noexcept;
+
   private:
     constexpr static detail::DestructFn elementDestruct = detail::makeDestructor<T>();
 
@@ -230,6 +235,8 @@ template <typename T> class SY_API DynArray final {
     Result<void, AllocErr> insertAt(const T& element, size_t index) noexcept;
 
     void removeAt(size_t index) noexcept { this->inner_.removeAt(index); }
+
+    Result<void, AllocErr> reserve(size_t minCapacity) noexcept;
 
   private:
     DynArray(DynArrayUnmanaged<T>&& inner, Allocator alloc) : inner_(std::move(inner)), alloc_(alloc) {}
@@ -332,6 +339,15 @@ template <typename T> inline void DynArrayUnmanaged<T>::removeAt(size_t index) n
     }
 }
 
+template <typename T>
+inline Result<void, AllocErr> DynArrayUnmanaged<T>::reserve(Allocator& alloc, size_t minCapacity) noexcept {
+    if constexpr (std::is_trivially_copyable_v<T>) {
+        return this->inner_.reserve(alloc, minCapacity, sizeof(T), alignof(T));
+    } else {
+        return this->inner_.reserve(alloc, minCapacity, sizeof(T), alignof(T));
+    }
+}
+
 template <typename T> inline DynArray<T>& DynArray<T>::operator=(DynArray&& other) noexcept {
     this->inner_.moveAssign(other.inner_, this->alloc_);
     this->alloc_ = other.alloc_; // now own the memory from the other allocator
@@ -385,6 +401,10 @@ template <typename T> inline Result<void, AllocErr> DynArray<T>::insertAt(T&& el
 
 template <typename T> inline Result<void, AllocErr> DynArray<T>::insertAt(const T& element, size_t index) noexcept {
     return this->inner_.insertAt(element, this->alloc_, index);
+}
+
+template <typename T> inline Result<void, AllocErr> DynArray<T>::reserve(size_t minCapacity) noexcept {
+    return this->inner_.reserve(this->alloc_, minCapacity);
 }
 
 }; // namespace sy

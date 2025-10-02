@@ -92,7 +92,8 @@ struct Bytecode {
     template <typename OperandsT> Bytecode(const OperandsT& operands) {
         static_assert(sizeof(OperandsT) == sizeof(Bytecode));
         static_assert(alignof(OperandsT) == alignof(Bytecode));
-        assertOpCodeMatch(operands.reserveOpcode, OperandsT::OPCODE); // make sure mistakes arent made
+        assertOpCodeMatch(static_cast<OpCode>(operands.reserveOpcode),
+                          OperandsT::OPCODE); // make sure mistakes arent made
         *this = reinterpret_cast<const Bytecode&>(operands);
     }
 

@@ -97,6 +97,7 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/interpreter/stack/stack.cpp",
     "lib/src/interpreter/bytecode.cpp",
     "lib/src/interpreter/interpreter.cpp",
+    "lib/src/interpreter/function_builder.cpp",
     "lib/src/compiler/compile_info.cpp",
     "lib/src/compiler/compiler.cpp",
     "lib/src/compiler/module.cpp",

@@ -11,6 +11,7 @@
 namespace sy {
 struct ParseInfo;
 struct Scope;
+struct FunctionBuilder;
 
 namespace detail {
 class IBaseParserNode {
@@ -44,7 +45,7 @@ class IFunctionStatement : public detail::IBaseParserNode {
     virtual Result<void, CompileError> init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                             Scope* currentScope) noexcept = 0;
 
-    virtual void compileStatement() const noexcept = 0;
+    virtual Result<void, CompileError> compileStatement(FunctionBuilder* builder) const noexcept = 0;
 };
 
 /// Handles the functions themselves, which own a bunch of `IFunctionLogicNode`
@@ -56,7 +57,7 @@ class IFunctionDefinition : public detail::IBaseParserNode {
 
     virtual Result<void, CompileError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept = 0;
 
-    virtual void compile() const noexcept = 0;
+    virtual Result<void, CompileError> compile() const noexcept = 0;
 };
 
 /// Handles type definitions. This includes structs, enums, unions, aliases,
@@ -65,7 +66,7 @@ class ITypeDefNode : public detail::IBaseParserNode {
   public:
     ITypeDefNode(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
 
-    virtual void defineType() const noexcept = 0;
+    virtual Result<void, CompileError> defineType() const noexcept = 0;
 };
 } // namespace sy
 

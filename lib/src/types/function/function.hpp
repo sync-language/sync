@@ -43,7 +43,7 @@ class Function {
         /// The type `T` must be the correct type (size and alignment).
         template <typename T> T&& takeArg(size_t argIndex) {
             void* argMem = getArgMem(argIndex);
-#if _DEBUG
+#ifndef NDEBUG
             validateArgTypeMatches(argMem, getArgType(argIndex), sizeof(T), alignof(T));
 #endif
             return std::move(*reinterpret_cast<T*>(argMem));
@@ -55,7 +55,7 @@ class Function {
         /// The actual return destination is correctly aligned to `alignof(T)`.
         template <typename T> void setReturn(T&& retValue) {
             void* retDst = this->getRetDst();
-#if _DEBUG
+#ifndef NDEBUG
             validateReturnDstAligned(retDst, alignof(T));
 #endif
             T& asRef = *reinterpret_cast<T*>(retDst);

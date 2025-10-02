@@ -105,6 +105,7 @@
         "forward_list": "cpp",
         "filesystem": "cpp",
         "*.rh": "cpp",
-        "chrono": "cpp"
+        "chrono": "cpp",
+        "ranges": "cpp"
     }
 }

@@ -457,6 +457,45 @@ void sy::RawDynArrayUnmanaged::removeAtScript(size_t index, const Type* typeInfo
     this->len_ -= 1;
 }
 
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reserve(Allocator& alloc, size_t minCapacity, size_t size,
+                                                                 size_t align) noexcept {
+    const size_t frontCapacity = remainingFrontCapacity(this->data_, this->alloc_, size);
+    if (minCapacity <= (this->capacity_ + frontCapacity)) {
+        return {};
+    }
+
+    const size_t newCapacity = [this, minCapacity]() {
+        size_t capacityLowerBound = capacityIncrease(this->capacity_);
+        if (minCapacity < capacityLowerBound)
+            return capacityLowerBound;
+        return minCapacity;
+    }();
+
+    auto res = alloc.allocAlignedArray<uint8_t>(newCapacity * size, align);
+    if (res.hasValue() == false) {
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    uint8_t* newAlloc = res.value();
+    uint8_t* newData = &newAlloc[frontCapacity];
+
+    const uint8_t* selfAsBytes = reinterpret_cast<const uint8_t*>(this->data_);
+    for (size_t i = 0; i < this->len_; i++) {
+        const size_t byteOffset = i * size;
+        memcpy(&newData[byteOffset], &selfAsBytes[byteOffset], size);
+    }
+
+    uint8_t* selfAlloc = reinterpret_cast<uint8_t*>(this->alloc_);
+    if (selfAlloc != nullptr) {
+        alloc.freeAlignedArray(selfAlloc, this->capacity_ * size, align);
+    }
+
+    this->data_ = newData;
+    this->alloc_ = newAlloc;
+    this->capacity_ = newCapacity;
+    return {};
+}
+
 sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reallocateBack(Allocator& alloc, const size_t size,
                                                                         const size_t align) noexcept {
     const size_t newCapacity = capacityIncrease(this->capacity_);

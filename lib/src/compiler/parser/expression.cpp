@@ -1,8 +1,11 @@
 #include "expression.hpp"
+#include "../../interpreter/bytecode.hpp"
+#include "../../interpreter/function_builder.hpp"
 #include "base_nodes.hpp"
 #include "parser.hpp"
 #include <charconv>
 #include <cstring>
+#include <iostream>
 
 using namespace sy;
 
@@ -28,7 +31,7 @@ static Result<size_t, AllocErr> getOrMakeDstVarIndex(StringSlice partial, DynArr
     if (tempName.append(partial).hasErr()) {
         return Error(AllocErr::OutOfMemory);
     }
-    char buf[24]; // more than enough
+    char buf[24]{'\0'}; // more than enough
     std::to_chars(buf, buf + sizeof(buf), variables->len());
     if (tempName.append(StringSlice(buf, std::strlen(buf))).hasErr()) {
         return Error(AllocErr::OutOfMemory);
@@ -77,4 +80,23 @@ Result<Expression, CompileError> sy::Expression::parse(ParseInfo* parseInfo, Dyn
     }
 
     return expr;
+}
+
+Result<void, CompileError> sy::Expression::compileExpression(FunctionBuilder* builder) const {
+    switch (this->tag) {
+    case ExprType::BoolLit: {
+        operators::LoadImmediateScalar loadBoolImmediate;
+        loadBoolImmediate.reserveOpcode = static_cast<uint64_t>(loadBoolImmediate.OPCODE);
+        loadBoolImmediate.scalarTag = static_cast<uint64_t>(ScalarTag::Bool);
+        loadBoolImmediate.dst = static_cast<uint64_t>(this->variableIndex);
+        loadBoolImmediate.immediate = static_cast<uint64_t>(this->metadata.boolLit);
+        const Bytecode asBytecode = Bytecode(loadBoolImmediate);
+        if (builder->pushBytecode(&asBytecode, 1).hasErr()) {
+            return Error(CompileError::createOutOfMemory());
+        }
+    } break;
+    default:
+        return Error(CompileError::createInvalidExpression(SourceLocation{}));
+    }
+    return {};
 }

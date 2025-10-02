@@ -151,12 +151,12 @@ static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
 
 static void executeReturn(const Bytecode b) {
 // No meaningful work needs to be done. Compiler should optimize this call away.
-#if _DEBUG
+#ifndef NDEBUG
     const operators::Return operands = b.toOperands<operators::Return>();
     (void)operands;
 #else
     (void)b;
-#endif // _DEBUG
+#endif // NDEBUG
 
     // Frame is automatically unwinded
 }
@@ -312,7 +312,7 @@ void executeMemsetUninitialized(const Bytecode bytecode) {
 
     Stack& activeStack = Stack::getActiveStack();
     void* destination = activeStack.frameValueAt<void>(operands.dst);
-#if _DEBUG
+#ifndef NDEBUG
     const uint32_t frameLength = activeStack.getCurrentFrame().value().frameLength;
     sy_assert(frameLength >= (operands.dst + operands.slots), "Trying to uninitialize memory outside of stack frame");
 #endif

@@ -325,7 +325,7 @@ std::optional<std::tuple<Frame, const Bytecode*>> Node::popFrame() {
 
     const std::optional<std::tuple<Frame, const Bytecode*>> result =
         Frame::readFromMemory(valuesMem, reinterpret_cast<const uintptr_t*>(typesMem));
-#if _DEBUG
+#ifndef NDEBUG
     if (result.has_value() == false) {
         sy_assert(this->frameDepth == 1, "Invalid instruction pointer for previous frame");
     }
@@ -436,7 +436,7 @@ std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t al
     const size_t pageSize = page_size();
     sy_assert(alignment > 0, "Alignment must be non zero");
     sy_assert(alignment <= pageSize, "Alignment greater than page size does not make sense");
-#if _DEBUG
+#ifndef NDEBUG
     uint32_t normalizeAlign = alignment / sizeof(size_t);
     if (normalizeAlign == 0)
         normalizeAlign = 1;
