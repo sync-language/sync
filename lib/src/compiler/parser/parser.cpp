@@ -2,11 +2,11 @@
 
 using namespace sy;
 
-Result<Option<IFunctionLogicNode*>, CompileError>
+Result<Option<IFunctionStatement*>, CompileError>
 sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables, Scope* currentScope) {
     const TokenType tokenType = parseInfo->tokenIter.current().tag();
     if (tokenType == TokenType::RightBraceSymbol) {
-        return Option<IFunctionLogicNode*>(); // no more nodes
+        return Option<IFunctionStatement*>(); // no more nodes
     }
 
     (void)localVariables;
@@ -20,5 +20,5 @@ sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables
     }
 
     return Error(CompileError::createInvalidFunctionStatement(detail::sourceLocationFromFileLocation(
-        parseInfo->tokenizer.source(), parseInfo->tokenIter.current().location())));
+        parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location())));
 }

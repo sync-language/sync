@@ -67,6 +67,7 @@ set(SyncLibSources
     "lib/src/compiler/parser/expression.cpp"
     "lib/src/compiler/graph/scope.cpp"
     "lib/src/compiler/parser/ast/function_definition.cpp"
+    "lib/src/compiler/parser/ast/return.cpp"
     "lib/src/program/program.cpp"
     "lib/src/testing/child_process.cpp"
 )

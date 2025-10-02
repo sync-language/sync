@@ -205,6 +205,8 @@ sy::StringSlice TokenIter::currentSlice() const noexcept {
     return sy::StringSlice(&fullSlice.data()[start], end - start);
 }
 
+StringSlice sy::TokenIter::source() const noexcept { return this->tokenizer_->source(); }
+
 #if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"

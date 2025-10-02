@@ -78,6 +78,13 @@ CompileError sy::CompileError::createInvalidFunctionStatement(SourceLocation loc
     return err;
 }
 
+CompileError sy::CompileError::createInvalidExpression(SourceLocation loc) {
+    CompileError err;
+    err.kind_ = Kind::InvalidExpression;
+    err.location_ = loc;
+    return err;
+}
+
 CompileError::FileTooBig sy::CompileError::errFileTooBig() const {
     sy_assert(this->kind_ == Kind::FileTooBig, "Expected the compile error to be file too big");
     return this->err_.fileTooBig;

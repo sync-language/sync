@@ -13,14 +13,15 @@ class Type;
 
 class FunctionDefinitionNode : public IFunctionDefinition {
   public:
-    virtual ~FunctionDefinitionNode() noexcept = default;
+    virtual ~FunctionDefinitionNode() noexcept;
 
-    virtual Result<void, CompileError> init(ParseInfo* parseInfo, Scope* outerScope) override;
+    virtual Result<void, CompileError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept override;
 
     StringSlice functionName{};
     DynArray<StackVariable> args{};
     Option<TypeResolutionInfo> retType{};
     DynArray<StackVariable> localVariables{};
+    DynArray<IFunctionStatement*> statements;
     Scope* scope = nullptr;
 };
 } // namespace sy

@@ -1,3 +1,3 @@
 # Sync
 
-A general-purpose highly **embeddable** programming language for writing **safe**, **multithreaded** code.
+Sync is a embeddable, lightweight, thread-safe, and memory-safe scripting language.

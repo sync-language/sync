@@ -41,6 +41,7 @@ fn main()
         .file("src/compiler/parser/type_resolution.cpp")
         .file("src/compiler/parser/expression.cpp")
         .file("src/compiler/parser/ast/function_definition.cpp")
+        .file("src/compiler/parser/ast/return.cpp")
         .file("src/program/program.cpp")
         .file("src/testing/child_process.cpp")
         .compile("SyncLib");

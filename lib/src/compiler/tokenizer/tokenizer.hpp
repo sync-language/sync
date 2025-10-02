@@ -89,6 +89,8 @@ class TokenIter {
     /// @return A string slice of the current token.
     [[nodiscard]] sy::StringSlice currentSlice() const noexcept;
 
+    [[nodiscard]] StringSlice source() const noexcept;
+
   private:
     const Token* current_ = nullptr;
     const Tokenizer* tokenizer_ = nullptr;

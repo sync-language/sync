@@ -17,7 +17,6 @@ namespace sy {
 struct ParseInfo {
     TokenIter tokenIter;
     Allocator alloc;
-    Tokenizer tokenizer;
     /// Will always be of type `SourceFileKind::SyncSourceFile`
     const volatile SourceTreeNode* fileSource;
     MapUnmanaged<StringSlice, bool> imports;
@@ -25,7 +24,7 @@ struct ParseInfo {
 
 class IFunctionDefinition;
 class ITypeDefNode;
-class IFunctionLogicNode;
+class IFunctionStatement;
 
 class FileAst final {
 
@@ -37,7 +36,7 @@ class FileAst final {
     // TODO imports
 };
 
-Result<Option<IFunctionLogicNode*>, CompileError>
+Result<Option<IFunctionStatement*>, CompileError>
 parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables, Scope* currentScope);
 
 } // namespace sy

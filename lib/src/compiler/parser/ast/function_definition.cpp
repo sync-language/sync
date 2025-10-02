@@ -9,7 +9,7 @@ static Result<DynArray<StackVariable>, CompileError> parseFunctionArgs(ParseInfo
     sy_assert(parseInfo->tokenIter.current().tag() == TokenType::LeftParenthesesSymbol, "Expected left parentheses");
 
     DynArray<StackVariable> args(parseInfo->alloc);
-    const StringSlice source = parseInfo->tokenizer.source();
+    const StringSlice source = parseInfo->tokenIter.source();
     auto makeEndOfFileError = [source]() -> Error<CompileError> {
         return Error(CompileError::createInvalidFunctionSignature(
             detail::sourceLocationFromFileLocation(source, static_cast<uint32_t>(source.len() - 1))));
@@ -103,11 +103,17 @@ static Result<DynArray<StackVariable>, CompileError> parseFunctionArgs(ParseInfo
     return args;
 }
 
-Result<void, CompileError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo, Scope* outerScope) {
+sy::FunctionDefinitionNode::~FunctionDefinitionNode() noexcept {
+    for (size_t i = 0; i < this->statements.len(); i++) {
+        delete statements[i];
+    }
+}
+
+Result<void, CompileError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo, Scope* outerScope) noexcept {
     sy_assert(parseInfo->tokenIter.current().tag() == TokenType::FnKeyword,
               "Function definition node must be initialized from a fn keyword token");
 
-    const StringSlice source = parseInfo->tokenizer.source();
+    const StringSlice source = parseInfo->tokenIter.source();
     auto makeEndOfFileError = [source]() -> Error<CompileError> {
         return Error(CompileError::createInvalidFunctionSignature(
             detail::sourceLocationFromFileLocation(source, static_cast<uint32_t>(source.len() - 1))));
@@ -187,8 +193,8 @@ Result<void, CompileError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
 
 TEST_CASE("parse function args") {
     Allocator alloc;
-    ParseInfo parseInfo{{}, alloc, Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64)").takeValue(), nullptr, {}};
-    parseInfo.tokenIter = parseInfo.tokenizer.iter();
+    Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64)").takeValue();
+    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}};
     (void)parseInfo.tokenIter.next();
     DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
     {
@@ -211,8 +217,8 @@ TEST_CASE("parse function args") {
 
 TEST_CASE("parse function args trailing comma") {
     Allocator alloc;
-    ParseInfo parseInfo{{}, alloc, Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64,)").takeValue(), nullptr, {}};
-    parseInfo.tokenIter = parseInfo.tokenizer.iter();
+    Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64,)").takeValue();
+    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}};
     (void)parseInfo.tokenIter.next();
     DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
     {

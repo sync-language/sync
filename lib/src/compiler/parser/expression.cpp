@@ -72,7 +72,8 @@ Result<Expression, CompileError> sy::Expression::parse(ParseInfo* parseInfo, Dyn
         expr.metadata.boolLit = false;
     } break;
     default:
-        break;
+        return Error(CompileError::createInvalidExpression(detail::sourceLocationFromFileLocation(
+            parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location())));
     }
 
     return expr;

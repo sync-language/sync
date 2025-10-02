@@ -10,7 +10,7 @@
 #include "stack_variables.hpp"
 
 namespace sy {
-class IFunctionLogicNode;
+class IFunctionStatement;
 struct ParseInfo;
 
 struct Expression {
@@ -40,7 +40,7 @@ struct Expression {
         Deref deref;
         MakeRef makeRef;
         void* nullUnused;
-        IFunctionLogicNode* expression;
+        IFunctionStatement* expression;
 
         Metadata() noexcept : variableUnused(nullptr) {}
     };
@@ -52,8 +52,8 @@ struct Expression {
 
     ~Expression() noexcept;
 
-    Result<Expression, CompileError> parse(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
-                                           Option<size_t> dstVarIndex) noexcept;
+    static Result<Expression, CompileError> parse(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+                                                  Option<size_t> dstVarIndex) noexcept;
 };
 } // namespace sy
 
