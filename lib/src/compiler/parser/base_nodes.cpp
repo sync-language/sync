@@ -1,11 +1,10 @@
 #include "base_nodes.hpp"
+#include "ast/return.hpp"
+#include "parser.hpp"
 
-using sy::Allocator;
-using sy::Result;
-using sy::String;
-using sy::detail::IBaseParserNode;
+using namespace sy;
 
-String IBaseParserNode::toString() const { return String(this->alloc_); }
+String sy::detail::IBaseParserNode::toString() const { return String(this->alloc_); }
 
 // force 8 byte alignment
 static constexpr size_t PARSER_NODE_ALIGN = alignof(uint64_t);
@@ -35,12 +34,34 @@ void sy::detail::IBaseParserNode::operator delete(void* self, Allocator inAlloc)
     inAlloc.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_, PARSER_NODE_ALIGN);
 }
 
+Result<Option<IFunctionStatement*>, CompileError>
+IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* variables, Scope* currentScope) {
+    const Token token = parseInfo->tokenIter.current();
+    switch (token.tag()) {
+    case TokenType::RightBraceSymbol: {
+        return std::nullopt;
+    } break;
+    case TokenType::ReturnKeyword: {
+        ReturnNode* ret = new (parseInfo->alloc) ReturnNode(parseInfo->alloc);
+        auto res = ret->init(parseInfo, variables, currentScope);
+        if (res.hasErr()) {
+            delete ret;
+            return Error(res.takeErr());
+        }
+        return ret;
+    } break;
+    default:
+        return Error(CompileError::createInvalidStatement(
+            detail::sourceLocationFromFileLocation(parseInfo->tokenIter.source(), token.location())));
+    }
+}
+
 #if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 
 namespace {
-class TestParserNodeThing : public IBaseParserNode {
+class TestParserNodeThing : public detail::IBaseParserNode {
   public:
     TestParserNodeThing(Allocator inAlloc) : IBaseParserNode(inAlloc) {}
 };

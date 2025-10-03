@@ -42,6 +42,9 @@ class IFunctionStatement : public detail::IBaseParserNode {
   public:
     IFunctionStatement(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
 
+    static Result<Option<IFunctionStatement*>, CompileError>
+    parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* variables, Scope* currentScope);
+
     virtual Result<void, CompileError> init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                             Scope* currentScope) noexcept = 0;
 

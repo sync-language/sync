@@ -33,6 +33,7 @@ class SY_API CompileError {
         InvalidFunctionSignature,
         InvalidFunctionStatement,
         InvalidExpression,
+        InvalidStatement,
     };
 
     struct FileTooBig {
@@ -65,6 +66,8 @@ class SY_API CompileError {
     static CompileError createInvalidFunctionStatement(SourceLocation loc);
 
     static CompileError createInvalidExpression(SourceLocation loc);
+
+    static CompileError createInvalidStatement(SourceLocation loc);
 
     [[nodiscard]] Kind kind() const { return this->kind_; }
 
