@@ -39,7 +39,7 @@ IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>
     const Token token = parseInfo->tokenIter.current();
     switch (token.tag()) {
     case TokenType::RightBraceSymbol: {
-        return std::nullopt;
+        return {{}};
     } break;
     case TokenType::ReturnKeyword: {
         ReturnNode* ret = new (parseInfo->alloc) ReturnNode(parseInfo->alloc);
@@ -48,7 +48,7 @@ IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>
             delete ret;
             return Error(res.takeErr());
         }
-        return ret;
+        return Option<IFunctionStatement*>(ret);
     } break;
     default:
         return Error(ProgramError(SourceFileLocation(parseInfo->tokenIter.source(), token.location()),
