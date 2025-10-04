@@ -12,10 +12,10 @@ class ReturnNode : public IFunctionStatement {
 
     Option<Expression> retValue{};
 
-    virtual Result<void, CompileError> init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+    virtual Result<void, ProgramError> init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                             Scope* currentScope) noexcept override;
 
-    virtual Result<void, CompileError> compileStatement(FunctionBuilder* builder) const noexcept;
+    virtual Result<void, ProgramError> compileStatement(FunctionBuilder* builder) const noexcept;
 };
 } // namespace sy
 

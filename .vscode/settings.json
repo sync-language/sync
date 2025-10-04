@@ -106,6 +106,7 @@
         "filesystem": "cpp",
         "*.rh": "cpp",
         "chrono": "cpp",
-        "ranges": "cpp"
+        "ranges": "cpp",
+        "span": "cpp"
     }
 }

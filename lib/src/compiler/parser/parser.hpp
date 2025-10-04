@@ -2,12 +2,12 @@
 #define SY_COMPILER_PARSER_PARSER_HPP_
 
 #include "../../mem/allocator.hpp"
+#include "../../program/program_error.hpp"
 #include "../../types/array/dynamic_array.hpp"
 #include "../../types/hash/map.hpp"
 #include "../../types/option/option.hpp"
 #include "../../types/result/result.hpp"
 #include "../../types/sync_obj/sync_obj.hpp"
-#include "../compile_info.hpp"
 #include "../graph/scope.hpp"
 #include "../source_tree/source_tree.hpp"
 #include "../tokenizer/tokenizer.hpp"
@@ -36,7 +36,7 @@ class FileAst final {
     // TODO imports
 };
 
-Result<Option<IFunctionStatement*>, CompileError>
+Result<Option<IFunctionStatement*>, ProgramError>
 parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables, Scope* currentScope);
 
 } // namespace sy

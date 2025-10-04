@@ -5,14 +5,14 @@
 
 using namespace sy;
 
-static Result<DynArray<StackVariable>, CompileError> parseFunctionArgs(ParseInfo* parseInfo) {
+static Result<DynArray<StackVariable>, ProgramError> parseFunctionArgs(ParseInfo* parseInfo) {
     sy_assert(parseInfo->tokenIter.current().tag() == TokenType::LeftParenthesesSymbol, "Expected left parentheses");
 
     DynArray<StackVariable> args(parseInfo->alloc);
     const StringSlice source = parseInfo->tokenIter.source();
-    auto makeEndOfFileError = [source]() -> Error<CompileError> {
-        return Error(CompileError::createInvalidFunctionSignature(
-            detail::sourceLocationFromFileLocation(source, static_cast<uint32_t>(source.len() - 1))));
+    auto makeEndOfFileError = [source]() -> Error<ProgramError> {
+        return Error(ProgramError(SourceFileLocation(source, static_cast<uint32_t>(source.len() - 1)),
+                                  ProgramError::Kind::CompileFunctionSignature));
     };
 
     auto initialNext = parseInfo->tokenIter.next();
@@ -35,8 +35,8 @@ static Result<DynArray<StackVariable>, CompileError> parseFunctionArgs(ParseInfo
         }
 
         if (token.tag() != TokenType::Identifier) {
-            return Error(CompileError::createInvalidFunctionSignature(
-                detail::sourceLocationFromFileLocation(source, token.location())));
+            return Error(ProgramError(SourceFileLocation(source, token.location()),
+                                      ProgramError::Kind::CompileFunctionSignature));
         }
 
         StringSlice identifier = parseInfo->tokenIter.currentSlice();
@@ -48,8 +48,8 @@ static Result<DynArray<StackVariable>, CompileError> parseFunctionArgs(ParseInfo
             }
             token = opt.value();
             if (token.tag() != TokenType::ColonSymbol) {
-                return Error(CompileError::createInvalidFunctionSignature(
-                    detail::sourceLocationFromFileLocation(source, token.location())));
+                return Error(ProgramError(SourceFileLocation(source, token.location()),
+                                          ProgramError::Kind::CompileFunctionSignature));
             }
         }
 
@@ -61,8 +61,8 @@ static Result<DynArray<StackVariable>, CompileError> parseFunctionArgs(ParseInfo
             token = opt.value();
             auto typeParseRes = TypeResolutionInfo::parse(parseInfo);
             if (typeParseRes.hasErr()) {
-                return Error(CompileError::createInvalidFunctionSignature(
-                    detail::sourceLocationFromFileLocation(source, token.location())));
+                return Error(ProgramError(SourceFileLocation(source, token.location()),
+                                          ProgramError::Kind::CompileFunctionSignature));
             }
             variable.typeInfo = typeParseRes.takeValue();
         }
@@ -70,14 +70,18 @@ static Result<DynArray<StackVariable>, CompileError> parseFunctionArgs(ParseInfo
         { // actually make string from identifier
             auto strResult = String::copyConstructSlice(identifier, parseInfo->alloc);
             if (!strResult) {
-                return Error(CompileError::createOutOfMemory());
+                return Error(ProgramError(
+                    SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
+                    ProgramError::Kind::OutOfMemory));
             }
             new (&variable.name) String(strResult.takeValue());
         }
 
         // push into array
         if (args.push(std::move(variable)).hasErr()) {
-            return Error(CompileError::createOutOfMemory());
+            return Error(ProgramError(
+                SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
+                ProgramError::Kind::OutOfMemory));
         }
 
         { // move iterator forward to next argument
@@ -87,8 +91,8 @@ static Result<DynArray<StackVariable>, CompileError> parseFunctionArgs(ParseInfo
             }
             token = opt.value();
             if (token.tag() != TokenType::CommaSymbol && token.tag() != TokenType::RightParenthesesSymbol) {
-                return Error(CompileError::createInvalidFunctionSignature(
-                    detail::sourceLocationFromFileLocation(source, token.location())));
+                return Error(ProgramError(SourceFileLocation(source, token.location()),
+                                          ProgramError::Kind::CompileFunctionSignature));
             }
             if (token.tag() == TokenType::CommaSymbol) { // allow trailing commas
                 auto commaStep = parseInfo->tokenIter.next();
@@ -109,14 +113,14 @@ sy::FunctionDefinitionNode::~FunctionDefinitionNode() noexcept {
     }
 }
 
-Result<void, CompileError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo, Scope* outerScope) noexcept {
+Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo, Scope* outerScope) noexcept {
     sy_assert(parseInfo->tokenIter.current().tag() == TokenType::FnKeyword,
               "Function definition node must be initialized from a fn keyword token");
 
     const StringSlice source = parseInfo->tokenIter.source();
-    auto makeEndOfFileError = [source]() -> Error<CompileError> {
-        return Error(CompileError::createInvalidFunctionSignature(
-            detail::sourceLocationFromFileLocation(source, static_cast<uint32_t>(source.len() - 1))));
+    auto makeEndOfFileError = [source]() -> Error<ProgramError> {
+        return Error(ProgramError(SourceFileLocation(source, static_cast<uint32_t>(source.len() - 1)),
+                                  ProgramError::Kind::CompileFunctionSignature));
     };
 
     { // function name
@@ -126,8 +130,8 @@ Result<void, CompileError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
         }
         const Token next = result.value();
         if (next.tag() != TokenType::Identifier) {
-            return Error(CompileError::createInvalidFunctionSignature(
-                detail::sourceLocationFromFileLocation(source, next.location())));
+            return Error(ProgramError(SourceFileLocation(source, next.location()),
+                                      ProgramError::Kind::CompileFunctionSignature));
         }
 
         this->functionName = parseInfo->tokenIter.currentSlice();
@@ -140,8 +144,8 @@ Result<void, CompileError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
         }
         const Token next = nextResult.value();
         if (next.tag() != TokenType::LeftParenthesesSymbol) {
-            return Error(CompileError::createInvalidFunctionSignature(
-                detail::sourceLocationFromFileLocation(source, next.location())));
+            return Error(ProgramError(SourceFileLocation(source, next.location()),
+                                      ProgramError::Kind::CompileFunctionSignature));
         }
 
         auto parseResult = parseFunctionArgs(parseInfo);
@@ -164,8 +168,8 @@ Result<void, CompileError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
         } else {
             auto typeParseRes = TypeResolutionInfo::parse(parseInfo);
             if (typeParseRes.hasErr()) {
-                return Error(CompileError::createInvalidFunctionSignature(
-                    detail::sourceLocationFromFileLocation(source, parseInfo->tokenIter.current().location())));
+                return Error(ProgramError(SourceFileLocation(source, parseInfo->tokenIter.current().location()),
+                                          ProgramError::Kind::CompileFunctionSignature));
             }
             this->retType = Option<TypeResolutionInfo>(typeParseRes.takeValue());
             // step forward
@@ -177,8 +181,8 @@ Result<void, CompileError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
 
     { // function body
         if (parseInfo->tokenIter.current().tag() != TokenType::RightBraceSymbol) {
-            return Error(CompileError::createInvalidFunctionSignature(
-                detail::sourceLocationFromFileLocation(source, parseInfo->tokenIter.current().location())));
+            return Error(ProgramError(SourceFileLocation(source, parseInfo->tokenIter.current().location()),
+                                      ProgramError::Kind::CompileFunctionSignature));
         }
     }
 

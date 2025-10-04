@@ -54,7 +54,6 @@ set(SyncLibSources
     "lib/src/interpreter/bytecode.cpp"
     "lib/src/interpreter/interpreter.cpp"
     "lib/src/interpreter/function_builder.cpp"
-    "lib/src/compiler/compile_info.cpp"
     "lib/src/compiler/compiler.cpp"
     "lib/src/compiler/module.cpp"
     "lib/src/compiler/tokenizer/token.cpp"
@@ -70,6 +69,7 @@ set(SyncLibSources
     "lib/src/compiler/parser/ast/function_definition.cpp"
     "lib/src/compiler/parser/ast/return.cpp"
     "lib/src/program/program.cpp"
+    "lib/src/program/program_error.cpp"
     "lib/src/testing/child_process.cpp"
 )
 

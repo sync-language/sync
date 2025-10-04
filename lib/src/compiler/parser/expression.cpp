@@ -51,7 +51,7 @@ static Result<size_t, AllocErr> getOrMakeDstVarIndex(StringSlice partial, DynArr
     return variables->len() - 1;
 }
 
-Result<Expression, CompileError> sy::Expression::parse(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+Result<Expression, ProgramError> sy::Expression::parse(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                                        Option<size_t> dstVarIndex) noexcept {
     Expression expr{};
 
@@ -59,7 +59,9 @@ Result<Expression, CompileError> sy::Expression::parse(ParseInfo* parseInfo, Dyn
     case TokenType::TrueKeyword: {
         auto res = getOrMakeDstVarIndex("true", variables, dstVarIndex, parseInfo->alloc);
         if (res.hasErr()) {
-            return Error(CompileError::createOutOfMemory());
+            return Error(ProgramError(
+                SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
+                ProgramError::Kind::OutOfMemory));
         }
         expr.variableIndex = res.value();
         expr.tag = Expression::ExprType::BoolLit;
@@ -68,21 +70,24 @@ Result<Expression, CompileError> sy::Expression::parse(ParseInfo* parseInfo, Dyn
     case TokenType::FalseKeyword: {
         auto res = getOrMakeDstVarIndex("false", variables, dstVarIndex, parseInfo->alloc);
         if (res.hasErr()) {
-            return Error(CompileError::createOutOfMemory());
+            return Error(ProgramError(
+                SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
+                ProgramError::Kind::OutOfMemory));
         }
         expr.variableIndex = res.value();
         expr.tag = Expression::ExprType::BoolLit;
         expr.metadata.boolLit = false;
     } break;
     default:
-        return Error(CompileError::createInvalidExpression(detail::sourceLocationFromFileLocation(
-            parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location())));
+        return Error(
+            ProgramError(SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
+                         ProgramError::Kind::CompileExpression));
     }
 
     return expr;
 }
 
-Result<void, CompileError> sy::Expression::compileExpression(FunctionBuilder* builder) const {
+Result<void, ProgramError> sy::Expression::compileExpression(FunctionBuilder* builder) const {
     switch (this->tag) {
     case ExprType::BoolLit: {
         operators::LoadImmediateScalar loadBoolImmediate;
@@ -92,11 +97,11 @@ Result<void, CompileError> sy::Expression::compileExpression(FunctionBuilder* bu
         loadBoolImmediate.immediate = static_cast<uint64_t>(this->metadata.boolLit);
         const Bytecode asBytecode = Bytecode(loadBoolImmediate);
         if (builder->pushBytecode(&asBytecode, 1).hasErr()) {
-            return Error(CompileError::createOutOfMemory());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::OutOfMemory));
         }
     } break;
     default:
-        return Error(CompileError::createInvalidExpression(SourceLocation{}));
+        return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileExpression));
     }
     return {};
 }

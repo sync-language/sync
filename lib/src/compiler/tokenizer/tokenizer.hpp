@@ -4,8 +4,8 @@
 
 #include "../../core.h"
 #include "../../mem/allocator.hpp"
+#include "../../program/program_error.hpp"
 #include "../../types/result/result.hpp"
-#include "../compile_info.hpp"
 #include "token.hpp"
 #include <optional>
 #include <variant>
@@ -25,7 +25,7 @@ class Tokenizer {
 
     Tokenizer& operator=(const Tokenizer& other) = delete;
 
-    static Result<Tokenizer, sy::CompileError> create(sy::Allocator allocator, sy::StringSlice source) noexcept;
+    static Result<Tokenizer, ProgramError> create(sy::Allocator allocator, sy::StringSlice source) noexcept;
 
     TokenIter iter() const noexcept;
 

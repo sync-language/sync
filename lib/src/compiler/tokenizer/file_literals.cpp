@@ -6,6 +6,8 @@
 #include <new>
 #include <tuple>
 
+using namespace sy;
+
 static bool wouldUnsigned64IntAddOverflow(uint64_t a, uint64_t b) {
     if (a == 0 || b == 0)
         return false;
@@ -24,8 +26,8 @@ static bool wouldUnsigned64IntMulOverflow(uint64_t a, uint64_t b) {
     return false;
 }
 
-std::variant<NumberLiteral, sy::CompileError> NumberLiteral::create(const sy::StringSlice source, const uint32_t start,
-                                                                    const uint32_t end) {
+Result<NumberLiteral, sy::ProgramError> NumberLiteral::create(const sy::StringSlice source, const uint32_t start,
+                                                              const uint32_t end) {
     bool isNegative = false;
     bool parsingWholeAsInt = true;
     bool foundDecimal = false;
@@ -40,7 +42,7 @@ std::variant<NumberLiteral, sy::CompileError> NumberLiteral::create(const sy::St
     }
 
     if (source[i] == '.') {
-        return std::variant<NumberLiteral, sy::CompileError>(sy::CompileError::createInvalidDecimalNumberLiteral());
+        return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileDecimalNumberLiteral));
     }
 
     for (; i < end; i++) {
@@ -74,7 +76,7 @@ std::variant<NumberLiteral, sy::CompileError> NumberLiteral::create(const sy::St
                 }
             }
         } else {
-            return std::variant<NumberLiteral, sy::CompileError>(sy::CompileError::createInvalidCharNumberLiteral());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileCharNumberLiteral));
         }
     }
 
@@ -87,28 +89,28 @@ std::variant<NumberLiteral, sy::CompileError> NumberLiteral::create(const sy::St
                 if (wholePartInt == MIN_I64_AS_U64) {
                     self.kind_ = RepKind::Signed64;
                     self.rep_.signed64 = INT64_MIN;
-                    return std::variant<NumberLiteral, sy::CompileError>(self);
+                    return self;
                 } else if (wholePartInt < MIN_I64_AS_U64) {
                     self.kind_ = RepKind::Signed64;
                     self.rep_.signed64 = static_cast<int64_t>(wholePartInt) * -1;
-                    return std::variant<NumberLiteral, sy::CompileError>(self);
+                    return self;
                 } else {
                     wholePartFloat = static_cast<double>(wholePartInt);
                     wholePartFloat *= -1;
                     self.kind_ = RepKind::Float64;
                     self.rep_.float64 = wholePartFloat;
-                    return std::variant<NumberLiteral, sy::CompileError>(self);
+                    return self;
                 }
             } else {
                 self.kind_ = RepKind::Unsigned64;
                 self.rep_.unsigned64 = wholePartInt;
-                return std::variant<NumberLiteral, sy::CompileError>(self);
+                return self;
             }
         }
 
         self.kind_ = RepKind::Float64;
         self.rep_.float64 = wholePartFloat;
-        return std::variant<NumberLiteral, sy::CompileError>(self);
+        return self;
     }
 
     double decimalPart = 0;
@@ -116,14 +118,14 @@ std::variant<NumberLiteral, sy::CompileError> NumberLiteral::create(const sy::St
     for (; i < end; i++) {
         const char c = source[i];
         if (c == '.') {
-            return std::variant<NumberLiteral, sy::CompileError>(sy::CompileError::createInvalidDecimalNumberLiteral());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileDecimalNumberLiteral));
         } else if (c >= '0' && c <= '9') {
             const double num = static_cast<double>(c - '0');
             decimalPart *= 10.0;
             decimalPart += num;
             denominator *= 10;
         } else {
-            return std::variant<NumberLiteral, sy::CompileError>(sy::CompileError::createInvalidCharNumberLiteral());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileCharNumberLiteral));
         }
     }
 
@@ -137,10 +139,10 @@ std::variant<NumberLiteral, sy::CompileError> NumberLiteral::create(const sy::St
 
     self.kind_ = RepKind::Float64;
     self.rep_.float64 = entireNumber;
-    return std::variant<NumberLiteral, sy::CompileError>(self);
+    return self;
 }
 
-std::variant<uint64_t, sy::CompileError> NumberLiteral::asUnsigned64() const {
+Result<uint64_t, ProgramError> NumberLiteral::asUnsigned64() const {
     uint64_t val = 0;
 
     switch (this->kind_) {
@@ -150,37 +152,37 @@ std::variant<uint64_t, sy::CompileError> NumberLiteral::asUnsigned64() const {
     case RepKind::Signed64: {
         const int64_t temp = this->rep_.signed64;
         if (temp < 0) {
-            return std::variant<uint64_t, sy::CompileError>(sy::CompileError::createNegativeToUnsignedIntConversion());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileNegativeToUnsignedIntConversion));
         }
         val = static_cast<uint64_t>(temp);
     } break;
     case RepKind::Float64: {
         const double temp = this->rep_.float64;
         if (temp < 0.0) {
-            return std::variant<uint64_t, sy::CompileError>(sy::CompileError::createNegativeToUnsignedIntConversion());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileNegativeToUnsignedIntConversion));
         }
         constexpr double maxU64AsDouble = static_cast<double>(UINT64_MAX);
         if (temp > maxU64AsDouble) {
-            return std::variant<uint64_t, sy::CompileError>(sy::CompileError::createFloatOutsideIntRangeConversion());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileFloatOutsideIntRangeConversion));
         }
         if (temp == 18446744073709551616.0) { // explicitly handle float rounding errors
-            return std::variant<uint64_t, sy::CompileError>(sy::CompileError::createFloatOutsideIntRangeConversion());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileFloatOutsideIntRangeConversion));
         }
         val = static_cast<uint64_t>(temp);
     } break;
     }
 
-    return std::variant<uint64_t, sy::CompileError>(val);
+    return Result<uint64_t, ProgramError>(val);
 }
 
-std::variant<int64_t, sy::CompileError> NumberLiteral::asSigned64() const {
+Result<int64_t, ProgramError> NumberLiteral::asSigned64() const {
     int64_t val = 0;
 
     switch (this->kind_) {
     case RepKind::Unsigned64: {
         const uint64_t temp = this->rep_.unsigned64;
         if (temp > static_cast<uint64_t>(INT64_MAX)) {
-            return std::variant<int64_t, sy::CompileError>(sy::CompileError::createUnsignedOutsideIntRangeConversion());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileUnsignedOutsideIntRangeConversion));
         }
         val = static_cast<int64_t>(temp);
     } break;
@@ -191,25 +193,25 @@ std::variant<int64_t, sy::CompileError> NumberLiteral::asSigned64() const {
         const double temp = this->rep_.float64;
         constexpr double minI64AsDouble = static_cast<double>(INT64_MIN);
         if (temp < minI64AsDouble) {
-            return std::variant<int64_t, sy::CompileError>(sy::CompileError::createFloatOutsideIntRangeConversion());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileFloatOutsideIntRangeConversion));
         }
         constexpr double maxI64AsDouble = static_cast<double>(INT64_MAX);
         if (temp > maxI64AsDouble) {
-            return std::variant<int64_t, sy::CompileError>(sy::CompileError::createFloatOutsideIntRangeConversion());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileFloatOutsideIntRangeConversion));
         }
         if (temp == 9223372036854775808.0) { // explicitly handle float rounding
                                              // errors positive
-            return std::variant<int64_t, sy::CompileError>(sy::CompileError::createFloatOutsideIntRangeConversion());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileFloatOutsideIntRangeConversion));
         }
         if (temp == -9223372036854775809.0) { // explicitly handle float rounding
                                               // errors negative
-            return std::variant<int64_t, sy::CompileError>(sy::CompileError::createFloatOutsideIntRangeConversion());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileFloatOutsideIntRangeConversion));
         }
         val = static_cast<uint64_t>(temp);
     } break;
     }
 
-    return std::variant<int64_t, sy::CompileError>(val);
+    return Result<int64_t, ProgramError>(val);
 }
 
 double NumberLiteral::asFloat64() const {
@@ -228,7 +230,7 @@ double NumberLiteral::asFloat64() const {
     }
 }
 
-static std::variant<CharLiteral, sy::CompileError> parseEscapeSequence(const char* const start) {
+static Result<CharLiteral, ProgramError> parseEscapeSequence(const char* const start) {
     sy_assert((*start) == '\\', "Beginning of escape sequence must be the \'\\\' character");
 
     CharLiteral self;
@@ -274,23 +276,23 @@ static std::variant<CharLiteral, sy::CompileError> parseEscapeSequence(const cha
     case 'x':
     case 'X': {
         // TODO byte?
-        return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());
+        return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileUnsupportedChar));
     } break;
     case 'u':
     case 'U': {
         // TODO unicode
-        return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());
+        return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileUnsupportedChar));
     } break;
     default: {
-        return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createInvalidEscapeSequence());
+        return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileEscapeSequence));
     } break;
     }
 
-    return std::variant<CharLiteral, sy::CompileError>(self);
+    return Result<CharLiteral, ProgramError>(self);
 }
 
-std::variant<CharLiteral, sy::CompileError> CharLiteral::create(const sy::StringSlice source, const uint32_t start,
-                                                                const uint32_t end) {
+Result<CharLiteral, ProgramError> CharLiteral::create(const sy::StringSlice source, const uint32_t start,
+                                                      const uint32_t end) {
     const uint32_t actualEnd = end - 1;
 
     sy_assert(source[start] == '\'', "Invalid source start for char literal");
@@ -299,7 +301,7 @@ std::variant<CharLiteral, sy::CompileError> CharLiteral::create(const sy::String
     uint32_t i = start + 1;
     const char firstChar = source[i];
     if (static_cast<int>(firstChar) >= 0b01111111) { // for now only support ascii stuff
-        return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());
+        return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileUnsupportedChar));
     }
 
     CharLiteral self;
@@ -307,11 +309,11 @@ std::variant<CharLiteral, sy::CompileError> CharLiteral::create(const sy::String
         sy_assert((i + 1) != actualEnd, "Invalid source range for char literal");
 
         auto result = parseEscapeSequence(&source.data()[i]);
-        if (std::holds_alternative<sy::CompileError>(result)) {
+        if (result.hasErr()) {
             return result;
         }
 
-        self = std::get<CharLiteral>(result);
+        self = result.value();
         i += 2; // after escape sequence
     } else {
         self.val = sy::Char(source[i]);
@@ -319,14 +321,14 @@ std::variant<CharLiteral, sy::CompileError> CharLiteral::create(const sy::String
     }
 
     if (i != actualEnd) {
-        return std::variant<CharLiteral, sy::CompileError>(sy::CompileError::createTooManyCharsInCharLiteral());
+        return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileTooManyCharsInCharLiteral));
     }
 
-    return std::variant<CharLiteral, sy::CompileError>(self);
+    return Result<CharLiteral, ProgramError>(self);
 }
 
-std::variant<StringLiteral, sy::CompileError> StringLiteral::create(const sy::StringSlice source, const uint32_t start,
-                                                                    const uint32_t end, sy::Allocator alloc) {
+Result<StringLiteral, ProgramError> StringLiteral::create(const sy::StringSlice source, const uint32_t start,
+                                                          const uint32_t end, sy::Allocator alloc) {
     const uint32_t actualEnd = end - 1;
 
     sy_assert(source[start] == '\"', "Invalid source start for string literal");
@@ -338,7 +340,7 @@ std::variant<StringLiteral, sy::CompileError> StringLiteral::create(const sy::St
     {
         auto result = sy::detail::mallocStringBuffer(capacity, alloc);
         if (!result.hasValue()) {
-            return std::variant<StringLiteral, sy::CompileError>(sy::CompileError::createOutOfMemory());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::OutOfMemory));
         }
         buf = result.value();
     }
@@ -348,18 +350,18 @@ std::variant<StringLiteral, sy::CompileError> StringLiteral::create(const sy::St
 
     while (strIter != strEnd) {
         if (static_cast<int>(*strIter) >= 0b01111111) { // for now only support ascii stuff
-            return std::variant<StringLiteral, sy::CompileError>(sy::CompileError::createUnsupportedChar());
+            return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileUnsupportedChar));
         }
 
         if ((*strIter) == '\\') {
             sy_assert((strIter + 1) != strEnd, "Invalid source range for string literal");
 
             auto result = parseEscapeSequence(strIter);
-            if (std::holds_alternative<sy::CompileError>(result)) {
-                return std::variant<StringLiteral, sy::CompileError>(sy::CompileError::createInvalidEscapeSequence());
+            if (result.hasErr()) {
+                return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileEscapeSequence));
             }
 
-            buf[length] = std::get<CharLiteral>(result).val.cchar();
+            buf[length] = result.value().val.cchar();
             length += 1;
             strIter = &strIter[2];
         } else {
@@ -372,7 +374,7 @@ std::variant<StringLiteral, sy::CompileError> StringLiteral::create(const sy::St
     StringLiteral self;
     (void)new (&self.str) sy::StringUnmanaged(sy::detail::StringUtils::makeRaw(buf, length, capacity, alloc));
     self.alloc = alloc;
-    return std::variant<StringLiteral, sy::CompileError>(std::move(self));
+    return Result<StringLiteral, ProgramError>(std::move(self));
 }
 
 StringLiteral::StringLiteral(StringLiteral&& other) noexcept : str(std::move(other.str)), alloc(other.alloc) {}
@@ -390,19 +392,17 @@ StringLiteral::~StringLiteral() noexcept { this->str.destroy(this->alloc); }
 #include "../../doctest.h"
 #include <string>
 
-using sy::CompileError;
-
 TEST_SUITE("number literal") {
     TEST_CASE("positive single digit") {
         for (int i = 0; i < 10; i++) {
             const char asChar = static_cast<char>(i) + '0';
             const char buf[2] = {asChar, '\0'};
             auto result = NumberLiteral::create(sy::StringSlice(buf, 1), 0, 1);
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), static_cast<double>(i));
-            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
-            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), static_cast<uint64_t>(i));
+            CHECK_EQ(num.asSigned64().value(), static_cast<int64_t>(i));
+            CHECK_EQ(num.asUnsigned64().value(), static_cast<uint64_t>(i));
         }
     }
 
@@ -412,11 +412,11 @@ TEST_SUITE("number literal") {
             const char asCharOnes = static_cast<char>(i % 10) + '0';
             const char buf[3] = {asCharTens, asCharOnes, '\0'};
             auto result = NumberLiteral::create(sy::StringSlice(buf, 2), 0, 2);
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), static_cast<double>(i));
-            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
-            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), static_cast<uint64_t>(i));
+            CHECK_EQ(num.asSigned64().value(), static_cast<int64_t>(i));
+            CHECK_EQ(num.asUnsigned64().value(), static_cast<uint64_t>(i));
         }
     }
 
@@ -428,11 +428,11 @@ TEST_SUITE("number literal") {
             std::string numAsString = std::to_string(i);
             auto result = NumberLiteral::create(sy::StringSlice(numAsString.c_str(), numAsString.size()), 0,
                                                 static_cast<uint32_t>(numAsString.size()));
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), static_cast<double>(i));
-            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
-            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), static_cast<uint64_t>(i));
+            CHECK_EQ(num.asSigned64().value(), static_cast<int64_t>(i));
+            CHECK_EQ(num.asUnsigned64().value(), static_cast<uint64_t>(i));
         }
     }
 
@@ -441,13 +441,12 @@ TEST_SUITE("number literal") {
             std::string numAsString = std::to_string(i);
             auto result = NumberLiteral::create(sy::StringSlice(numAsString.c_str(), numAsString.size()), 0,
                                                 static_cast<uint32_t>(numAsString.size()));
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), static_cast<double>(i));
-            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
+            CHECK_EQ(num.asSigned64().value(), static_cast<int64_t>(i));
 
-            CHECK_EQ(std::get<CompileError>(num.asUnsigned64()).kind(),
-                     CompileError::Kind::NegativeToUnsignedIntConversion);
+            CHECK_EQ(num.asUnsigned64().err().kind(), ProgramError::Kind::CompileNegativeToUnsignedIntConversion);
         }
     }
 
@@ -456,13 +455,12 @@ TEST_SUITE("number literal") {
             std::string numAsString = std::to_string(i);
             auto result = NumberLiteral::create(sy::StringSlice(numAsString.c_str(), numAsString.size()), 0,
                                                 static_cast<uint32_t>(numAsString.size()));
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), static_cast<double>(i));
-            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
+            CHECK_EQ(num.asSigned64().value(), static_cast<int64_t>(i));
 
-            CHECK_EQ(std::get<CompileError>(num.asUnsigned64()).kind(),
-                     CompileError::Kind::NegativeToUnsignedIntConversion);
+            CHECK_EQ(num.asUnsigned64().err().kind(), ProgramError::Kind::CompileNegativeToUnsignedIntConversion);
         }
     }
 
@@ -472,13 +470,12 @@ TEST_SUITE("number literal") {
             std::string numAsString = std::to_string(i);
             auto result = NumberLiteral::create(sy::StringSlice(numAsString.c_str(), numAsString.size()), 0,
                                                 static_cast<uint32_t>(numAsString.size()));
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), static_cast<double>(i));
-            CHECK_EQ(std::get<int64_t>(num.asSigned64()), static_cast<int64_t>(i));
+            CHECK_EQ(num.asSigned64().value(), static_cast<int64_t>(i));
 
-            CHECK_EQ(std::get<CompileError>(num.asUnsigned64()).kind(),
-                     CompileError::Kind::NegativeToUnsignedIntConversion);
+            CHECK_EQ(num.asUnsigned64().err().kind(), ProgramError::Kind::CompileNegativeToUnsignedIntConversion);
         }
     }
 
@@ -487,77 +484,69 @@ TEST_SUITE("number literal") {
             std::string numAsString = "18446744073709551615";
             auto result = NumberLiteral::create(sy::StringSlice(numAsString.c_str(), numAsString.size()), 0,
                                                 static_cast<uint32_t>(numAsString.size()));
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), static_cast<double>(18446744073709551615ULL));
 
-            CHECK_EQ(std::get<CompileError>(num.asSigned64()).kind(),
-                     CompileError::Kind::UnsignedOutsideIntRangeConversion);
+            CHECK_EQ(num.asSigned64().err().kind(), ProgramError::Kind::CompileUnsignedOutsideIntRangeConversion);
 
-            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), 18446744073709551615ULL);
+            CHECK_EQ(num.asUnsigned64().value(), 18446744073709551615ULL);
         }
         { // max 64 bit signed int
             std::string numAsString = "9223372036854775807";
             auto result = NumberLiteral::create(sy::StringSlice(numAsString.c_str(), numAsString.size()), 0,
                                                 static_cast<uint32_t>(numAsString.size()));
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), static_cast<double>(9223372036854775807));
-            CHECK_EQ(std::get<int64_t>(num.asSigned64()), 9223372036854775807);
-            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), 9223372036854775807);
+            CHECK_EQ(num.asSigned64().value(), 9223372036854775807);
+            CHECK_EQ(num.asUnsigned64().value(), 9223372036854775807);
         }
         { // min 64 bit signed int
             std::string numAsString = "-9223372036854775808";
             auto result = NumberLiteral::create(sy::StringSlice(numAsString.c_str(), numAsString.size()), 0,
                                                 static_cast<uint32_t>(numAsString.size()));
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), static_cast<double>(INT64_MIN));
-            CHECK_EQ(std::get<int64_t>(num.asSigned64()), INT64_MIN);
+            CHECK_EQ(num.asSigned64().value(), INT64_MIN);
 
-            CHECK_EQ(std::get<CompileError>(num.asUnsigned64()).kind(),
-                     CompileError::Kind::NegativeToUnsignedIntConversion);
+            CHECK_EQ(num.asUnsigned64().err().kind(), ProgramError::Kind::CompileNegativeToUnsignedIntConversion);
         }
 
         { // 1 above max 64 bit unsigned int
             std::string numAsString = "18446744073709551616";
             auto result = NumberLiteral::create(sy::StringSlice(numAsString.c_str(), numAsString.size()), 0,
                                                 static_cast<uint32_t>(numAsString.size()));
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), 18446744073709551616.0);
 
-            CHECK_EQ(std::get<CompileError>(num.asSigned64()).kind(),
-                     CompileError::Kind::FloatOutsideIntRangeConversion);
-            CHECK_EQ(std::get<CompileError>(num.asUnsigned64()).kind(),
-                     CompileError::Kind::FloatOutsideIntRangeConversion);
+            CHECK_EQ(num.asSigned64().err().kind(), ProgramError::Kind::CompileFloatOutsideIntRangeConversion);
+            CHECK_EQ(num.asUnsigned64().err().kind(), ProgramError::Kind::CompileFloatOutsideIntRangeConversion);
         }
         { // 1 above max 64 bit signed int
             std::string numAsString = "9223372036854775808";
             auto result = NumberLiteral::create(sy::StringSlice(numAsString.c_str(), numAsString.size()), 0,
                                                 static_cast<uint32_t>(numAsString.size()));
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), 9223372036854775808.0);
 
-            CHECK_EQ(std::get<CompileError>(num.asSigned64()).kind(),
-                     CompileError::Kind::UnsignedOutsideIntRangeConversion);
+            CHECK_EQ(num.asSigned64().err().kind(), ProgramError::Kind::CompileUnsignedOutsideIntRangeConversion);
 
-            CHECK_EQ(std::get<uint64_t>(num.asUnsigned64()), 9223372036854775808ULL);
+            CHECK_EQ(num.asUnsigned64().value(), 9223372036854775808ULL);
         }
         { // 1 below min 64 bit signed int
             std::string numAsString = "-9223372036854775809";
             auto result = NumberLiteral::create(sy::StringSlice(numAsString.c_str(), numAsString.size()), 0,
                                                 static_cast<uint32_t>(numAsString.size()));
-            CHECK(std::holds_alternative<NumberLiteral>(result));
-            NumberLiteral num = std::get<NumberLiteral>(result);
+            CHECK(result);
+            NumberLiteral num = result.value();
             CHECK_EQ(num.asFloat64(), -9223372036854775809.0);
 
-            CHECK_EQ(std::get<CompileError>(num.asSigned64()).kind(),
-                     CompileError::Kind::FloatOutsideIntRangeConversion);
-
-            CHECK_EQ(std::get<CompileError>(num.asUnsigned64()).kind(),
-                     CompileError::Kind::NegativeToUnsignedIntConversion);
+            CHECK_EQ(num.asSigned64().err().kind(), ProgramError::Kind::CompileFloatOutsideIntRangeConversion);
+            CHECK_EQ(num.asUnsigned64().err().kind(), ProgramError::Kind::CompileNegativeToUnsignedIntConversion);
         }
     }
 }
@@ -571,8 +560,8 @@ TEST_SUITE("char literal") {
             auto result = CharLiteral::create(sy::StringSlice(charStr.c_str(), charStr.size()), 0,
                                               static_cast<uint32_t>(charStr.size()));
 
-            CHECK(std::holds_alternative<CharLiteral>(result));
-            CharLiteral parsedChar = std::get<CharLiteral>(result);
+            CHECK(result);
+            CharLiteral parsedChar = result.value();
             CHECK_EQ(parsedChar.val, sy::Char(c));
         };
 
@@ -624,8 +613,8 @@ TEST_SUITE("char literal") {
             auto result = CharLiteral::create(sy::StringSlice(charStr.c_str(), charStr.size()), 0,
                                               static_cast<uint32_t>(charStr.size()));
 
-            CHECK(std::holds_alternative<CharLiteral>(result));
-            CharLiteral parsedChar = std::get<CharLiteral>(result);
+            CHECK(result);
+            CharLiteral parsedChar = result.value();
             CHECK_EQ(parsedChar.val, sy::Char(expect));
         };
 
@@ -650,8 +639,8 @@ TEST_SUITE("string literal") {
             auto result = StringLiteral::create(sy::StringSlice(testStr.c_str(), testStr.size()), 0,
                                                 static_cast<uint32_t>(testStr.size()), sy::Allocator());
 
-            CHECK(std::holds_alternative<StringLiteral>(result));
-            StringLiteral& parsedStr = std::get<StringLiteral>(result);
+            CHECK(result);
+            StringLiteral parsedStr = result.takeValue();
             CHECK_EQ(parsedStr.str.asSlice(), sy::StringSlice(str, std::strlen(str)));
             CHECK_EQ(parsedStr.str.len(), std::strlen(str));
         };
@@ -671,8 +660,8 @@ TEST_SUITE("string literal") {
                 auto result = StringLiteral::create(sy::StringSlice(testStr.c_str(), testStr.size()), 0,
                                                     static_cast<uint32_t>(testStr.size()), sy::Allocator());
 
-                CHECK(std::holds_alternative<StringLiteral>(result));
-                StringLiteral& parsedStr = std::get<StringLiteral>(result);
+                CHECK(result);
+                StringLiteral parsedStr = result.takeValue();
                 CHECK_EQ(std::strcmp(parsedStr.str.cstr(), expectStr.c_str()), 0);
                 CHECK_EQ(parsedStr.str.len(), expectStr.size());
             }
@@ -682,8 +671,8 @@ TEST_SUITE("string literal") {
                 auto result = StringLiteral::create(sy::StringSlice(testStr.c_str(), testStr.size()), 0,
                                                     static_cast<uint32_t>(testStr.size()), sy::Allocator());
 
-                CHECK(std::holds_alternative<StringLiteral>(result));
-                StringLiteral& parsedStr = std::get<StringLiteral>(result);
+                CHECK(result);
+                StringLiteral parsedStr = result.takeValue();
                 CHECK_EQ(std::strcmp(parsedStr.str.cstr(), expectStr.c_str()), 0);
                 CHECK_EQ(parsedStr.str.len(), expectStr.size());
             }
@@ -693,8 +682,8 @@ TEST_SUITE("string literal") {
                 auto result = StringLiteral::create(sy::StringSlice(testStr.c_str(), testStr.size()), 0,
                                                     static_cast<uint32_t>(testStr.size()), sy::Allocator());
 
-                CHECK(std::holds_alternative<StringLiteral>(result));
-                StringLiteral& parsedStr = std::get<StringLiteral>(result);
+                CHECK(result);
+                StringLiteral parsedStr = result.takeValue();
                 CHECK_EQ(std::strcmp(parsedStr.str.cstr(), expectStr.c_str()), 0);
                 CHECK_EQ(parsedStr.str.len(), expectStr.size());
             }

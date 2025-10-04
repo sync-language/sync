@@ -5,7 +5,6 @@
 #include "../../types/array/dynamic_array.hpp"
 #include "../../types/option/option.hpp"
 #include "../../types/result/result.hpp"
-#include "../compile_info.hpp"
 #include "../tokenizer/file_literals.hpp"
 #include "stack_variables.hpp"
 
@@ -53,10 +52,10 @@ struct Expression {
 
     ~Expression() noexcept;
 
-    static Result<Expression, CompileError> parse(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+    static Result<Expression, ProgramError> parse(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                                   Option<size_t> dstVarIndex) noexcept;
 
-    Result<void, CompileError> compileExpression(FunctionBuilder* builder) const;
+    Result<void, ProgramError> compileExpression(FunctionBuilder* builder) const;
 };
 } // namespace sy
 

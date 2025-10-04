@@ -34,7 +34,7 @@ void sy::detail::IBaseParserNode::operator delete(void* self, Allocator inAlloc)
     inAlloc.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_, PARSER_NODE_ALIGN);
 }
 
-Result<Option<IFunctionStatement*>, CompileError>
+Result<Option<IFunctionStatement*>, ProgramError>
 IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* variables, Scope* currentScope) {
     const Token token = parseInfo->tokenIter.current();
     switch (token.tag()) {
@@ -51,8 +51,8 @@ IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>
         return ret;
     } break;
     default:
-        return Error(CompileError::createInvalidStatement(
-            detail::sourceLocationFromFileLocation(parseInfo->tokenIter.source(), token.location())));
+        return Error(ProgramError(SourceFileLocation(parseInfo->tokenIter.source(), token.location()),
+                                  ProgramError::Kind::CompileStatement));
     }
 }
 

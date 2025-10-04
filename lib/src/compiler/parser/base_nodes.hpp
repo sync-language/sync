@@ -2,10 +2,10 @@
 #define SY_COMPILER_PARSER_BASE_NODES_HPP_
 
 #include "../../mem/allocator.hpp"
+#include "../../program/program_error.hpp"
 #include "../../types/array/dynamic_array.hpp"
 #include "../../types/result/result.hpp"
 #include "../../types/string/string.hpp"
-#include "../compile_info.hpp"
 #include "stack_variables.hpp"
 
 namespace sy {
@@ -42,13 +42,13 @@ class IFunctionStatement : public detail::IBaseParserNode {
   public:
     IFunctionStatement(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
 
-    static Result<Option<IFunctionStatement*>, CompileError>
+    static Result<Option<IFunctionStatement*>, ProgramError>
     parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* variables, Scope* currentScope);
 
-    virtual Result<void, CompileError> init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+    virtual Result<void, ProgramError> init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                             Scope* currentScope) noexcept = 0;
 
-    virtual Result<void, CompileError> compileStatement(FunctionBuilder* builder) const noexcept = 0;
+    virtual Result<void, ProgramError> compileStatement(FunctionBuilder* builder) const noexcept = 0;
 };
 
 /// Handles the functions themselves, which own a bunch of `IFunctionLogicNode`
@@ -58,9 +58,9 @@ class IFunctionDefinition : public detail::IBaseParserNode {
   public:
     IFunctionDefinition(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
 
-    virtual Result<void, CompileError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept = 0;
+    virtual Result<void, ProgramError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept = 0;
 
-    virtual Result<void, CompileError> compile() const noexcept = 0;
+    virtual Result<void, ProgramError> compile() const noexcept = 0;
 };
 
 /// Handles type definitions. This includes structs, enums, unions, aliases,
@@ -69,7 +69,7 @@ class ITypeDefNode : public detail::IBaseParserNode {
   public:
     ITypeDefNode(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
 
-    virtual Result<void, CompileError> defineType() const noexcept = 0;
+    virtual Result<void, ProgramError> defineType() const noexcept = 0;
 };
 } // namespace sy
 

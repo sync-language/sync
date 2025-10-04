@@ -2,7 +2,7 @@
 
 using namespace sy;
 
-Result<Option<IFunctionStatement*>, CompileError>
+Result<Option<IFunctionStatement*>, ProgramError>
 sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables, Scope* currentScope) {
     const TokenType tokenType = parseInfo->tokenIter.current().tag();
     if (tokenType == TokenType::RightBraceSymbol) {
@@ -19,6 +19,7 @@ sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables
         break;
     }
 
-    return Error(CompileError::createInvalidFunctionStatement(detail::sourceLocationFromFileLocation(
-        parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location())));
+    return Error(
+        ProgramError(SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
+                     ProgramError::Kind::CompileFunctionStatement));
 }
