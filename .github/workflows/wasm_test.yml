@@ -1,0 +1,25 @@
+name: "WASM"
+
+on:
+    workflow_dispatch:
+
+jobs:
+  emscripten:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+    - name: Install Emscripten and Configure CMake
+      run: |
+        git clone https://github.com/emscripten-core/emsdk.git
+        cd emsdk
+        ./emsdk install latest
+        ./emsdk activate latest
+        source ./emsdk_env.sh
+        cd ..
+        emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
+    - name: Build
+      run: cmake --build build --config Debug --parallel
+    - name: Test
+      run: node ./build/SyncLibTests.js

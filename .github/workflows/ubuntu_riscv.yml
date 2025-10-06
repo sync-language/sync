@@ -1,0 +1,30 @@
+name: "Ubuntu RISC-V"
+
+on:
+    workflow_dispatch:
+
+jobs:
+  riscv:
+    name: ubuntu-24.04-riscv
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: uraimo/run-on-arch-action@v3
+        with:
+          arch: riscv64
+          distro: ubuntu24.04
+          githubToken: ${{ github.token }} # Save workflow caches
+          install: |
+            echo INSTALL
+            apt-get update
+            apt-get install -y sudo
+            sudo apt-get update
+            sudo apt-get install -y cmake build-essential
+          run: |
+            cmake --version
+            # chmod +x scripts/test_g++_build.sh
+            # ./scripts/test_g++_build.sh
+            # ./hmm
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
+            cmake --build build --config Debug --parallel
+            ./build/SyncLibTests

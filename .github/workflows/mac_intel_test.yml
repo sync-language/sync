@@ -1,0 +1,20 @@
+name: "Mac Intel"
+
+on:
+    workflow_dispatch:
+
+jobs:
+  macos-15-intel:
+    # https://github.com/actions/runner-images/issues/13045
+    # Until August 2027
+    runs-on: macos-15-intel
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install CMake
+      uses: lukka/get-cmake@latest 
+    - name: Configure CMake
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
+    - name: Build
+      run: cmake --build build --config Debug --parallel
+    - name: Test
+      run: ./build/SyncLibTests
