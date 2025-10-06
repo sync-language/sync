@@ -122,3 +122,6 @@ jobs:
             sudo apt-get install -y cmake build-essential
           run: |
             cmake --version
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
+            cmake --build build --config Debug --parallel
+            ./build/SyncLibTests
