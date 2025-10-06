@@ -118,6 +118,8 @@ jobs:
             echo INSTALL
           run: |
             echo RUN
+            apt-get update
+            apt-get install -y sudo
             sudo apt update
             sudo apt install cmake
             cmake --version
