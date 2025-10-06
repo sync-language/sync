@@ -117,9 +117,10 @@ jobs:
           install: |
             echo INSTALL
           run: |
-            echo RUN
-            apt-get update
-            apt-get install -y sudo
-            sudo apt update
-            sudo apt install cmake
-            cmake --version
+            sudo apt-get update && sudo apt-get install -y cmake build-essential
+            # echo RUN
+            # apt-get update
+            # apt-get install -y sudo
+            # sudo apt update
+            # sudo apt install cmake
+            # cmake --version
