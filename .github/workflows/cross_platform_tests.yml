@@ -112,8 +112,9 @@ jobs:
         with:
           arch: riscv64
           distro: ubuntu24.04
+          githubToken: ${{ github.token }} # Save workflow caches
           dockerRunArgs: |
-            --volume "${PWD}:/opt/goat"
+            --volume "${PWD}:/opt/sync_rv"
           install: |
             echo INSTALL
             apt-get update
@@ -122,6 +123,7 @@ jobs:
             sudo apt-get install -y cmake build-essential
           run: |
             cmake --version
+            cd /opt/sync_rv
             cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
             cmake --build build --config Debug --parallel
             ./build/SyncLibTests

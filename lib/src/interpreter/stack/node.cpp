@@ -422,8 +422,6 @@ std::optional<uint16_t> Node::pushScriptFunctionArg(const void* argMem, const sy
     return std::optional(newOffset);
 }
 
-#include <iostream>
-
 std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t alignment) const {
     // `alignment` must always be a power of 2
     // `frameLength` must be a multiple of alignment
@@ -439,14 +437,9 @@ std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t al
     sy_assert(alignment > 0, "Alignment must be non zero");
     sy_assert(alignment <= pageSize, "Alignment greater than page size does not make sense");
 #ifndef NDEBUG
-    uint32_t normalizeAlign = alignment / sizeof(size_t);
+    uint32_t normalizeAlign = alignment / sizeof(uint64_t); // not size_t because the stack values occupy 64 bits
     if (normalizeAlign == 0)
         normalizeAlign = 1;
-    if ((frameLength % normalizeAlign) != 0) {
-        std::cerr << "Frame length: " << frameLength << std::endl;
-        std::cerr << "Alignment: " << alignment << std::endl;
-        std::cerr << "Normalized Alignment: " << normalizeAlign << std::endl;
-    }
     sy_assert((frameLength % normalizeAlign) == 0, "Frame length must be a multiple of alignment");
 #endif
     sy_assert((alignment & (alignment - 1)) == 0, "Alignment must be a power of 2");
