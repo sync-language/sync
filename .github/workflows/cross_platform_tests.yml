@@ -115,7 +115,7 @@ jobs:
           dockerRunArgs: |
             --volume "${PWD}:/opt/goat"
           install: |
-            apt-get update
-            apt-get cmake
+            sudo apt-get update
+            sudo apt-get cmake
           run: |
             cmake --version
