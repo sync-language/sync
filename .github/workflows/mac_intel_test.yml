@@ -2,6 +2,7 @@ name: "Mac Intel"
 
 on:
     workflow_dispatch:
+    workflow_call:
 
 jobs:
   macos-15-intel:

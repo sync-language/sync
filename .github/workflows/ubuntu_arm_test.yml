@@ -2,6 +2,7 @@ name: "Ubuntu Arm"
 
 on:
     workflow_dispatch:
+    workflow_call:
 
 jobs:
   ubuntu-arm:
