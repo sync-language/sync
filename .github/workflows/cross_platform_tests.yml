@@ -103,3 +103,18 @@ jobs:
       run: cmake --build build --config Debug --parallel
     - name: Test
       run: node ./build/SyncLibTests.js
+  riscv:
+    name: ubuntu-24.04-riscv
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: uraimo/run-on-arch-action@v3
+        with:
+          arch: riscv64
+          distro: ubuntu24.04
+          dockerRunArgs: |
+            --volume "${PWD}:/opt/goat"
+          install: |
+            apt-get update
+            apt-get cmake
+            cmake --version
