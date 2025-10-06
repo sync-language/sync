@@ -31,15 +31,18 @@ class SY_API Compiler final {
 
     Compiler& operator=(const Compiler& other) = delete;
 
-    enum class AddEmptyModuleErr : int {
-        OutOfMemory = static_cast<int>(AllocErr::OutOfMemory),
-        DuplicateModuleVersion,
-    };
-
-    [[nodiscard]] Result<Module*, AddEmptyModuleErr> addEmptyModule(StringSlice name, SemVer version) noexcept;
+    /// @brief Attempts to add a new empty module, or get an existing module.
+    /// within the compiler's module list,
+    /// @param name Name of the module
+    /// @param version Version of the module. Allows using multiple modules of
+    /// different versions.
+    /// @return If the module described by `name` and `version` already exists,
+    /// returns that one, otherwise returns a new module. May fail with an
+    /// out of memory error.
+    [[nodiscard]] Result<Module*, AllocErr> addOrGetModule(StringSlice name, SemVer version) noexcept;
 
   private:
-    Compiler() : inner_(nullptr) {};
+    Compiler() : inner_(nullptr){};
 
     void* inner_;
 };

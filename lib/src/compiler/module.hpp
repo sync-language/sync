@@ -20,6 +20,8 @@ struct SemVer {
         return this->major == other.major && this->minor == other.minor && this->patch == other.patch;
     }
 
+    constexpr bool operator!=(const SemVer& other) const { return !(*this == other); }
+
     constexpr bool operator<(const SemVer& other) const {
         if (this->major < other.major)
             return true;
@@ -57,10 +59,12 @@ enum class ModuleErr : int {
     OutOfMemory = 0,
     FileNotSyncSource,
     ErrorOpeningSourceFile,
+    DuplicateDependency,
     Unknown,
 };
 
 class Compiler;
+class Module;
 
 class SY_API Module final {
   public:
@@ -81,6 +85,8 @@ class SY_API Module final {
     /// @brief Sets the root file of the source tree.
     /// @param path Either absolute or relative
     [[nodiscard]] Result<void, ModuleErr> setRootFileFromDisk(StringSlice path) noexcept;
+
+    [[nodiscard]] Result<void, ModuleErr> addDependency(const Module* module) noexcept;
 
   private:
     friend class Compiler;

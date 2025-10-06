@@ -26,9 +26,7 @@ class IFunctionDefinition;
 class ITypeDefNode;
 class IFunctionStatement;
 
-class FileAst final {
-
-  private:
+struct FileAst {
     Allocator alloc_;
     DynArrayUnmanaged<IFunctionDefinition*> functions_;
     DynArrayUnmanaged<ITypeDefNode*> structs_;

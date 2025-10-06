@@ -1,6 +1,7 @@
 #include "module.hpp"
 #include "../types/string/string.hpp"
 #include "../util/assert.hpp"
+#include "compiler_internal.hpp"
 #include "source_tree/source_tree.hpp"
 #include <filesystem>
 #include <fstream>
@@ -42,10 +43,13 @@ struct ModuleImpl {
     SemVer version{};
     SourceTree sourceTree;
     SourceTreeNode* rootFile = nullptr;
+    MapUnmanaged<StringSlice, const Module*> dependencies{};
 
     ModuleImpl(Allocator inAlloc) : alloc(inAlloc), sourceTree(inAlloc) {}
 
     Result<void, ModuleErr> setRootFileFromDisk(StringSlice path) noexcept;
+
+    Result<void, ModuleErr> addDependency(const Module* module) noexcept;
 };
 
 Result<void, ModuleErr> ModuleImpl::setRootFileFromDisk(StringSlice path) noexcept {
@@ -98,6 +102,17 @@ Result<void, ModuleErr> ModuleImpl::setRootFileFromDisk(StringSlice path) noexce
 
     return {};
 }
+
+Result<void, ModuleErr> ModuleImpl::addDependency(const Module* module) noexcept {
+    auto res = this->dependencies.insert(this->alloc, module->name(), module);
+    if (res.hasErr()) {
+        return Error(ModuleErr::OutOfMemory);
+    }
+    if (res.value().hasValue()) {
+        return Error(ModuleErr::DuplicateDependency);
+    }
+    return {};
+}
 } // namespace
 
 static void deleteImpl(void* impl) noexcept {
@@ -136,6 +151,10 @@ SemVer sy::Module::version() const { return reinterpret_cast<const ModuleImpl*>(
 
 Result<void, ModuleErr> sy::Module::setRootFileFromDisk(StringSlice path) noexcept {
     return reinterpret_cast<ModuleImpl*>(this->inner_)->setRootFileFromDisk(path);
+}
+
+Result<void, ModuleErr> sy::Module::addDependency(const Module* module) noexcept {
+    return reinterpret_cast<ModuleImpl*>(this->inner_)->addDependency(module);
 }
 
 Result<Module*, AllocErr> Module::create(Allocator& alloc, StringSlice inName, SemVer inVersion) noexcept {
