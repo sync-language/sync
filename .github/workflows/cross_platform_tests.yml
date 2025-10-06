@@ -116,7 +116,7 @@ jobs:
             --volume "${PWD}:/opt/goat"
           install: |
             echo install
-            apt-get update
+            apt update
           run: |
-            apt-get cmake
+            apt install cmake
             cmake --version
