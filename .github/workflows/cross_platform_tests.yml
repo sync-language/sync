@@ -6,4 +6,18 @@ on:
 jobs:
   ubuntu-x64:
     uses: sync-language/sync/.github/workflows/ubuntu_x64_test.yml@main
+  ubuntu-arm:
+    uses: sync-language/sync/.github/workflows/ubuntu_arm_test.yml@main
+  windows-x64:
+    uses: sync-language/sync/.github/workflows/windows_x64_test.yml@main
+  windows-arm:
+    uses: sync-language/sync/.github/workflows/windows_arm_test.yml@main
+  mac-arm:
+    uses: sync-language/sync/.github/workflows/mac_arm_test.yml@main
+  mac-intel:
+    uses: sync-language/sync/.github/workflows/mac_intel_test.yml@main
+  wasm:
+    uses: sync-language/sync/.github/workflows/wasm_test.yml@main
+  ubuntu-riscv:
+    uses: sync-language/sync/.github/workflows/ubuntu_riscv_test.yml@main
             
