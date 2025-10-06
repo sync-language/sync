@@ -118,4 +118,5 @@ jobs:
             echo install
             apt-get update
           run: |
-            echo run
+            apt-get cmake
+            cmake --version
