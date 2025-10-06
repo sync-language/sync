@@ -121,8 +121,10 @@ jobs:
             sudo apt-get install -y cmake build-essential
           run: |
             cmake --version
-            chmod +x scripts/test_g++_build.sh
-            ./scripts/test_g++_build.sh
-            # cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
-            # cmake --build build --config Debug --parallel
-            ./hmm
+            # chmod +x scripts/test_g++_build.sh
+            # ./scripts/test_g++_build.sh
+            # ./hmm
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
+            cmake --build build --config Debug --parallel
+            ./build/SyncLibTests
+            
