@@ -117,6 +117,8 @@ jobs:
           install: |
             echo INSTALL
           run: |
+            apt-get update
+            apt-get install -y sudo
             sudo apt-get update && sudo apt-get install -y cmake build-essential
             # echo RUN
             # apt-get update
