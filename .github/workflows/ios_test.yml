@@ -22,11 +22,8 @@ jobs:
         xcrun simctl create "iPhone 17" com.apple.CoreSimulator.SimDeviceType.iPhone-17 com.apple.CoreSimulator.SimRuntime.iOS-26-0
     - name: Test
       run: |
-        ls build/Debug-iphoneos/
-        ls /build/Debug-iphoneos/
-        ls /build/
         xcrun simctl boot E516D6A3-1FF0-4916-A528-03DC9ABFB62F
-        xcrun simctl install E516D6A3-1FF0-4916-A528-03DC9ABFB62F /build/Debug-iphoneos/SyncLibTests.app
+        xcrun simctl install E516D6A3-1FF0-4916-A528-03DC9ABFB62F build/Debug-iphoneos/SyncLibTests.app
 
 
     # - name: Test
