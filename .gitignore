@@ -12,3 +12,5 @@ zig-out/
 .vs/
 # Neovim
 out/
+# Dev Personal Stuff
+temp
