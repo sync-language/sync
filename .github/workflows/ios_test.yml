@@ -1,0 +1,41 @@
+name: "Mac Arm"
+
+on:
+    workflow_dispatch:
+    workflow_call:
+
+jobs:
+  mac-arm:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install CMake
+      uses: lukka/get-cmake@latest 
+    - name: Configure CMake
+      run: cmake -S . -B build -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF -DCMAKE_TOOLCHAIN_FILE=scripts/vendor/ios-cmake/ios.toolchain.cmake -G "Xcode" -DPLATFORM=OS64 -DSYNC_LIB_WITH_TESTS=ON
+    - name: Build
+      run: cmake --build build --config Debug --parallel
+    - name: Check and Download iOS Runtime
+      id: check-runtime
+      run: |
+        echo "Runtimes before download"
+        available_runtimes="$(xcrun simctl list runtimes)"
+        echo "$available_runtimes"
+
+        if echo "$available_runtimes" | grep -q "^iOS 16.4"; then
+          echo "iOS 16.4 runtime is already installed"
+        else
+          echo "iOS 16.4 runtime is not installed"
+          sudo xcodes runtimes install "iOS 16.4"
+        fi
+
+        echo ""
+        echo "Runtimes after download"
+        xcrun simctl list runtimes
+        echo ""
+        echo "Available device types"
+        xcrun simctl list devicetypes
+    # - name: Test
+    #   run: |
+    #     xcodebuild clean test -project Deckster.xcodeproj -scheme "Deckster" -configuration Staging -destination 'platform=iOS Simulator,name=iPhone 16'
+         

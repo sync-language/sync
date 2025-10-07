@@ -12,5 +12,7 @@ zig-out/
 .vs/
 # Neovim
 out/
+# Mac
+.DS_Store
 # Dev Personal Stuff
 temp

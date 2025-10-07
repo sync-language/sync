@@ -20,7 +20,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(EMSCRIPTEN)
-    message("Building Sync for Emscripten")
+    message(STATUS "Building Sync for Emscripten")
     # find_path(EMSCRIPTEN_DIR NAMES "em++")
     # message(${EMSCRIPTEN_DIR})
     # if(EMSCRIPTEN_DIR)
@@ -122,7 +122,7 @@ if(SYNC_LIB_ASAN)
 endif()
 
 if(ANDROID)
-    message(Android!)
+    message(STATUS "Building Sync for Android")
     target_link_libraries(
         SyncLib
         android
@@ -131,6 +131,13 @@ if(ANDROID)
         SyncLibTests
         android
         log)
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    message(STATUS "Building Sync for iOS")
+    set_target_properties(SyncLibTests PROPERTIES
+        MACOSX_BUNDLE_GUI_IDENTIFIER org.synclang
+    )
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
