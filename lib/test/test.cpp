@@ -1,4 +1,3 @@
-#define DOCTEST_CONFIG_IMPLEMENT
-#include "../src/doctest.h"
+#include "test_runner.h"
 
-int main(int argc, char** argv) { return doctest::Context(argc, argv).run(); }
+int main(int argc, char** argv) { return run_sync_tests(argc, argv); }

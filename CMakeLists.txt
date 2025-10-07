@@ -72,6 +72,8 @@ set(SyncLibSources
     "lib/src/program/program.cpp"
     "lib/src/program/program_error.cpp"
     "lib/src/testing/child_process.cpp"
+
+    "lib/test/test_runner.cpp"
 )
 
 if(SYNC_LIB_BUILD_SHARED_LIB)
