@@ -15,16 +15,13 @@ jobs:
       run: cmake -S . -B build -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF -DCMAKE_TOOLCHAIN_FILE=scripts/vendor/ios-cmake/ios.toolchain.cmake -G "Xcode" -DPLATFORM=OS64 -DSYNC_LIB_WITH_TESTS=ON
     - name: Build
       run: cmake --build build --config Debug --parallel
-    - name: Check and Download iOS Runtime
-      id: check-runtime
+    - name: Create iOS Simulator
       run: |
-        available_runtimes="$(xcrun simctl list runtimes)"
-        echo "$available_runtimes"
-        use_runtime=$(head -n 1 <<< "$available_runtimes")
-        echo "Using runtime:"
-        echo "$use_runtime"
+        sudo xcodebuild -license accept || echo "License already accepted"     
+        xcrun simctl create "iPhone 17" com.apple.CoreSimulator.SimDeviceType.iPhone-17 com.apple.CoreSimulator.SimRuntime.iOS-18-4 || echo "Simulator already exists"
+        xcrun simctl list devices
 
-        xcrun simctl list devicetypes
+
     # - name: Test
     #   run: |
     #     xcodebuild clean test -project Deckster.xcodeproj -scheme "Deckster" -configuration Staging -destination 'platform=iOS Simulator,name=iPhone 16'
