@@ -24,8 +24,10 @@ static size_t capacityIncrease(const size_t inCapacity) {
     if (inCapacity > superHighAmount) {
         try {
             std::cerr << "DynArrayUnmanaged too big" << std::endl;
-            Backtrace bt = Backtrace::generate();
+#if SYNC_BACKTRACE_SUPPORTED
+            sy::Backtrace bt = sy::Backtrace::generate();
             bt.print();
+#endif
         } catch (...) {
         }
         std::abort();
@@ -62,8 +64,10 @@ sy::RawDynArrayUnmanaged::~RawDynArrayUnmanaged() noexcept {
     if (capacity_ > 0) {
         try {
             std::cerr << "DynArrayUnmanaged not properly destroyed." << std::endl;
+#if SYNC_BACKTRACE_SUPPORTED
             Backtrace bt = Backtrace::generate();
             bt.print();
+#endif
         } catch (...) {
         }
         std::abort();

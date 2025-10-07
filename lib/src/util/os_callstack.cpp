@@ -1,4 +1,6 @@
 #include "os_callstack.hpp"
+
+#if SYNC_BACKTRACE_SUPPORTED
 #include "../core.h"
 #include "assert.hpp"
 #include <charconv>
@@ -12,10 +14,11 @@
 
 #if defined(_MSC_VER) || defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+// clang-format off
+#include <windows.h>
 #include <dbghelp.h>
 #include <process.h>
-
+// clang-format on
 #elif defined(__EMSCRIPTEN__)
 #elif defined(__APPLE__) || defined(__GNUC__)
 #include <dlfcn.h>
@@ -24,19 +27,7 @@
 #include <unistd.h>
 #endif // MSVC APPLE GCC
 
-extern "C" {
-SY_API void test_backtrace_stuff() {
-    Backtrace bt = Backtrace::generate();
-    // std::cerr << bt.frames.size() << " num frames" << std::endl;
-    for (size_t i = 0; i < bt.frames.size(); i++) {
-        std::cerr << i << ' ';
-        std::cerr.flush();
-        auto& frame = bt.frames[i];
-        std::cerr << frame.obj << " | " << frame.functionName << " | " << frame.fullFilePath << ':' << frame.lineNumber
-                  << std::endl;
-    }
-}
-}
+using sy::Backtrace;
 
 static std::mutex generateBacktraceMutex{};
 
@@ -357,7 +348,7 @@ Backtrace Backtrace::generate() noexcept {
 
 #endif // defined __APPLE__ || defined __GNUC__
 
-void Backtrace::print() const noexcept {
+void sy::Backtrace::print() const noexcept {
     if (this->frames.size() == 0)
         return;
 
@@ -413,3 +404,4 @@ void Backtrace::print() const noexcept {
 // }
 
 #endif // SYNC_LIB_NO_TESTS
+#endif

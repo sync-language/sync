@@ -13,6 +13,7 @@ project("Sync")
 option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" OFF)
 option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" ON)
+option(SYNC_LIB_BUILD_SHARED_LIB "Build Sync as a shared library" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -73,7 +74,11 @@ set(SyncLibSources
     "lib/src/testing/child_process.cpp"
 )
 
-add_library(SyncLib STATIC ${SyncLibSources})
+if(SYNC_LIB_BUILD_SHARED_LIB)
+    add_library(SyncLib SHARED ${SyncLibSources})
+else()
+    add_library(SyncLib STATIC ${SyncLibSources})
+endif()
 add_executable(SyncLibTests "lib/test/test.cpp" ${SyncLibSources})
 
 # Doctest Shenanigans
@@ -114,6 +119,18 @@ if(SYNC_LIB_ASAN)
         target_compile_options(SyncLibTests PRIVATE -fsanitize=address)
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
     endif()
+endif()
+
+if(ANDROID)
+    message(Android!)
+    target_link_libraries(
+        SyncLib
+        android
+        log)
+    target_link_libraries(
+        SyncLibTests
+        android
+        log)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")

@@ -76,4 +76,10 @@ using std::uint8_t;
 #define SY_CLASS_TEST_PRIVATE private
 #endif
 
+#if defined(__ANDROID__)
+#define SYNC_BACKTRACE_SUPPORTED 0
+#else
+#define SYNC_BACKTRACE_SUPPORTED 1
+#endif
+
 #endif // SY_CORE_H_

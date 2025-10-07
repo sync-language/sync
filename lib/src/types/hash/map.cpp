@@ -17,8 +17,10 @@ sy::RawMapUnmanaged::~RawMapUnmanaged() noexcept {
     if (groupCount_ > 0) {
         try {
             std::cerr << "HashMap not properly destroyed." << std::endl;
+#if SYNC_BACKTRACE_SUPPORTED
             Backtrace bt = Backtrace::generate();
             bt.print();
+#endif
         } catch (...) {
         }
         std::abort();

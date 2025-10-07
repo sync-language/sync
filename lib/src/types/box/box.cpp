@@ -43,8 +43,10 @@ sy::RawBox::~RawBox() noexcept {
     if (this->obj_ != nullptr) {
         try {
             std::cerr << "Box not properly destroyed." << std::endl;
+#if SYNC_BACKTRACE_SUPPORTED
             Backtrace bt = Backtrace::generate();
             bt.print();
+#endif
         } catch (...) {
         }
         std::abort();

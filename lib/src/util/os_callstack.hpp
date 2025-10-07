@@ -3,9 +3,13 @@
 #define SY_UTIL_OS_CALLSTACK_HPP_
 
 #include "../core.h"
+
+#if SYNC_BACKTRACE_SUPPORTED
+
 #include <string>
 #include <vector>
 
+namespace sy {
 class Backtrace {
   public:
     class StackFrameInfo {
@@ -24,9 +28,8 @@ class Backtrace {
     /// Prints to stderr
     void print() const noexcept;
 };
+} // namespace sy
 
-extern "C" {
-SY_API void test_backtrace_stuff();
-}
+#endif
 
 #endif // SY_UTIL_OS_CALLSTACK_HPP_
