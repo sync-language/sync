@@ -135,9 +135,18 @@ endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
     message(STATUS "Building Sync for iOS")
-    set_target_properties(SyncLibTests PROPERTIES
-        MACOSX_BUNDLE_GUI_IDENTIFIER org.synclang
-    )
+    # set_target_properties(SyncLibTests PROPERTIES
+    #     MACOSX_BUNDLE_GUI_IDENTIFIER org.synclang
+    #     MACOSX_BUNDLE_BUNDLE_NAME SyncLibTests
+    #     MACOSX_BUNDLE_BUNDLE_VERSION 0.0.0
+    # )
+    
+    # set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+    # find_package(XCTest REQUIRED)
+    # xctest_add_bundle(SyncLibTestsIOS 
+    #     SyncLib "lib/test/ios/run_tests.cpp" "lib/test/ios/run_ios_tests.m" 
+    # )
+    # xctest_add_test(XCTest.SyncLibTestsIOS SyncLibTestsIOS)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
