@@ -17,9 +17,13 @@ jobs:
       run: cmake --build build --config Debug --parallel
     - name: Create iOS Simulator
       run: |
-        sudo xcodebuild -license accept || echo "License already accepted"     
-        xcrun simctl create "iPhone 17" com.apple.CoreSimulator.SimDeviceType.iPhone-17 com.apple.CoreSimulator.SimRuntime.iOS-18-4 || echo "Simulator already exists"
+        sudo xcodebuild -license accept || echo "License already accepted"
         xcrun simctl list devices
+        xcrun simctl create "iPhone 17" com.apple.CoreSimulator.SimDeviceType.iPhone-17 com.apple.CoreSimulator.SimRuntime.iOS-26-0
+    - name: Test
+      run: |
+        xcrun simctl boot E516D6A3-1FF0-4916-A528-03DC9ABFB62F
+        xcrun simctl install E516D6A3-1FF0-4916-A528-03DC9ABFB62F /build/Debug-iphonesimulator/SyncLibTests.app
 
 
     # - name: Test
