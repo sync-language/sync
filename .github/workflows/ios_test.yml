@@ -17,6 +17,7 @@ jobs:
       run: cmake --build build --config Debug --parallel
     - name: Create iOS Simulator
       run: |
+        sudo softwareupdate --install-rosetta --agree-to-license
         sudo xcodebuild -license accept || echo "License already accepted"
         xcrun simctl list devices
         xcrun simctl create "iPhone 17" com.apple.CoreSimulator.SimDeviceType.iPhone-17 com.apple.CoreSimulator.SimRuntime.iOS-26-0
@@ -24,6 +25,7 @@ jobs:
       run: |
         xcrun simctl boot E516D6A3-1FF0-4916-A528-03DC9ABFB62F
         xcrun simctl install E516D6A3-1FF0-4916-A528-03DC9ABFB62F build/Debug-iphoneos/SyncLibTests.app
+        xcrun simctl launch --console E516D6A3-1FF0-4916-A528-03DC9ABFB62F org.synclang
 
 
     # - name: Test
