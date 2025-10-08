@@ -48,6 +48,7 @@ class ProgramError {
         CompileFunctionStatement,
         CompileExpression,
         CompileStatement,
+        CompileSymbol,
     };
 
     ProgramError(Option<SourceFileLocation> inWhere, Kind inKind) noexcept;

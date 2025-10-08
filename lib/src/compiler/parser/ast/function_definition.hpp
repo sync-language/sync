@@ -12,9 +12,13 @@ class Type;
 
 class FunctionDefinitionNode : public IFunctionDefinition {
   public:
+    FunctionDefinitionNode(Allocator inAlloc) : IFunctionDefinition(inAlloc) {}
+
     virtual ~FunctionDefinitionNode() noexcept;
 
     virtual Result<void, ProgramError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept override;
+
+    virtual Result<void, ProgramError> compile() const noexcept { return {}; }
 
     StringSlice functionName{};
     DynArray<StackVariable> args{};

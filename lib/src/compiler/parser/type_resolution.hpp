@@ -3,13 +3,14 @@
 
 #include "../../types/option/option.hpp"
 #include "../../types/result/result.hpp"
+#include "../../types/string/string_slice.hpp"
 
 namespace sy {
 class Type;
 struct ParseInfo;
 
 struct TypeResolutionInfo {
-
+    StringSlice typeString;
     Option<const Type*> knownType;
 
     enum class Err : int {

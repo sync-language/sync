@@ -7,18 +7,19 @@
 #include "../../types/hash/map.hpp"
 #include "../../types/option/option.hpp"
 #include "../../types/result/result.hpp"
-#include "../../types/sync_obj/sync_obj.hpp"
+#include "../../types/string/string_slice.hpp"
 #include "../graph/scope.hpp"
-#include "../source_tree/source_tree.hpp"
 #include "../tokenizer/tokenizer.hpp"
 #include "stack_variables.hpp"
 
 namespace sy {
+struct SourceTreeNode;
+
 struct ParseInfo {
     TokenIter tokenIter;
     Allocator alloc;
     /// Will always be of type `SourceFileKind::SyncSourceFile`
-    const volatile SourceTreeNode* fileSource;
+    const SourceTreeNode* fileSource;
     MapUnmanaged<StringSlice, bool> imports;
 };
 
@@ -27,15 +28,21 @@ class ITypeDefNode;
 class IFunctionStatement;
 
 struct FileAst {
-    Allocator alloc_;
-    DynArrayUnmanaged<IFunctionDefinition*> functions_;
-    DynArrayUnmanaged<ITypeDefNode*> structs_;
-    Scope scope_;
+    Allocator alloc;
+    DynArrayUnmanaged<IFunctionDefinition*> functions;
+    DynArrayUnmanaged<ITypeDefNode*> structs;
+    Scope scope;
     // TODO imports
+
+    FileAst(FileAst&&) = default;
+
+    ~FileAst() noexcept;
 };
 
 Result<Option<IFunctionStatement*>, ProgramError>
-parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables, Scope* currentScope);
+parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables, Scope* currentScope) noexcept;
+
+Result<FileAst, ProgramError> parseFile(Allocator alloc, const SourceTreeNode* fileSource) noexcept;
 
 } // namespace sy
 

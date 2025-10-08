@@ -64,7 +64,7 @@ sy::Result<Tokenizer, sy::ProgramError> Tokenizer::create(Allocator allocator, S
     // The total amount of tokens will always be less than or equal
     // to the number of bytes in the source
     // As a result, we can over-allocate upfront.
-    const size_t capacity = source.len();
+    const size_t capacity = source.len() == 0 ? 1 : source.len();
     size_t totalBigBytes = tokenizerAllocBytes(capacity);
 
     Token* bigTokens;
@@ -82,25 +82,32 @@ sy::Result<Tokenizer, sy::ProgramError> Tokenizer::create(Allocator allocator, S
             reinterpret_cast<uint32_t*>(baseMem + (sizeof(Token) * capacity) + (sizeof(uint32_t) * capacity));
     }
 
-    uint32_t start = 0;
     uint32_t tokenIter = 0;
-    uint32_t lineNumber = 0;
-    bool keepFinding = true;
-    while (keepFinding) {
-        sy_assert(tokenIter < source.len(), "Infinite loop detected");
-
-        auto [token, newStart] = Token::parseToken(source, start, &lineNumber);
-
-        sy_assert(token.tag() != TokenType::Error, "Unexpected token error");
-
-        bigTokens[tokenIter] = token;
-        bigEnds[tokenIter] = newStart;
-        bigLineNumbers[tokenIter] = lineNumber;
+    if (source.len() == 0) {
+        bigTokens[0] = Token(TokenType::EndOfFile, 0);
+        bigEnds[0] = 0;
+        bigLineNumbers[0] = 1;
         tokenIter += 1;
-        start = newStart;
+    } else {
+        uint32_t start = 0;
+        uint32_t lineNumber = 1;
+        bool keepFinding = true;
+        while (keepFinding) {
+            sy_assert(tokenIter < source.len(), "Infinite loop detected");
 
-        if (token.tag() == TokenType::EndOfFile) {
-            keepFinding = false;
+            auto [token, newStart] = Token::parseToken(source, start, &lineNumber);
+
+            sy_assert(token.tag() != TokenType::Error, "Unexpected token error");
+
+            bigTokens[tokenIter] = token;
+            bigEnds[tokenIter] = newStart;
+            bigLineNumbers[tokenIter] = lineNumber;
+            tokenIter += 1;
+            start = newStart;
+
+            if (token.tag() == TokenType::EndOfFile || tokenIter == source.len()) {
+                keepFinding = false;
+            }
         }
     }
 

@@ -180,13 +180,29 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
     }
 
     { // function body
-        if (parseInfo->tokenIter.current().tag() != TokenType::RightBraceSymbol) {
+        auto scopeRes = this->alloc().allocObject<Scope>();
+        if (scopeRes.hasErr()) {
             return Error(ProgramError(SourceFileLocation(source, parseInfo->tokenIter.current().location()),
-                                      ProgramError::Kind::CompileFunctionSignature));
+                                      ProgramError::Kind::OutOfMemory));
+        }
+        this->scope = scopeRes.value();
+        new (this->scope) Scope();
+        this->scope->isInFunction = true;
+        this->scope->isSync = false;
+        this->scope->parent = outerScope;
+
+        auto statementRes = parseStatement(parseInfo, &this->localVariables, this->scope);
+        if (statementRes.hasErr()) {
+            return statementRes.takeErr();
+        }
+        auto statement = statementRes.takeValue();
+        if (statement.hasValue() == false) {
+            if (this->statements.push(statement.value()).hasErr()) {
+                return Error(ProgramError(SourceFileLocation(source, parseInfo->tokenIter.current().location()),
+                                          ProgramError::Kind::OutOfMemory));
+            }
         }
     }
-
-    (void)outerScope;
 
     return {};
 }
