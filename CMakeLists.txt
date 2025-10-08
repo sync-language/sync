@@ -159,7 +159,9 @@ if(JNI_FOUND)
     target_link_libraries(SyncNative SyncLib)
     target_include_directories(SyncNative PRIVATE ${JNI_INCLUDE_DIRS})
     target_link_libraries(SyncNative ${JNI_LIBRARIES})
-    target_compile_definitions(SyncNative PRIVATE SYNC_LIB_WITH_TESTS)
+    if(SYNC_LIB_WITH_TESTS)
+        target_compile_definitions(SyncNative PRIVATE SYNC_LIB_WITH_TESTS)
+    endif()
 endif()
 
 
