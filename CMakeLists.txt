@@ -151,6 +151,17 @@ if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
     # xctest_add_test(XCTest.SyncLibTestsIOS SyncLibTestsIOS)
 endif()
 
+find_package(JNI)
+if(JNI_FOUND)
+    message("Building SyncNative with JNI")
+    
+    add_library(SyncNative SHARED "lib/src/sync_native.cpp" ${SyncLibSources})
+    target_include_directories(SyncNative PRIVATE ${JNI_INCLUDE_DIRS})
+    target_link_libraries(SyncNative ${JNI_LIBRARIES})
+    target_compile_definitions(SyncNative PRIVATE SYNC_LIB_WITH_TESTS)
+endif()
+
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_definitions(SyncLib PRIVATE SYNC_LIB_NO_TESTS)
 endif()
