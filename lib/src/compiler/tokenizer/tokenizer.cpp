@@ -1,4 +1,5 @@
 #include "tokenizer.hpp"
+#include "../../program/program_error.hpp"
 #include "../../threading/alloc_cache_align.hpp"
 #include "../../util/assert.hpp"
 
@@ -210,6 +211,10 @@ sy::StringSlice TokenIter::currentSlice() const noexcept {
 }
 
 StringSlice sy::TokenIter::source() const noexcept { return this->tokenizer_->source(); }
+
+SourceFileLocation sy::TokenIter::sourceFileLocation() const noexcept {
+    return SourceFileLocation(this->source(), this->current().location());
+}
 
 #if SYNC_LIB_WITH_TESTS
 

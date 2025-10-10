@@ -12,6 +12,7 @@
 
 namespace sy {
 class TokenIter;
+struct SourceFileLocation;
 
 class Tokenizer {
   public:
@@ -90,6 +91,8 @@ class TokenIter {
     [[nodiscard]] sy::StringSlice currentSlice() const noexcept;
 
     [[nodiscard]] StringSlice source() const noexcept;
+
+    [[nodiscard]] SourceFileLocation sourceFileLocation() const noexcept;
 
   private:
     const Token* current_ = nullptr;

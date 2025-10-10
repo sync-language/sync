@@ -36,6 +36,7 @@ set(SyncLibSources
     "lib/src/util/simd.cpp"
     "lib/src/mem/allocator.cpp"
     "lib/src/mem/os_mem.cpp"
+    "lib/src/mem/protected_allocator.cpp"
     "lib/src/threading/sync_queue.cpp"
     "lib/src/threading/sync_obj_val.cpp"
     "lib/src/types/type_info.cpp"

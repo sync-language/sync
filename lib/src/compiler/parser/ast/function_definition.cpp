@@ -70,18 +70,14 @@ static Result<DynArray<StackVariable>, ProgramError> parseFunctionArgs(ParseInfo
         { // actually make string from identifier
             auto strResult = String::copyConstructSlice(identifier, parseInfo->alloc);
             if (!strResult) {
-                return Error(ProgramError(
-                    SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
-                    ProgramError::Kind::OutOfMemory));
+                return Error(ProgramError(parseInfo->tokenIter.sourceFileLocation(), ProgramError::Kind::OutOfMemory));
             }
             new (&variable.name) String(strResult.takeValue());
         }
 
         // push into array
         if (args.push(std::move(variable)).hasErr()) {
-            return Error(ProgramError(
-                SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
-                ProgramError::Kind::OutOfMemory));
+            return Error(ProgramError(parseInfo->tokenIter.sourceFileLocation(), ProgramError::Kind::OutOfMemory));
         }
 
         { // move iterator forward to next argument

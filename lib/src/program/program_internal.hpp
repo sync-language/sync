@@ -3,6 +3,7 @@
 #define SY_PROGRAM_PROGRAM_INTERNAL_HPP_
 
 #include "program.hpp"
+#include <mutex>
 
 struct Bytecode;
 
@@ -22,6 +23,11 @@ struct InterpreterFunctionScriptInfo {
     /// Length of `unwindSlots`.
     uint16_t unwindLen;
 };
+
+struct ProgramInternal {
+    std::mutex mutex;
+};
+
 } // namespace sy
 
 #endif // _SY_PROGRAM_PROGRAM_H_

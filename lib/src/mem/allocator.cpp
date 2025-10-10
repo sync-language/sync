@@ -50,9 +50,11 @@ sy::Allocator sy::IAllocator::asAllocator() {
     return a;
 }
 
-void* sy::IAllocator::allocImpl(IAllocator* self, size_t len, size_t align) { return self->alloc(len, align); }
+void* sy::IAllocator::allocImpl(IAllocator* self, size_t len, size_t align) noexcept { return self->alloc(len, align); }
 
-void sy::IAllocator::freeImpl(IAllocator* self, void* buf, size_t len, size_t align) { self->free(buf, len, align); }
+void sy::IAllocator::freeImpl(IAllocator* self, void* buf, size_t len, size_t align) noexcept {
+    self->free(buf, len, align);
+}
 
 sy::Allocator::Allocator() {
     static_assert(offsetof(Allocator, ptr_) == offsetof(SyAllocator, ptr));
@@ -61,17 +63,17 @@ sy::Allocator::Allocator() {
     *this = *reinterpret_cast<Allocator*>(sy_defaultAllocator);
 }
 
-void* sy::Allocator::allocImpl(size_t len, size_t align) {
+void* sy::Allocator::allocImpl(size_t len, size_t align) noexcept {
     return sy_allocator_alloc(reinterpret_cast<SyAllocator*>(this), len, align);
 }
 
-void sy::Allocator::freeImpl(void* buf, size_t len, size_t align) {
+void sy::Allocator::freeImpl(void* buf, size_t len, size_t align) noexcept {
     sy_allocator_free(reinterpret_cast<SyAllocator*>(this), buf, len, align);
 }
 
-void sy::detail::debugAssertNonNull(void* ptr) { sy_assert(ptr != nullptr, "Expected non-null pointer"); }
+void sy::detail::debugAssertNonNull(void* ptr) noexcept { sy_assert(ptr != nullptr, "Expected non-null pointer"); }
 
-void sy::detail::debugAssertHasVal(bool hasVal) {
+void sy::detail::debugAssertHasVal(bool hasVal) noexcept {
     sy_assert(hasVal, "Expected allocator error result object to have a value");
 }
 
@@ -198,12 +200,12 @@ class CustomCppAllocator : public IAllocator {
 
     CustomCppAllocator(int s) : some(s) {}
 
-    void* alloc(size_t len, size_t align) {
+    void* alloc(size_t len, size_t align) noexcept {
         this->ptr = (int*)sy_allocator_alloc(sy_defaultAllocator, len, align);
         return this->ptr;
     }
 
-    void free(void* buf, size_t len, size_t align) {
+    void free(void* buf, size_t len, size_t align) noexcept {
         sy_allocator_free(sy_defaultAllocator, buf, len, align);
         this->freed = true;
     }
