@@ -18,7 +18,7 @@ class FunctionDefinitionNode : public IFunctionDefinition {
 
     virtual Result<void, ProgramError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept override;
 
-    virtual Result<void, ProgramError> compile() const noexcept { return {}; }
+    virtual Result<void, ProgramError> compile() const noexcept override { return {}; }
 
     StringSlice functionName{};
     DynArray<StackVariable> args{};

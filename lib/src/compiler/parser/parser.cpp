@@ -41,7 +41,7 @@ sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables
             delete node;
             return Error(res.takeErr());
         }
-        return node;
+        return Option<IFunctionStatement*>(node);
     } break;
     default:
         return Error(

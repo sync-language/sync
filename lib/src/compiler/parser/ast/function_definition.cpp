@@ -193,7 +193,7 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
 
         auto statementRes = parseStatement(parseInfo, &this->localVariables, this->scope);
         if (statementRes.hasErr()) {
-            return statementRes.takeErr();
+            return Error(statementRes.takeErr());
         }
         auto statement = statementRes.takeValue();
         if (statement.hasValue() == false) {
