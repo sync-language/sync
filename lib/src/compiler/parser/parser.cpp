@@ -137,6 +137,7 @@ TEST_CASE("parseStatement return") {
     CHECK(res.value().hasValue());
     IFunctionStatement* statement = res.value().value();
     CHECK_NE(dynamic_cast<ReturnNode*>(statement), nullptr);
+    delete res.value().value();
 }
 
 TEST_CASE("parseFile empty") {
