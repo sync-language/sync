@@ -6,6 +6,9 @@
 
 namespace sy {
 class ProtectedAllocator : public IAllocator {
+  public:
+    void makeReadOnly() noexcept;
+
   protected:
     virtual void* alloc(size_t len, size_t align) noexcept;
 
@@ -13,6 +16,7 @@ class ProtectedAllocator : public IAllocator {
 
   private:
     std::mutex mutex_{};
+    void* tail_ = nullptr;
 };
 } // namespace sy
 
