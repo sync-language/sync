@@ -116,6 +116,7 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/program/program.cpp",
     "lib/src/program/program_error.cpp",
     "lib/src/testing/child_process.cpp",
+    "lib/src/testing/assert_handler.cpp",
 
     "lib/test/test_runner.cpp",
 };

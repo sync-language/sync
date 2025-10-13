@@ -47,6 +47,7 @@ fn main()
         .file("src/program/program.cpp")
         .file("src/program/program_error.cpp")
         .file("src/testing/child_process.cpp")
+        .file("src/testing/assert_handler.cpp")
         .file("test/test_runner.cpp")
         .compile("SyncLib");
 }
