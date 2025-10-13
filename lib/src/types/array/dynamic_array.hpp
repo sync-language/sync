@@ -34,7 +34,7 @@ class SY_API RawDynArrayUnmanaged SY_CLASS_FINAL {
     RawDynArrayUnmanaged(const RawDynArrayUnmanaged& other) = delete;
 
     [[nodiscard]] static Result<RawDynArrayUnmanaged, AllocErr>
-    copyConstruct(const RawDynArrayUnmanaged& other, Allocator& alloc,
+    copyConstruct(const RawDynArrayUnmanaged& other, Allocator alloc,
                   void (*copyConstructFn)(void* dst, const void* src), size_t size, size_t align) noexcept;
 
     // TODO script types copy
@@ -144,7 +144,7 @@ template <typename T> class SY_API DynArrayUnmanaged final {
     DynArrayUnmanaged(const DynArrayUnmanaged& other) = delete;
 
     [[nodiscard]] static Result<DynArrayUnmanaged, AllocErr> copyConstruct(const DynArrayUnmanaged& other,
-                                                                           Allocator& alloc) noexcept;
+                                                                           Allocator alloc) noexcept;
 
     DynArrayUnmanaged& operator=(const DynArrayUnmanaged& other) = delete;
 
@@ -222,6 +222,8 @@ template <typename T> class SY_API DynArray final {
 
     [[nodiscard]] T* data() { return reinterpret_cast<T*>(this->inner_.data()); }
 
+    [[nodiscard]] Allocator alloc() const { return this->alloc_; }
+
     Result<void, AllocErr> push(T&& element) noexcept;
 
     Result<void, AllocErr> push(const T& element) noexcept;
@@ -257,7 +259,7 @@ inline void DynArrayUnmanaged<T>::moveAssign(DynArrayUnmanaged&& other, Allocato
 
 template <typename T>
 inline Result<DynArrayUnmanaged<T>, AllocErr> DynArrayUnmanaged<T>::copyConstruct(const DynArrayUnmanaged& other,
-                                                                                  Allocator& alloc) noexcept {
+                                                                                  Allocator alloc) noexcept {
     auto result = RawDynArrayUnmanaged::copyConstruct(other.inner_, alloc, detail::makeCopyConstructor<T>(), sizeof(T),
                                                       alignof(T));
     if (result.hasErr())
@@ -361,7 +363,7 @@ template <typename T> inline DynArray<T>::DynArray(const DynArray& other) noexce
 }
 
 template <typename T> inline Result<DynArray<T>, AllocErr> DynArray<T>::copyConstruct(const DynArray& other) {
-    auto result = DynArrayUnmanaged<T>::copyConstruct(other, other.alloc_);
+    auto result = DynArrayUnmanaged<T>::copyConstruct(other.inner_, other.alloc_);
     if (result.hasErr()) {
         return Error(AllocErr::OutOfMemory);
     }

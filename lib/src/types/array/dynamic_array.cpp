@@ -147,7 +147,7 @@ void sy::RawDynArrayUnmanaged::moveAssign(RawDynArrayUnmanaged&& other, void (*d
 }
 
 sy::Result<sy::RawDynArrayUnmanaged, sy::AllocErr>
-sy::RawDynArrayUnmanaged::copyConstruct(const RawDynArrayUnmanaged& other, Allocator& alloc,
+sy::RawDynArrayUnmanaged::copyConstruct(const RawDynArrayUnmanaged& other, Allocator alloc,
                                         void (*copyConstructFn)(void* dst, const void* src), size_t size,
                                         size_t align) noexcept {
     RawDynArrayUnmanaged self;
@@ -415,13 +415,13 @@ void sy::RawDynArrayUnmanaged::removeAt(size_t index, void (*destruct)(void* ptr
     const size_t removedElementOffset = index * size;
     destruct(&selfAsBytes[removedElementOffset]);
 
-    for (size_t i = (index + 1); i < this->len_; i++) {
-        const size_t srcByteOffset = i * size;
-        const size_t dstByteOffset = (i + 1) * size;
+    this->len_ -= 1;
+
+    for (size_t i = index; i < this->len_; i++) {
+        const size_t srcByteOffset = (i + 1) * size;
+        const size_t dstByteOffset = i * size;
         memcpy(&selfAsBytes[dstByteOffset], &selfAsBytes[srcByteOffset], size);
     }
-
-    this->len_ -= 1;
 }
 
 void sy::RawDynArrayUnmanaged::removeAtCustomMove(size_t index, void (*destruct)(void* ptr), size_t size,
@@ -434,13 +434,13 @@ void sy::RawDynArrayUnmanaged::removeAtCustomMove(size_t index, void (*destruct)
     const size_t removedElementOffset = index * size;
     destruct(&selfAsBytes[removedElementOffset]);
 
-    for (size_t i = (index + 1); i < this->len_; i++) {
-        const size_t srcByteOffset = i * size;
-        const size_t dstByteOffset = (i + 1) * size;
+    this->len_ -= 1;
+
+    for (size_t i = index; i < this->len_; i++) {
+        const size_t srcByteOffset = (i + 1) * size;
+        const size_t dstByteOffset = i * size;
         moveConstructFn(&selfAsBytes[dstByteOffset], &selfAsBytes[srcByteOffset]);
     }
-
-    this->len_ -= 1;
 }
 
 void sy::RawDynArrayUnmanaged::removeAtScript(size_t index, const Type* typeInfo) noexcept {
@@ -452,13 +452,13 @@ void sy::RawDynArrayUnmanaged::removeAtScript(size_t index, const Type* typeInfo
     const size_t removedElementOffset = index * typeInfo->sizeType;
     typeInfo->destroyObject(&selfAsBytes[removedElementOffset]);
 
+    this->len_ -= 1;
+
     for (size_t i = (index + 1); i < this->len_; i++) {
-        const size_t srcByteOffset = i * typeInfo->sizeType;
-        const size_t dstByteOffset = (i + 1) * typeInfo->sizeType;
+        const size_t srcByteOffset = (i + 1) * typeInfo->sizeType;
+        const size_t dstByteOffset = i * typeInfo->sizeType;
         memcpy(&selfAsBytes[dstByteOffset], &selfAsBytes[srcByteOffset], typeInfo->sizeType);
     }
-
-    this->len_ -= 1;
 }
 
 sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reserve(Allocator& alloc, size_t minCapacity, size_t size,

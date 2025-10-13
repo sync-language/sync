@@ -58,7 +58,9 @@ Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option
 }
 
 SourceTree::~SourceTree() noexcept {
-    this->rootNode->~SourceTreeNode();
+    if (this->rootNode) {
+        this->rootNode->~SourceTreeNode();
+    }
     this->alloc.freeObject(this->rootNode);
     // this->allNodes.destroy(this->alloc);
 }

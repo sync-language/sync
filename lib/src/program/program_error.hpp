@@ -49,6 +49,8 @@ class ProgramError {
         CompileExpression,
         CompileStatement,
         CompileSymbol,
+        CompileCircularModuleDependency,
+        CompileModuleDependencyGraph,
     };
 
     ProgramError(Option<SourceFileLocation> inWhere, Kind inKind) noexcept;
