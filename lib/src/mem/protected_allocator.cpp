@@ -10,7 +10,10 @@ using namespace sy;
 #if defined(__EMSCRIPTEN__)
 
 // No-op
-static void makeMemoryReadOnly(void* baseAddress, size_t size) {}
+static void makeMemoryReadOnly(void* baseAddress, size_t size) {
+    (void)baseAddress;
+    (void)size;
+}
 
 #elif defined(_MSC_VER) || defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
