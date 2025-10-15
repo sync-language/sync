@@ -5,9 +5,11 @@ static_assert(sizeof(sy::Option<void*>) == sizeof(void*), "Optional pointer is s
 static_assert(sizeof(sy::Option<int*>) == sizeof(int*), "Optional pointer is same size as pointer always");
 static_assert(sizeof(sy::Option<sy::Option<int>*>) == sizeof(void*), "Optional pointer is same size as pointer always");
 
-void sy::detail::debugAssertPtrNotNull(const void* ptr, const char* errMsg) { sy_assert(ptr != nullptr, errMsg); }
+void SY_API sy::detail::debugAssertPtrNotNull(const void* ptr, const char* errMsg) {
+    sy_assert(ptr != nullptr, errMsg);
+}
 
-void sy::detail::debugAssertOptionHasValue(bool hasVal, const char* errMsg) { sy_assert(hasVal, errMsg); }
+void SY_API sy::detail::debugAssertOptionHasValue(bool hasVal, const char* errMsg) { sy_assert(hasVal, errMsg); }
 
 #if SYNC_LIB_WITH_TESTS
 
@@ -104,7 +106,8 @@ struct ComplexType {
     }
 
     ~ComplexType() {
-        if(ptr == nullptr) return;
+        if (ptr == nullptr)
+            return;
         delete ptr;
         ptr = nullptr;
         aliveCount -= 1;

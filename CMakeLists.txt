@@ -230,6 +230,10 @@ endif()
 #     endif()
 # endif()
 
+if(MSVC)
+    target_compile_definitions(SyncLib PRIVATE SYNC_EXPORT_DLL)
+    target_compile_definitions(SyncLib INTERFACE SYNC_IMPORT_DLL)
+endif()
 set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 
 install(TARGETS SyncLib DESTINATION .)

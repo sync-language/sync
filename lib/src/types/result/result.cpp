@@ -1,16 +1,16 @@
 #include "result.hpp"
 #include "../../util/assert.hpp"
 
-void sy::detail::debugAssertResultIsOk(bool isOk, const char* errMsg) { sy_assert(isOk, errMsg); }
+void SY_API sy::detail::debugAssertResultIsOk(bool isOk, const char* errMsg) { sy_assert(isOk, errMsg); }
 
-void sy::detail::debugAssertResultIsErr(bool isErr, const char* errMsg) { sy_assert(isErr, errMsg); }
+void SY_API sy::detail::debugAssertResultIsErr(bool isErr, const char* errMsg) { sy_assert(isErr, errMsg); }
 
 #if SYNC_LIB_WITH_TESTS
 
 #include "../../doctest.h"
 
-using sy::Result;
 using sy::Error;
+using sy::Result;
 
 TEST_CASE("Result<void, E> default is ok") {
     Result<void, int> res;
@@ -57,7 +57,8 @@ struct ComplexType {
     }
 
     ~ComplexType() {
-        if(ptr == nullptr) return;
+        if (ptr == nullptr)
+            return;
         delete ptr;
         ptr = nullptr;
         aliveCount -= 1;
@@ -82,7 +83,7 @@ TEST_CASE("Result ok does not leak") {
 TEST_CASE("Result error does not leak") {
     {
         CHECK_EQ(ComplexType::aliveCount, 0);
-        Error<ComplexType> err = ComplexType(2); 
+        Error<ComplexType> err = ComplexType(2);
         CHECK_EQ(ComplexType::aliveCount, 1); // did construct
         Result<ComplexType, ComplexType> res = std::move(err);
         CHECK_EQ(ComplexType::aliveCount, 1); // moved successfully
@@ -94,7 +95,7 @@ TEST_CASE("Result error does not leak") {
 TEST_CASE("Result<void, E> error does not leak") {
     {
         CHECK_EQ(ComplexType::aliveCount, 0);
-        Error<ComplexType> err = ComplexType(2); 
+        Error<ComplexType> err = ComplexType(2);
         CHECK_EQ(ComplexType::aliveCount, 1); // did construct
         Result<void, ComplexType> res = std::move(err);
         CHECK_EQ(ComplexType::aliveCount, 1); // moved successfully

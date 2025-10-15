@@ -10,7 +10,13 @@
 #if defined(__GNUC__) || defined(__clang__)
 #define SY_API __attribute__((visibility("default")))
 #elif defined(_MSC_VER)
+#if SYNC_EXPORT_DLL
 #define SY_API __declspec(dllexport)
+#elif SYNC_IMPORT_DLL
+#define SY_API __declspec(dllimport)
+#else
+#define SY_API
+#endif // SYNC_IN_DLL
 #else
 #define SY_API
 #endif

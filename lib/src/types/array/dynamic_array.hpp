@@ -127,7 +127,7 @@ class SY_API RawDynArrayUnmanaged SY_CLASS_FINAL {
     void* alloc_ = nullptr;
 };
 
-template <typename T> class SY_API DynArrayUnmanaged final {
+template <typename T> class DynArrayUnmanaged final {
   public:
     DynArrayUnmanaged() = default;
 
@@ -188,7 +188,7 @@ template <typename T> class SY_API DynArrayUnmanaged final {
 };
 
 /// Dynamically resizable array. Grows to fit elements you push into it.
-template <typename T> class SY_API DynArray final {
+template <typename T> class DynArray final {
   public:
     DynArray() = default;
 

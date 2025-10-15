@@ -190,7 +190,7 @@ class SY_API RawMapUnmanaged final {
     void* iterLast_ = nullptr;
 };
 
-template <typename K, typename V> class SY_API MapUnmanaged final {
+template <typename K, typename V> class MapUnmanaged final {
 
   public:
     MapUnmanaged() = default;

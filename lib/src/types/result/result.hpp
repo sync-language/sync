@@ -15,12 +15,12 @@
 
 namespace sy {
 namespace detail {
-void debugAssertResultIsOk(bool isOk, const char* errMsg);
-void debugAssertResultIsErr(bool isErr, const char* errMsg);
+void SY_API debugAssertResultIsOk(bool isOk, const char* errMsg);
+void SY_API debugAssertResultIsErr(bool isErr, const char* errMsg);
 } // namespace detail
-template <typename T, typename E, typename Enable = void> class SY_API Result final {};
+template <typename T, typename E, typename Enable = void> class Result final {};
 
-template <typename E> class SY_API Error final {
+template <typename E> class Error final {
     static_assert(!std::is_same_v<E, void>, "Error type <E> may not be void");
     E err_;
 
@@ -30,7 +30,7 @@ template <typename E> class SY_API Error final {
     E&& take() && { return std::move(err_); }
 };
 
-template <typename T, typename E> class SY_API Result<T, E, std::enable_if_t<std::is_same_v<T, void>>> final {
+template <typename T, typename E> class Result<T, E, std::enable_if_t<std::is_same_v<T, void>>> final {
     static_assert(!std::is_same_v<E, void>, "Result Error type <E> may not be void");
 
   public:
@@ -114,7 +114,7 @@ template <typename T, typename E> class SY_API Result<T, E, std::enable_if_t<std
     Val val_;
 };
 
-template <typename T, typename E> class SY_API Result<T, E, std::enable_if_t<!std::is_same_v<T, void>>> final {
+template <typename T, typename E> class Result<T, E, std::enable_if_t<!std::is_same_v<T, void>>> final {
     static_assert(!std::is_same_v<E, void>, "Result Error type <E> may not be void");
 
   public:
@@ -201,7 +201,7 @@ template <typename T, typename E> class SY_API Result<T, E, std::enable_if_t<!st
     }
 
   private:
-    union SY_API Val {
+    union Val {
         T ok;
         E err;
         Val() noexcept {}

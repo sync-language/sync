@@ -16,8 +16,8 @@
 
 namespace sy {
 namespace detail {
-void debugAssertPtrNotNull(const void* ptr, const char* errMsg);
-void debugAssertOptionHasValue(bool hasVal, const char* errMsg);
+void SY_API debugAssertPtrNotNull(const void* ptr, const char* errMsg);
+void SY_API debugAssertOptionHasValue(bool hasVal, const char* errMsg);
 } // namespace detail
 
 template <typename T, typename Enable = void> class SY_API Option final {};
