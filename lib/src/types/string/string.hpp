@@ -27,7 +27,7 @@ class StringUtils {
 
 /// Dynamic, [Small String Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/)
 /// utf8 string class. It supports using a custom allocator.
-class SY_API StringUnmanaged SY_CLASS_FINAL {
+class SY_API StringUnmanaged final {
   public:
     StringUnmanaged() = default;
 
@@ -77,9 +77,8 @@ class SY_API StringUnmanaged SY_CLASS_FINAL {
 
     [[nodiscard]] Result<void, AllocErr> append(StringSlice slice, Allocator alloc) noexcept;
 
-    SY_CLASS_TEST_PRIVATE :
-
-        friend class detail::StringUtils;
+  private:
+    friend class detail::StringUtils;
 
     bool isSso() const;
 

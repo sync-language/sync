@@ -12,7 +12,7 @@ namespace sy {
 class Type;
 }
 
-class Node SY_CLASS_FINAL {
+class Node final {
   public:
     class TypeOfValue {
       public:
@@ -152,9 +152,8 @@ class Node SY_CLASS_FINAL {
     /// Alignments greater than page alignment makes no sense.
     static constexpr size_t MIN_VALUES_ALIGNMENT = 128 * alignof(uint64_t);
 
-    SY_CLASS_TEST_PRIVATE :
-
-        Node() = default;
+  private:
+    Node() = default;
 
     void ensureOffsetWithinFrameBounds(const uint16_t offset) const;
 };

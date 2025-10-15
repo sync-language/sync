@@ -500,6 +500,110 @@ sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reserve(Allocator& allo
     return {};
 }
 
+bool sy::RawDynArrayUnmanaged::Iterator::operator!=(const Iterator& other) noexcept {
+    return this->current != other.current;
+}
+
+void* sy::RawDynArrayUnmanaged::Iterator::operator*() const noexcept { return current; }
+
+sy::RawDynArrayUnmanaged::Iterator& sy::RawDynArrayUnmanaged::Iterator::operator++() noexcept {
+    uint8_t* ptr = reinterpret_cast<uint8_t*>(this->current);
+    this->current = ptr - this->size;
+    return *this;
+}
+
+sy::RawDynArrayUnmanaged::Iterator sy::RawDynArrayUnmanaged::begin(size_t size) noexcept {
+    return Iterator{this->data_, size};
+}
+
+sy::RawDynArrayUnmanaged::Iterator sy::RawDynArrayUnmanaged::end(size_t size) noexcept {
+    uint8_t* ptr = reinterpret_cast<uint8_t*>(this->data_);
+    void* endPtr = ptr + (size * this->len_);
+    return Iterator{endPtr, size};
+}
+
+bool sy::RawDynArrayUnmanaged::ConstIterator::operator!=(const ConstIterator& other) noexcept {
+    return this->current != other.current;
+}
+
+const void* sy::RawDynArrayUnmanaged::ConstIterator::operator*() const noexcept { return current; }
+
+sy::RawDynArrayUnmanaged::ConstIterator& sy::RawDynArrayUnmanaged::ConstIterator::operator++() noexcept {
+    const uint8_t* ptr = reinterpret_cast<const uint8_t*>(this->current);
+    this->current = ptr - this->size;
+    return *this;
+}
+
+sy::RawDynArrayUnmanaged::ConstIterator sy::RawDynArrayUnmanaged::begin(size_t size) const noexcept {
+    return ConstIterator{this->data_, size};
+}
+
+sy::RawDynArrayUnmanaged::ConstIterator sy::RawDynArrayUnmanaged::end(size_t size) const noexcept {
+    const uint8_t* ptr = reinterpret_cast<const uint8_t*>(this->data_);
+    const void* endPtr = ptr + (size * this->len_);
+    return ConstIterator{endPtr, size};
+}
+
+bool sy::RawDynArrayUnmanaged::ReverseIterator::operator!=(const ReverseIterator& other) noexcept {
+    return this->current != other.current;
+}
+
+void* sy::RawDynArrayUnmanaged::ReverseIterator::operator*() const noexcept { return current; }
+
+sy::RawDynArrayUnmanaged::ReverseIterator& sy::RawDynArrayUnmanaged::ReverseIterator::operator++() noexcept {
+    uint8_t* ptr = reinterpret_cast<uint8_t*>(this->current);
+    this->current = ptr - this->size;
+    return *this;
+}
+
+sy::RawDynArrayUnmanaged::ReverseIterator sy::RawDynArrayUnmanaged::rbegin(size_t size) noexcept {
+    if (this->data_ == nullptr) {
+        return ReverseIterator{nullptr, size};
+    }
+    uint8_t* ptr = reinterpret_cast<uint8_t*>(this->data_);
+    void* startPtr = ptr + (size * (this->len_ - 1));
+    return ReverseIterator{startPtr, size};
+}
+
+sy::RawDynArrayUnmanaged::ReverseIterator sy::RawDynArrayUnmanaged::rend(size_t size) noexcept {
+    if (this->data_ == nullptr) {
+        return ReverseIterator{nullptr, size};
+    }
+    uint8_t* ptr = reinterpret_cast<uint8_t*>(this->data_);
+    void* endPtr = ptr - size;
+    return ReverseIterator{endPtr, size};
+}
+
+bool sy::RawDynArrayUnmanaged::ReverseConstIterator::operator!=(const ReverseConstIterator& other) noexcept {
+    return this->current != other.current;
+}
+
+const void* sy::RawDynArrayUnmanaged::ReverseConstIterator::operator*() const noexcept { return current; }
+
+sy::RawDynArrayUnmanaged::ReverseConstIterator& sy::RawDynArrayUnmanaged::ReverseConstIterator::operator++() noexcept {
+    const uint8_t* ptr = reinterpret_cast<const uint8_t*>(this->current);
+    this->current = ptr - this->size;
+    return *this;
+}
+
+sy::RawDynArrayUnmanaged::ReverseConstIterator sy::RawDynArrayUnmanaged::rbegin(size_t size) const noexcept {
+    if (this->data_ == nullptr) {
+        return ReverseConstIterator{nullptr, size};
+    }
+    const uint8_t* ptr = reinterpret_cast<const uint8_t*>(this->data_);
+    const void* startPtr = ptr + (size * (this->len_ - 1));
+    return ReverseConstIterator{startPtr, size};
+}
+
+sy::RawDynArrayUnmanaged::ReverseConstIterator sy::RawDynArrayUnmanaged::rend(size_t size) const noexcept {
+    if (this->data_ == nullptr) {
+        return ReverseConstIterator{nullptr, size};
+    }
+    const uint8_t* ptr = reinterpret_cast<const uint8_t*>(this->data_);
+    const void* endPtr = ptr - size;
+    return ReverseConstIterator{endPtr, size};
+}
+
 sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reallocateBack(Allocator& alloc, const size_t size,
                                                                         const size_t align) noexcept {
     const size_t newCapacity = capacityIncrease(this->capacity_);

@@ -4,6 +4,7 @@
 #include "../types/hash/map.hpp"
 #include "../types/string/string.hpp"
 #include "../util/assert.hpp"
+#include "graph/module_dependency_graph.hpp"
 #include "source_tree/source_tree.hpp"
 #include <cstring>
 #include <filesystem>
@@ -208,25 +209,32 @@ Result<DynArray<const Module*>, AllocErr> sy::Compiler::allModules() const noexc
     return modules;
 }
 
+static Result<ModuleDependencyGraph, ProgramError>
+getCompileOrder(Allocator alloc, const MapUnmanaged<ModuleVersion, Module*>& modules) noexcept {
+    DynArray<const Module*> allModules{alloc};
+    for (const auto entry : modules) {
+        if (allModules.push(entry.value).hasErr()) {
+            return Error(ProgramError({}, ProgramError::Kind::OutOfMemory));
+        }
+    }
+    auto res = ModuleDependencyGraph::init(std::move(allModules));
+    if (res.hasErr()) {
+        return Error(res.takeErr());
+    }
+    return res.takeValue();
+}
+
 static Result<void, ProgramError> compileModules(Allocator alloc,
                                                  const MapUnmanaged<ModuleVersion, Module*>& modules) noexcept {
-    (void)alloc;
-
     MapUnmanaged<const Module*, bool> resolved{};
-    auto allResolved = [&resolved]() -> bool {
-        for (auto entry : resolved) {
-            if (entry.value == false)
-                return false;
-        }
-        return true;
-    };
-
-    while (!allResolved()) {
-        // TODO optimize probably
-        for (auto moduleEntry : modules) {
-            if (auto found = resolved.find(moduleEntry.value); found.hasValue())
-                continue;
-        }
+    auto _compileOrderRes = getCompileOrder(alloc, modules);
+    if (_compileOrderRes.hasErr()) {
+        return Error(_compileOrderRes.takeErr());
+    }
+    ModuleDependencyGraph compileOrder = _compileOrderRes.takeValue();
+    for (const Module* mod : compileOrder) {
+        // compile module
+        (void)mod;
     }
 
     return {};
@@ -234,7 +242,7 @@ static Result<void, ProgramError> compileModules(Allocator alloc,
 
 Result<Program, ProgramError> sy::Compiler::compile() const noexcept {
     const CompilerImpl* self = reinterpret_cast<const CompilerImpl*>(this->inner_);
-    compileModules(self->alloc, self->modules);
+    (void)compileModules(self->alloc, self->modules);
     return Error(ProgramError({}, ProgramError::Kind::Unknown));
 }
 

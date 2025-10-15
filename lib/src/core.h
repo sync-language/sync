@@ -74,14 +74,6 @@ using std::uint8_t;
 // On top of that, we use SY_CLASS_TEST_PRIVATE for anything that should be
 // private to the class, but must be protected for testing purposes.
 
-#if SYNC_LIB_WITH_TESTS
-#define SY_CLASS_FINAL
-#define SY_CLASS_TEST_PRIVATE protected
-#else
-#define SY_CLASS_FINAL final
-#define SY_CLASS_TEST_PRIVATE private
-#endif
-
 #if defined(__ANDROID__)
 #define SYNC_BACKTRACE_SUPPORTED 0
 #else

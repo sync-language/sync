@@ -1,5 +1,6 @@
 #include "module_dependency_graph.hpp"
 #include "../../types/hash/map.hpp"
+#include "../../util/assert.hpp"
 #include "../compiler.hpp"
 #include <iostream>
 
@@ -9,6 +10,8 @@ using namespace sy;
 Circular dependency
 
 If module A depends on B and B depends on A, this is an error
+
+TODO prevent circular dependencies
 */
 
 static Result<DynArray<const Module*>, ProgramError> makeFirstLayer(DynArray<const Module*>* modules) {
@@ -32,6 +35,34 @@ static Result<DynArray<const Module*>, ProgramError> makeFirstLayer(DynArray<con
     return nodes;
 }
 
+static bool isModuleInLayers(const DynArray<DynArray<const Module*>>& layers, const Module* mod) noexcept {
+    for (const auto& layer : layers) {
+        for (const auto& layerEntry : layer) {
+            if (layerEntry == mod) {
+                return true;
+            }
+#ifndef NDEBUG
+            const bool sameName = layerEntry->name() == mod->name();
+            const bool sameVersion = layerEntry->version() == mod->version();
+            if (sameName && sameVersion) {
+                sy_assert(false, "Same module but different addresses");
+            }
+#endif
+        }
+    }
+    return false;
+}
+
+static bool allDependenciesInLayers(const DynArray<DynArray<const Module*>>& layers, const Module* mod) noexcept {
+    for (const auto dependencyEntry : mod->dependencies()) {
+        const Module* dependency = dependencyEntry.value;
+        if (isModuleInLayers(layers, dependency) == false) {
+            return false;
+        }
+    }
+    return true;
+}
+
 Result<ModuleDependencyGraph, ProgramError> sy::ModuleDependencyGraph::init(DynArray<const Module*> modules) noexcept {
     ModuleDependencyGraph self{};
 
@@ -46,9 +77,54 @@ Result<ModuleDependencyGraph, ProgramError> sy::ModuleDependencyGraph::init(DynA
     }
 
     while (modules.len() > 0) {
+        DynArray<const Module*> newLayers(modules.alloc());
+        size_t i = 0;
+        while (i < modules.len()) {
+            const Module* mod = modules[i];
+            if (allDependenciesInLayers(self.layers, mod)) {
+                if (newLayers.push(mod).hasErr()) {
+                    return Error(ProgramError({}, ProgramError::Kind::OutOfMemory));
+                }
+                modules.removeAt(i);
+            } else {
+                i++;
+            }
+        }
+        if (newLayers.len() == 0)
+            return Error(ProgramError({}, ProgramError::Kind::CompileModuleDependencyGraph));
+
+        if (self.layers.push(std::move(newLayers)).hasErr())
+            return Error(ProgramError({}, ProgramError::Kind::OutOfMemory));
     }
 
     return self;
+}
+
+bool sy::ModuleDependencyGraph::Iterator::operator!=(const Iterator& other) noexcept {
+    return (this->layer != other.layer) || (this->index != other.index);
+}
+
+const Module* sy::ModuleDependencyGraph::Iterator::operator*() const noexcept {
+    return (*this->refLayers)[this->layer][this->index];
+}
+
+sy::ModuleDependencyGraph::Iterator& sy::ModuleDependencyGraph::Iterator::operator++() noexcept {
+    auto& currLayer = (*this->refLayers)[this->layer];
+    if ((this->index + 1) >= currLayer.len()) {
+        this->layer += 1;
+        this->index = 0;
+    } else {
+        this->index += 1;
+    }
+    return *this;
+}
+
+sy::ModuleDependencyGraph::Iterator sy::ModuleDependencyGraph::begin() const noexcept {
+    return Iterator{&this->layers, 0, 0};
+}
+
+sy::ModuleDependencyGraph::Iterator sy::ModuleDependencyGraph::end() const noexcept {
+    return Iterator{&this->layers, this->layers.len(), 0};
 }
 
 #if SYNC_LIB_WITH_TESTS

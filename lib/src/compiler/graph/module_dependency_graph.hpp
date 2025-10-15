@@ -19,6 +19,24 @@ struct ModuleDependencyGraph {
     // };
 
     DynArray<DynArray<const Module*>> layers;
+
+    struct Iterator {
+        const DynArray<DynArray<const Module*>>* refLayers;
+        size_t layer;
+        size_t index;
+
+        bool operator!=(const Iterator& other) noexcept;
+        const Module* operator*() const noexcept;
+        Iterator& operator++() noexcept;
+        Iterator& operator++(int) noexcept {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    Iterator begin() const noexcept;
+
+    Iterator end() const noexcept;
 };
 } // namespace sy
 

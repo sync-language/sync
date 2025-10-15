@@ -14,7 +14,7 @@ void SY_API dynArrayDebugAssertNoErr(bool hasErr);
 
 class Type;
 
-class SY_API RawDynArrayUnmanaged SY_CLASS_FINAL {
+class SY_API RawDynArrayUnmanaged final {
   public:
     RawDynArrayUnmanaged() = default;
 
@@ -103,6 +103,78 @@ class SY_API RawDynArrayUnmanaged SY_CLASS_FINAL {
     [[nodiscard]] Result<void, AllocErr> reserve(Allocator& alloc, size_t minCapacity, size_t size,
                                                  size_t align) noexcept;
 
+    class SY_API Iterator final {
+      public:
+        void* current;
+        size_t size;
+
+        bool operator!=(const Iterator& other) noexcept;
+        void* operator*() const noexcept;
+        Iterator& operator++() noexcept;
+        Iterator& operator++(int) noexcept {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    Iterator begin(size_t size) noexcept;
+
+    Iterator end(size_t size) noexcept;
+
+    class SY_API ConstIterator final {
+      public:
+        const void* current;
+        size_t size;
+
+        bool operator!=(const ConstIterator& other) noexcept;
+        const void* operator*() const noexcept;
+        ConstIterator& operator++() noexcept;
+        ConstIterator& operator++(int) noexcept {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    ConstIterator begin(size_t size) const noexcept;
+
+    ConstIterator end(size_t size) const noexcept;
+
+    class SY_API ReverseIterator final {
+      public:
+        void* current;
+        size_t size;
+
+        bool operator!=(const ReverseIterator& other) noexcept;
+        void* operator*() const noexcept;
+        ReverseIterator& operator++() noexcept;
+        ReverseIterator& operator++(int) noexcept {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    ReverseIterator rbegin(size_t size) noexcept;
+
+    ReverseIterator rend(size_t size) noexcept;
+
+    class SY_API ReverseConstIterator final {
+      public:
+        const void* current;
+        size_t size;
+
+        bool operator!=(const ReverseConstIterator& other) noexcept;
+        const void* operator*() const noexcept;
+        ReverseConstIterator& operator++() noexcept;
+        ReverseConstIterator& operator++(int) noexcept {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    ReverseConstIterator rbegin(size_t size) const noexcept;
+
+    ReverseConstIterator rend(size_t size) const noexcept;
+
   private:
     [[nodiscard]] Result<void, AllocErr> reallocateBack(Allocator& alloc, const size_t size,
                                                         const size_t align) noexcept;
@@ -180,6 +252,94 @@ template <typename T> class DynArrayUnmanaged final {
 
     [[nodiscard]] Result<void, AllocErr> reserve(Allocator& alloc, size_t minCapacity) noexcept;
 
+    class Iterator final {
+        friend class DynArrayUnmanaged;
+        RawDynArrayUnmanaged::Iterator iter;
+        Iterator(RawDynArrayUnmanaged::Iterator in) : iter(in) {}
+
+      public:
+        bool operator!=(const Iterator& other) noexcept { return this->iter != other.iter; }
+        T& operator*() const noexcept { return *reinterpret_cast<T*>(*iter); }
+        Iterator& operator++() noexcept {
+            ++(this->iter);
+            return *this;
+        }
+        Iterator& operator++(int) noexcept {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    Iterator begin() noexcept { return Iterator{this->inner_.begin(sizeof(T))}; }
+
+    Iterator end() noexcept { return Iterator{this->inner_.end(sizeof(T))}; }
+
+    class ConstIterator final {
+        friend class DynArrayUnmanaged;
+        RawDynArrayUnmanaged::ConstIterator iter;
+        ConstIterator(RawDynArrayUnmanaged::ConstIterator in) : iter(in) {}
+
+      public:
+        bool operator!=(const ConstIterator& other) noexcept { return this->iter != other.iter; }
+        const T& operator*() const noexcept { return *reinterpret_cast<const T*>(*iter); }
+        ConstIterator& operator++() noexcept {
+            ++(this->iter);
+            return *this;
+        }
+        ConstIterator& operator++(int) noexcept {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    ConstIterator begin() const noexcept { return ConstIterator{this->inner_.begin(sizeof(T))}; }
+
+    ConstIterator end() const noexcept { return ConstIterator{this->inner_.end(sizeof(T))}; }
+
+    class ReverseIterator final {
+        friend class DynArrayUnmanaged;
+        RawDynArrayUnmanaged::ReverseIterator iter;
+        ReverseIterator(RawDynArrayUnmanaged::ReverseIterator in) : iter(in) {}
+
+      public:
+        bool operator!=(const ReverseIterator& other) noexcept { return this->iter != other.iter; }
+        T& operator*() const noexcept { return *reinterpret_cast<T*>(*iter); }
+        ReverseIterator& operator++() noexcept {
+            ++(this->iter);
+            return *this;
+        }
+        ReverseIterator& operator++(int) noexcept {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    ReverseIterator rbegin() noexcept { return Iterator{this->inner_.rbegin(sizeof(T))}; }
+
+    ReverseIterator rend() noexcept { return Iterator{this->inner_.rend(sizeof(T))}; }
+
+    class ReverseConstIterator final {
+        friend class DynArrayUnmanaged;
+        RawDynArrayUnmanaged::ReverseConstIterator iter;
+        ReverseConstIterator(RawDynArrayUnmanaged::ReverseConstIterator in) : iter(in) {}
+
+      public:
+        bool operator!=(const ReverseConstIterator& other) noexcept { return this->iter != other.iter; }
+        const T& operator*() const noexcept { return *reinterpret_cast<const T*>(*iter); }
+        ReverseConstIterator& operator++() noexcept {
+            ++(this->iter);
+            return *this;
+        }
+        ReverseConstIterator& operator++(int) noexcept {
+            ++(*this);
+            return *this;
+        };
+    };
+
+    ReverseConstIterator rbegin() const noexcept { return ReverseConstIterator{this->inner_.rbegin(sizeof(T))}; }
+
+    ReverseConstIterator rend() const noexcept { return ReverseConstIterator{this->inner_.rend(sizeof(T))}; }
+
   private:
     constexpr static detail::DestructFn elementDestruct = detail::makeDestructor<T>();
 
@@ -239,6 +399,22 @@ template <typename T> class DynArray final {
     void removeAt(size_t index) noexcept { this->inner_.removeAt(index); }
 
     Result<void, AllocErr> reserve(size_t minCapacity) noexcept;
+
+    using Iterator = typename DynArrayUnmanaged<T>::Iterator;
+    Iterator begin() noexcept { return this->inner_.begin(); }
+    Iterator end() noexcept { return this->inner_.end(); }
+
+    using ConstIterator = typename DynArrayUnmanaged<T>::ConstIterator;
+    ConstIterator begin() const noexcept { return this->inner_.begin(); }
+    ConstIterator end() const noexcept { return this->inner_.end(); }
+
+    using ReverseIterator = typename DynArrayUnmanaged<T>::ReverseIterator;
+    ReverseIterator rbegin() noexcept { return this->inner_.rbegin(); }
+    ReverseIterator rend() noexcept { return this->inner_.rend(); }
+
+    using ReverseConstIterator = typename DynArrayUnmanaged<T>::ReverseConstIterator;
+    ReverseConstIterator rbegin() const noexcept { return this->inner_.rbegin(); }
+    ReverseConstIterator rend() const noexcept { return this->inner_.rend(); }
 
   private:
     DynArray(DynArrayUnmanaged<T>&& inner, Allocator alloc) : inner_(std::move(inner)), alloc_(alloc) {}
