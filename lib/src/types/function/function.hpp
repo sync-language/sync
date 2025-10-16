@@ -4,6 +4,8 @@
 #define SY_TYPES_FUNCTION_FUNCTION_HPP_
 
 #include "../../core.h"
+#include "../../program/program_error.hpp"
+#include "../result/result.hpp"
 #include "../string/string_slice.hpp"
 #include "function_align.h"
 #include <utility>
@@ -29,7 +31,7 @@ class Function {
         /// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
         bool push(void* argMem, const Type* typeInfo);
 
-        ProgramRuntimeError call(void* retDst);
+        Result<void, ProgramError> call(void* retDst);
     };
 
     class CHandler {
@@ -74,7 +76,7 @@ class Function {
         uint32_t handle;
     };
 
-    using c_function_t = ProgramRuntimeError (*)(CHandler);
+    using c_function_t = Result<void, ProgramError> (*)(CHandler);
 
     CallArgs startCall() const;
 

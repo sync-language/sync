@@ -338,43 +338,44 @@ uint32_t ArgBufArray::pushNewBuf() {
 static thread_local ArgBufArray cArgBufs;
 
 extern "C" {
-SY_API SyFunctionCallArgs sy_function_start_call(const SyFunction* self) {
-    SyFunctionCallArgs args = {0, 0, 0};
-    args.func = self;
-    if (self->tag == SyFunctionTypeC) {
-        args._offset = static_cast<uint16_t>(cArgBufs.pushNewBuf());
-    }
-    return args;
-}
+// SY_API SyFunctionCallArgs sy_function_start_call(const SyFunction* self) {
+//     SyFunctionCallArgs args = {0, 0, 0};
+//     args.func = self;
+//     if (self->tag == SyFunctionTypeC) {
+//         args._offset = static_cast<uint16_t>(cArgBufs.pushNewBuf());
+//     }
+//     return args;
+// }
 
-SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, void* argMem, const SyType* typeInfo) {
-    Function::CallArgs* asCpp = reinterpret_cast<Function::CallArgs*>(self);
-    return asCpp->push(argMem, reinterpret_cast<const sy::Type*>(typeInfo));
-}
+// SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, void* argMem, const SyType* typeInfo) {
+//     Function::CallArgs* asCpp = reinterpret_cast<Function::CallArgs*>(self);
+//     return asCpp->push(argMem, reinterpret_cast<const sy::Type*>(typeInfo));
+// }
 
-union ErrContain {
-    sy::ProgramRuntimeError cppErr;
-    SyProgramRuntimeError cErr;
+// union ErrContain {
+//     sy::ProgramRuntimeError cppErr;
+//     SyProgramRuntimeError cErr;
 
-    ErrContain() : cppErr() {}
-};
+//     ErrContain() : cppErr() {}
+// };
 
-SY_API SyProgramRuntimeError sy_function_call(SyFunctionCallArgs self, void* retDst) {
-    Function::CallArgs callArgs = *reinterpret_cast<Function::CallArgs*>(&self);
-    ErrContain err;
-    err.cppErr = callArgs.call(retDst);
-    return err.cErr;
-}
+// SY_API SyProgramRuntimeError sy_function_call(SyFunctionCallArgs self, void* retDst) {
+//     Function::CallArgs callArgs = *reinterpret_cast<Function::CallArgs*>(&self);
+//     ErrContain err;
+//     err.cppErr = callArgs.call(retDst);
+//     return err.cErr;
+// }
 
-SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler* self, void* outValue, size_t argIndex) {
-    ArgBuf& buf = cArgBufs.bufAt(self->_handle);
-    buf.take(outValue, argIndex);
-}
+// SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler* self, void* outValue, size_t argIndex) {
+//     ArgBuf& buf = cArgBufs.bufAt(self->_handle);
+//     buf.take(outValue, argIndex);
+// }
 
-SY_API void sy_c_function_handler_set_return_value(SyCFunctionHandler* self, const void* retValue, const SyType* type) {
-    ArgBuf& buf = cArgBufs.bufAt(self->_handle);
-    buf.setReturnValue(retValue, type->sizeType);
-}
+// SY_API void sy_c_function_handler_set_return_value(SyCFunctionHandler* self, const void* retValue, const SyType*
+// type) {
+//     ArgBuf& buf = cArgBufs.bufAt(self->_handle);
+//     buf.setReturnValue(retValue, type->sizeType);
+// }
 } // extern "C"
 
 bool sy::Function::CallArgs::push(void* argMem, const Type* typeInfo) {
@@ -415,7 +416,7 @@ bool sy::Function::CallArgs::push(void* argMem, const Type* typeInfo) {
     return true;
 }
 
-sy::ProgramRuntimeError sy::Function::CallArgs::call(void* retDst) {
+sy::Result<void, sy::ProgramError> sy::Function::CallArgs::call(void* retDst) {
     sy_assert(this->pushedCount == this->func->argsLen, "Did not push enough arguments for function");
 
     if (this->func->tag == Function::CallType::Script) {
@@ -427,7 +428,7 @@ sy::ProgramRuntimeError sy::Function::CallArgs::call(void* retDst) {
         if (retDst != nullptr) {
             cArgBufs.bufAt(handlerIndex).setReturnDestination(retDst);
         }
-        const ProgramRuntimeError err = cfunc(handler);
+        auto err = cfunc(handler);
         cArgBufs.bufAt(handlerIndex).clear();
         cArgBufs.popBuf();
         return err;
@@ -518,10 +519,10 @@ TEST_CASE("global array push and get arg") {
     cArgBufs.popBuf();
 }
 
-template <typename T, T expected> sy::ProgramRuntimeError simpleFunc1Arg(Function::CHandler handler) {
+template <typename T, T expected> sy::Result<void, sy::ProgramError> simpleFunc1Arg(Function::CHandler handler) {
     const T arg = handler.takeArg<T>(0);
     CHECK_EQ(arg, expected);
-    return sy::ProgramRuntimeError();
+    return {};
 }
 
 TEST_SUITE("C 1 arg no return") {
@@ -539,7 +540,7 @@ TEST_SUITE("C 1 arg no return") {
         Function::CallArgs callArgs = func.startCall();
         int32_t arg = 56;
         callArgs.push(&arg, Type::TYPE_I32);
-        CHECK(callArgs.call(nullptr).ok());
+        CHECK(callArgs.call(nullptr));
     }
 }
 

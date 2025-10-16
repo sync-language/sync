@@ -14,6 +14,10 @@ static void makeMemoryReadOnly(void* baseAddress, size_t size) {
     (void)baseAddress;
     (void)size;
 }
+static void makeMemoryReadWrite(void* baseAddress, size_t size) {
+    (void)baseAddress;
+    (void)size;
+}
 
 #elif defined(_MSC_VER) || defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -28,11 +32,23 @@ static void makeMemoryReadOnly(void* baseAddress, size_t size) {
     sy_assert(success, "Failed to make memory read-only");
 }
 
+static void makeMemoryReadWrite(void* baseAddress, size_t size) {
+    const DWORD newProtect = PAGE_READWRITE;
+    DWORD oldProtect;
+    const bool success = VirtualProtect(baseAddress, size, newProtect, &oldProtect);
+    sy_assert(success, "Failed to make memory read-only");
+}
+
 #elif defined(__APPLE__) || defined(__GNUC__)
 #include <sys/mman.h>
 
 static void makeMemoryReadOnly(void* baseAddress, size_t size) {
     const int success = mprotect(baseAddress, size, PROT_READ);
+    sy_assert(success == 0, "Failed to make memory read-only");
+}
+
+static void makeMemoryReadWrite(void* baseAddress, size_t size) {
+    const int success = mprotect(baseAddress, size, PROT_READ | PROT_WRITE);
     sy_assert(success == 0, "Failed to make memory read-only");
 }
 
@@ -95,6 +111,17 @@ void sy::ProtectedAllocator::makeReadOnly() noexcept {
         makeMemoryReadOnly(current->baseMem, current->size);
         current = current->prev;
     }
+}
+
+sy::ProtectedAllocator::~ProtectedAllocator() noexcept {
+    MemoryProtectedNode* current = reinterpret_cast<MemoryProtectedNode*>(this->tail_);
+    while (current != nullptr) {
+        MemoryProtectedNode* previous = current->prev;
+        makeMemoryReadWrite(current->baseMem, current->size);
+        page_free(current->baseMem, current->size);
+        current = previous;
+    }
+    this->tail_ = nullptr;
 }
 
 void* ProtectedAllocator::alloc(size_t len, size_t align) noexcept {

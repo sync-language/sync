@@ -2,6 +2,7 @@
 #ifndef SY_PROGRAM_PROGRAM_INTERNAL_HPP_
 #define SY_PROGRAM_PROGRAM_INTERNAL_HPP_
 
+#include "../mem/protected_allocator.hpp"
 #include "program.hpp"
 #include <mutex>
 
@@ -24,8 +25,11 @@ struct InterpreterFunctionScriptInfo {
     uint16_t unwindLen;
 };
 
+struct ProgramModuleInternal {};
+
 struct ProgramInternal {
     std::mutex mutex;
+    ProtectedAllocator protAlloc;
 };
 
 } // namespace sy

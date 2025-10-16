@@ -9,16 +9,18 @@
 #include "stack/stack.hpp"
 #include <cstring>
 
+using sy::Error;
 using sy::Function;
 using sy::Program;
-using sy::ProgramRuntimeError;
+using sy::ProgramError;
+using sy::Result;
 using sy::Type;
 
-static ProgramRuntimeError interpreterExecuteContinuous(const Program* program);
-static ProgramRuntimeError interpreterExecuteOperation(const Program* program);
+static Result<void, ProgramError> interpreterExecuteContinuous(const Program* program);
+static Result<void, ProgramError> interpreterExecuteOperation(const Program* program);
 static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len);
 
-ProgramRuntimeError sy::interpreterExecuteScriptFunction(const Function* scriptFunction, void* outReturnValue) {
+Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const Function* scriptFunction, void* outReturnValue) {
     sy_assert(scriptFunction->tag == Function::CallType::Script,
               "Interpreter can only start executing from script functions");
     if (scriptFunction->returnType != nullptr) {
@@ -38,22 +40,22 @@ ProgramRuntimeError sy::interpreterExecuteScriptFunction(const Function* scriptF
 
     sy_assert(scriptInfo->program != nullptr, "Script function must have a valid program");
 
-    const ProgramRuntimeError err = interpreterExecuteContinuous(scriptInfo->program);
+    const auto res = interpreterExecuteContinuous(scriptInfo->program);
     // Regardless of an error or not, the frame should be unwinded.
     unwindStackFrame(scriptInfo->unwindSlots, scriptInfo->unwindLen);
 
-    return err;
+    return res;
     // `FrameGuard guard` goes out of scope here, popping the frame.
 }
 
-static ProgramRuntimeError interpreterExecuteContinuous(const Program* program) {
+static Result<void, ProgramError> interpreterExecuteContinuous(const Program* program) {
     while (true) {
         const Bytecode ipBytecode = *Stack::getActiveStack().getInstructionPointer();
         const OpCode opcode = ipBytecode.getOpcode();
         const bool isReturn = opcode == OpCode::Return;
 
-        const ProgramRuntimeError err = interpreterExecuteOperation(program);
-        if (err.ok() || isReturn) {
+        const auto err = interpreterExecuteOperation(program);
+        if (err.hasErr() || isReturn) {
             return err;
         }
     }
@@ -75,11 +77,11 @@ static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len) {
 
 static void executeReturn(const Bytecode b);
 static void executeReturnValue(const Bytecode b);
-static ProgramRuntimeError executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
-static ProgramRuntimeError executeCallSrcNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
-static ProgramRuntimeError executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
-static ProgramRuntimeError executeCallSrcWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
-static ProgramRuntimeError executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static Result<void, ProgramError> executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeMemsetUninitialized(const Bytecode bytecode);
 static void executeSetType(ptrdiff_t& ipChange, const Bytecode* bytecodes);
@@ -88,64 +90,67 @@ static void executeJump(ptrdiff_t& ipChange, const Bytecode bytecode);
 static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode);
 static void executeDestruct(const Bytecode bytecode);
 
-static ProgramRuntimeError interpreterExecuteOperation(const Program* program) {
+static Result<void, ProgramError> interpreterExecuteOperation(const Program* program) {
     (void)program;
 
     ptrdiff_t ipChange = 1;
     const Bytecode* instructionPointer = Stack::getActiveStack().getInstructionPointer();
     const OpCode opcode = instructionPointer->getOpcode();
 
-    ProgramRuntimeError potentialErr{}; // Initialize as ok
-    switch (opcode) {
-    case OpCode::Nop:
-        break;
-    case OpCode::Return: {
-        executeReturn(*instructionPointer);
-    } break;
-    case OpCode::ReturnValue: {
-        executeReturnValue(*instructionPointer);
-    } break;
-    case OpCode::CallImmediateNoReturn: {
-        potentialErr = executeCallImmediateNoReturn(ipChange, instructionPointer);
-    } break;
-    case OpCode::CallSrcNoReturn: {
-        potentialErr = executeCallSrcNoReturn(ipChange, instructionPointer);
-    } break;
-    case OpCode::CallImmediateWithReturn: {
-        potentialErr = executeCallImmediateWithReturn(ipChange, instructionPointer);
-    } break;
-    case OpCode::CallSrcWithReturn: {
-        potentialErr = executeCallSrcWithReturn(ipChange, instructionPointer);
-    } break;
-    case OpCode::LoadDefault: {
-        potentialErr = executeLoadDefault(ipChange, instructionPointer);
-    } break;
-    case OpCode::LoadImmediateScalar: {
-        executeLoadImmediateScalar(ipChange, instructionPointer);
-    } break;
-    case OpCode::MemsetUninitialized: {
-        executeMemsetUninitialized(*instructionPointer);
-    } break;
-    case OpCode::SetType: {
-        executeSetType(ipChange, instructionPointer);
-    } break;
-    case OpCode::SetNullType: {
-        executeSetNullType(*instructionPointer);
-    } break;
-    case OpCode::Jump: {
-        executeJump(ipChange, *instructionPointer);
-    } break;
-    case OpCode::JumpIfFalse: {
-        executeJumpIfFalse(ipChange, *instructionPointer);
-    } break;
-    case OpCode::Destruct: {
-        executeDestruct(*instructionPointer);
-    } break;
+    auto potentialErr = [opcode, instructionPointer, &ipChange]() -> Result<void, ProgramError> {
+        switch (opcode) {
+        case OpCode::Nop:
+            break;
+        case OpCode::Return: {
+            executeReturn(*instructionPointer);
+        } break;
+        case OpCode::ReturnValue: {
+            executeReturnValue(*instructionPointer);
+        } break;
+        case OpCode::CallImmediateNoReturn: {
+            return executeCallImmediateNoReturn(ipChange, instructionPointer);
+        } break;
+        case OpCode::CallSrcNoReturn: {
+            return executeCallSrcNoReturn(ipChange, instructionPointer);
+        } break;
+        case OpCode::CallImmediateWithReturn: {
+            return executeCallImmediateWithReturn(ipChange, instructionPointer);
+        } break;
+        case OpCode::CallSrcWithReturn: {
+            return executeCallSrcWithReturn(ipChange, instructionPointer);
+        } break;
+        case OpCode::LoadDefault: {
+            return executeLoadDefault(ipChange, instructionPointer);
+        } break;
+        case OpCode::LoadImmediateScalar: {
+            executeLoadImmediateScalar(ipChange, instructionPointer);
+        } break;
+        case OpCode::MemsetUninitialized: {
+            executeMemsetUninitialized(*instructionPointer);
+        } break;
+        case OpCode::SetType: {
+            executeSetType(ipChange, instructionPointer);
+        } break;
+        case OpCode::SetNullType: {
+            executeSetNullType(*instructionPointer);
+        } break;
+        case OpCode::Jump: {
+            executeJump(ipChange, *instructionPointer);
+        } break;
+        case OpCode::JumpIfFalse: {
+            executeJumpIfFalse(ipChange, *instructionPointer);
+        } break;
+        case OpCode::Destruct: {
+            executeDestruct(*instructionPointer);
+        } break;
 
-    default: {
-        sy_assert(static_cast<uint8_t>(opcode) && false, "Unimplemented opcode");
-    }
-    }
+        default: {
+            sy_assert(static_cast<uint8_t>(opcode) && false, "Unimplemented opcode");
+        }
+        }
+        return {};
+    }();
+
     return potentialErr;
 }
 
@@ -196,13 +201,10 @@ static bool pushScriptFunctionArgs(const Function* function, const uint16_t args
     return true;
 }
 
-static ProgramRuntimeError performCall(const Function* function, void* retDst, const uint16_t argsCount,
-                                       const uint16_t* argsSrc) {
+static Result<void, ProgramError> performCall(const Function* function, void* retDst, const uint16_t argsCount,
+                                              const uint16_t* argsSrc) {
     if (function->tag == Function::CallType::Script) {
-        const bool success = pushScriptFunctionArgs(function, argsCount, argsSrc);
-        if (!success) {
-            return ProgramRuntimeError::initStackOverflow();
-        }
+        (void)pushScriptFunctionArgs(function, argsCount, argsSrc);
         return sy::interpreterExecuteScriptFunction(function, retDst);
     } else {
         sy_assert(false, "Cannot handle C function calling currently");
@@ -211,7 +213,7 @@ static ProgramRuntimeError performCall(const Function* function, void* retDst, c
     unreachable();
 }
 
-static ProgramRuntimeError executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::CallImmediateNoReturn operands = bytecodes[0].toOperands<operators::CallImmediateNoReturn>();
 
     const Function* function = *reinterpret_cast<const Function* const*>(&bytecodes[1]);
@@ -222,7 +224,7 @@ static ProgramRuntimeError executeCallImmediateNoReturn(ptrdiff_t& ipChange, con
     return performCall(function, nullptr, operands.argCount, argsSrcs);
 }
 
-static ProgramRuntimeError executeCallSrcNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::CallSrcNoReturn operands = bytecodes[0].toOperands<operators::CallSrcNoReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
@@ -236,7 +238,7 @@ static ProgramRuntimeError executeCallSrcNoReturn(ptrdiff_t& ipChange, const Byt
     return performCall(function, nullptr, operands.argCount, argsSrcs);
 }
 
-static ProgramRuntimeError executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::CallImmediateWithReturn operands = bytecodes[0].toOperands<operators::CallImmediateWithReturn>();
 
     const Function* function = *reinterpret_cast<const Function* const*>(&bytecodes[1]);
@@ -250,7 +252,7 @@ static ProgramRuntimeError executeCallImmediateWithReturn(ptrdiff_t& ipChange, c
     return performCall(function, returnDst, operands.argCount, argsSrcs);
 }
 
-static ProgramRuntimeError executeCallSrcWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::CallSrcWithReturn operands = bytecodes[0].toOperands<operators::CallSrcWithReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
@@ -266,7 +268,7 @@ static ProgramRuntimeError executeCallSrcWithReturn(ptrdiff_t& ipChange, const B
     return performCall(function, returnDst, operands.argCount, argsSrcs);
 }
 
-ProgramRuntimeError executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+Result<void, ProgramError> executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::LoadDefault operands = bytecodes[0].toOperands<operators::LoadDefault>();
 
     Stack& activeStack = Stack::getActiveStack();
@@ -281,7 +283,7 @@ ProgramRuntimeError executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* byte
         sy_assert(false, "Cannot load default for non-scalar types currently");
     }
 
-    return ProgramRuntimeError();
+    return {};
 }
 
 void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes) {

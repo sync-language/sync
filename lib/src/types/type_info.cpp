@@ -164,8 +164,8 @@ void sy::Type::destroyObjectImpl(void* obj) const {
     const bool pushSuccess = callArgs.push(&obj, this->mutRef);
     sy_assert(pushSuccess, "TODO overflow when destructor call"); // TODO decide what to do if destructor overflows
 
-    const ProgramRuntimeError err = callArgs.call(nullptr);
-    sy_assert(err.ok(), "Destructors may not throw/cause errors"); // TODO what do to if error?
+    const auto err = callArgs.call(nullptr);
+    sy_assert(err.hasErr() == false, "Destructors may not throw/cause errors"); // TODO what do to if error?
 }
 
 void sy::Type::copyConstructObjectImpl(void* dst, const void* src) const {
@@ -186,8 +186,8 @@ void sy::Type::copyConstructObjectImpl(void* dst, const void* src) const {
     (void)callArgs.push(&dst, this->mutRef);
     (void)callArgs.push(&src, this->constRef);
 
-    const ProgramRuntimeError err = callArgs.call(nullptr);
-    sy_assert(err.ok(), "Equality may not throw/cause errors"); // TODO what do to if error?
+    const auto err = callArgs.call(nullptr);
+    sy_assert(err.hasErr() == false, "Equality may not throw/cause errors"); // TODO what do to if error?
 }
 
 bool sy::Type::equalObjectsImpl(const void* self, const void* other) const {
@@ -206,8 +206,8 @@ bool sy::Type::equalObjectsImpl(const void* self, const void* other) const {
     (void)callArgs.push(&other, this->constRef);
     bool eql;
 
-    const ProgramRuntimeError err = callArgs.call(&eql);
-    sy_assert(err.ok(), "Equality may not throw/cause errors"); // TODO what do to if error?
+    const auto err = callArgs.call(&eql);
+    sy_assert(err.hasErr() == false, "Equality may not throw/cause errors"); // TODO what do to if error?
     return eql;
 }
 
@@ -225,8 +225,8 @@ size_t sy::Type::hashObjectImpl(const void* self) const {
     (void)callArgs.push(&self, this->constRef);
     size_t hashResult;
 
-    const ProgramRuntimeError err = callArgs.call(&hashResult);
-    sy_assert(err.ok(), "Hash may not throw/cause errors"); // TODO what do to if error?
+    const auto err = callArgs.call(&hashResult);
+    sy_assert(err.hasErr() == false, "Hash may not throw/cause errors"); // TODO what do to if error?
     return hashResult;
 }
 
@@ -268,8 +268,8 @@ TEST_CASE("equality") {
         args.push(&lhsMem, sy::Type::TYPE_BOOL->constRef);
         const bool* rhsMem = &rhs;
         args.push(&rhsMem, sy::Type::TYPE_BOOL->constRef);
-        sy::ProgramRuntimeError err = args.call(&ret);
-        CHECK_EQ(err.kind(), sy::ProgramRuntimeError::Kind::None);
+        auto err = args.call(&ret);
+        CHECK_FALSE(err.hasErr());
         CHECK(ret);
     }
     { // not equal
@@ -282,8 +282,8 @@ TEST_CASE("equality") {
         args.push(&lhsMem, sy::Type::TYPE_BOOL->constRef);
         const bool* rhsMem = &rhs;
         args.push(&rhsMem, sy::Type::TYPE_BOOL->constRef);
-        sy::ProgramRuntimeError err = args.call(&ret);
-        CHECK_EQ(err.kind(), sy::ProgramRuntimeError::Kind::None);
+        auto err = args.call(&ret);
+        CHECK_FALSE(err.hasErr());
         CHECK_FALSE(ret);
     }
 }
@@ -297,8 +297,8 @@ TEST_CASE("hash") {
     Function::CallArgs args = sy::Type::TYPE_U64->hash.value()->startCall();
     const uint64_t* objMem = &obj;
     args.push(&objMem, sy::Type::TYPE_U64->constRef);
-    sy::ProgramRuntimeError err = args.call(&ret);
-    CHECK_EQ(err.kind(), sy::ProgramRuntimeError::Kind::None);
+    auto err = args.call(&ret);
+    CHECK_FALSE(err.hasErr());
     if (ret == 0) {
         std::cerr << "Possible test failure " << __FILE__ << ':' << __LINE__ << std::endl;
     }

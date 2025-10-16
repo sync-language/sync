@@ -5,9 +5,11 @@
 #include <mutex>
 
 namespace sy {
-class ProtectedAllocator : public IAllocator {
+class ProtectedAllocator final : public IAllocator {
   public:
     void makeReadOnly() noexcept;
+
+    ~ProtectedAllocator() noexcept;
 
   protected:
     virtual void* alloc(size_t len, size_t align) noexcept;

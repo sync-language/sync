@@ -4,7 +4,7 @@
 #define SY_TYPES_TYPE_HPP_
 
 #include "../core.h"
-#include "../program/program.hpp"
+#include "../program/program_error.hpp"
 #include "function/function.hpp"
 #include "option/option.hpp"
 #include "string/string_slice.hpp"
@@ -151,43 +151,43 @@ class SY_API Type {
 
   private:
     template <typename T> static Function::c_function_t makeDestructor() {
-        Function::c_function_t func = [](Function::CHandler handler) -> ProgramRuntimeError {
+        Function::c_function_t func = [](Function::CHandler handler) -> Result<void, ProgramError> {
             T* obj = handler.takeArg<T*>(0);
             obj->~T();
-            return ProgramRuntimeError();
+            return {};
         };
         return func;
     }
 
     template <typename T> static Function::c_function_t makeCopyConstruct() {
-        Function::c_function_t func = [](Function::CHandler handler) -> ProgramRuntimeError {
+        Function::c_function_t func = [](Function::CHandler handler) -> Result<void, ProgramError> {
             T* dst = handler.takeArg<T*>(0);
             const T* src = handler.takeArg<const T*>(1);
             T* _ = new (dst) T(*src);
             (void)_;
-            return ProgramRuntimeError();
+            return {};
         };
         return func;
     }
 
     template <typename T> static Function::c_function_t makeEqualityFunction() {
-        Function::c_function_t func = [](Function::CHandler handler) -> ProgramRuntimeError {
+        Function::c_function_t func = [](Function::CHandler handler) -> Result<void, ProgramError> {
             const T* lhs = handler.takeArg<const T*>(0);
             const T* rhs = handler.takeArg<const T*>(1);
             bool equal = (*lhs) == (*rhs);
             handler.setReturn(std::move(equal));
-            return ProgramRuntimeError();
+            return {};
         };
         return func;
     }
 
     template <typename T> static Function::c_function_t makeHashFunction() {
-        Function::c_function_t func = [](Function::CHandler handler) -> ProgramRuntimeError {
+        Function::c_function_t func = [](Function::CHandler handler) -> Result<void, ProgramError> {
             const T* obj = handler.takeArg<const T*>(0);
             std::hash<T> h;
             size_t hashed = h(*obj);
             handler.setReturn(std::move(hashed));
-            return ProgramRuntimeError();
+            return {};
         };
         return func;
     }

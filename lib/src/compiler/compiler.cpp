@@ -1,5 +1,6 @@
 #include "compiler.hpp"
 #include "../program/program_error.hpp"
+#include "../program/program_internal.hpp"
 #include "../types/array/dynamic_array.hpp"
 #include "../types/hash/map.hpp"
 #include "../types/string/string.hpp"
@@ -11,23 +12,6 @@
 #include <fstream>
 
 using namespace sy;
-
-namespace sy {
-struct ModuleVersion {
-    StringSlice name;
-    SemVer version;
-
-    bool operator==(const ModuleVersion& other) const {
-        return this->name == other.name && this->version == other.version;
-    }
-};
-} // namespace sy
-
-namespace std {
-template <> struct hash<sy::ModuleVersion> {
-    size_t operator()(const sy::ModuleVersion& obj) { return obj.name.hash(); }
-};
-} // namespace std
 
 namespace sy {
 struct CompilerImpl {

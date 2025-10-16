@@ -111,8 +111,8 @@ void sy::RawDynArrayUnmanaged::destroyScript(Allocator& alloc, const sy::Type* t
 
             sy::Function::CallArgs callArgs = typeInfo->destructor.value()->startCall();
             callArgs.push(obj, typeInfo->mutRef);
-            const sy::ProgramRuntimeError err = callArgs.call(nullptr);
-            sy_assert(err.ok(), "Destructors should not fail");
+            const auto err = callArgs.call(nullptr);
+            sy_assert(err.hasErr() == false, "Destructors should not fail");
         }
     }
 

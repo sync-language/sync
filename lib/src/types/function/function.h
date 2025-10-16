@@ -64,19 +64,19 @@ typedef SyProgramRuntimeError (*sy_c_function_t)(SyCFunctionHandler handler);
 extern "C" {
 #endif
 
-/// Starts the process of calling a function. See `sy_function_push_arg(...)` and `sy_function_call(...)`.
-SY_API SyFunctionCallArgs sy_function_start_call(const SyFunction* self);
+// /// Starts the process of calling a function. See `sy_function_push_arg(...)` and `sy_function_call(...)`.
+// SY_API SyFunctionCallArgs sy_function_start_call(const SyFunction* self);
 
-/// Pushs an argument onto the the script or C stack for the next function call.
-/// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
-SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, void* argMem, const struct SyType* typeInfo);
+// /// Pushs an argument onto the the script or C stack for the next function call.
+// /// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
+// SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, void* argMem, const struct SyType* typeInfo);
 
-SY_API SyProgramRuntimeError sy_function_call(SyFunctionCallArgs self, void* retDst);
+// SY_API SyProgramRuntimeError sy_function_call(SyFunctionCallArgs self, void* retDst);
 
-SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler* self, void* outValue, size_t argIndex);
+// SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler* self, void* outValue, size_t argIndex);
 
-SY_API void sy_c_function_handler_set_return_value(SyCFunctionHandler* self, const void* retValue,
-                                                   const struct SyType* type);
+// SY_API void sy_c_function_handler_set_return_value(SyCFunctionHandler* self, const void* retValue,
+//                                                    const struct SyType* type);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -82,8 +82,8 @@ void SyncObjVal::destroyHeldObjectScriptFunction(const sy::Type* typeInfo) {
     this->isExpired.store(true);
     sy::Function::CallArgs callArgs = typeInfo->destructor.value()->startCall();
     callArgs.push(this->valueMemMut(), typeInfo->mutRef);
-    const sy::ProgramRuntimeError err = callArgs.call(nullptr);
-    sy_assert(err.ok(), "Destructors should not fail");
+    auto err = callArgs.call(nullptr);
+    sy_assert(err.hasValue(), "Destructors should not fail");
 }
 
 const void* SyncObjVal::valueMem() const {

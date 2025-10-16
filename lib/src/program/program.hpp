@@ -19,32 +19,16 @@ class CallStack {
     size_t _len;
 };
 
-class Program {
+class ProgramModule;
 
+class Program {
   private:
-    // void* _inner;
+    void* inner_;
 };
 
-class ProgramRuntimeError {
-  public:
-    enum class Kind : int32_t {
-        None = 0,
-        StackOverflow = 1,
-    };
-
-    /// Initializes as an Ok, meaning has no error.
-    ProgramRuntimeError();
-
-    static ProgramRuntimeError initStackOverflow();
-
-    Kind kind() const { return static_cast<Kind>(this->_kind); }
-
-    /// Checks if this runtime error is ok, as in not an error. Specifically if `this->kind() == Kind::None`.
-    bool ok() const { return this->kind() == Kind::None; }
-
+class ProgramModule {
   private:
-    Kind _kind;
-    // void*   _inner;
+    void* inner_;
 };
 } // namespace sy
 
