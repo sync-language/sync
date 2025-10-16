@@ -80,8 +80,10 @@ class Function {
 
     CallArgs startCall() const;
 
+    /// Un-namespaced name. For example if `qualifiedName == "example.func"` then `name == "func"`.
     StringSlice name;
-    StringSlice identifierName;
+    /// As fully qualified name, namespaced.
+    StringSlice qualifiedName;
     const Type* returnType;
     const Type** argsTypes;
     uint16_t argsLen;

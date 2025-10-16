@@ -3,8 +3,12 @@
 #define SY_PROGRAM_PROGRAM_INTERNAL_HPP_
 
 #include "../mem/protected_allocator.hpp"
+#include "../types/array/dynamic_array.hpp"
+#include "../types/array/slice.hpp"
+#include "../types/function/function.hpp"
+#include "../types/string/string.hpp"
+#include "../types/type_info.hpp"
 #include "program.hpp"
-#include <mutex>
 
 struct Bytecode;
 
@@ -25,11 +29,19 @@ struct InterpreterFunctionScriptInfo {
     uint16_t unwindLen;
 };
 
-struct ProgramModuleInternal {};
+struct ProgramModuleInternal {
+    StringUnmanaged name{};
+    SemVer version{};
+    Function* allFunctions = nullptr;
+    size_t allFunctionsLen = 0;
+    Type* allTypes = nullptr;
+    size_t allTypesLen = 0;
+};
 
 struct ProgramInternal {
-    std::mutex mutex;
-    ProtectedAllocator protAlloc;
+    ProtectedAllocator protAlloc{};
+    ProgramModuleInternal* allModules = nullptr;
+    size_t allModulesLen = 0;
 };
 
 } // namespace sy

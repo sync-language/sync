@@ -113,11 +113,23 @@ void sy::ProtectedAllocator::makeReadOnly() noexcept {
     }
 }
 
+void sy::ProtectedAllocator::makeReadWrite() noexcept {
+    MemoryProtectedNode* current = reinterpret_cast<MemoryProtectedNode*>(this->tail_);
+    while (current != nullptr) {
+        makeMemoryReadWrite(current->baseMem, current->size);
+        current = current->prev;
+    }
+}
+
 sy::ProtectedAllocator::~ProtectedAllocator() noexcept {
+    if (this->tail_ == nullptr)
+        return;
+
+    sy_assert(this->isWritable, "Cannot free readonly memory");
+
     MemoryProtectedNode* current = reinterpret_cast<MemoryProtectedNode*>(this->tail_);
     while (current != nullptr) {
         MemoryProtectedNode* previous = current->prev;
-        makeMemoryReadWrite(current->baseMem, current->size);
         page_free(current->baseMem, current->size);
         current = previous;
     }

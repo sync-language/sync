@@ -21,10 +21,10 @@ typedef enum SyFunctionType {
 
 /// Script type as const reference.
 typedef struct SyFunction {
-    /// As fully qualified name, namespaced.
+    /// Un-namespaced name. For example if `qualifiedName == "example.func"` then `name == "func"`.
     SyStringSlice name;
-    /// Un-namespaced name. For example if `name == "example.func"` then `identifierName == "func"`.
-    SyStringSlice identifierName;
+    /// As fully qualified name, namespaced.
+    SyStringSlice qualifiedName;
     /// If `NULL`, the function does not return any value
     const struct SyType* returnType;
     /// If `NULL`, the function take no arguments, otherwise valid when `i < argsLen`.

@@ -9,6 +9,8 @@ class ProtectedAllocator final : public IAllocator {
   public:
     void makeReadOnly() noexcept;
 
+    void makeReadWrite() noexcept;
+
     ~ProtectedAllocator() noexcept;
 
   protected:
@@ -18,6 +20,7 @@ class ProtectedAllocator final : public IAllocator {
 
   private:
     std::mutex mutex_{};
+    bool isWritable = true;
     void* tail_ = nullptr;
 };
 } // namespace sy

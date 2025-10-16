@@ -5,7 +5,7 @@
 
 #include "../core.h"
 #include "../mem/allocator.hpp"
-#include "../program/program.hpp"
+#include "../program/module_info.hpp"
 #include "../program/program_error.hpp"
 #include "../types/array/dynamic_array.hpp"
 #include "../types/hash/map.hpp"
@@ -13,61 +13,6 @@
 #include "../types/string/string_slice.hpp"
 
 namespace sy {
-
-struct SemVer {
-    uint32_t major = 0;
-    uint32_t minor = 0;
-    uint32_t patch = 0;
-
-    constexpr SemVer() = default;
-
-    constexpr bool operator==(const SemVer& other) const {
-        return this->major == other.major && this->minor == other.minor && this->patch == other.patch;
-    }
-
-    constexpr bool operator!=(const SemVer& other) const { return !(*this == other); }
-
-    constexpr bool operator<(const SemVer& other) const {
-        if (this->major < other.major)
-            return true;
-        else if (this->major > other.major)
-            return false;
-
-        if (this->minor < other.minor)
-            return true;
-        else if (this->minor > other.minor)
-            return false;
-
-        if (this->patch < other.patch)
-            return true;
-        return false;
-    }
-
-    constexpr bool operator>(const SemVer& other) const {
-        if (this->major > other.major)
-            return true;
-        else if (this->major < other.major)
-            return false;
-
-        if (this->minor > other.minor)
-            return true;
-        else if (this->minor < other.minor)
-            return false;
-
-        if (this->patch > other.patch)
-            return true;
-        return false;
-    }
-};
-
-struct ModuleVersion {
-    StringSlice name;
-    SemVer version;
-
-    bool operator==(const ModuleVersion& other) const {
-        return this->name == other.name && this->version == other.version;
-    }
-};
 
 class Program;
 class ProgramError;

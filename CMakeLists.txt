@@ -45,6 +45,7 @@ set(SyncLibSources
     "lib/src/types/string/string.cpp"
     "lib/src/types/sync_obj/sync_obj.cpp"
     "lib/src/types/array/dynamic_array.cpp"
+    "lib/src/types/array/slice.cpp"
     "lib/src/types/hash/groups.cpp"
     "lib/src/types/hash/map.cpp"
     "lib/src/types/option/option.cpp"
