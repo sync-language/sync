@@ -87,7 +87,7 @@ template <typename T> class MutSlice final {
   public:
     MutSlice() = default;
 
-    MutSlice(const T* inData, size_t inLen) : data_(inData), len_(inLen) {}
+    MutSlice(T* inData, size_t inLen) : data_(inData), len_(inLen) {}
 
     [[nodiscard]] const T& operator[](size_t index) const {
         detail::sliceDebugAssertIndexInRange(index, this->len_);
@@ -96,7 +96,9 @@ template <typename T> class MutSlice final {
 
     [[nodiscard]] size_t len() const { return this->len_; }
 
-    [[nodiscard]] const T* data() const {return this->data_};
+    [[nodiscard]] const T* data() const { return this->data_; }
+
+    [[nodiscard]] T* data() { return this->data_; }
 
     class Iterator final {
         friend class MutSlice;
@@ -207,7 +209,7 @@ template <typename T> class MutSlice final {
     }
 
   private:
-    const T* data_ = nullptr;
+    T* data_ = nullptr;
     size_t len_ = 0;
 };
 } // namespace sy
