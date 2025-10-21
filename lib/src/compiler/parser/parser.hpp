@@ -21,6 +21,10 @@ struct ParseInfo {
     /// Will always be of type `SourceFileKind::SyncSourceFile`
     const SourceTreeNode* fileSource;
     MapUnmanaged<StringSlice, bool> imports;
+    void* errReporterArg;
+    ProgramErrorReporter errReporter;
+
+    void reportErr(ProgramError errKind, uint32_t inBytePos, StringSlice msg) const noexcept;
 };
 
 class IFunctionDefinition;
@@ -42,7 +46,8 @@ struct FileAst {
 Result<Option<IFunctionStatement*>, ProgramError>
 parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables, Scope* currentScope) noexcept;
 
-Result<FileAst, ProgramError> parseFile(Allocator alloc, const SourceTreeNode* fileSource) noexcept;
+Result<FileAst, ProgramError> parseFile(Allocator alloc, const SourceTreeNode* fileSource,
+                                        ProgramErrorReporter errReporter, void* errReporterArg) noexcept;
 
 } // namespace sy
 

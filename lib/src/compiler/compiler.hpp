@@ -15,7 +15,6 @@
 namespace sy {
 
 class Program;
-class ProgramError;
 class Module;
 
 class SY_API Compiler final {
@@ -50,7 +49,8 @@ class SY_API Compiler final {
 
     [[nodiscard]] Result<DynArray<const Module*>, AllocErr> allModules() const noexcept;
 
-    [[nodiscard]] Result<Program, ProgramError> compile() const noexcept;
+    [[nodiscard]] Result<Program, ProgramError> compile(ProgramErrorReporter errReporter,
+                                                        void* errReporterArg) const noexcept;
 
   private:
     Compiler() : inner_(nullptr){};

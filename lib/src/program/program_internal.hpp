@@ -36,6 +36,7 @@ struct ProgramModuleInternal {
     size_t allFunctionsLen = 0;
     Type* allTypes = nullptr;
     size_t allTypesLen = 0;
+    ProgramErrorReporter errReporter = nullptr;
 };
 
 struct ProgramInternal {

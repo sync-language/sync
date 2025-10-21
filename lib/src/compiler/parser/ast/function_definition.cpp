@@ -10,9 +10,10 @@ static Result<DynArray<StackVariable>, ProgramError> parseFunctionArgs(ParseInfo
 
     DynArray<StackVariable> args(parseInfo->alloc);
     const StringSlice source = parseInfo->tokenIter.source();
-    auto makeEndOfFileError = [source]() -> Error<ProgramError> {
-        return Error(ProgramError(SourceFileLocation(source, static_cast<uint32_t>(source.len() - 1)),
-                                  ProgramError::Kind::CompileFunctionSignature));
+    auto makeEndOfFileError = [source, parseInfo]() -> Error<ProgramError> {
+        parseInfo->reportErr(ProgramError::CompileFunctionSignature, static_cast<uint32_t>(source.len() - 1),
+                             "Unexpected end of file");
+        return Error(ProgramError::CompileFunctionSignature);
     };
 
     auto initialNext = parseInfo->tokenIter.next();
@@ -35,8 +36,9 @@ static Result<DynArray<StackVariable>, ProgramError> parseFunctionArgs(ParseInfo
         }
 
         if (token.tag() != TokenType::Identifier) {
-            return Error(ProgramError(SourceFileLocation(source, token.location()),
-                                      ProgramError::Kind::CompileFunctionSignature));
+            parseInfo->reportErr(ProgramError::CompileFunctionSignature, token.location(),
+                                 "Expected identifier for argument name");
+            return Error(ProgramError::CompileFunctionSignature);
         }
 
         StringSlice identifier = parseInfo->tokenIter.currentSlice();
@@ -48,8 +50,9 @@ static Result<DynArray<StackVariable>, ProgramError> parseFunctionArgs(ParseInfo
             }
             token = opt.value();
             if (token.tag() != TokenType::ColonSymbol) {
-                return Error(ProgramError(SourceFileLocation(source, token.location()),
-                                          ProgramError::Kind::CompileFunctionSignature));
+                parseInfo->reportErr(ProgramError::CompileFunctionSignature, token.location(),
+                                     "Expected color for argument type");
+                return Error(ProgramError::CompileFunctionSignature);
             }
         }
 
@@ -61,8 +64,9 @@ static Result<DynArray<StackVariable>, ProgramError> parseFunctionArgs(ParseInfo
             token = opt.value();
             auto typeParseRes = TypeResolutionInfo::parse(parseInfo);
             if (typeParseRes.hasErr()) {
-                return Error(ProgramError(SourceFileLocation(source, token.location()),
-                                          ProgramError::Kind::CompileFunctionSignature));
+                parseInfo->reportErr(ProgramError::CompileFunctionSignature, token.location(),
+                                     "Failed to parse argument type");
+                return Error(ProgramError::CompileFunctionSignature);
             }
             variable.typeInfo = typeParseRes.takeValue();
         }
@@ -70,14 +74,17 @@ static Result<DynArray<StackVariable>, ProgramError> parseFunctionArgs(ParseInfo
         { // actually make string from identifier
             auto strResult = String::copyConstructSlice(identifier, parseInfo->alloc);
             if (!strResult) {
-                return Error(ProgramError(parseInfo->tokenIter.sourceFileLocation(), ProgramError::Kind::OutOfMemory));
+                parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(),
+                                     "Out of memory");
+                return Error(ProgramError::OutOfMemory);
             }
             new (&variable.name) String(strResult.takeValue());
         }
 
         // push into array
         if (args.push(std::move(variable)).hasErr()) {
-            return Error(ProgramError(parseInfo->tokenIter.sourceFileLocation(), ProgramError::Kind::OutOfMemory));
+            parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
+            return Error(ProgramError::OutOfMemory);
         }
 
         { // move iterator forward to next argument
@@ -87,8 +94,9 @@ static Result<DynArray<StackVariable>, ProgramError> parseFunctionArgs(ParseInfo
             }
             token = opt.value();
             if (token.tag() != TokenType::CommaSymbol && token.tag() != TokenType::RightParenthesesSymbol) {
-                return Error(ProgramError(SourceFileLocation(source, token.location()),
-                                          ProgramError::Kind::CompileFunctionSignature));
+                parseInfo->reportErr(ProgramError::CompileFunctionSignature, token.location(),
+                                     "Expected , or ) symbols");
+                return Error(ProgramError::CompileFunctionSignature);
             }
             if (token.tag() == TokenType::CommaSymbol) { // allow trailing commas
                 auto commaStep = parseInfo->tokenIter.next();
@@ -114,9 +122,10 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
               "Function definition node must be initialized from a fn keyword token");
 
     const StringSlice source = parseInfo->tokenIter.source();
-    auto makeEndOfFileError = [source]() -> Error<ProgramError> {
-        return Error(ProgramError(SourceFileLocation(source, static_cast<uint32_t>(source.len() - 1)),
-                                  ProgramError::Kind::CompileFunctionSignature));
+    auto makeEndOfFileError = [source, parseInfo]() -> Error<ProgramError> {
+        parseInfo->reportErr(ProgramError::CompileFunctionSignature, static_cast<uint32_t>(source.len() - 1),
+                             "Unexpected end of file");
+        return Error(ProgramError::CompileFunctionSignature);
     };
 
     { // function name
@@ -126,8 +135,9 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
         }
         const Token next = result.value();
         if (next.tag() != TokenType::Identifier) {
-            return Error(ProgramError(SourceFileLocation(source, next.location()),
-                                      ProgramError::Kind::CompileFunctionSignature));
+            parseInfo->reportErr(ProgramError::CompileFunctionSignature, next.location(),
+                                 "Expected identifier for argument name");
+            return Error(ProgramError::CompileFunctionSignature);
         }
 
         this->functionName = parseInfo->tokenIter.currentSlice();
@@ -140,8 +150,8 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
         }
         const Token next = nextResult.value();
         if (next.tag() != TokenType::LeftParenthesesSymbol) {
-            return Error(ProgramError(SourceFileLocation(source, next.location()),
-                                      ProgramError::Kind::CompileFunctionSignature));
+            parseInfo->reportErr(ProgramError::CompileFunctionSignature, next.location(), "Expected ( symbol");
+            return Error(ProgramError::CompileFunctionSignature);
         }
 
         auto parseResult = parseFunctionArgs(parseInfo);
@@ -164,8 +174,9 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
         } else {
             auto typeParseRes = TypeResolutionInfo::parse(parseInfo);
             if (typeParseRes.hasErr()) {
-                return Error(ProgramError(SourceFileLocation(source, parseInfo->tokenIter.current().location()),
-                                          ProgramError::Kind::CompileFunctionSignature));
+                parseInfo->reportErr(ProgramError::CompileFunctionSignature, parseInfo->tokenIter.current().location(),
+                                     "Failed to parse function return type");
+                return Error(ProgramError::CompileFunctionSignature);
             }
             this->retType = Option<TypeResolutionInfo>(typeParseRes.takeValue());
             // step forward
@@ -178,8 +189,8 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
     { // function body
         auto scopeRes = this->alloc().allocObject<Scope>();
         if (scopeRes.hasErr()) {
-            return Error(ProgramError(SourceFileLocation(source, parseInfo->tokenIter.current().location()),
-                                      ProgramError::Kind::OutOfMemory));
+            parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
+            return Error(ProgramError::OutOfMemory);
         }
         this->scope = scopeRes.value();
         new (this->scope) Scope();
@@ -194,8 +205,9 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
         auto statement = statementRes.takeValue();
         if (statement.hasValue() == false) {
             if (this->statements.push(statement.value()).hasErr()) {
-                return Error(ProgramError(SourceFileLocation(source, parseInfo->tokenIter.current().location()),
-                                          ProgramError::Kind::OutOfMemory));
+                parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(),
+                                     "Out of memory");
+                return Error(ProgramError::OutOfMemory);
             }
         }
     }

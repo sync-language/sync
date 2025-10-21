@@ -44,7 +44,7 @@ class SY_API ProgramModule final {
     void* inner_;
 };
 
-class Program final {
+class SY_API Program final {
 
     // get all modules
 

@@ -12,8 +12,11 @@
 #include <fstream>
 
 using namespace sy;
+namespace fs = std::filesystem;
 
 namespace sy {
+extern ProgramErrorReporter defaultErrReporter;
+
 struct CompilerImpl {
     Allocator alloc;
     MapUnmanaged<StringSlice, DynArrayUnmanaged<SemVer>> versions;
@@ -198,7 +201,7 @@ getCompileOrder(Allocator alloc, const MapUnmanaged<ModuleVersion, Module*>& mod
     DynArray<const Module*> allModules{alloc};
     for (const auto entry : modules) {
         if (allModules.push(entry.value).hasErr()) {
-            return Error(ProgramError({}, ProgramError::Kind::OutOfMemory));
+            return Error(ProgramError::OutOfMemory);
         }
     }
     auto res = ModuleDependencyGraph::init(std::move(allModules));
@@ -208,8 +211,11 @@ getCompileOrder(Allocator alloc, const MapUnmanaged<ModuleVersion, Module*>& mod
     return res.takeValue();
 }
 
-static Result<void, ProgramError> compileModules(Allocator alloc,
-                                                 const MapUnmanaged<ModuleVersion, Module*>& modules) noexcept {
+static Result<void, ProgramError> compileModules(Allocator alloc, const MapUnmanaged<ModuleVersion, Module*>& modules,
+                                                 ProgramErrorReporter errReporter, void* errReporterArg) noexcept {
+    (void)errReporter;
+    (void)errReporterArg;
+
     MapUnmanaged<const Module*, bool> resolved{};
     auto _compileOrderRes = getCompileOrder(alloc, modules);
     if (_compileOrderRes.hasErr()) {
@@ -224,15 +230,17 @@ static Result<void, ProgramError> compileModules(Allocator alloc,
     return {};
 }
 
-Result<Program, ProgramError> sy::Compiler::compile() const noexcept {
+Result<Program, ProgramError> sy::Compiler::compile(ProgramErrorReporter errReporter,
+                                                    void* errReporterArg) const noexcept {
+    if (errReporter == nullptr) {
+        errReporter = defaultErrReporter;
+    }
     const CompilerImpl* self = reinterpret_cast<const CompilerImpl*>(this->inner_);
-    (void)compileModules(self->alloc, self->modules);
-    return Error(ProgramError({}, ProgramError::Kind::Unknown));
+    if (auto compErr = compileModules(self->alloc, self->modules, errReporter, errReporterArg); compErr.hasErr()) {
+        return Error(compErr.takeErr());
+    }
+    return Error(ProgramError::Unknown);
 }
-
-namespace fs = std::filesystem;
-
-// Sync modules use semver https://semver.org/
 
 static Result<StringUnmanaged, ModuleErr> loadFileToString(Allocator& alloc, const fs::path& path) {
     std::ifstream sourceFile(path);

@@ -59,9 +59,8 @@ Result<Expression, ProgramError> sy::Expression::parse(ParseInfo* parseInfo, Dyn
     case TokenType::TrueKeyword: {
         auto res = getOrMakeDstVarIndex("true", variables, dstVarIndex, parseInfo->alloc);
         if (res.hasErr()) {
-            return Error(ProgramError(
-                SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
-                ProgramError::Kind::OutOfMemory));
+            parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
+            return Error(ProgramError::OutOfMemory);
         }
         expr.variableIndex = res.value();
         expr.tag = Expression::ExprType::BoolLit;
@@ -70,18 +69,17 @@ Result<Expression, ProgramError> sy::Expression::parse(ParseInfo* parseInfo, Dyn
     case TokenType::FalseKeyword: {
         auto res = getOrMakeDstVarIndex("false", variables, dstVarIndex, parseInfo->alloc);
         if (res.hasErr()) {
-            return Error(ProgramError(
-                SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
-                ProgramError::Kind::OutOfMemory));
+            parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
+            return Error(ProgramError::OutOfMemory);
         }
         expr.variableIndex = res.value();
         expr.tag = Expression::ExprType::BoolLit;
         expr.metadata.boolLit = false;
     } break;
     default:
-        return Error(
-            ProgramError(SourceFileLocation(parseInfo->tokenIter.source(), parseInfo->tokenIter.current().location()),
-                         ProgramError::Kind::CompileExpression));
+        parseInfo->reportErr(ProgramError::CompileExpression, parseInfo->tokenIter.current().location(),
+                             "Invalid expression");
+        return Error(ProgramError::CompileExpression);
     }
 
     return expr;
@@ -97,11 +95,11 @@ Result<void, ProgramError> sy::Expression::compileExpression(FunctionBuilder* bu
         loadBoolImmediate.immediate = static_cast<uint64_t>(this->metadata.boolLit);
         const Bytecode asBytecode = Bytecode(loadBoolImmediate);
         if (builder->pushBytecode(&asBytecode, 1).hasErr()) {
-            return Error(ProgramError(std::nullopt, ProgramError::Kind::OutOfMemory));
+            return Error(ProgramError::OutOfMemory);
         }
     } break;
     default:
-        return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileExpression));
+        return Error(ProgramError::CompileExpression);
     }
     return {};
 }

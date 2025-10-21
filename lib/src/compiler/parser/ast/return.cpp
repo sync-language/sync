@@ -12,9 +12,10 @@ Result<void, ProgramError> sy::ReturnNode::init(ParseInfo* parseInfo, DynArray<S
     sy_assert(this->retValue.hasValue() == false, "Should not already have an expression value to return");
 
     const StringSlice source = parseInfo->tokenIter.source();
-    auto makeEndOfFileError = [source]() -> Error<ProgramError> {
-        return Error(ProgramError(SourceFileLocation(source, static_cast<uint32_t>(source.len() - 1)),
-                                  ProgramError::Kind::CompileFunctionStatement));
+    auto makeEndOfFileError = [source, parseInfo]() -> Error<ProgramError> {
+        parseInfo->reportErr(ProgramError::CompileFunctionStatement, static_cast<uint32_t>(source.len() - 1),
+                             "Unexpected end of file");
+        return Error(ProgramError::CompileFunctionStatement);
     };
 
     auto result = parseInfo->tokenIter.next();
@@ -41,7 +42,7 @@ Result<void, ProgramError> sy::ReturnNode::compileStatement(FunctionBuilder* bui
         const operators::Return ret = {static_cast<uint64_t>(operators::Return::OPCODE)};
         const Bytecode asBytecode = Bytecode(ret);
         if (builder->pushBytecode(&asBytecode, 1).hasErr()) {
-            return Error(ProgramError(std::nullopt, ProgramError::Kind::OutOfMemory));
+            return Error(ProgramError::OutOfMemory);
         }
     } else {
         auto expressionErr = this->retValue.value().compileExpression(builder);
@@ -53,7 +54,7 @@ Result<void, ProgramError> sy::ReturnNode::compileStatement(FunctionBuilder* bui
                                             static_cast<uint64_t>(this->retValue.value().variableIndex)};
         const Bytecode asBytecode = Bytecode(ret);
         if (builder->pushBytecode(&asBytecode, 1).hasErr()) {
-            return Error(ProgramError(std::nullopt, ProgramError::Kind::OutOfMemory));
+            return Error(ProgramError::OutOfMemory);
         }
     }
     return {};

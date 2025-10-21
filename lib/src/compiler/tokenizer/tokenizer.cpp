@@ -59,7 +59,7 @@ sy::Result<Tokenizer, sy::ProgramError> Tokenizer::create(Allocator allocator, S
     self.source_ = source;
 
     if (source.len() > MAX_SOURCE_LEN) {
-        return Error(ProgramError(std::nullopt, ProgramError::Kind::CompileSourceFileTooBig));
+        return Error(ProgramError::CompileSourceFileTooBig);
     }
 
     // The total amount of tokens will always be less than or equal
@@ -74,7 +74,7 @@ sy::Result<Tokenizer, sy::ProgramError> Tokenizer::create(Allocator allocator, S
     {
         auto bigMemRes = self.alloc_.allocArray<uint8_t>(totalBigBytes);
         if (bigMemRes.hasErr()) {
-            return Error(ProgramError(std::nullopt, ProgramError::Kind::OutOfMemory));
+            return Error(ProgramError::OutOfMemory);
         }
         uint8_t* baseMem = bigMemRes.value();
         bigTokens = reinterpret_cast<Token*>(baseMem);
@@ -124,7 +124,7 @@ sy::Result<Tokenizer, sy::ProgramError> Tokenizer::create(Allocator allocator, S
         if (smallMemRes.hasErr()) {
             uint8_t* baseBigMem = reinterpret_cast<uint8_t*>(bigTokens);
             self.alloc_.freeArray(baseBigMem, totalBigBytes);
-            return Error(ProgramError(std::nullopt, ProgramError::Kind::OutOfMemory));
+            return Error(ProgramError::OutOfMemory);
         }
         uint8_t* baseMem = smallMemRes.value();
         smallTokens = reinterpret_cast<Token*>(baseMem);

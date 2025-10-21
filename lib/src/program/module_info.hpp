@@ -7,6 +7,7 @@
 
 namespace sy {
 
+/// Sync modules use semantic versioning https://semver.org/
 struct SemVer {
     uint32_t major = 0;
     uint32_t minor = 0;

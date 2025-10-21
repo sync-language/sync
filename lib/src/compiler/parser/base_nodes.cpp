@@ -51,8 +51,9 @@ IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>
         return Option<IFunctionStatement*>(ret);
     } break;
     default:
-        return Error(ProgramError(SourceFileLocation(parseInfo->tokenIter.source(), token.location()),
-                                  ProgramError::Kind::CompileStatement));
+        parseInfo->reportErr(ProgramError::CompileStatement, token.location(),
+                             "Expected either start of a statement or } symbol");
+        return Error(ProgramError::CompileStatement);
     }
 }
 

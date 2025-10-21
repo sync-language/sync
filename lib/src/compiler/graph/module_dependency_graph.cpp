@@ -20,7 +20,7 @@ static Result<DynArray<const Module*>, ProgramError> makeFirstLayer(DynArray<con
     while (i < modules->len()) {
         if ((*modules)[i]->dependencies().len() == 0) {
             if (nodes.push((*modules)[i]).hasErr()) {
-                return Error(ProgramError({}, ProgramError::Kind::OutOfMemory));
+                return Error(ProgramError::OutOfMemory);
             }
             modules->removeAt(i);
         } else {
@@ -29,7 +29,7 @@ static Result<DynArray<const Module*>, ProgramError> makeFirstLayer(DynArray<con
     }
 
     if (nodes.len() == 0) {
-        return Error(ProgramError({}, ProgramError::Kind::CompileModuleDependencyGraph));
+        return Error(ProgramError::CompileModuleDependencyGraph);
     }
 
     return nodes;
@@ -72,7 +72,7 @@ Result<ModuleDependencyGraph, ProgramError> sy::ModuleDependencyGraph::init(DynA
             return Error(res.takeErr());
         }
         if (self.layers.push(res.takeValue()).hasErr()) {
-            return Error(ProgramError({}, ProgramError::Kind::OutOfMemory));
+            return Error(ProgramError::OutOfMemory);
         }
     }
 
@@ -83,7 +83,7 @@ Result<ModuleDependencyGraph, ProgramError> sy::ModuleDependencyGraph::init(DynA
             const Module* mod = modules[i];
             if (allDependenciesInLayers(self.layers, mod)) {
                 if (newLayers.push(mod).hasErr()) {
-                    return Error(ProgramError({}, ProgramError::Kind::OutOfMemory));
+                    return Error(ProgramError::OutOfMemory);
                 }
                 modules.removeAt(i);
             } else {
@@ -91,10 +91,11 @@ Result<ModuleDependencyGraph, ProgramError> sy::ModuleDependencyGraph::init(DynA
             }
         }
         if (newLayers.len() == 0)
-            return Error(ProgramError({}, ProgramError::Kind::CompileModuleDependencyGraph));
+            return Error(ProgramError::CompileModuleDependencyGraph);
+        ;
 
         if (self.layers.push(std::move(newLayers)).hasErr())
-            return Error(ProgramError({}, ProgramError::Kind::OutOfMemory));
+            return Error(ProgramError::OutOfMemory);
     }
 
     return self;
@@ -138,13 +139,13 @@ TEST_CASE("ModuleDependencyGraph zero modules") {
         CHECK_EQ(modules.len(), 0);
         auto res = makeFirstLayer(&modules);
         CHECK(res.hasErr());
-        CHECK_EQ(res.err().kind(), ProgramError::Kind::CompileModuleDependencyGraph);
+        CHECK_EQ(res.err(), ProgramError::CompileModuleDependencyGraph);
     }
     {
         auto modules = compiler.allModules().value();
         auto res = ModuleDependencyGraph::init(compiler.allModules().value());
         CHECK(res.hasErr());
-        CHECK_EQ(res.err().kind(), ProgramError::Kind::CompileModuleDependencyGraph);
+        CHECK_EQ(res.err(), ProgramError::CompileModuleDependencyGraph);
     }
 }
 
