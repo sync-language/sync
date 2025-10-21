@@ -72,7 +72,7 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
     const StringSlice fileSlice = fileSource->elem.syncSourceFile.value().asSlice();
     auto tokenizerRes = Tokenizer::create(alloc, fileSlice);
     if (tokenizerRes.hasErr()) {
-        errReporter(tokenizerRes.err(), SourceFileLocation(), "Tokenizer", errReporterArg);
+        errReporter(tokenizerRes.err(), SourceFileLocation(), StringSlice("Tokenizer"), errReporterArg);
         return Error(tokenizerRes.takeErr());
     }
     Tokenizer tokenizer = tokenizerRes.takeValue();

@@ -8,7 +8,6 @@ namespace sy {
 namespace detail {
 void SY_API sliceDebugAssertIndexInRange(size_t index, size_t len) noexcept;
 }
-} // namespace sy
 
 template <typename T> class Slice final {
   public:
@@ -23,7 +22,7 @@ template <typename T> class Slice final {
 
     [[nodiscard]] size_t len() const { return this->len_; }
 
-    [[nodiscard]] const T* data() const {return this->data_};
+    [[nodiscard]] const T* data() const { return this->data_; }
 
     class Iterator final {
         friend class Slice;
@@ -211,5 +210,6 @@ template <typename T> class MutSlice final {
     const T* data_ = nullptr;
     size_t len_ = 0;
 };
+} // namespace sy
 
 #endif // SY_TYPES_ARRAY_SLICE_HPP_

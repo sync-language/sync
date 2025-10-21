@@ -67,7 +67,7 @@ Result<void, ProgramError> sy::ReturnNode::compileStatement(FunctionBuilder* bui
 TEST_CASE("ReturnNode no expression") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "return;").takeValue();
-    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}};
+    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr};
     (void)parseInfo.tokenIter.next();
     ReturnNode ret(alloc);
     DynArray<StackVariable> variables{};
@@ -83,7 +83,7 @@ TEST_CASE("ReturnNode no expression") {
 TEST_CASE("ReturnNode boolean literal true") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "return true;").takeValue();
-    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}};
+    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr};
     (void)parseInfo.tokenIter.next();
     ReturnNode ret(alloc);
     DynArray<StackVariable> variables{};
@@ -105,7 +105,7 @@ TEST_CASE("ReturnNode boolean literal true") {
 TEST_CASE("ReturnNode boolean literal false") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "return false;").takeValue();
-    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}};
+    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr};
     (void)parseInfo.tokenIter.next();
     ReturnNode ret = ReturnNode(alloc);
     DynArray<StackVariable> variables{};
