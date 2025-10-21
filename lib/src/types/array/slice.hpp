@@ -42,9 +42,9 @@ template <typename T> class Slice final {
         };
     };
 
-    Iterator begin(size_t size) const noexcept { return Iterator(this->data_); }
+    Iterator begin() const noexcept { return Iterator(this->data_); }
 
-    Iterator end(size_t size) const noexcept { return Iterator(this->data_ + this->len_); }
+    Iterator end() const noexcept { return Iterator(this->data_ + this->len_); }
 
     class ReverseIterator final {
         friend class Slice;
@@ -64,14 +64,14 @@ template <typename T> class Slice final {
         };
     };
 
-    ReverseIterator rbegin(size_t size) const noexcept {
+    ReverseIterator rbegin() const noexcept {
         if (this->data_ == nullptr) {
             return Iterator(nullptr);
         }
         return Iterator(this->data_ + (this->len_ - 1));
     }
 
-    ReverseIterator rend(size_t size) const noexcept {
+    ReverseIterator rend() const noexcept {
         if (this->data_ == nullptr) {
             return Iterator(nullptr);
         }
@@ -118,9 +118,9 @@ template <typename T> class MutSlice final {
         };
     };
 
-    Iterator begin(size_t size) noexcept { return Iterator(this->data_); }
+    Iterator begin() noexcept { return Iterator(this->data_); }
 
-    Iterator end(size_t size) noexcept { return Iterator(this->data_ + this->len_); }
+    Iterator end() noexcept { return Iterator(this->data_ + this->len_); }
 
     class ConstIterator final {
         friend class MutSlice;
@@ -140,9 +140,9 @@ template <typename T> class MutSlice final {
         };
     };
 
-    ConstIterator begin(size_t size) const noexcept { return ConstIterator(this->data_); }
+    ConstIterator begin() const noexcept { return ConstIterator(this->data_); }
 
-    ConstIterator end(size_t size) const noexcept { return ConstIterator(this->data_ + this->len_); }
+    ConstIterator end() const noexcept { return ConstIterator(this->data_ + this->len_); }
 
     class ReverseIterator final {
         friend class MutSlice;
@@ -162,14 +162,14 @@ template <typename T> class MutSlice final {
         };
     };
 
-    ReverseIterator rbegin(size_t size) noexcept {
+    ReverseIterator rbegin() noexcept {
         if (this->data_ == nullptr) {
             return Iterator(nullptr);
         }
         return Iterator(this->data_ + (this->len_ - 1));
     }
 
-    ReverseIterator rend(size_t size) noexcept {
+    ReverseIterator rend() noexcept {
         if (this->data_ == nullptr) {
             return Iterator(nullptr);
         }
@@ -194,14 +194,14 @@ template <typename T> class MutSlice final {
         };
     };
 
-    ReverseConstIterator rbegin(size_t size) const noexcept {
+    ReverseConstIterator rbegin() const noexcept {
         if (this->data_ == nullptr) {
             return Iterator(nullptr);
         }
         return Iterator(this->data_ + (this->len_ - 1));
     }
 
-    ReverseConstIterator rend(size_t size) const noexcept {
+    ReverseConstIterator rend() const noexcept {
         if (this->data_ == nullptr) {
             return Iterator(nullptr);
         }
