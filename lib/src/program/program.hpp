@@ -49,6 +49,7 @@ class SY_API Program final {
     // get all modules
 
     // get module by name and version (how to handle latest?)
+    Option<const ProgramModule&> getModule(StringSlice name, Option<SemVer> version);
 
   private:
     void* inner_;

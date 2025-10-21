@@ -25,3 +25,5 @@ ModuleVersion sy::ProgramModule::moduleInfo() const noexcept {
     const ProgramModuleInternal* self = reinterpret_cast<const ProgramModuleInternal*>(this->inner_);
     return ModuleVersion{self->name.asSlice(), self->version};
 }
+
+Option<const ProgramModule&> sy::Program::getModule(StringSlice name, Option<SemVer> version) { (void)this->inner_; }
