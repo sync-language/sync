@@ -76,7 +76,7 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
         return Error(tokenizerRes.takeErr());
     }
     Tokenizer tokenizer = tokenizerRes.takeValue();
-    ParseInfo parseInfo{tokenizer.iter(), alloc, fileSource, {}, errReporterArg, errReporter};
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, fileSource, {}, errReporter, errReporterArg);
 
     {
         auto nextOpt = parseInfo.tokenIter.next();
@@ -135,7 +135,7 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
 TEST_CASE("parseStatement right brace") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "}").takeValue();
-    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr};
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr);
     (void)parseInfo.tokenIter.next();
     auto res = parseStatement(&parseInfo, nullptr, nullptr);
     CHECK(res.hasValue());
@@ -145,7 +145,7 @@ TEST_CASE("parseStatement right brace") {
 TEST_CASE("parseStatement return") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "return;").takeValue();
-    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr};
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr);
     (void)parseInfo.tokenIter.next();
     auto res = parseStatement(&parseInfo, nullptr, nullptr);
     CHECK(res.hasValue());

@@ -6,6 +6,7 @@
 #include "../types/array/dynamic_array.hpp"
 #include "../types/array/slice.hpp"
 #include "../types/function/function.hpp"
+#include "../types/hash/map.hpp"
 #include "../types/string/string.hpp"
 #include "../types/type_info.hpp"
 #include "program.hpp"
@@ -36,13 +37,14 @@ struct ProgramModuleInternal {
     size_t allFunctionsLen = 0;
     Type* allTypes = nullptr;
     size_t allTypesLen = 0;
-    ProgramErrorReporter errReporter = nullptr;
 };
 
 struct ProgramInternal {
     ProtectedAllocator protAlloc{};
-    ProgramModuleInternal* allModules = nullptr;
+    ProgramModule* allModules = nullptr;
     size_t allModulesLen = 0;
+    MapUnmanaged<StringSlice, DynArrayUnmanaged<ProgramModule*>> moduleVersions;
+    ProgramErrorReporter errReporter = nullptr;
 };
 
 } // namespace sy

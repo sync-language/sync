@@ -26,4 +26,24 @@ ModuleVersion sy::ProgramModule::moduleInfo() const noexcept {
     return ModuleVersion{self->name.asSlice(), self->version};
 }
 
-Option<const ProgramModule&> sy::Program::getModule(StringSlice name, Option<SemVer> version) { (void)this->inner_; }
+Option<const ProgramModule&> sy::Program::getModule(StringSlice name, Option<SemVer> version) const noexcept {
+    const ProgramInternal* self = reinterpret_cast<const ProgramInternal*>(this->inner_);
+    auto findVersions = self->moduleVersions.find(name);
+    if (findVersions.hasValue() == false) {
+        return std::nullopt;
+    }
+
+    sy_assert(findVersions.value().len() > 0, "Zero versions??");
+
+    if (version.hasValue() == false) {
+        return Option<const ProgramModule&>(*findVersions.value()[0]);
+    } else {
+        SemVer desired = version.value();
+        for (const ProgramModule* versionedModule : findVersions.value()) {
+            if (versionedModule->moduleInfo().version == desired) {
+                return Option<const ProgramModule&>(*versionedModule);
+            }
+        }
+        return std::nullopt;
+    }
+}

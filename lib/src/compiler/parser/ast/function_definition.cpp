@@ -222,7 +222,7 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
 TEST_CASE("parse function args") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64)").takeValue();
-    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr};
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr);
     (void)parseInfo.tokenIter.next();
     DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
     {
@@ -246,7 +246,7 @@ TEST_CASE("parse function args") {
 TEST_CASE("parse function args trailing comma") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64,)").takeValue();
-    ParseInfo parseInfo{tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr};
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr);
     (void)parseInfo.tokenIter.next();
     DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
     {

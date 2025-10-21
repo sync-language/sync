@@ -20,9 +20,15 @@ struct ParseInfo {
     Allocator alloc;
     /// Will always be of type `SourceFileKind::SyncSourceFile`
     const SourceTreeNode* fileSource;
+    StringSlice moduleName;
     MapUnmanaged<StringSlice, bool> imports;
-    void* errReporterArg;
     ProgramErrorReporter errReporter;
+    void* errReporterArg;
+
+    ParseInfo(TokenIter inIter, Allocator inAlloc, const SourceTreeNode* inSource, StringSlice inModName,
+              ProgramErrorReporter inErrReporter, void* inErrReporterArg) noexcept
+        : tokenIter(inIter), alloc(inAlloc), fileSource(inSource), moduleName(inModName), imports({}),
+          errReporter(inErrReporter), errReporterArg(inErrReporterArg) {}
 
     void reportErr(ProgramError errKind, uint32_t inBytePos, StringSlice msg) const noexcept;
 };

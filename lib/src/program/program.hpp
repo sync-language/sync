@@ -24,7 +24,7 @@ class CallStack {
 };
 
 class SY_API ProgramModule final {
-
+  public:
     // module name and version
     ModuleVersion moduleInfo() const noexcept;
 
@@ -45,11 +45,15 @@ class SY_API ProgramModule final {
 };
 
 class SY_API Program final {
-
+  public:
     // get all modules
 
-    // get module by name and version (how to handle latest?)
-    Option<const ProgramModule&> getModule(StringSlice name, Option<SemVer> version);
+    /// @brief Get a module by name and optionally version.
+    /// @param name The name of the module
+    /// @param version The module's version. If none, gets the latest version
+    /// available within the compiled program.
+    /// @return The found module, or none.
+    Option<const ProgramModule&> getModule(StringSlice name, Option<SemVer> version) const noexcept;
 
   private:
     void* inner_;
