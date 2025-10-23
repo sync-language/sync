@@ -42,7 +42,7 @@ struct FileAst {
     DynArrayUnmanaged<IFunctionDefinition*> functions;
     DynArrayUnmanaged<ITypeDefNode*> structs;
     Scope scope;
-    // TODO imports
+    MapUnmanaged<StringSlice, bool> imports;
 
     FileAst(FileAst&&) = default;
 

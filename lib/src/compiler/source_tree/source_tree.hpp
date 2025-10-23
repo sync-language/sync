@@ -56,6 +56,10 @@ struct SourceTree {
 
     ~SourceTree() noexcept;
 
+    /// @brief
+    /// @param absolutePath Absolute path to file, including for "remote" directories
+    /// @param kind Whether directory, sync source code file, or other
+    /// @return Either the node at that path already in the tree or a new node, or an error.
     Result<SourceTreeNode*, SourceTreeErr> insert(StringSlice absolutePath, SourceFileKind kind) noexcept;
 };
 } // namespace sy

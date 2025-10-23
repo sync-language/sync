@@ -13,6 +13,10 @@ class ProtectedAllocator final : public IAllocator {
 
     ~ProtectedAllocator() noexcept;
 
+    ProtectedAllocator() = default;
+
+    ProtectedAllocator(ProtectedAllocator&& other) noexcept;
+
   protected:
     virtual void* alloc(size_t len, size_t align) noexcept;
 

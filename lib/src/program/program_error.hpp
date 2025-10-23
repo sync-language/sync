@@ -47,6 +47,7 @@ enum class ProgramError {
     CompileSymbol,
     CompileCircularModuleDependency,
     CompileModuleDependencyGraph,
+    CompileSelfImport,
 };
 
 using ProgramErrorReporter = void (*)(ProgramError errKind, const SourceFileLocation& where, StringSlice msg,

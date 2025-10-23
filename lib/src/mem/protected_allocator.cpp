@@ -136,6 +136,16 @@ sy::ProtectedAllocator::~ProtectedAllocator() noexcept {
     this->tail_ = nullptr;
 }
 
+sy::ProtectedAllocator::ProtectedAllocator(ProtectedAllocator&& other) noexcept {
+    other.mutex_.lock();
+
+    this->isWritable = other.isWritable;
+    this->tail_ = other.tail_;
+    other.tail_ = nullptr;
+
+    other.mutex_.unlock();
+}
+
 void* ProtectedAllocator::alloc(size_t len, size_t align) noexcept {
     std::scoped_lock _lock(mutex_);
 

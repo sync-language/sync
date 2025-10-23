@@ -45,6 +45,7 @@ struct ProgramInternal {
     size_t allModulesLen = 0;
     MapUnmanaged<StringSlice, DynArrayUnmanaged<ProgramModule*>> moduleVersions;
     ProgramErrorReporter errReporter = nullptr;
+    void* errReporterArg = nullptr;
 };
 
 } // namespace sy
