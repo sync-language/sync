@@ -9,4 +9,4 @@
 [![WASM](https://github.com/sync-language/sync/actions/workflows/wasm_test.yml/badge.svg)](https://github.com/sync-language/sync/actions/workflows/wasm_test.yml)
 [![Ubuntu RISC-V](https://github.com/sync-language/sync/actions/workflows/ubuntu_riscv_test.yml/badge.svg)](https://github.com/sync-language/sync/actions/workflows/ubuntu_riscv_test.yml)
 
-Sync is a embeddable, lightweight, thread-safe, and memory-safe scripting language for all platforms.
+An easily embeddable programming language for building robust, scalable software with parallel performance and memory safety.
