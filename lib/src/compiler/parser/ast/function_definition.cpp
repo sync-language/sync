@@ -1,6 +1,7 @@
 #include "function_definition.hpp"
 #include "../../../types/type_info.hpp"
 #include "../../../util/assert.hpp"
+#include "../../source_tree/source_tree.hpp"
 #include "../parser.hpp"
 
 using namespace sy;
@@ -141,6 +142,23 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
         }
 
         this->functionName = parseInfo->tokenIter.currentSlice();
+
+        // TODO scoped functions
+        auto fileNameRes = StringUnmanaged::copyConstruct(parseInfo->fileSource->name, parseInfo->alloc);
+        if (fileNameRes.hasErr()) {
+            parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
+            return Error(ProgramError::OutOfMemory);
+        }
+
+        new (&this->functionQualifiedName) StringUnmanaged(std::move(fileNameRes.takeValue()));
+        if (this->functionQualifiedName.append(".", parseInfo->alloc).hasErr()) {
+            parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
+            return Error(ProgramError::OutOfMemory);
+        }
+        if (this->functionQualifiedName.append(this->functionName, parseInfo->alloc).hasErr()) {
+            parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
+            return Error(ProgramError::OutOfMemory);
+        }
     }
 
     { // arguments

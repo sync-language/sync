@@ -47,3 +47,47 @@ Option<const ProgramModule&> sy::Program::getModule(StringSlice name, Option<Sem
         return std::nullopt;
     }
 }
+
+Result<void, AllocErr> sy::ProgramModuleInternal::initializeFunctionsMem(Allocator alloc, size_t count) noexcept {
+    if (count == 0)
+        return {};
+
+    this->allFunctionsLen = count;
+    auto funcMemRes = alloc.allocArray<Function>(count);
+    if (funcMemRes.hasErr())
+        return Error(AllocErr::OutOfMemory);
+    auto funcNameRes = alloc.allocArray<StringUnmanaged>(count);
+    if (funcNameRes.hasErr())
+        return Error(AllocErr::OutOfMemory);
+    auto funcQualifiedNameRes = alloc.allocArray<StringUnmanaged>(count);
+    if (funcQualifiedNameRes.hasErr())
+        return Error(AllocErr::OutOfMemory);
+
+    this->allFunctions = funcMemRes.value();
+    this->allFunctionNames = funcNameRes.value();
+    this->allFunctionQualifiedNames = funcQualifiedNameRes.value();
+
+    return {};
+}
+
+Result<void, AllocErr> sy::ProgramModuleInternal::initializeTypesMem(Allocator alloc, size_t count) noexcept {
+    if (count == 0)
+        return {};
+
+    this->allTypesLen = count;
+    auto typeMemRes = alloc.allocArray<Type>(count);
+    if (typeMemRes.hasErr())
+        return Error(AllocErr::OutOfMemory);
+    auto typeNameRes = alloc.allocArray<StringUnmanaged>(count);
+    if (typeNameRes.hasErr())
+        return Error(AllocErr::OutOfMemory);
+    auto typeQualifiedNameRes = alloc.allocArray<StringUnmanaged>(count);
+    if (typeQualifiedNameRes.hasErr())
+        return Error(AllocErr::OutOfMemory);
+
+    this->allTypes = typeMemRes.value();
+    this->allTypeNames = typeNameRes.value();
+    this->allTypeQualifiedNames = typeQualifiedNameRes.value();
+
+    return {};
+}

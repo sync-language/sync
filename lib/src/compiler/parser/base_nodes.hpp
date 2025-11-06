@@ -61,6 +61,10 @@ class IFunctionDefinition : public detail::IBaseParserNode {
     virtual Result<void, ProgramError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept = 0;
 
     virtual Result<void, ProgramError> compile() const noexcept = 0;
+
+    virtual StringSlice unqualifiedName() const noexcept = 0;
+
+    virtual StringSlice qualifiedName() const noexcept = 0;
 };
 
 /// Handles type definitions. This includes structs, enums, unions, aliases,

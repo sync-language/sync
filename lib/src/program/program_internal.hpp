@@ -34,9 +34,17 @@ struct ProgramModuleInternal {
     StringUnmanaged name{};
     SemVer version{};
     Function* allFunctions = nullptr;
+    StringUnmanaged* allFunctionNames = nullptr;
+    StringUnmanaged* allFunctionQualifiedNames = nullptr;
     size_t allFunctionsLen = 0;
     Type* allTypes = nullptr;
+    StringUnmanaged* allTypeNames = nullptr;
+    StringUnmanaged* allTypeQualifiedNames = nullptr;
     size_t allTypesLen = 0;
+
+    Result<void, AllocErr> initializeFunctionsMem(Allocator alloc, size_t count) noexcept;
+
+    Result<void, AllocErr> initializeTypesMem(Allocator alloc, size_t count) noexcept;
 };
 
 struct ProgramInternal {

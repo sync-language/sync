@@ -6,6 +6,7 @@
 #include "../types/string/string.hpp"
 #include "../util/assert.hpp"
 #include "graph/module_dependency_graph.hpp"
+#include "parser/base_nodes.hpp"
 #include "parser/parser.hpp"
 #include "source_tree/source_tree.hpp"
 #include <cstring>
@@ -212,10 +213,9 @@ getCompileOrder(Allocator alloc, const MapUnmanaged<ModuleVersion, Module*>& mod
     return res.takeValue();
 }
 
-static Result<ProgramModuleInternal, ProgramError> compileModule(const ModuleImpl* mod, Allocator protAlloc,
-                                                                 Allocator tempAlloc, ProgramErrorReporter errReporter,
-                                                                 void* errReporterArg) {
-    (void)protAlloc;
+static Result<ProgramModuleInternal*, ProgramError> compileModule(const ModuleImpl* mod, Allocator protAlloc,
+                                                                  Allocator tempAlloc, ProgramErrorReporter errReporter,
+                                                                  void* errReporterArg) {
     MapUnmanaged<const SourceTreeNode*, FileAst> asts;
     DynArray<const SourceTreeNode*> nodesToProcess(tempAlloc);
     (void)nodesToProcess;
@@ -235,7 +235,69 @@ static Result<ProgramModuleInternal, ProgramError> compileModule(const ModuleImp
 
     // TODO other imported files
 
-    return ProgramModuleInternal();
+    ProgramModuleInternal* moduleInternal = nullptr;
+    {
+        auto res = protAlloc.allocObject<ProgramModuleInternal>();
+        if (res.hasErr())
+            return Error(ProgramError::OutOfMemory);
+
+        moduleInternal = res.value();
+        new (moduleInternal) ProgramModuleInternal();
+
+        auto nameCopyRes = StringUnmanaged::copyConstruct(mod->name, protAlloc);
+        if (nameCopyRes.hasErr())
+            return Error(ProgramError::OutOfMemory);
+
+        new (&moduleInternal->name) StringUnmanaged(std::move(nameCopyRes.takeValue()));
+        moduleInternal->version = mod->version;
+    }
+
+    { // count functions and types
+        size_t functionCount = 0;
+        size_t structCount = 0;
+        for (const auto astEntry : asts) {
+            functionCount += astEntry.value.nonGenericFunctions.len();
+            structCount += astEntry.value.nonGenericStructs.len();
+        }
+
+        if (moduleInternal->initializeFunctionsMem(protAlloc, functionCount).hasErr()) {
+            return Error(ProgramError::OutOfMemory);
+        }
+        if (moduleInternal->initializeTypesMem(protAlloc, structCount).hasErr()) {
+            return Error(ProgramError::OutOfMemory);
+        }
+    }
+
+    { // add entries for all functions so that recursion can work, and so that function names work
+        size_t iter = 0;
+        for (const auto astEntry : asts) {
+            for (const IFunctionDefinition* func : astEntry.value.nonGenericFunctions) {
+                auto unqualifiedRes = StringUnmanaged::copyConstructSlice(func->unqualifiedName(), protAlloc);
+                if (unqualifiedRes.hasErr())
+                    return Error(ProgramError::OutOfMemory);
+                auto qualifiedRes = StringUnmanaged::copyConstructSlice(func->qualifiedName(), protAlloc);
+                if (qualifiedRes.hasErr())
+                    return Error(ProgramError::OutOfMemory);
+
+                new (&moduleInternal->allFunctionNames[iter]) StringUnmanaged(std::move(unqualifiedRes.takeValue()));
+                new (&moduleInternal->allFunctionQualifiedNames[iter])
+                    StringUnmanaged(std::move(qualifiedRes.takeValue()));
+
+                memset(&moduleInternal->allFunctions[iter], 0, sizeof(Function));
+                moduleInternal->allFunctions[iter].name = moduleInternal->allFunctionNames[iter].asSlice();
+                moduleInternal->allFunctions[iter].qualifiedName =
+                    moduleInternal->allFunctionQualifiedNames[iter].asSlice();
+
+                iter += 1;
+            }
+        }
+
+        sy_assert(iter == moduleInternal->allFunctionsLen, "Iterator should match");
+    }
+
+    // TODO same for structs
+
+    return moduleInternal;
 }
 
 static_assert(sizeof(Module) == sizeof(ModuleImpl*));
@@ -271,16 +333,10 @@ static Result<void, ProgramError> compileModules(ProgramInternal* programInterna
             return Error(moduleCompileResult.takeErr());
         }
 
-        auto modInternalAllocRes =
-            programInternal->protAlloc.asAllocator().allocArray<ProgramModuleInternal>(modules.len());
-        if (modInternalAllocRes.hasErr()) {
-            return Error(ProgramError::OutOfMemory);
-        }
-        ProgramModuleInternal* internal = modInternalAllocRes.value();
-        new (internal) ProgramModuleInternal(std::move(moduleCompileResult.takeValue()));
+        ProgramModuleInternal* innerMem = moduleCompileResult.takeValue();
         ProgramModule* programModule = &programInternal->allModules[index];
         ProgramModuleInternal** programModuleInternal = reinterpret_cast<ProgramModuleInternal**>(programModule);
-        *programModuleInternal = internal;
+        *programModuleInternal = innerMem;
 
         index += 1;
     }

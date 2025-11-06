@@ -39,8 +39,8 @@ class IFunctionStatement;
 
 struct FileAst {
     Allocator alloc;
-    DynArrayUnmanaged<IFunctionDefinition*> functions;
-    DynArrayUnmanaged<ITypeDefNode*> structs;
+    DynArrayUnmanaged<IFunctionDefinition*> nonGenericFunctions;
+    DynArrayUnmanaged<ITypeDefNode*> nonGenericStructs;
     Scope scope;
     MapUnmanaged<StringSlice, bool> imports;
 

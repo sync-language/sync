@@ -17,15 +17,15 @@ void sy::ParseInfo::reportErr(ProgramError errKind, uint32_t inBytePos, StringSl
 }
 
 sy::FileAst::~FileAst() noexcept {
-    for (size_t i = 0; i < this->functions.len(); i++) {
-        delete this->functions[i];
+    for (size_t i = 0; i < this->nonGenericFunctions.len(); i++) {
+        delete this->nonGenericFunctions[i];
     }
-    for (size_t i = 0; i < this->structs.len(); i++) {
-        delete this->structs[i];
+    for (size_t i = 0; i < this->nonGenericStructs.len(); i++) {
+        delete this->nonGenericStructs[i];
     }
 
-    this->functions.destroy(this->alloc);
-    this->structs.destroy(this->alloc);
+    this->nonGenericFunctions.destroy(this->alloc);
+    this->nonGenericStructs.destroy(this->alloc);
 }
 
 Result<Option<IFunctionStatement*>, ProgramError>
@@ -97,7 +97,7 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
                     return Error(res.takeErr());
                 }
 
-                if (ast.functions.push(func, alloc).hasErr()) {
+                if (ast.nonGenericFunctions.push(func, alloc).hasErr()) {
                     parseInfo.reportErr(ProgramError::OutOfMemory, parseInfo.tokenIter.current().location(),
                                         "Out of memory");
                     return Error(ProgramError::OutOfMemory);
@@ -166,8 +166,8 @@ TEST_CASE("parseFile empty") {
     auto res = parseFile(alloc, &source, nullptr, nullptr);
     CHECK(res);
     FileAst ast = res.takeValue();
-    CHECK_EQ(ast.functions.len(), 0);
-    CHECK_EQ(ast.structs.len(), 0);
+    CHECK_EQ(ast.nonGenericFunctions.len(), 0);
+    CHECK_EQ(ast.nonGenericStructs.len(), 0);
     CHECK_FALSE(ast.scope.isInFunction);
     CHECK_FALSE(ast.scope.isSync);
     CHECK_EQ(ast.scope.syncVariables.len(), 0);

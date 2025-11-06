@@ -20,7 +20,12 @@ class FunctionDefinitionNode : public IFunctionDefinition {
 
     virtual Result<void, ProgramError> compile() const noexcept override { return {}; }
 
+    virtual StringSlice unqualifiedName() const noexcept override { return functionName; }
+
+    virtual StringSlice qualifiedName() const noexcept override { return functionQualifiedName.asSlice(); }
+
     StringSlice functionName{};
+    StringUnmanaged functionQualifiedName{};
     DynArray<StackVariable> args{};
     Option<TypeResolutionInfo> retType{};
     DynArray<StackVariable> localVariables{};
