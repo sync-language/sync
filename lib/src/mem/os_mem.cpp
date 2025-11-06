@@ -26,6 +26,7 @@ ISO/IEC 9899:201x (aka ISO C11)
 */
 
 #include "os_mem.hpp"
+#include "../util/assert.hpp"
 #include <cstdlib>
 #include <iostream>
 
@@ -62,7 +63,9 @@ void aligned_free(void* buf) {
 }
 
 void* page_malloc(size_t len) {
-#if defined(_WIN32) || defined(WIN32)
+#if defined(__EMSCRIPTEN__) || defined(SYNC_NO_PAGES)
+    return aligned_malloc(len, page_size());
+#elif defined(_WIN32) || defined(WIN32)
     return VirtualAlloc(NULL, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 #elif __GNUC__
     return mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -70,28 +73,40 @@ void* page_malloc(size_t len) {
 }
 
 void page_free(void* pagesStart, size_t len) {
-#if defined(_WIN32) || defined(WIN32)
-    VirtualFree(pagesStart, len, MEM_DECOMMIT | MEM_RELEASE);
+#if defined(__EMSCRIPTEN__) || defined(SYNC_NO_PAGES)
+    (void)len;
+    return std::free(pagesStart);
+#elif defined(_WIN32) || defined(WIN32)
+    (void)len;
+    auto result = VirtualFree(pagesStart, 0, MEM_RELEASE);
+    sy_assert(result != 0, "Failed to free pages");
 #elif __GNUC__
-    munmap(pagesStart, len);
+    auto result = munmap(pagesStart, len);
+    sy_assert(result == 0, "Failed to free pages");
 #endif
 }
 }
 
 size_t page_size() {
+#if defined(__EMSCRIPTEN__) || defined(SYNC_NO_PAGES)
+    // reasonable default
+    return 4096;
+#else
     static size_t pageSize = []() -> size_t {
 #if defined(_WIN32) || defined(WIN32)
-        SYSTEM_INFO sysInfo;
-        GetSystemInfo(&sysInfo);
-        return static_cast<size_t>(sysInfo.dwPageSize);
+    SYSTEM_INFO sysInfo;
+    GetSystemInfo(&sysInfo);
+    return static_cast<size_t>(sysInfo.dwPageSize);
 #elif __GNUC__
-        long sz = sysconf(_SC_PAGESIZE);
-        return static_cast<size_t>(sz);
+    long sz = sysconf(_SC_PAGESIZE);
+    return static_cast<size_t>(sz);
 #else
-        static_assert(false, "Unknown page size for target");
+    static_assert(false, "Unknown page size for target");
 #endif
-    }();
-    return pageSize;
+#endif // SYNC_NO_PAGES
+}
+();
+return pageSize;
 }
 
 #if SYNC_LIB_WITH_TESTS

@@ -7,7 +7,7 @@ using namespace sy;
 
 // https://developer.apple.com/documentation/BundleResources/Entitlements/com.apple.security.cs.allow-jit
 
-#if defined(__EMSCRIPTEN__)
+#if defined(__EMSCRIPTEN__) || defined(SYNC_NO_PAGES)
 
 // No-op
 static void makeMemoryReadOnly(void* baseAddress, size_t size) {
@@ -189,5 +189,7 @@ void ProtectedAllocator::free(void* buf, size_t len, size_t align) noexcept {
     (void)buf;
     (void)len;
     (void)align;
-    sy_assert(false, "Memory should not be freed through the protected allocator. Memory is freed by the destructor");
+    // Memory should not be freed through the protected allocator.
+    // Memory is freed by the destructor of `ProtectedAllocator`.
+    // Despite that, it can just be a no-op to keep the API consistent.
 }

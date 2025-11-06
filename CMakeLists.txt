@@ -14,6 +14,7 @@ option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" OFF)
 option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" ON)
 option(SYNC_LIB_BUILD_SHARED_LIB "Build Sync as a shared library" OFF)
+option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -91,6 +92,11 @@ target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS)
 
 if(SYNC_LIB_WITH_TESTS)
     target_compile_definitions(SyncLib PRIVATE SYNC_LIB_WITH_TESTS)
+endif()
+
+if(SYNC_NO_PAGES)
+    target_compile_definitions(SyncLib PRIVATE SYNC_NO_PAGES)
+    target_compile_definitions(SyncLibTests PRIVATE SYNC_NO_PAGES)
 endif()
 
 # Ensure all warnings are caught
