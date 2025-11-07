@@ -9,7 +9,7 @@
 
 #endif // WIN32 def
 
-#if defined(__SSE2__) || defined(__AVX2__)
+#if defined(__SSE2__) || defined(__AVX2__) || defined(__AVX512F__)
 // #include <intrin.h>
 #include <immintrin.h>
 #elif __ARM_NEON__
@@ -145,27 +145,11 @@ static bool is_avx512f_supported() {
 #endif
 }
 
-static SimdMask<64> equalMask8x64AVX512(const uint8_t* p, uint8_t v) {
-    const __m512i valueToFind = _mm512_set1_epi8(v);
-    const __m512i bufferToSearch = *reinterpret_cast<const __m512i*>(p);
-    const unsigned long long mask = _mm512_cmpeq_epi8_mask(valueToFind, bufferToSearch);
-    return SimdMask<64>(static_cast<uint64_t>(mask));
-};
-
 static SimdMask<64> equalMask8x64AVX2(const uint8_t* p, uint8_t v) {
     auto low = simd_detail::equalMask8x32(&p[0], v);
     auto high = simd_detail::equalMask8x32(&p[32], v);
     return SimdMask<64>(static_cast<uint64_t>(low.mask) | (static_cast<uint64_t>(high.mask) << 32));
 };
-
-static bool equalBytes8x64AVX512(const uint8_t* lhs, const uint8_t* rhs) {
-    const __m512i lhsVec = *reinterpret_cast<const __m512i*>(lhs);
-    const __m512i rhsVec = *reinterpret_cast<const __m512i*>(rhs);
-    const unsigned long long mask = _mm512_cmpeq_epi8_mask(lhsVec, rhsVec);
-    constexpr unsigned long long matched = ~0ULL;
-    return mask == matched;
-}
-
 static bool equalBytes8x64AVX2(const uint8_t* lhs, const uint8_t* rhs) {
     if (!simd_detail::equalBytes8x32(&lhs[0], &rhs[0])) {
         return false;
@@ -175,6 +159,23 @@ static bool equalBytes8x64AVX2(const uint8_t* lhs, const uint8_t* rhs) {
 
 #endif
 
+#if defined(__AVX512F__)
+static SimdMask<64> equalMask8x64AVX512(const uint8_t* p, uint8_t v) {
+    const __m512i valueToFind = _mm512_set1_epi8(v);
+    const __m512i bufferToSearch = *reinterpret_cast<const __m512i*>(p);
+    const unsigned long long mask = _mm512_cmpeq_epi8_mask(valueToFind, bufferToSearch);
+    return SimdMask<64>(static_cast<uint64_t>(mask));
+};
+
+static bool equalBytes8x64AVX512(const uint8_t* lhs, const uint8_t* rhs) {
+    const __m512i lhsVec = *reinterpret_cast<const __m512i*>(lhs);
+    const __m512i rhsVec = *reinterpret_cast<const __m512i*>(rhs);
+    const unsigned long long mask = _mm512_cmpeq_epi8_mask(lhsVec, rhsVec);
+    constexpr unsigned long long matched = ~0ULL;
+    return mask == matched;
+}
+#endif
+
 SimdMask<64> simd_detail::equalMask8x64(const uint8_t* alignedPtr, uint8_t value) {
     assert_aligned(alignedPtr, 64);
 
@@ -182,7 +183,11 @@ SimdMask<64> simd_detail::equalMask8x64(const uint8_t* alignedPtr, uint8_t value
     using FuncT = SimdMask<64> (*)(const uint8_t*, uint8_t);
     static const FuncT func = []() {
         if (is_avx512f_supported()) {
+#if defined(__AVX512F__)
             return equalMask8x64AVX512;
+#elif
+            return equalMask8x64AVX2;
+#endif
         } else {
             return equalMask8x64AVX2;
         }
@@ -247,7 +252,11 @@ bool simd_detail::equalBytes8x64(const uint8_t* lhs, const uint8_t* rhs) {
     using FuncT = bool (*)(const uint8_t*, const uint8_t*);
     static const FuncT func = []() {
         if (is_avx512f_supported()) {
+#if defined(__AVX512F__)
             return equalBytes8x64AVX512;
+#elif
+            return equalBytes8x64AVX2;
+#endif
         } else {
             return equalBytes8x64AVX2;
         }
