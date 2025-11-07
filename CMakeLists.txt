@@ -109,10 +109,10 @@ endif()
 # Ensure all warnings are caught
 if(EMSCRIPTEN)
     if (CMAKE_GENERATOR MATCHES "Visual Studio")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++23 /W4 /WX /EHsc /Zi") 
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++23 /W4 /WX /EHsc /Zi")
     else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23 -Wall -Wextra -Wpedantic -Werror -Wno-c11-extensions")
-        # TODO -Wno-c11-extensions not this. __COUNTER__ is not liked by emsdk right now.
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23 -Wall -Wextra -Wpedantic -Werror -Wno-c2y-extensions")
+        # TODO -Wno-c2y-extensions not this. __COUNTER__ is not liked by emsdk right now.
     endif()
 elseif(MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX /EHsc /Zi")
