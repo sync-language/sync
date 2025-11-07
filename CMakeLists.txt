@@ -17,6 +17,7 @@ option(SYNC_LIB_BUILD_SHARED_LIB "Build Sync as a shared library" OFF)
 option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
 option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" OFF)
 option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" OFF)
+option(SYNC_WASM_USE_SIMD "Use Fixed-width SIMD on WASM" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -191,7 +192,7 @@ else()
     set (X86 FALSE)
 endif()
 
-if(X86)
+if(X86) # TODO evaluate using -msimd128
     # SSE2
     cmake_host_system_information(RESULT HAS_SSE2 QUERY HAS_SSE2)
     if(HAS_SSE2)
@@ -204,7 +205,7 @@ if(X86)
             message(STATUS "SSE2 supported by this system - enabling")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2")
             target_compile_options(SyncLib PRIVATE -msse2)
-            target_compile_options(SyncLibTests PRIVATE -msse2)
+            target_compile_options(SyncLibTests PRIVATE -msse2)   
         endif()
     else()
         message(STATUS "SSE2 not supported by this system")
@@ -269,6 +270,15 @@ if(X86)
             message(STATUS "AVX512 not supported on this system")
         endif()
     endif()
+endif()
+
+if(EMSCRIPTEN AND SYNC_WASM_USE_SIMD)
+    # https://webassembly.org/features/
+    # Fixed-width SIMD supported by everything
+    message(STATUS "Enabling Fixed-width SIMD for WASM")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msimd128")
+    target_compile_options(SyncLib PRIVATE -msimd128)
+    target_compile_options(SyncLibTests PRIVATE -msimd128)
 endif()
 
 if(MSVC)
