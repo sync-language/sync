@@ -15,6 +15,8 @@ option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" ON)
 option(SYNC_LIB_BUILD_SHARED_LIB "Build Sync as a shared library" OFF)
 option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
+option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" OFF)
+option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -173,75 +175,15 @@ if(JNI_FOUND)
     endif()
 endif()
 
-
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_definitions(SyncLib PRIVATE SYNC_LIB_NO_TESTS)
 endif()
-
-# GITHUB ACTIONS HATES THIS. WHY?
-
-# SIMD
-# include(CheckCXXCompilerFlag)
-
-# if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
-#     set (X86 TRUE)
-# else ()
-#     set (X86 FALSE)
-# endif ()
-
-# if(X86)
-#     # SSE2
-#     cmake_host_system_information(RESULT HAS_SSE2 QUERY HAS_SSE2)
-#     if(HAS_SSE2)
-#         if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-#             message(STATUS "Sync SSE2 GNU/Clang")
-#             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2")
-#             target_compile_options(SyncLib PRIVATE -msse2)
-#             target_compile_options(SyncLibTests PRIVATE -msse2)
-#         elseif(CMAKE_C_COMPILER_ID MATCHES "MSVC")
-#             message(STATUS "Sync SSE2 MSVC")
-#             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:SSE2")
-#             target_compile_options(SyncLib PRIVATE /arch:SSE2)
-#             target_compile_options(SyncLibTests PRIVATE /arch:SSE2)
-#             # For some reason __SSE2__ macro doesn't seem to work? Not sure why?
-#         endif()
-#     endif()
-
-#     # AVX2
-#     if(MSVC)
-#         message(STATUS "Sync AVX2 MSVC")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
-#         target_compile_options(SyncLib PRIVATE /arch:AVX2)
-#         target_compile_options(SyncLibTests PRIVATE /arch:AVX2)
-#     else()
-#         message(STATUS "Sync AVX2 GNU/Clang")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
-#         target_compile_options(SyncLib PRIVATE -mavx2)
-#         target_compile_options(SyncLibTests PRIVATE -mavx2)
-#     endif()
-
-#     # AVX512
-#     if(MSVC)
-#         message(STATUS "Sync AVX512 MSVC")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX512")
-#         target_compile_options(SyncLib PRIVATE /arch:AVX512)
-#         target_compile_options(SyncLibTests PRIVATE /arch:AVX512)
-#     else()
-#         message(STATUS "Sync AVX512 GNU/Clang")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512f")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512bw")
-#         target_compile_options(SyncLib PRIVATE -mavx512f)
-#         target_compile_options(SyncLib PRIVATE -mavx512bw)
-#         target_compile_options(SyncLibTests PRIVATE -mavx512f)
-#         target_compile_options(SyncLibTests PRIVATE -mavx512bw)
-#     endif()
-# endif()
 
 # ========================
 # X86_64 SIMD instructions
 # ========================
 include(CheckCXXCompilerFlag)
-include(CheckCXXSourceCompiles)
+include(CheckCXXSourceRuns) # Stupid GitHub Actions (I love you github actions)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
     set (X86 TRUE)
@@ -269,59 +211,63 @@ if(X86)
     endif()
 
     # AVX2
-    set(CMAKE_REQUIRED_FLAGS_PRE_AVX2 ${CMAKE_REQUIRED_FLAGS})
-    if(MSVC)
-        set(CMAKE_REQUIRED_FLAGS "/arch:AVX2")
-    else()
-        set(CMAKE_REQUIRED_FLAGS "-mavx2")
-    endif()
-    check_cxx_source_compiles("
-        #include <immintrin.h>
-        int main() { __m256i thing = _mm256_setzero_si256(); return 0; }
-    " HAS_AVX2)
-    set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_PRE_AVX2})
-    if(HAS_AVX2)
+    if(NOT ${SYNC_NO_AVX2})
+        set(CMAKE_REQUIRED_FLAGS_PRE_AVX2 ${CMAKE_REQUIRED_FLAGS})
         if(MSVC)
-            message(STATUS "AVX2 supported by this system - enabling")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
-            target_compile_options(SyncLib PRIVATE /arch:AVX2)
-            target_compile_options(SyncLibTests PRIVATE /arch:AVX2)
+            set(CMAKE_REQUIRED_FLAGS "/arch:AVX2")
         else()
-            message(STATUS "AVX2 supported by this system - enabling")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
-            target_compile_options(SyncLib PRIVATE -mavx2)
-            target_compile_options(SyncLibTests PRIVATE -mavx2)
+            set(CMAKE_REQUIRED_FLAGS "-mavx2")
         endif()
-    else()
-        message(STATUS "AVX2 not supported by this system")
+        check_cxx_source_runs("
+            #include <immintrin.h>
+            int main() { __m256i thing = _mm256_setzero_si256(); return 0; }
+        " HAS_AVX2)
+        set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_PRE_AVX2})
+        if(HAS_AVX2)
+            if(MSVC)
+                message(STATUS "AVX2 supported on this system - enabling")
+                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
+                target_compile_options(SyncLib PRIVATE /arch:AVX2)
+                target_compile_options(SyncLibTests PRIVATE /arch:AVX2)
+            else()
+                message(STATUS "AVX2 supported on this system - enabling")
+                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
+                target_compile_options(SyncLib PRIVATE -mavx2)
+                target_compile_options(SyncLibTests PRIVATE -mavx2)
+            endif()
+        else()
+            message(STATUS "AVX2 not supported on this system")
+        endif()
     endif()
 
     # AVX512
-    set(CMAKE_REQUIRED_FLAGS_PRE_AVX512 ${CMAKE_REQUIRED_FLAGS})
-    if(MSVC)
-        set(CMAKE_REQUIRED_FLAGS "/arch:AVX512")
-    else()
-        set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw")
-    endif()
-    check_cxx_source_compiles("
-        #include <immintrin.h>
-        int main() { __m512i thing = _mm512_setzero_si512(); return 0; }
-    " HAS_AVX512)
-    set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_PRE_AVX512})
-    if(HAS_AVX512)
+    if(NOT ${SYNC_NO_AVX512})
+        set(CMAKE_REQUIRED_FLAGS_PRE_AVX512 ${CMAKE_REQUIRED_FLAGS})
         if(MSVC)
-            message(STATUS "AVX512 supported by this system - enabling")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX512")
-            target_compile_options(SyncLib PRIVATE /arch:AVX512)
-            target_compile_options(SyncLibTests PRIVATE /arch:AVX512)
+            set(CMAKE_REQUIRED_FLAGS "/arch:AVX512")
         else()
-            message(STATUS "AVX512 supported by this system - enabling")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512f -mavx512bw")
-            target_compile_options(SyncLib PRIVATE -mavx512f -mavx512bw)
-            target_compile_options(SyncLibTests PRIVATE -mavx512f -mavx512bw)
+            set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw")
         endif()
-    else()
-        message(STATUS "AVX512 not supported by this system")
+        check_cxx_source_runs("
+            #include <immintrin.h>
+            int main() { __m512i thing = _mm512_setzero_si512(); return 0; }
+        " HAS_AVX512)
+        set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_PRE_AVX512})
+        if(HAS_AVX512)
+            if(MSVC)
+                message(STATUS "AVX512 supported on this system - enabling")
+                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX512")
+                target_compile_options(SyncLib PRIVATE /arch:AVX512)
+                target_compile_options(SyncLibTests PRIVATE /arch:AVX512)
+            else()
+                message(STATUS "AVX512 supported on this system - enabling")
+                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512f -mavx512bw")
+                target_compile_options(SyncLib PRIVATE -mavx512f -mavx512bw)
+                target_compile_options(SyncLibTests PRIVATE -mavx512f -mavx512bw)
+            endif()
+        else()
+            message(STATUS "AVX512 not supported on this system")
+        endif()
     endif()
 endif()
 
