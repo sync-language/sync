@@ -257,9 +257,11 @@ bool Node::pushFrameNoReallocate(const uint32_t frameLength, const uint16_t byte
         this->currentFrame.value().storeInMemory(valuesMem, typesMem, instructionPointer);
     }
     { // new frame
-        Frame f{this->nextBaseOffset, frameLength,
-                0, // TODO function index
-                retValDst};
+        Frame f{};
+        f.basePointerOffset = this->nextBaseOffset;
+        f.frameLength = frameLength;
+        f.functionIndex = 0; // TODO function index
+        f.retValueDst = retValDst;
         this->currentFrame = f;
     }
     { // update base offset for after the new frame

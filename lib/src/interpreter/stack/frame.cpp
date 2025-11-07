@@ -35,10 +35,11 @@ std::optional<std::tuple<Frame, const Bytecode*>> Frame::readFromMemory(const ui
     void* oldRetDst = const_cast<void*>(reinterpret_cast<const void*>(typesMem[OLD_RETURN_VALUE_DST]));
     const uint32_t oldBasePointerOffset = *reinterpret_cast<const uint32_t*>(&typesMem[OLD_BASE_POINTER_OFFSET]);
 
-    const Frame oldFrame = {oldBasePointerOffset,
-                            static_cast<uint32_t>(frameLengthAndFunctionIndex & 0xFFFFFFFF), // frame length
-                            static_cast<uint16_t>(frameLengthAndFunctionIndex >> 32),        // function index
-                            oldRetDst};
+    Frame oldFrame{};
+    oldFrame.basePointerOffset = oldBasePointerOffset;
+    oldFrame.frameLength = static_cast<uint32_t>(frameLengthAndFunctionIndex & 0xFFFFFFFF);
+    oldFrame.functionIndex = static_cast<uint16_t>(frameLengthAndFunctionIndex >> 32);
+    oldFrame.retValueDst = oldRetDst;
     return std::make_tuple(oldFrame, oldInstructionPointer);
 }
 

@@ -94,19 +94,18 @@ size_t page_size() {
 #else
     static size_t pageSize = []() -> size_t {
 #if defined(_WIN32) || defined(WIN32)
-    SYSTEM_INFO sysInfo;
-    GetSystemInfo(&sysInfo);
-    return static_cast<size_t>(sysInfo.dwPageSize);
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
+        return static_cast<size_t>(sysInfo.dwPageSize);
 #elif __GNUC__
-    long sz = sysconf(_SC_PAGESIZE);
-    return static_cast<size_t>(sz);
+        long sz = sysconf(_SC_PAGESIZE);
+        return static_cast<size_t>(sz);
 #else
-    static_assert(false, "Unknown page size for target");
+        static_assert(false, "Unknown page size for target");
 #endif
+    }();
+    return pageSize;
 #endif // SYNC_NO_PAGES
-}
-();
-return pageSize;
 }
 
 #if SYNC_LIB_WITH_TESTS
