@@ -127,7 +127,7 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
 
     new (&ast.imports) MapUnmanaged<StringSlice, bool>(std::move(parseInfo.imports));
 
-    return ast;
+    return Result<FileAst, ProgramError>(std::move(ast));
 }
 
 #if SYNC_LIB_WITH_TESTS

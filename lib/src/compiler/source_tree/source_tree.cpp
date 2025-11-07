@@ -86,7 +86,7 @@ Result<SourceTreeNode*, SourceTreeErr> SourceTree::insert(sy::StringSlice absolu
         // make root node if doesn't exist
         if (rootNode == nullptr) {
             auto rootDir = *path.begin();
-            std::string root = rootDir.u8string();
+            std::string root = rootDir.string();
             auto rootRes = SourceTreeNode::init(this->alloc, nullptr, StringSlice(root.c_str(), root.size()),
                                                 SourceFileKind::Directory);
             if (rootRes.hasErr()) {
@@ -97,7 +97,7 @@ Result<SourceTreeNode*, SourceTreeErr> SourceTree::insert(sy::StringSlice absolu
 
         auto pathIter = path.begin();
         { // check root matches this tree's root
-            std::string rootStr = (*pathIter).u8string();
+            std::string rootStr = (*pathIter).string();
             sy::StringSlice rootSlice(rootStr.c_str(), rootStr.size());
             if (rootSlice != rootNode->name.asSlice()) {
                 return Error(SourceTreeErr::InvalidRoot);
@@ -116,7 +116,7 @@ Result<SourceTreeNode*, SourceTreeErr> SourceTree::insert(sy::StringSlice absolu
                 return Error(SourceTreeErr::UsingFileAsDirectory);
             }
 
-            std::string entryStr = (*pathIter).u8string();
+            std::string entryStr = (*pathIter).string();
             sy::StringSlice entrySlice(entryStr.c_str(), entryStr.size());
             if (entrySlice.len() == 0 || entrySlice == "/") { // path ends with '/' for instance
                 return current;
