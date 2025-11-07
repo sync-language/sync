@@ -418,7 +418,7 @@ Result<void, ModuleErr> ModuleImpl::setRootFileFromDisk(StringSlice path) noexce
             return Error(ModuleErr::FileNotSyncSource);
         }
 
-        std::string u8absolute = absolute.u8string();
+        std::string u8absolute = absolute.string();
         auto treeInsertResult =
             this->sourceTree.insert(StringSlice(u8absolute.data(), u8absolute.size()), SourceFileKind::SyncSourceFile);
         if (treeInsertResult.hasErr()) {

@@ -44,6 +44,8 @@ struct FileAst {
     Scope scope;
     MapUnmanaged<StringSlice, bool> imports;
 
+    FileAst() = default;
+
     FileAst(FileAst&&) = default;
 
     ~FileAst() noexcept;
