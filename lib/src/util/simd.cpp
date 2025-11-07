@@ -185,7 +185,7 @@ SimdMask<64> simd_detail::equalMask8x64(const uint8_t* alignedPtr, uint8_t value
         if (is_avx512f_supported()) {
 #if defined(__AVX512F__)
             return equalMask8x64AVX512;
-#elif
+#else
             return equalMask8x64AVX2;
 #endif
         } else {
@@ -254,7 +254,7 @@ bool simd_detail::equalBytes8x64(const uint8_t* lhs, const uint8_t* rhs) {
         if (is_avx512f_supported()) {
 #if defined(__AVX512F__)
             return equalBytes8x64AVX512;
-#elif
+#else
             return equalBytes8x64AVX2;
 #endif
         } else {
