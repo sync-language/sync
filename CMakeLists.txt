@@ -20,6 +20,9 @@ option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" OFF)
 option(SYNC_WASM_USE_SIMD "Use Fixed-width SIMD on WASM" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
+if(EMSCRIPTEN)
+    set(CMAKE_CXX_STANDARD 23) # __COUNTER__ for doctest
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
