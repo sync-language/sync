@@ -30,21 +30,15 @@ jobs:
         echo "install tests"
         xcrun simctl install $DEVICE_UUID build/Debug-iphoneos/SyncLibTests.app
 
-        echo "log stream"
-        xcrun simctl spawn $DEVICE_UUID log stream --predicate 'process == "SyncLibTests"' --style compact &
-        LOG_PID=$!
+        echo "find app container"
+        APP_CONTAINER=$(xcrun simctl get_app_container $DEVICE_UUID org.synclang)
+        echo "tests installed at: $APP_CONTAINER"
 
-        echo "launch tests"
-        xcrun simctl launch --console-pty $DEVICE_UUID org.synclang
+        echo "run tests"
+        xcrun simctl spawn --standalone $DEVICE_UUID "${APP_CONTAINER}/SyncLibTests"
         APP_EXIT_CODE=$?
 
-        echo "log flush"
-        sleep 2
-        kill $LOG_PID 2>/dev/null || true
-
-        echo "Sync Tests exited with: $APP_EXIT_CODE"
-
-        xcrun simctl spawn $DEVICE_UUID log show --last 1m --predicate 'process == "SyncLibTests"' --style compact || true
+        echo "Sync tests exited with: $APP_EXIT_CODE"
 
         exit $APP_EXIT_CODE
 
