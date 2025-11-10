@@ -154,18 +154,18 @@ endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
     message(STATUS "Building Sync for iOS")
-    # set_target_properties(SyncLibTests PROPERTIES
-    #     MACOSX_BUNDLE_GUI_IDENTIFIER org.synclang
-    #     MACOSX_BUNDLE_BUNDLE_NAME SyncLibTests
-    #     MACOSX_BUNDLE_BUNDLE_VERSION 0.0.0
-    # )
-    
-    # set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
-    # find_package(XCTest REQUIRED)
-    # xctest_add_bundle(SyncLibTestsIOS 
-    #     SyncLib "lib/test/ios/run_tests.cpp" "lib/test/ios/run_ios_tests.m" 
-    # )
-    # xctest_add_test(XCTest.SyncLibTestsIOS SyncLibTestsIOS)
+
+    set_target_properties(SyncLibTests PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER "org.synclang"
+        MACOSX_BUNDLE_BUNDLE_NAME "SyncLibTests"
+        MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/lib/test/ios/Info.plist.in"
+        XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
+        XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO"
+        XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO"
+    )
 endif()
 
 find_package(JNI)
@@ -303,57 +303,3 @@ set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY
 install(TARGETS SyncLib DESTINATION .)
 
 enable_testing()
-# if(SYNC_LIB_DOCTEST_ADD_CTESTS)
-#     include(scripts/vendor/doctest/doctest.cmake)
-#     doctest_discover_tests(SyncLibTests)
-# else()
-#     add_test(NAME SyncLibTests COMMAND SyncLibTests)
-# endif()
-
-# if(X86)
-#     # SSE2
-#     cmake_host_system_information(RESULT HAS_SSE2 QUERY HAS_SSE2)
-#     if(HAS_SSE2)
-#         if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-#             message(STATUS "Sync SSE2 GNU/Clang")
-#             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2")
-#             target_compile_options(SyncLib PRIVATE -msse2)
-#             target_compile_options(SyncLibTests PRIVATE -msse2)
-#         elseif(CMAKE_C_COMPILER_ID MATCHES "MSVC")
-#             message(STATUS "Sync SSE2 MSVC")
-#             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:SSE2")
-#             target_compile_options(SyncLib PRIVATE /arch:SSE2)
-#             target_compile_options(SyncLibTests PRIVATE /arch:SSE2)
-#             # For some reason __SSE2__ macro doesn't seem to work? Not sure why?
-#         endif()
-#     endif()
-
-#     # AVX2
-#     if(MSVC)
-#         message(STATUS "Sync AVX2 MSVC")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
-#         target_compile_options(SyncLib PRIVATE /arch:AVX2)
-#         target_compile_options(SyncLibTests PRIVATE /arch:AVX2)
-#     else()
-#         message(STATUS "Sync AVX2 GNU/Clang")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
-#         target_compile_options(SyncLib PRIVATE -mavx2)
-#         target_compile_options(SyncLibTests PRIVATE -mavx2)
-#     endif()
-
-#     # AVX512
-#     if(MSVC)
-#         message(STATUS "Sync AVX512 MSVC")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX512")
-#         target_compile_options(SyncLib PRIVATE /arch:AVX512)
-#         target_compile_options(SyncLibTests PRIVATE /arch:AVX512)
-#     else()
-#         message(STATUS "Sync AVX512 GNU/Clang")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512f")
-#         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512bw")
-#         target_compile_options(SyncLib PRIVATE -mavx512f)
-#         target_compile_options(SyncLib PRIVATE -mavx512bw)
-#         target_compile_options(SyncLibTests PRIVATE -mavx512f)
-#         target_compile_options(SyncLibTests PRIVATE -mavx512bw)
-#     endif()
-# endif()
