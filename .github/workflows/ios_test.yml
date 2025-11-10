@@ -34,9 +34,21 @@ jobs:
         APP_CONTAINER=$(xcrun simctl get_app_container $DEVICE_UUID org.synclang)
         echo "tests installed at: $APP_CONTAINER"
 
+        echo "binary and code signing"
+        file "${APP_CONTAINER}/SyncLibTests"
+        codesign -dvvv "${APP_CONTAINER}/SyncLibTests" || echo "Code signing check failed"
+
+        echo "dynamic libraries"
+        otool -L "${APP_CONTAINER}/SyncLibTests" || echo "otool failed"
+
         echo "run tests"
-        xcrun simctl spawn --standalone $DEVICE_UUID "${APP_CONTAINER}/SyncLibTests"
+        xcrun simctl spawn --standalone $DEVICE_UUID "${APP_CONTAINER}/SyncLibTests" 2>&1
         APP_EXIT_CODE=$?
+
+        if [ $APP_EXIT_CODE -eq 137 ]; then
+          echo "killed with SIGKILL (signal 9)"
+          xcrun simctl spawn $DEVICE_UUID log show --last 2m --predicate 'eventMessage contains "SyncLibTests"' --style compact
+        fi
 
         echo "Sync tests exited with: $APP_EXIT_CODE"
 
