@@ -24,9 +24,29 @@ jobs:
         echo "DEVICE_UUID=$DEVICE_UUID" >> $GITHUB_ENV
     - name: Test
       run: |
+        echo "sim boot"
         xcrun simctl boot $DEVICE_UUID
+
+        echo "install tests"
         xcrun simctl install $DEVICE_UUID build/Debug-iphoneos/SyncLibTests.app
-        xcrun simctl launch --console $DEVICE_UUID org.synclang
+
+        echo "log stream"
+        xcrun simctl spawn $DEVICE_UUID log stream --predicate 'process == "SyncLibTests"' --style compact &
+        LOG_PID=$!
+
+        echo "launch tests"
+        xcrun simctl launch --console-pty $DEVICE_UUID org.synclang
+        APP_EXIT_CODE=$?
+
+        echo "log flush"
+        sleep 2
+        kill $LOG_PID 2>/dev/null || true
+
+        echo "Sync Tests exited with: $APP_EXIT_CODE"
+
+        xcrun simctl spawn $DEVICE_UUID log show --last 1m --predicate 'process == "SyncLibTests"' --style compact || true
+
+        exit $APP_EXIT_CODE
 
 
     # - name: Test
