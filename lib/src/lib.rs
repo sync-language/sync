@@ -1,11 +1,13 @@
+#![no_std]
+
 mod mem;
 mod types;
 
 use mem::allocator;
 use types::type_info;
 
-pub use allocator::Allocator;
 pub use allocator::AllocError;
+pub use allocator::Allocator;
 pub use allocator::IAllocator;
 pub use type_info::Type;
 

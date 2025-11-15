@@ -37,6 +37,8 @@ struct ModuleImpl {
 
     Result<void, ModuleErr> setRootFileFromDisk(StringSlice path) noexcept;
 
+    Result<void, ModuleErr> setRootFileFromString(StringSlice absolutePath, StringSlice fileContents) noexcept;
+
     Result<void, ModuleErr> addDependency(const Module* module) noexcept;
 };
 } // namespace sy
@@ -453,6 +455,49 @@ Result<void, ModuleErr> ModuleImpl::setRootFileFromDisk(StringSlice path) noexce
     return {};
 }
 
+Result<void, ModuleErr> sy::ModuleImpl::setRootFileFromString(StringSlice absolutePath,
+                                                              StringSlice fileContents) noexcept {
+    sy_assert(this->rootFile == nullptr, "Root .sync file already set for this module");
+    try {
+        static const std::filesystem::path syncExtension = ".sync";
+
+        const std::filesystem::path absolute(absolutePath.data(), absolutePath.data() + absolutePath.len());
+        if (absolute.extension() != syncExtension) {
+            return Error(ModuleErr::FileNotSyncSource);
+        }
+        if (absolute.has_parent_path() == false) {
+            return Error(ModuleErr::SourceFileNoRootDir);
+        }
+
+        std::string u8absolute = absolute.string();
+        auto treeInsertResult =
+            this->sourceTree.insert(StringSlice(u8absolute.data(), u8absolute.size()), SourceFileKind::SyncSourceFile);
+        if (treeInsertResult.hasErr()) {
+            SourceTreeErr err = treeInsertResult.err();
+            switch (err) {
+            case SourceTreeErr::OutOfMemory: {
+                return Error(ModuleErr::OutOfMemory);
+            }
+            default:
+                return Error(ModuleErr::Unknown);
+            }
+        }
+
+        this->rootFile = treeInsertResult.value();
+        sy_assert(this->rootFile->elem.syncSourceFile.hasValue() == false, "Should not have contents in root file");
+        auto loadResult = StringUnmanaged::copyConstructSlice(fileContents, this->alloc);
+        if (loadResult.hasErr()) {
+            return Error(ModuleErr::OutOfMemory);
+        }
+        new (&this->rootFile->elem.syncSourceFile) Option<StringUnmanaged>(std::move(loadResult.takeValue()));
+    } catch (const std::bad_alloc& e) {
+        (void)e;
+        return Error(ModuleErr::OutOfMemory);
+    }
+
+    return {};
+}
+
 Result<void, ModuleErr> ModuleImpl::addDependency(const Module* module) noexcept {
     auto res = this->dependencies.insert(this->alloc, module->name(), module);
     if (res.hasErr()) {
@@ -502,6 +547,10 @@ Result<void, ModuleErr> sy::Module::setRootFileFromDisk(StringSlice path) noexce
     return reinterpret_cast<ModuleImpl*>(this->inner_)->setRootFileFromDisk(path);
 }
 
+Result<void, ModuleErr> sy::Module::setRootFileFromString(StringSlice absolutePath, StringSlice fileContents) noexcept {
+    return reinterpret_cast<ModuleImpl*>(this->inner_)->setRootFileFromString(absolutePath, fileContents);
+}
+
 Result<void, ModuleErr> sy::Module::addDependency(const Module* module) noexcept {
     return reinterpret_cast<ModuleImpl*>(this->inner_)->addDependency(module);
 }
@@ -543,3 +592,29 @@ Result<Module*, AllocErr> Module::create(Allocator& alloc, StringSlice inName, S
     self->inner_ = reinterpret_cast<void*>(impl);
     return self;
 }
+
+#if SYNC_LIB_WITH_TESTS
+
+#include "../doctest.h"
+
+TEST_CASE("[Compiler] empty compiler") {
+    Compiler c = Compiler::create().takeValue();
+    (void)c;
+}
+
+TEST_CASE("[Compiler] addOrGetModule empty module") {
+    Compiler c = Compiler::create().takeValue();
+    Module* m = c.addOrGetModule("example", SemVer()).value();
+    (void)m;
+}
+
+TEST_CASE("[ModuleImpl] addOrGetModule empty module") {
+    ModuleImpl impl{Allocator()};
+    CHECK_EQ(impl.rootFile, nullptr);
+    impl.setRootFileFromString("/example.sync", "a");
+    CHECK_NE(impl.rootFile, nullptr);
+    CHECK_EQ(impl.rootFile->kind, SourceFileKind::SyncSourceFile);
+    CHECK_EQ(impl.rootFile->elem.syncSourceFile.value().asSlice(), "a");
+}
+
+#endif // SYNC_LIB_WITH_TESTS

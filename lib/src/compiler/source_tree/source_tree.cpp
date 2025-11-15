@@ -85,7 +85,12 @@ Result<SourceTreeNode*, SourceTreeErr> SourceTree::insert(sy::StringSlice absolu
 
         // make root node if doesn't exist
         if (rootNode == nullptr) {
-            auto rootDir = *path.begin();
+            auto rootDir = [&path]() -> std::filesystem::path {
+                if (path.has_parent_path() == false) {
+                    return fs::path("/");
+                }
+                return *path.begin();
+            }();
             std::string root = rootDir.string();
             auto rootRes = SourceTreeNode::init(this->alloc, nullptr, StringSlice(root.c_str(), root.size()),
                                                 SourceFileKind::Directory);

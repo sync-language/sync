@@ -63,6 +63,7 @@ enum class ModuleErr : int {
     FileNotSyncSource,
     ErrorOpeningSourceFile,
     DuplicateDependency,
+    SourceFileNoRootDir,
     Unknown,
 };
 
@@ -82,9 +83,18 @@ class SY_API Module final {
 
     SemVer version() const;
 
-    /// @brief Sets the root file of the source tree.
+    /// @brief Sets the root file of the source tree from a file on disk.
     /// @param path Either absolute or relative
     [[nodiscard]] Result<void, ModuleErr> setRootFileFromDisk(StringSlice path) noexcept;
+
+    /// @brief Sets the root file of the source tree from a provided string.
+    /// @param absolutePath The fake path of the file contents. Required in
+    /// order to handle imports. An entry could be
+    /// `remote/example_module/src/main.sync`
+    /// @param fileContents The actual source code
+    /// @return No error, or a module err
+    [[nodiscard]] Result<void, ModuleErr> setRootFileFromString(StringSlice absolutePath,
+                                                                StringSlice fileContents) noexcept;
 
     [[nodiscard]] Result<void, ModuleErr> addDependency(const Module* module) noexcept;
 

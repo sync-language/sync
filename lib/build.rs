@@ -1,7 +1,6 @@
 extern crate cc;
 
-fn main()
-{
+fn main() {
     cc::Build::new()
         .cpp(true)
         .std("c++17")

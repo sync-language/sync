@@ -34,7 +34,7 @@ extern "C" {
 void* aligned_malloc(size_t len, size_t align) {
 #if defined(_WIN32) || defined(WIN32)
     // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/aligned-malloc?view=msvc-170&viewFallbackFrom=vs-2019
-    return _aligned_malloc(len, (size_t)align);
+    return _aligned_malloc(len, align);
 #elif __GNUC__
     void* mem = nullptr;
     if (align <= sizeof(void*)) {
