@@ -42,9 +42,12 @@ struct ProgramModuleInternal {
     StringUnmanaged* allTypeQualifiedNames = nullptr;
     size_t allTypesLen = 0;
 
-    Result<void, AllocErr> initializeFunctionsMem(Allocator alloc, size_t count) noexcept;
+    /// Allocates all required memory for future operations, but the allocated
+    /// arrays are left in an uninitialized state.
+    static Result<ProgramModuleInternal*, AllocErr> init(Allocator protAlloc, StringSlice name, SemVer version,
+                                                         size_t functionCount, size_t structCount);
 
-    Result<void, AllocErr> initializeTypesMem(Allocator alloc, size_t count) noexcept;
+    Option<const Function*> getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept;
 };
 
 struct ProgramInternal {

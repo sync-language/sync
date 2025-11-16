@@ -29,7 +29,7 @@ class SY_API ProgramModule final {
     ModuleVersion moduleInfo() const noexcept;
 
     // get function(s) by unqualified name
-    Option<Slice<const Function*>> getFunctionsByUnqualifiedName(StringSlice unqualifiedName) const noexcept;
+    // Option<Slice<const Function*>> getFunctionsByUnqualifiedName(StringSlice unqualifiedName) const noexcept;
 
     // get function (singular) by fully qualified name
     Option<const Function*> getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept;

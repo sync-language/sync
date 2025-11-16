@@ -1,4 +1,5 @@
 #include "function_definition.hpp"
+#include "../../../interpreter/function_builder.hpp"
 #include "../../../types/type_info.hpp"
 #include "../../../util/assert.hpp"
 #include "../../source_tree/source_tree.hpp"
@@ -229,6 +230,41 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
             }
         }
     }
+
+    return {};
+}
+
+Result<void, ProgramError>
+sy::FunctionDefinitionNode::compile(Allocator protAlloc, Function* func,
+                                    InterpreterFunctionScriptInfo* interpreterInfo) const noexcept {
+    FunctionBuilder builder(this->alloc());
+    if (this->retType.hasValue()) {
+        const auto& optKnown = this->retType.value().knownType;
+        if (optKnown.hasValue() == false) {
+            return Error(ProgramError::CompileUnknownType);
+        }
+        builder.retType = optKnown;
+    }
+
+    for (const auto& arg : this->args) {
+        const auto& optKnown = arg.typeInfo.knownType;
+        if (optKnown.hasValue() == false) {
+            return Error(ProgramError::CompileUnknownType);
+        }
+        if (auto res = builder.addArg(optKnown.value()); res.hasErr()) {
+            return Error(ProgramError::OutOfMemory);
+        }
+    }
+
+    for (const auto& statement : this->statements) {
+        if (auto res = statement->compileStatement(&builder); res.hasErr()) {
+            return Error(res.takeErr());
+        }
+    }
+
+    (void)protAlloc;
+    (void)func;
+    (void)interpreterInfo;
 
     return {};
 }

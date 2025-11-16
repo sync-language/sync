@@ -26,6 +26,11 @@ ModuleVersion sy::ProgramModule::moduleInfo() const noexcept {
     return ModuleVersion{self->name.asSlice(), self->version};
 }
 
+Option<const Function*> sy::ProgramModule::getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept {
+    const ProgramModuleInternal* self = reinterpret_cast<const ProgramModuleInternal*>(this->inner_);
+    return self->getFunctionByQualifiedName(qualifiedName);
+}
+
 Option<const ProgramModule&> sy::Program::getModule(StringSlice name, Option<SemVer> version) const noexcept {
     const ProgramInternal* self = reinterpret_cast<const ProgramInternal*>(this->inner_);
     auto findVersions = self->moduleVersions.find(name);
@@ -48,46 +53,71 @@ Option<const ProgramModule&> sy::Program::getModule(StringSlice name, Option<Sem
     }
 }
 
-Result<void, AllocErr> sy::ProgramModuleInternal::initializeFunctionsMem(Allocator alloc, size_t count) noexcept {
-    if (count == 0)
-        return {};
+Result<ProgramModuleInternal*, AllocErr> sy::ProgramModuleInternal::init(Allocator protAlloc, StringSlice name,
+                                                                         SemVer version, size_t functionCount,
+                                                                         size_t structCount) {
+    //! If memory allocation fails, it is ok as the `protAlloc` will free the memory itself
 
-    this->allFunctionsLen = count;
-    auto funcMemRes = alloc.allocArray<Function>(count);
-    if (funcMemRes.hasErr())
-        return Error(AllocErr::OutOfMemory);
-    auto funcNameRes = alloc.allocArray<StringUnmanaged>(count);
-    if (funcNameRes.hasErr())
-        return Error(AllocErr::OutOfMemory);
-    auto funcQualifiedNameRes = alloc.allocArray<StringUnmanaged>(count);
-    if (funcQualifiedNameRes.hasErr())
+    ProgramModuleInternal* self = nullptr;
+
+    auto res = protAlloc.allocObject<ProgramModuleInternal>();
+    if (res.hasErr())
         return Error(AllocErr::OutOfMemory);
 
-    this->allFunctions = funcMemRes.value();
-    this->allFunctionNames = funcNameRes.value();
-    this->allFunctionQualifiedNames = funcQualifiedNameRes.value();
+    self = res.value();
+    new (self) ProgramModuleInternal();
 
-    return {};
+    auto nameCopyRes = StringUnmanaged::copyConstructSlice(name, protAlloc);
+    if (nameCopyRes.hasErr())
+        return Error(AllocErr::OutOfMemory);
+
+    new (&self->name) StringUnmanaged(std::move(nameCopyRes.takeValue()));
+    self->version = version;
+
+    if (functionCount > 0) {
+        self->allFunctionsLen = functionCount;
+        auto funcMemRes = protAlloc.allocArray<Function>(functionCount);
+        if (funcMemRes.hasErr())
+            return Error(AllocErr::OutOfMemory);
+        auto funcNameRes = protAlloc.allocArray<StringUnmanaged>(functionCount);
+        if (funcNameRes.hasErr())
+            return Error(AllocErr::OutOfMemory);
+        auto funcQualifiedNameRes = protAlloc.allocArray<StringUnmanaged>(functionCount);
+        if (funcQualifiedNameRes.hasErr())
+            return Error(AllocErr::OutOfMemory);
+
+        self->allFunctions = funcMemRes.value();
+        self->allFunctionNames = funcNameRes.value();
+        self->allFunctionQualifiedNames = funcQualifiedNameRes.value();
+    }
+
+    if (structCount > 0) {
+        self->allTypesLen = structCount;
+        auto typeMemRes = protAlloc.allocArray<Type>(structCount);
+        if (typeMemRes.hasErr())
+            return Error(AllocErr::OutOfMemory);
+        auto typeNameRes = protAlloc.allocArray<StringUnmanaged>(structCount);
+        if (typeNameRes.hasErr())
+            return Error(AllocErr::OutOfMemory);
+        auto typeQualifiedNameRes = protAlloc.allocArray<StringUnmanaged>(structCount);
+        if (typeQualifiedNameRes.hasErr())
+            return Error(AllocErr::OutOfMemory);
+
+        self->allTypes = typeMemRes.value();
+        self->allTypeNames = typeNameRes.value();
+        self->allTypeQualifiedNames = typeQualifiedNameRes.value();
+    }
+
+    return self;
 }
 
-Result<void, AllocErr> sy::ProgramModuleInternal::initializeTypesMem(Allocator alloc, size_t count) noexcept {
-    if (count == 0)
-        return {};
-
-    this->allTypesLen = count;
-    auto typeMemRes = alloc.allocArray<Type>(count);
-    if (typeMemRes.hasErr())
-        return Error(AllocErr::OutOfMemory);
-    auto typeNameRes = alloc.allocArray<StringUnmanaged>(count);
-    if (typeNameRes.hasErr())
-        return Error(AllocErr::OutOfMemory);
-    auto typeQualifiedNameRes = alloc.allocArray<StringUnmanaged>(count);
-    if (typeQualifiedNameRes.hasErr())
-        return Error(AllocErr::OutOfMemory);
-
-    this->allTypes = typeMemRes.value();
-    this->allTypeNames = typeNameRes.value();
-    this->allTypeQualifiedNames = typeQualifiedNameRes.value();
-
+Option<const Function*>
+sy::ProgramModuleInternal::getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept {
+    // TODO optimize this to use a map or something
+    for (size_t i = 0; i < this->allFunctionsLen; i++) {
+        if (this->allFunctionQualifiedNames[i].asSlice() == qualifiedName) {
+            return Option<const Function*>(&this->allFunctions[i]);
+        }
+    }
     return {};
 }

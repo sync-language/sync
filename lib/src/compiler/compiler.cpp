@@ -238,23 +238,7 @@ static Result<ProgramModuleInternal*, ProgramError> compileModule(const ModuleIm
     // TODO other imported files
 
     ProgramModuleInternal* moduleInternal = nullptr;
-    {
-        auto res = protAlloc.allocObject<ProgramModuleInternal>();
-        if (res.hasErr())
-            return Error(ProgramError::OutOfMemory);
-
-        moduleInternal = res.value();
-        new (moduleInternal) ProgramModuleInternal();
-
-        auto nameCopyRes = StringUnmanaged::copyConstruct(mod->name, protAlloc);
-        if (nameCopyRes.hasErr())
-            return Error(ProgramError::OutOfMemory);
-
-        new (&moduleInternal->name) StringUnmanaged(std::move(nameCopyRes.takeValue()));
-        moduleInternal->version = mod->version;
-    }
-
-    { // count functions and types
+    { // initialize module memory with protected allocator
         size_t functionCount = 0;
         size_t structCount = 0;
         for (const auto astEntry : asts) {
@@ -262,12 +246,12 @@ static Result<ProgramModuleInternal*, ProgramError> compileModule(const ModuleIm
             structCount += astEntry.value.nonGenericStructs.len();
         }
 
-        if (moduleInternal->initializeFunctionsMem(protAlloc, functionCount).hasErr()) {
+        auto res =
+            ProgramModuleInternal::init(protAlloc, mod->name.asSlice(), mod->version, functionCount, structCount);
+        if (res.hasErr()) {
             return Error(ProgramError::OutOfMemory);
         }
-        if (moduleInternal->initializeTypesMem(protAlloc, structCount).hasErr()) {
-            return Error(ProgramError::OutOfMemory);
-        }
+        moduleInternal = res.value();
     }
 
     { // add entries for all functions so that recursion can work, and so that function names work
