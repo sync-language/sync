@@ -10,10 +10,10 @@ endif()
 
 project("Sync")
 
+option(BUILD_SHARED_LIBS "Build Sync as a shared library" OFF)
 option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" OFF)
 option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" ON)
-option(SYNC_LIB_BUILD_SHARED_LIB "Build Sync as a shared library" OFF)
 option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
 option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" OFF)
 option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" OFF)
@@ -26,17 +26,6 @@ if(EMSCRIPTEN)
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-if(EMSCRIPTEN)
-    message(STATUS "Building Sync for Emscripten")
-    # find_path(EMSCRIPTEN_DIR NAMES "em++")
-    # message(${EMSCRIPTEN_DIR})
-    # if(EMSCRIPTEN_DIR)
-        
-    # endif()
-    # message(STATUS "Emscripten Root Directory: ${EMSCRIPTEN_ROOT}")
-    # message(STATUS "guh")
-endif()
 
 set(SyncLibSources 
     "lib/src/util/panic.cpp"
@@ -87,7 +76,7 @@ set(SyncLibSources
     "lib/test/test_runner.cpp"
 )
 
-if(SYNC_LIB_BUILD_SHARED_LIB)
+if(BUILD_SHARED_LIBS)
     add_library(SyncLib SHARED ${SyncLibSources})
 else()
     add_library(SyncLib STATIC ${SyncLibSources})
@@ -299,6 +288,22 @@ if(MSVC)
     target_compile_definitions(SyncLib INTERFACE SYNC_IMPORT_DLL)
 endif()
 set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
+
+# ===========
+# Debug Utils
+# ===========
+
+# Conditionally enable backtrace support. 
+# Backtraces are not required as a core component of sync itself, so having 
+# them be configured as a build step, NOT as part of the C++ sources themselves 
+# is acceptable.
+# CMake XBOX stuff publicly available. No NDA violation!!!!
+# https://github.com/microsoft/Xbox-GDK-Samples/blob/73f8aa373138ecd6331a05ac908a88c287602db8/Samples/Tools/CMakeGDKExample/CMakeLists.txt#L152
+if(NOT EMSCRIPTEN AND NOT (DEFINED XBOX_CONSOLE_TARGET))
+    if(CMAKE_BUILD_TYPE EQUAL "Debug" OR CMAKE_BUILD_TYPE EQUAL "RelWithDebInfo")
+        target_compile_definitions(SyncLib PRIVATE SYNC_BACKTRACE_SUPPORTED)
+    endif()
+endif()
 
 install(TARGETS SyncLib DESTINATION .)
 

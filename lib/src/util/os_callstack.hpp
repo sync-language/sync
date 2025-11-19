@@ -4,7 +4,7 @@
 
 #include "../core.h"
 
-#if SYNC_BACKTRACE_SUPPORTED
+#ifdef SYNC_BACKTRACE_SUPPORTED
 
 #include <string>
 #include <vector>

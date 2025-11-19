@@ -21,7 +21,7 @@
 //     static const bool value = decltype(test<S, T>(0))::value;
 // };
 
-#if SYNC_BACKTRACE_SUPPORTED
+#ifdef SYNC_BACKTRACE_SUPPORTED
 #define sy_assert(expression, message)                                                                                 \
     do {                                                                                                               \
         if (!(expression)) {                                                                                           \

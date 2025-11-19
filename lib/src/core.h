@@ -26,7 +26,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#if (__STDC_VERSION__ >= 201112L) // C11
+#if (__STDC_VERSION__ >= 202311L) // C23
+// bool, true, false are part of C23
+#elif (__STDC_VERSION__ >= 201112L) // C11
 #include <stdbool.h>
 #elif (__STDC_VERSION__ == 199901L) // C99
 
@@ -65,19 +67,16 @@ using std::uint8_t;
 
 #endif // __cplusplus
 
-// In order to test the private (actually protected) logic within classes
-// without being forced to expose them as part of the public API, we need to
-// leverage test classes, being classes that derive the classes we actually
-// want to test. As a result, while all non-inherited classes (overwhelming
-// majority of the classes in the library) should be marked final, for
-// testing purposes, we need to derive them.
-// On top of that, we use SY_CLASS_TEST_PRIVATE for anything that should be
-// private to the class, but must be protected for testing purposes.
-
-#if defined(__ANDROID__)
-#define SYNC_BACKTRACE_SUPPORTED 0
-#else
-#define SYNC_BACKTRACE_SUPPORTED 1
+#ifndef SYNC_NO_PAGES
+// PUBLICLY AVAILABLE. NO NDA VIOLATION!!!!!
+// https://github.com/microsoft/Xbox-GDK-Samples/blob/73f8aa373138ecd6331a05ac908a88c287602db8/Samples/Live/InGameStore/InGameStore.cpp#L293
+// https://github.com/LuaJIT/LuaJIT/blob/e17ee83326f73d2bbfce5750ae8dc592a3b63c27/src/lj_arch.h#L86
+// https://github.com/LuaJIT/LuaJIT/blob/e17ee83326f73d2bbfce5750ae8dc592a3b63c27/src/lj_arch.h#L171
+// https://iter.ca/post/switch-oss/
+#if defined(_GAMING_XBOX) || defined(__EMSCRIPTEN__) || defined(__ORBIS__) || defined(__PROSPERO__) ||                 \
+    defined(__NX__) || defined(NN_NINTENDO_SDK)
+#define SYNC_NO_PAGES 1
 #endif
+#endif // SYNC_NO_PAGES
 
 #endif // SY_CORE_H_

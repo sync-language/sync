@@ -112,7 +112,7 @@ sy::StringUnmanaged::~StringUnmanaged() noexcept {
     if (this->isSso() == false) {
         try {
             std::cerr << "StringUnmanaged not properly destroyed." << std::endl;
-#if SYNC_BACKTRACE_SUPPORTED
+#ifdef SYNC_BACKTRACE_SUPPORTED
             sy::Backtrace bt = sy::Backtrace::generate();
             bt.print();
 #endif
