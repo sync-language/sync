@@ -25,7 +25,7 @@ struct InterpreterFunctionScriptInfo {
     const Bytecode* bytecode;
     /// When this script function is getting unwinded, it will unwind this array of slots in their specific order.
     /// Valid for [0, `unwindLen`).
-    const uint16_t* unwindSlots;
+    const int16_t* unwindSlots;
     /// Length of `unwindSlots`.
     uint16_t unwindLen;
 };
@@ -36,6 +36,7 @@ struct ProgramModuleInternal {
     Function* allFunctions = nullptr;
     StringUnmanaged* allFunctionNames = nullptr;
     StringUnmanaged* allFunctionQualifiedNames = nullptr;
+    InterpreterFunctionScriptInfo* allFunctionScriptInfo = nullptr;
     size_t allFunctionsLen = 0;
     Type* allTypes = nullptr;
     StringUnmanaged* allTypeNames = nullptr;

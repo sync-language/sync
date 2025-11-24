@@ -57,6 +57,7 @@ Result<ProgramModuleInternal*, AllocErr> sy::ProgramModuleInternal::init(Allocat
                                                                          SemVer version, size_t functionCount,
                                                                          size_t structCount) {
     //! If memory allocation fails, it is ok as the `protAlloc` will free the memory itself
+    // TODO free stuff on alloc failure
 
     ProgramModuleInternal* self = nullptr;
 
@@ -85,10 +86,14 @@ Result<ProgramModuleInternal*, AllocErr> sy::ProgramModuleInternal::init(Allocat
         auto funcQualifiedNameRes = protAlloc.allocArray<StringUnmanaged>(functionCount);
         if (funcQualifiedNameRes.hasErr())
             return Error(AllocErr::OutOfMemory);
+        auto funcScriptInfoRes = protAlloc.allocArray<InterpreterFunctionScriptInfo>(functionCount);
+        if (funcScriptInfoRes.hasErr())
+            return Error(AllocErr::OutOfMemory);
 
         self->allFunctions = funcMemRes.value();
         self->allFunctionNames = funcNameRes.value();
         self->allFunctionQualifiedNames = funcQualifiedNameRes.value();
+        self->allFunctionScriptInfo = funcScriptInfoRes.value();
     }
 
     if (structCount > 0) {

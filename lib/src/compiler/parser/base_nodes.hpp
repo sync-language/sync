@@ -62,8 +62,7 @@ class IFunctionDefinition : public detail::IBaseParserNode {
 
     virtual Result<void, ProgramError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept = 0;
 
-    virtual Result<void, ProgramError> compile(Allocator protAlloc, Function* func,
-                                               InterpreterFunctionScriptInfo* interpreterInfo) const noexcept = 0;
+    virtual Result<FunctionBuilder, ProgramError> compile() const noexcept = 0;
 
     virtual StringSlice unqualifiedName() const noexcept = 0;
 

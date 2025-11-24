@@ -18,7 +18,7 @@ using sy::Type;
 
 static Result<void, ProgramError> interpreterExecuteContinuous(const Program* program);
 static Result<void, ProgramError> interpreterExecuteOperation(const Program* program);
-static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len);
+static void unwindStackFrame(const int16_t* unwindSlots, const uint16_t len);
 
 Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const Function* scriptFunction, void* outReturnValue) {
     sy_assert(scriptFunction->tag == Function::CallType::Script,
@@ -61,7 +61,7 @@ static Result<void, ProgramError> interpreterExecuteContinuous(const Program* pr
     }
 }
 
-static void unwindStackFrame(const uint16_t* unwindSlots, const uint16_t len) {
+static void unwindStackFrame(const int16_t* unwindSlots, const uint16_t len) {
     Stack& activeStack = Stack::getActiveStack();
     for (uint16_t i = 0; i < len; i++) {
         const Type* type = activeStack.typeAt(unwindSlots[i]);

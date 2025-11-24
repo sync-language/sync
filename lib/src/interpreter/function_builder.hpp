@@ -14,6 +14,7 @@ struct FunctionBuilder {
     Option<const Type*> retType{};
     DynArray<const Type*> args;
     DynArray<Bytecode> bytecode;
+    DynArray<int16_t> unwindSlots;
     size_t stackSpaceRequired = 0;
 
     FunctionBuilder(Allocator alloc) noexcept;
@@ -23,6 +24,9 @@ struct FunctionBuilder {
     [[nodiscard]] Result<void, AllocErr> addArg(const Type* type) noexcept;
 
     [[nodiscard]] Result<void, AllocErr> pushBytecode(const Bytecode* bytecodeArr, size_t count) noexcept;
+
+    /// @param slot Which slot to unwind. Must be in range of [0 - `stackSpaceRequired`)
+    [[nodiscard]] Result<void, AllocErr> pushUnwindSlot(int16_t slot) noexcept;
 };
 } // namespace sy
 

@@ -234,9 +234,7 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
     return {};
 }
 
-Result<void, ProgramError>
-sy::FunctionDefinitionNode::compile(Allocator protAlloc, Function* func,
-                                    InterpreterFunctionScriptInfo* interpreterInfo) const noexcept {
+Result<FunctionBuilder, ProgramError> sy::FunctionDefinitionNode::compile() const noexcept {
     FunctionBuilder builder(this->alloc());
     if (this->retType.hasValue()) {
         const auto& optKnown = this->retType.value().knownType;
@@ -262,11 +260,7 @@ sy::FunctionDefinitionNode::compile(Allocator protAlloc, Function* func,
         }
     }
 
-    (void)protAlloc;
-    (void)func;
-    (void)interpreterInfo;
-
-    return {};
+    return builder;
 }
 
 #if SYNC_LIB_WITH_TESTS

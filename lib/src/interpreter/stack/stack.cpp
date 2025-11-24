@@ -315,7 +315,7 @@ TEST_CASE("frames of various length") {
 
 TEST_CASE("max frame") {
     Stack& active = Stack::getActiveStack();
-    FrameGuard guard = active.pushFrame(UINT16_MAX + 1, 1, nullptr);
+    FrameGuard guard = active.pushFrame(0x8000, 1, nullptr);
 }
 
 #endif // SYNC_LIB_NO_TESTS

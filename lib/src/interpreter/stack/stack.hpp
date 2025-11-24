@@ -21,8 +21,8 @@ class FrameGuard;
 
 class Stack final {
   public:
-    static constexpr size_t BITS_PER_STACK_OPERAND = 16;
-    static constexpr size_t MAX_FRAME_LEN = 1 << BITS_PER_STACK_OPERAND;
+    static constexpr size_t BITS_PER_STACK_OPERAND = 15;
+    static constexpr uint16_t MAX_FRAME_LEN = static_cast<uint16_t>(1 << BITS_PER_STACK_OPERAND);
 
     Stack() = default;
 
