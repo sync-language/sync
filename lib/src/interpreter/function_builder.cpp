@@ -23,6 +23,7 @@ Result<void, AllocErr> sy::FunctionBuilder::pushBytecode(const Bytecode* bytecod
 
 Result<void, AllocErr> sy::FunctionBuilder::pushUnwindSlot(int16_t slot) noexcept {
     sy_assert(slot >= 0, "Slot to unwind must be a non-negative integer");
-    sy_assert(slot < this->stackSpaceRequired, "Slot to unwind cannot exceed the stack space required by a function");
+    sy_assert(static_cast<size_t>(slot) < this->stackSpaceRequired,
+              "Slot to unwind cannot exceed the stack space required by a function");
     return this->unwindSlots.push(slot);
 }
