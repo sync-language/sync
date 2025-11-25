@@ -14,6 +14,6 @@ jobs:
     - name: Configure CMake
       run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
     - name: Build
-      run: cmake --build build --config Debug --parallel
+      run: cmake --build build --config Debug --parallel --target SyncLibTests
     - name: Test
       run: ./build/Debug/SyncLibTests
