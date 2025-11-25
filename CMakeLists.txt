@@ -72,16 +72,26 @@ set(SyncLibSources
     "lib/src/program/program_error.cpp"
     "lib/src/testing/child_process.cpp"
     "lib/src/testing/assert_handler.cpp"
-
-    "lib/test/test_runner.cpp"
 )
+
+if(SYNC_LIB_WITH_TESTS)
+    set(SyncLibSources ${SyncLibSources} "lib/test/test_runner.cpp")
+endif()
 
 if(BUILD_SHARED_LIBS)
     add_library(SyncLib SHARED ${SyncLibSources})
 else()
     add_library(SyncLib STATIC ${SyncLibSources})
 endif()
-add_executable(SyncLibTests "lib/test/test.cpp" ${SyncLibSources})
+target_include_directories(SyncLib INTERFACE "include")
+
+add_executable(SyncLibTests "lib/test/test.cpp" "lib/test/test_runner.cpp" ${SyncLibSources})
+set_property(TARGET SyncLibTests PROPERTY EXCLUDE_FROM_ALL TRUE)
+
+if(MSVC)
+    target_compile_options(SyncLib PRIVATE /MP)
+    target_compile_options(SyncLibTests PRIVATE /MP)
+endif()
 
 # Doctest Shenanigans
 target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS)
@@ -104,14 +114,11 @@ if(EMSCRIPTEN)
         # TODO -Wno-c2y-extensions not this. __COUNTER__ is not liked by emsdk right now.
     endif()
 elseif(MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX /EHsc /Zi")
-    target_compile_options(SyncLib PRIVATE /W4 /WX)
-    target_compile_options(SyncLibTests PRIVATE /W4 /WX)
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX /EHsc /Zi")
+    target_compile_options(SyncLib PRIVATE /W4 /WX /EHsc /Zi)
+    target_compile_options(SyncLibTests PRIVATE /W4 /WX /EHsc /Zi)
     target_link_libraries(SyncLib PRIVATE dbghelp)
     target_link_libraries(SyncLibTests PRIVATE dbghelp)
-    # C++ exceptions and unwind semantics. Necessary for Rust
-    target_compile_options(SyncLib PRIVATE /EHsc /Zi) 
-    target_compile_options(SyncLibTests PRIVATE /EHsc /Zi)
 else()
     target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror)
     target_compile_options(SyncLibTests PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -119,13 +126,13 @@ endif()
 
 if(SYNC_LIB_ASAN)
     if(MSVC)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fsanitize=address")
+        #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fsanitize=address")
         target_compile_options(SyncLib PRIVATE /fsanitize=address)
         target_compile_options(SyncLibTests PRIVATE /fsanitize=address)
     else()
         target_compile_options(SyncLib PRIVATE -fsanitize=address)
         target_compile_options(SyncLibTests PRIVATE -fsanitize=address)
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+        #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
     endif()
 endif()
 
@@ -170,10 +177,6 @@ endif()
 #     endif()
 # endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_definitions(SyncLib PRIVATE SYNC_LIB_NO_TESTS)
-endif()
-
 # ========================
 # X86_64 SIMD instructions
 # ========================
@@ -199,12 +202,10 @@ if(SYNC_X86_64) # TODO evaluate using -msimd128
         if(HAS_SSE2)
             if(MSVC)
                 message(STATUS "SSE2 supported by this system - enabling")
-                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:SSE2")
                 target_compile_options(SyncLib PRIVATE /arch:SSE2)
                 target_compile_options(SyncLibTests PRIVATE /arch:SSE2)
             else()
                 message(STATUS "SSE2 supported by this system - enabling")
-                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2")
                 target_compile_options(SyncLib PRIVATE -msse2)
                 target_compile_options(SyncLibTests PRIVATE -msse2)   
             endif()
@@ -228,12 +229,10 @@ if(SYNC_X86_64) # TODO evaluate using -msimd128
             if(HAS_AVX2)
                 if(MSVC)
                     message(STATUS "AVX2 supported on this system - enabling")
-                    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
                     target_compile_options(SyncLib PRIVATE /arch:AVX2)
                     target_compile_options(SyncLibTests PRIVATE /arch:AVX2)
                 else()
                     message(STATUS "AVX2 supported on this system - enabling")
-                    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2")
                     target_compile_options(SyncLib PRIVATE -mavx2)
                     target_compile_options(SyncLibTests PRIVATE -mavx2)
                 endif()
@@ -258,12 +257,10 @@ if(SYNC_X86_64) # TODO evaluate using -msimd128
             if(HAS_AVX512)
                 if(MSVC)
                     message(STATUS "AVX512 supported on this system - enabling")
-                    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX512")
                     target_compile_options(SyncLib PRIVATE /arch:AVX512)
                     target_compile_options(SyncLibTests PRIVATE /arch:AVX512)
                 else()
                     message(STATUS "AVX512 supported on this system - enabling")
-                    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx512f -mavx512bw")
                     target_compile_options(SyncLib PRIVATE -mavx512f -mavx512bw)
                     target_compile_options(SyncLibTests PRIVATE -mavx512f -mavx512bw)
                 endif()
@@ -278,7 +275,6 @@ if(EMSCRIPTEN AND SYNC_WASM_USE_SIMD)
     # https://webassembly.org/features/
     # Fixed-width SIMD supported by everything
     message(STATUS "Enabling Fixed-width SIMD for WASM")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msimd128")
     target_compile_options(SyncLib PRIVATE -msimd128)
     target_compile_options(SyncLibTests PRIVATE -msimd128)
 endif()

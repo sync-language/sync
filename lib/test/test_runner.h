@@ -2,12 +2,14 @@
 #ifndef SY_TEST_RUNNER_H_
 #define SY_TEST_RUNNER_H_
 
+#include "../src/core.h"
+
 #if SYNC_LIB_WITH_TESTS
 
 #if __cplusplus
 extern "C" {
 #endif
-extern "C" int run_sync_tests(int argc, char** argv);
+SY_API int run_sync_tests(int argc, char** argv);
 #if __cplusplus
 }
 #endif
