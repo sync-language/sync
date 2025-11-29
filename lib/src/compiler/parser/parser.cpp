@@ -12,8 +12,9 @@ extern ProgramErrorReporter defaultErrReporter;
 
 void sy::ParseInfo::reportErr(ProgramError errKind, uint32_t inBytePos, StringSlice msg) const noexcept {
     SourceFileLocation asFileLocation = SourceFileLocation(this->tokenIter.source(), inBytePos);
-    asFileLocation.fileName = this->fileSource->name.asSlice();
-    this->errReporter(errKind, asFileLocation, msg, this->errReporterArg);
+    asFileLocation.fileName = this->moduleName;
+    if (this->errReporter)
+        this->errReporter(errKind, asFileLocation, msg, this->errReporterArg);
 }
 
 sy::FileAst::~FileAst() noexcept {
@@ -76,7 +77,8 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
         return Error(tokenizerRes.takeErr());
     }
     Tokenizer tokenizer = tokenizerRes.takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, fileSource, {}, errReporter, errReporterArg);
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, fileSource->elem.syncSourceFile.value().asSlice(),
+                                    errReporter, errReporterArg);
 
     {
         auto nextOpt = parseInfo.tokenIter.next();
@@ -137,7 +139,7 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
 TEST_CASE("parseStatement right brace") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "}").takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr);
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
     (void)parseInfo.tokenIter.next();
     auto res = parseStatement(&parseInfo, nullptr, nullptr);
     CHECK(res.hasValue());
@@ -147,7 +149,7 @@ TEST_CASE("parseStatement right brace") {
 TEST_CASE("parseStatement return") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "return;").takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr);
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
     (void)parseInfo.tokenIter.next();
     auto res = parseStatement(&parseInfo, nullptr, nullptr);
     CHECK(res.hasValue());

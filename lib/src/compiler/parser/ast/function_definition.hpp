@@ -29,7 +29,7 @@ class FunctionDefinitionNode : public IFunctionDefinition {
     DynArray<StackVariable> args{};
     Option<TypeResolutionInfo> retType{};
     DynArray<StackVariable> localVariables{};
-    DynArray<IFunctionStatement*> statements;
+    DynArray<IFunctionStatement*> statements{};
     Scope* scope = nullptr;
 };
 } // namespace sy

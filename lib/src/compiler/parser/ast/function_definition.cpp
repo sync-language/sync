@@ -145,7 +145,7 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
         this->functionName = parseInfo->tokenIter.currentSlice();
 
         // TODO scoped functions
-        auto fileNameRes = StringUnmanaged::copyConstruct(parseInfo->fileSource->name, parseInfo->alloc);
+        auto fileNameRes = StringUnmanaged::copyConstructSlice(parseInfo->moduleName, parseInfo->alloc);
         if (fileNameRes.hasErr()) {
             parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
             return Error(ProgramError::OutOfMemory);
@@ -188,8 +188,11 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
             return makeEndOfFileError();
         }
         const Token token = nextResult.value();
-        if (token.tag() == TokenType::RightBraceSymbol) {
+        if (token.tag() == TokenType::LeftBraceSymbol) {
             this->retType = Option<TypeResolutionInfo>();
+            if (parseInfo->tokenIter.next().has_value() == false) {
+                return makeEndOfFileError();
+            }
         } else {
             auto typeParseRes = TypeResolutionInfo::parse(parseInfo);
             if (typeParseRes.hasErr()) {
@@ -222,7 +225,7 @@ Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo
             return Error(statementRes.takeErr());
         }
         auto statement = statementRes.takeValue();
-        if (statement.hasValue() == false) {
+        if (statement.hasValue()) {
             if (this->statements.push(statement.value()).hasErr()) {
                 parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(),
                                      "Out of memory");
@@ -267,10 +270,10 @@ Result<FunctionBuilder, ProgramError> sy::FunctionDefinitionNode::compile() cons
 
 #include "../../../doctest.h"
 
-TEST_CASE("parse function args") {
+TEST_CASE("[FunctionDefintion] parse function args") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64)").takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr);
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
     (void)parseInfo.tokenIter.next();
     DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
     {
@@ -291,10 +294,10 @@ TEST_CASE("parse function args") {
     }
 }
 
-TEST_CASE("parse function args trailing comma") {
+TEST_CASE("[FunctionDefintion] parse function args trailing comma") {
     Allocator alloc;
     Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64,)").takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, nullptr, {}, nullptr, nullptr);
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
     (void)parseInfo.tokenIter.next();
     DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
     {
@@ -313,6 +316,31 @@ TEST_CASE("parse function args trailing comma") {
         CHECK(variable.typeInfo.knownType.hasValue());
         CHECK_EQ(variable.typeInfo.knownType.value(), Type::TYPE_U64);
     }
+}
+
+TEST_CASE("[FunctionDefintion] parse no args") {
+    Allocator alloc;
+    Tokenizer tokenizer = Tokenizer::create(alloc, "()").takeValue();
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
+    DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
+    CHECK_EQ(variables.len(), 0);
+}
+
+TEST_CASE("[FunctionDefintion] parse function return no value statement") {
+    Allocator alloc;
+    Tokenizer tokenizer = Tokenizer::create(alloc, "fn example() { return; }").takeValue();
+    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, "hello", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
+    FunctionDefinitionNode funcDef = FunctionDefinitionNode(alloc);
+    Scope outerScope{};
+    CHECK(funcDef.init(&parseInfo, &outerScope));
+    CHECK_EQ(funcDef.unqualifiedName(), "example");
+    CHECK_EQ(funcDef.qualifiedName(), "hello.example");
+    CHECK_EQ(funcDef.args.len(), 0);
+    CHECK_FALSE(funcDef.retType.hasValue());
+    CHECK_EQ(funcDef.localVariables.len(), 0);
+    CHECK_EQ(funcDef.statements.len(), 1);
 }
 
 #endif // SYNC_LIB_WITH_TESTS
