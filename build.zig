@@ -74,6 +74,7 @@ pub fn build(b: *std.Build) void {
 }
 
 const sync_lang_c_sources = [_][]const u8{
+    "lib/src/core/core.c",
     "lib/src/util/panic.cpp",
     "lib/src/util/os_callstack.cpp",
     "lib/src/util/simd.cpp",

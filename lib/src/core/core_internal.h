@@ -1,0 +1,141 @@
+#ifndef SY_CORE_CORE_INTERNAL_H_
+#define SY_CORE_CORE_INTERNAL_H_
+
+#include "core.h"
+
+// https://en.cppreference.com/w/c/program/unreachable
+
+// Uses compiler specific extensions if possible.
+#ifdef __GNUC__ // GCC, Clang, ICC
+
+#define unreachable() (__builtin_unreachable())
+
+#elif _MSC_VER // MSVC
+
+#define unreachable() (__assume(false))
+
+#else
+// Even if no extension is used, undefined behavior is still raised by
+// the empty function body and the noreturn attribute.
+
+// The external definition of unreachable_impl must be emitted in a separated TU
+// due to the rule for inline functions in C.
+
+[[noreturn]] inline void unreachable_impl() {}
+#define unreachable() (unreachable_impl())
+
+#endif // Compiler specific
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern void (*defaultFatalErrorHandlerFn)(const char* message);
+
+/// Aligned memory allocation function required by sync. Can be overridden by defining
+/// `SYNC_CUSTOM_ALIGNED_MALLOC_FREE`, in which you must supply a definition of the function at final link time.
+/// @param len Amount of bytes to allocate. Must be non-zero. Must also be a multiple of `align`.
+/// @param align The alignment of the returned pointer. Must be power of 2.
+/// @return On success, returns the pointer to the beginning of the newly allocated memory. Must be freed with
+/// `sy_aligned_free`. On failure returns a null pointer.
+/// @warning If `len` is not a multiple of `align`, or `align` is not a power of `2`, the fatal error handler is
+/// invoked.
+extern void* sy_aligned_malloc(size_t len, size_t align);
+
+/// Aligned memory freeing function required by sync. Can be overridden by defining
+/// `SYNC_CUSTOM_ALIGNED_MALLOC_FREE`, in which you must supply a definition of the function at final link time.
+/// @param len Amount of bytes to free. Must be non-zero. Must also be a multiple of `align`.
+/// @param align The alignment of pointer to free. Must be power of 2.
+/// @warning If `len` is not a multiple of `align`, or `align` is not a power of `2`, the fatal error handler is
+/// invoked.
+extern void sy_aligned_free(void* mem, size_t len, size_t align);
+
+/// Allocates one or more pages of memory. If `SYNC_NO_PAGES` is defined, calls `sy_aligned_malloc` with an `align` of
+/// `SYNC_DEFAULT_PAGE_ALIGNMENT` found in `core.c`. Alternatively, can be overridden by defining
+/// `SYNC_CUSTOM_PAGE_MEMORY`
+/// @param len Minimum amount of bytes to allocate pages for. Must be a multiple of `sy_page_size`
+/// @return On success, returns the pointer to the beginning of the newly allocated pages / memory. Must be freed with
+/// `sy_page_free`. On failure returns a null pointer.
+/// @warning If `len` is not a multiple of `sy_page_size` the fatal error handler is
+/// invoked.
+extern void* sy_page_malloc(size_t len);
+
+/// Frees one or more pages of memory. If `SYNC_NO_PAGES` is defined, calls `sy_aligned_free` with an `align` of
+/// `SYNC_DEFAULT_PAGE_ALIGNMENT` found in `core.c`. Alternatively, can be overridden by defining
+/// `SYNC_CUSTOM_PAGE_MEMORY`
+/// @param pagesStart The beginning of the allocated pages / memory.
+/// @param len The amount of bytes initially allocated. Must be a multiple of `sy_page_size`
+/// @warning If `len` is not a multiple of `sy_page_size` the fatal error handler is
+/// invoked.
+extern void sy_page_free(void* pagesStart, size_t len);
+
+/// If `SYNC_NO_PAGES` is defined, uses `SYNC_DEFAULT_PAGE_ALIGNMENT` found in `core.c`. Alternatively, can be
+/// overridden by defining `SYNC_CUSTOM_PAGE_MEMORY`
+/// @return If supported, the size of memory pages in bytes, or `SYNC_DEFAULT_PAGE_ALIGNMENT`
+extern size_t sy_page_size(void);
+
+/// Makes one or more virtual memory pages read only. If `SYNC_NO_PAGES` is defined, does nothing. Alternatively, can be
+/// overridden by defining `SYNC_CUSTOM_PAGE_MEMORY`
+/// @param pagesStart Pointer to the beginning of the pages memory.
+/// @param len Amount of bytes that the pages span.
+/// @warning If `len` is not a multiple of `sy_page_size` the fatal error handler is invoked.
+extern void sy_make_pages_read_only(void* pagesStart, size_t len);
+
+/// Makes one or more virtual memory pages read / write enabled. If `SYNC_NO_PAGES` is defined, does nothing.
+/// Alternatively, can be overridden by defining `SYNC_CUSTOM_PAGE_MEMORY`
+/// @param pagesStart Pointer to the beginning of the pages memory.
+/// @param len Amount of bytes that the pages span.
+/// @warning If `len` is not a multiple of `sy_page_size` the fatal error handler is invoked.
+extern void sy_make_pages_read_write(void* pagesStart, size_t len);
+
+typedef enum SyMemoryOrder {
+    SY_MEMORY_ORDER_RELAXED = 0,
+    SY_MEMORY_ORDER_CONSUME = 1,
+    SY_MEMORY_ORDER_ACQUIRE = 2,
+    SY_MEMORY_ORDER_RELEASE = 3,
+    SY_MEMORY_ORDER_ACQ_REL = 4,
+    SY_MEMORY_ORDER_SEQ_CST = 5,
+
+    // Nice Vulkan Trick
+    _SY_MEMORY_ORDER_MAX = 0x7FFFFFFF
+} SyMemoryOrder;
+
+typedef struct SyAtomicSizeT {
+    volatile size_t value;
+} SyAtomicSizeT;
+
+size_t sy_atomic_size_t_load(const SyAtomicSizeT* self, SyMemoryOrder order);
+
+void sy_atomic_size_t_store(SyAtomicSizeT* self, size_t newValue, SyMemoryOrder order);
+
+size_t sy_atomic_size_t_fetch_add(SyAtomicSizeT* self, size_t toAdd, SyMemoryOrder order);
+
+size_t sy_atomic_size_t_fetch_sub(SyAtomicSizeT* self, size_t toSub, SyMemoryOrder order);
+
+size_t sy_atomic_size_t_exchange(SyAtomicSizeT* self, size_t newValue, SyMemoryOrder order);
+
+typedef struct SyAtomicBool {
+    volatile bool value;
+} SyAtomicBool;
+
+bool sy_atomic_bool_load(const SyAtomicBool* self, SyMemoryOrder order);
+
+void sy_atomic_bool_store(SyAtomicBool* self, bool newValue, SyMemoryOrder order);
+
+bool sy_atomic_bool_exchange(SyAtomicBool* self, bool newValue, SyMemoryOrder order);
+
+/// Enjoy reading
+/// As sync code executes, it will inevitably call into external functions (C functions) due to being embeddable.
+/// As such, some static analysis between external and sync function calls for the compiler is not fully possible.
+/// This presents a massive challenge when trying to acquire locks, as we cannot prevent, at sync compile time, that
+/// acquiring an exclusive lock has not already been acquired by that same thread as a shared lock.
+/// How we can solve this is by combining two methods. Firstly, supporting re-entrant locks. This will mean that a
+/// thread trying to re-acquire a lock in the same way as it did before is not a problem. Secondly, allow to "elevate" a
+/// lock, meaning turn a shared lock into an exclusive lock without giving up acquisition to another thread. If a thread
+/// has a shared lock, and so does another, fail to "elevate" the lock into an exclusive lock.
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

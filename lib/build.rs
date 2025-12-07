@@ -4,6 +4,7 @@ fn main() {
     cc::Build::new()
         .cpp(true)
         .std("c++17")
+        .file("src/core/core.c")
         .file("src/util/panic.cpp")
         .file("src/util/os_callstack.cpp")
         .file("src/util/simd.cpp")

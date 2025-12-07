@@ -19,15 +19,14 @@ option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" OFF)
 option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" OFF)
 option(SYNC_WASM_USE_SIMD "Use Fixed-width SIMD on WASM" OFF)
 
-set(CMAKE_CXX_STANDARD 17)
-if(EMSCRIPTEN)
-    message(STATUS "Using C++23 for Emscripten")
-    set(CMAKE_CXX_STANDARD 23) # __COUNTER__ for doctest
-endif()
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Overriding core functionality. See docs/core_requirements.md
+option(SYNC_CUSTOM_ALIGNED_MALLOC_FREE "Provide and link your own custom implementation of basic memory allocation operations" OFF)
+option(SYNC_CUSTOM_PAGE_MEMORY "Provide and link your own custom implementation of virtual page memory operations" OFF)
+option(SYNC_DEFAULT_PAGE_ALIGNMENT "Provide a custom default page size / alignment" OFF)
+option(SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER "Provide and link your default fatal error handler for special requirements" OFF)
 
-set(SyncLibSources 
+set(SyncLibSources
+    "lib/src/core/core.c"
     "lib/src/util/panic.cpp"
     "lib/src/util/os_callstack.cpp"
     "lib/src/util/simd.cpp"
@@ -88,6 +87,58 @@ target_include_directories(SyncLib INTERFACE "include")
 add_executable(SyncLibTests "lib/test/test.cpp" "lib/test/test_runner.cpp" ${SyncLibSources})
 set_property(TARGET SyncLibTests PROPERTY EXCLUDE_FROM_ALL TRUE)
 
+# ======================================
+# C/C++ Standard
+# Doctest with Emscripten requires C++23
+# ======================================
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+    if(EMSCRIPTEN)
+        message(STATUS "Using C++23 for Emscripten") # __COUNTER__ for doctest
+        set_target_properties(SyncLib PROPERTIES
+            C_STANDARD 11
+            C_STANDARD_REQUIRED YES
+            CXX_STANDARD 23
+            CXX_STANDARD_REQUIRED YES
+        )
+        set_target_properties(SyncLibTests PROPERTIES
+            C_STANDARD 11
+            C_STANDARD_REQUIRED YES
+            CXX_STANDARD 23
+            CXX_STANDARD_REQUIRED YES
+        )
+    else()
+        set_target_properties(SyncLib PROPERTIES
+            C_STANDARD 11
+            C_STANDARD_REQUIRED YES
+            CXX_STANDARD 17
+            CXX_STANDARD_REQUIRED YES
+        )
+        set_target_properties(SyncLibTests PROPERTIES
+            C_STANDARD 11
+            C_STANDARD_REQUIRED YES
+            CXX_STANDARD 17
+            CXX_STANDARD_REQUIRED YES
+        )
+    endif()
+endif()
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# See docs/core_requirements.md
+if(SYNC_CUSTOM_ALIGNED_MALLOC_FREE)
+    target_compile_definitions(SyncLib PRIVATE SYNC_CUSTOM_ALIGNED_MALLOC_FREE=1)
+endif()
+if(SYNC_CUSTOM_PAGE_MEMORY)
+    target_compile_definitions(SyncLib PRIVATE SYNC_CUSTOM_PAGE_MEMORY=1)
+endif()
+if(SYNC_DEFAULT_PAGE_ALIGNMENT)
+    target_compile_definitions(SyncLib PRIVATE SYNC_DEFAULT_PAGE_ALIGNMENT=1)
+endif()
+if(SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER)
+    target_compile_definitions(SyncLib PRIVATE SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER=1)
+endif()
+
+
 if(MSVC)
     target_compile_options(SyncLib PRIVATE /MP)
     target_compile_options(SyncLibTests PRIVATE /MP)
@@ -108,9 +159,9 @@ endif()
 # Ensure all warnings are caught
 if(EMSCRIPTEN)
     if (CMAKE_GENERATOR MATCHES "Visual Studio")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++23 /W4 /WX /EHsc /Zi")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX /EHsc /Zi")
     else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++23 -Wall -Wextra -Wpedantic -Werror -Wno-c2y-extensions")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror -Wno-c2y-extensions")
         # TODO -Wno-c2y-extensions not this. __COUNTER__ is not liked by emsdk right now.
     endif()
 elseif(MSVC)
