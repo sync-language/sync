@@ -156,6 +156,12 @@ if(SYNC_NO_PAGES)
     target_compile_definitions(SyncLibTests PRIVATE SYNC_NO_PAGES)
 endif()
 
+# C11 Atomic Support
+if(MSVC)
+    target_compile_options(SyncLib PRIVATE /experimental:c11atomics)
+    target_compile_options(SyncLibTests PRIVATE /experimental:c11atomics)
+endif()
+
 # Ensure all warnings are caught
 if(EMSCRIPTEN)
     if (CMAKE_GENERATOR MATCHES "Visual Studio")

@@ -105,8 +105,8 @@ void sy_page_free(void* pagesStart, size_t len) {
 #if defined(SYNC_NO_PAGES)
     return sy_aligned_free(pagesStart, len, pageSize);
 #elif defined(_WIN32)
-    auto result = VirtualFree(pagesStart, 0, MEM_RELEASE);
-    if (result == 0) {
+    bool result = VirtualFree(pagesStart, 0, MEM_RELEASE);
+    if (result == false) {
         defaultFatalErrorHandlerFn("[sy_page_free] failed to free pages");
     }
 #elif defined(__GNUC__)
@@ -145,7 +145,7 @@ void sy_make_pages_read_only(void* pagesStart, size_t len) {
 #elif defined(_WIN32)
     const DWORD newProtect = PAGE_READONLY;
     DWORD oldProtect;
-    const bool success = VirtualProtect(baseAddress, size, newProtect, &oldProtect);
+    const bool success = VirtualProtect(pagesStart, len, newProtect, &oldProtect);
     if (success == false) {
         defaultFatalErrorHandlerFn("[sy_make_pages_read_only] failed to make pages read only");
     }
@@ -170,7 +170,7 @@ void sy_make_pages_read_write(void* pagesStart, size_t len) {
 #elif defined(_WIN32)
     const DWORD newProtect = PAGE_READWRITE;
     DWORD oldProtect;
-    const bool success = VirtualProtect(baseAddress, size, newProtect, &oldProtect);
+    const bool success = VirtualProtect(pagesStart, len, newProtect, &oldProtect);
     if (success == false) {
         defaultFatalErrorHandlerFn("[sy_make_pages_read_only] failed to make pages read / write");
     }
@@ -186,10 +186,12 @@ void sy_make_pages_read_write(void* pagesStart, size_t len) {
 #endif // SYNC_CUSTOM_PAGE_MEMORY
 
 #if defined(_WIN32)
-#include <vcruntime_c11_atomic_support.h>
-#else
-#include <stdatomic.h>
+#ifdef __STDC_NO_ATOMICS__
+#error "Enable MSVC C11 flag /experimental:c11atomics"
+#endif
+#endif
 
+#include <stdatomic.h>
 static enum memory_order sy_memory_order_to_std(SyMemoryOrder order) {
     // let compiler optimize this.
     // On my MacBook, these values are the same.
@@ -211,68 +213,34 @@ static enum memory_order sy_memory_order_to_std(SyMemoryOrder order) {
     }
 }
 
-#endif
-
 size_t sy_atomic_size_t_load(const SyAtomicSizeT* self, SyMemoryOrder order) {
-#if defined(_WIN32)
-    return 0;
-#else
     return atomic_load_explicit((const _Atomic volatile size_t*)&self->value, sy_memory_order_to_std(order));
-#endif
 }
 
 void sy_atomic_size_t_store(SyAtomicSizeT* self, size_t newValue, SyMemoryOrder order) {
-#if defined(_WIN32)
-    return;
-#else
     atomic_store_explicit((_Atomic volatile size_t*)&self->value, newValue, sy_memory_order_to_std(order));
-#endif
 }
 
 size_t sy_atomic_size_t_fetch_add(SyAtomicSizeT* self, size_t toAdd, SyMemoryOrder order) {
-#if defined(_WIN32)
-    return 0;
-#else
     return atomic_fetch_add_explicit((_Atomic volatile size_t*)&self->value, toAdd, sy_memory_order_to_std(order));
-#endif
 }
 
 size_t sy_atomic_size_t_fetch_sub(SyAtomicSizeT* self, size_t toSub, SyMemoryOrder order) {
-#if defined(_WIN32)
-    return 0;
-#else
     return atomic_fetch_sub_explicit((_Atomic volatile size_t*)&self->value, toSub, sy_memory_order_to_std(order));
-#endif
 }
 
 size_t sy_atomic_size_t_exchange(SyAtomicSizeT* self, size_t newValue, SyMemoryOrder order) {
-#if defined(_WIN32)
-    return 0;
-#else
     return atomic_exchange_explicit((_Atomic volatile size_t*)&self->value, newValue, sy_memory_order_to_std(order));
-#endif
 }
 
 bool sy_atomic_bool_load(const SyAtomicBool* self, SyMemoryOrder order) {
-#if defined(_WIN32)
-    return false;
-#else
     return atomic_load_explicit((const _Atomic volatile bool*)&self->value, sy_memory_order_to_std(order));
-#endif
 }
 
 void sy_atomic_bool_store(SyAtomicBool* self, bool newValue, SyMemoryOrder order) {
-#if defined(_WIN32)
-    return;
-#else
     atomic_store_explicit((_Atomic volatile bool*)&self->value, newValue, sy_memory_order_to_std(order));
-#endif
 }
 
 bool sy_atomic_bool_exchange(SyAtomicBool* self, bool newValue, SyMemoryOrder order) {
-#if defined(_WIN32)
-    return 0;
-#else
     return atomic_exchange_explicit((_Atomic volatile bool*)&self->value, newValue, sy_memory_order_to_std(order));
-#endif
 }
