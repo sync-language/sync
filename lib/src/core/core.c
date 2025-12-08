@@ -545,8 +545,8 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
                 size_t* newThreadsWantElevate =
                     (size_t*)sy_aligned_malloc(newCapacity * sizeof(size_t), SYNC_CACHE_LINE_SIZE);
                 if (newThreadsWantElevate == NULL) {
-                    return SY_ACQUIRE_ERR_OUT_OF_MEMORY;
                     releaseFence(self);
+                    return SY_ACQUIRE_ERR_OUT_OF_MEMORY;
                 }
 
                 for (size_t i = 0; i < currentElevateLen; i++) {

@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <atomic>
 #include <core_internal.h>
 #include <thread>
 
