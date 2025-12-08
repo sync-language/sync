@@ -11,7 +11,7 @@ endif()
 project("Sync")
 
 option(BUILD_SHARED_LIBS "Build Sync as a shared library" OFF)
-option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" OFF)
+option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" ON)
 option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" ON)
 option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
@@ -86,6 +86,9 @@ target_include_directories(SyncLib INTERFACE "include")
 
 add_executable(SyncLibTests "lib/test/test.cpp" "lib/test/test_runner.cpp" ${SyncLibSources})
 set_property(TARGET SyncLibTests PROPERTY EXCLUDE_FROM_ALL TRUE)
+if(SYNC_LIB_WITH_TESTS)
+    add_subdirectory(test)
+endif()
 
 # ======================================
 # C/C++ Standard

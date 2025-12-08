@@ -30,6 +30,10 @@
 extern "C" {
 #endif
 
+#ifndef SYNC_CACHE_LINE_SIZE
+#define SYNC_CACHE_LINE_SIZE 64
+#endif
+
 extern void (*defaultFatalErrorHandlerFn)(const char* message);
 
 /// Aligned memory allocation function required by sync. Can be overridden by defining
@@ -88,6 +92,7 @@ extern void sy_make_pages_read_only(void* pagesStart, size_t len);
 /// @warning If `len` is not a multiple of `sy_page_size` the fatal error handler is invoked.
 extern void sy_make_pages_read_write(void* pagesStart, size_t len);
 
+/// @brief Same as https://en.cppreference.com/w/cpp/atomic/memory_order.html
 typedef enum SyMemoryOrder {
     SY_MEMORY_ORDER_RELAXED = 0,
     SY_MEMORY_ORDER_CONSUME = 1,
@@ -104,35 +109,133 @@ typedef struct SyAtomicSizeT {
     volatile size_t value;
 } SyAtomicSizeT;
 
+/// https://en.cppreference.com/w/cpp/atomic/atomic_load.html
 size_t sy_atomic_size_t_load(const SyAtomicSizeT* self, SyMemoryOrder order);
 
+/// https://en.cppreference.com/w/cpp/atomic/atomic_store.html
 void sy_atomic_size_t_store(SyAtomicSizeT* self, size_t newValue, SyMemoryOrder order);
 
+/// https://en.cppreference.com/w/cpp/atomic/atomic_fetch_add.html
 size_t sy_atomic_size_t_fetch_add(SyAtomicSizeT* self, size_t toAdd, SyMemoryOrder order);
 
+/// https://en.cppreference.com/w/cpp/atomic/atomic_fetch_sub.html
 size_t sy_atomic_size_t_fetch_sub(SyAtomicSizeT* self, size_t toSub, SyMemoryOrder order);
 
+/// https://en.cppreference.com/w/cpp/atomic/atomic_exchange.html
 size_t sy_atomic_size_t_exchange(SyAtomicSizeT* self, size_t newValue, SyMemoryOrder order);
+
+/// https://en.cppreference.com/w/cpp/atomic/atomic_compare_exchange.html
+bool sy_atomic_size_t_compare_exchange_weak(SyAtomicSizeT* self, size_t* expected, size_t desired, SyMemoryOrder order);
 
 typedef struct SyAtomicBool {
     volatile bool value;
 } SyAtomicBool;
 
+/// https://en.cppreference.com/w/cpp/atomic/atomic_load.html
 bool sy_atomic_bool_load(const SyAtomicBool* self, SyMemoryOrder order);
 
+/// https://en.cppreference.com/w/cpp/atomic/atomic_store.html
 void sy_atomic_bool_store(SyAtomicBool* self, bool newValue, SyMemoryOrder order);
 
+/// https://en.cppreference.com/w/cpp/atomic/atomic_exchange.html
 bool sy_atomic_bool_exchange(SyAtomicBool* self, bool newValue, SyMemoryOrder order);
+
+/// https://en.cppreference.com/w/cpp/atomic/atomic_compare_exchange.html
+bool sy_atomic_bool_compare_exchange_weak(SyAtomicBool* self, bool* expected, bool desired, SyMemoryOrder order);
+
+/// Yields execution of this thread. Can be overridden by defining `SYNC_CUSTOM_THREAD_YIELD` and then linking your own.
+extern void sy_thread_yield(void);
 
 /// Enjoy reading
 /// As sync code executes, it will inevitably call into external functions (C functions) due to being embeddable.
 /// As such, some static analysis between external and sync function calls for the compiler is not fully possible.
+///
 /// This presents a massive challenge when trying to acquire locks, as we cannot prevent, at sync compile time, that
 /// acquiring an exclusive lock has not already been acquired by that same thread as a shared lock.
+///
 /// How we can solve this is by combining two methods. Firstly, supporting re-entrant locks. This will mean that a
 /// thread trying to re-acquire a lock in the same way as it did before is not a problem. Secondly, allow to "elevate" a
 /// lock, meaning turn a shared lock into an exclusive lock without giving up acquisition to another thread. If a thread
 /// has a shared lock, and so does another, fail to "elevate" the lock into an exclusive lock.
+typedef struct SyRawRwLock {
+    SyAtomicBool fence;
+    SyAtomicSizeT exclusiveId;
+    SyAtomicSizeT exclusiveCount;
+    volatile size_t* readers;
+    SyAtomicSizeT readerLen;
+    SyAtomicSizeT readerCapacity;
+} SyRawRwLock;
+
+typedef enum SyAcquireErr {
+    SY_ACQUIRE_ERR_NONE = 0,
+    SY_ACQUIRE_ERR_OUT_OF_MEMORY = 1,
+    SY_ACQUIRE_ERR_SHARED_HAS_EXCLUSIVE = 2,
+    SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS = 3,
+    SY_ACQUIRE_ERR_EXCLUSIVE_HAS_EXCLUSIVE = 4,
+
+    _SY_ACQUIRE_ERR_MAX = 0x7FFFFFFF
+} SyAcquireErr;
+
+/// Frees any memory associated with the RwLock.
+/// @param self Non-null pointer to lock object
+/// @warning It is a fatal error if any thread has either a shared or exclusive lock on `self`.
+void sy_raw_rwlock_destroy(SyRawRwLock* self);
+
+/// Attempts to acquire a shared lock to `self`. If the calling thread already has an exclusive or shared lock, the lock
+/// re-enters and succeeds. Release the lock with `sy_raw_rwlock_release_shared`.
+/// @param self Non-null pointer to lock object
+/// @return If the acquire was a success, `SY_ACQUIRE_ERR_NONE`. If another thread has an exclusive lock,
+/// `SY_ACQUIRE_ERR_SHARED_HAS_EXCLUSIVE`. If memory failed to allocate, `SY_ACQUIRE_ERR_OUT_OF_MEMORY`.
+/// @warning `sy_raw_rwlock_release_shared` must be called to release the lock. Failure to do so is undefined behavior.
+SyAcquireErr sy_raw_rwlock_try_acquire_shared(SyRawRwLock* self);
+
+/// Acquires a shared lock to `self`. If the calling thread already has an exclusive lock, the lock re-enters
+/// and succeeds. Release the lock with `sy_raw_rwlock_release_shared`.
+/// @param self Non-null pointer to lock object
+/// @return `SY_ACQUIRE_ERR_NONE` on success, otherwise
+/// `SY_ACQUIRE_ERR_OUT_OF_MEMORY` due to allocation failure.
+/// @warning `sy_raw_rwlock_release_shared` must be called to release the lock. Failure to do so is undefined behavior.
+SyAcquireErr sy_raw_rwlock_acquire_shared(SyRawRwLock* self);
+
+/// Releases a shared lock to `self` from this thread. If there are multiple shared acquisitions on this thread,
+/// `sy_raw_rwlock_release_shared` must be called the same amount of times.
+/// @param self Non-null pointer to lock object
+/// @warning It is a fatal error if a different thread has an exclusive lock on `self`, or if no thread has a shared
+/// lock.
+void sy_raw_rwlock_release_shared(SyRawRwLock* self);
+
+/// Attempts to acquire an exclusive lock to `self`. If the calling thread already has an exclusive lock, the
+/// lock re-enters and succeeds. If no other thread has a shared lock, and this thread does, also the lock re-enters
+/// with the lock state elevated to exclusive for this thread and succeeds. Release the lock with
+/// `sy_raw_rwlock_release_exclusive`.
+/// @param self Non-null pointer to lock object
+/// @return If the acquire was a success, `SY_ACQUIRE_ERR_NONE`. If another thread has an exclusive lock,
+/// `SY_ACQUIRE_ERR_EXCLUSIVE_HAS_EXCLUSIVE`. If another thread has a shared lock,
+/// `SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS`.
+/// @warning `sy_raw_rwlock_release_exclusive` must be called to release the lock. Failure to do so is undefined
+/// behavior. It is best to not re-try the lock if `SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS` is returned,
+/// as this can easily lead to deadlocks.
+SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self);
+
+/// Attempts to acquire an exclusive lock to `self`. If the calling thread already has an exclusive lock, the
+/// lock re-enters and succeeds. If no other thread has a shared lock, and this thread does, also the lock re-enters
+/// with the lock state elevated to exclusive for this thread and succeeds. Release the lock with
+/// `sy_raw_rwlock_release_exclusive`.
+/// @param self Non-null pointer to lock object
+/// @return If the acquire was a success, `SY_ACQUIRE_ERR_NONE`. If another thread is also trying to elevate their lock
+/// from shared to exclusive, `SY_ACQUIRE_ERR_DEADLOCK`.
+/// @warning `sy_raw_rwlock_release_exclusive` must be called to release the lock. Failure to do so is undefined
+/// behavior. This function also does not re-try the lock if `SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS` is returned,
+/// as this can easily lead to deadlocks. For instance, if thread A and B both have shared locks, and then both want to
+/// elevate them to exclusive, this would be a deadlock.
+SyAcquireErr sy_raw_rwlock_acquire_exclusive(SyRawRwLock* self);
+
+/// Releases a shared lock to `self` from this thread. If there are multiple shared acquisitions on this thread,
+/// `sy_raw_rwlock_release_shared` must be called the same amount of times.
+/// @param self Non-null pointer to lock object
+/// @warning It is a fatal error if a different thread has an exclusive lock on `self`, or if no thread has an exclusive
+/// lock.
+void sy_raw_rwlock_release_exclusive(SyRawRwLock* self);
 
 #ifdef __cplusplus
 }
