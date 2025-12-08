@@ -164,6 +164,9 @@ typedef struct SyRawRwLock {
     volatile size_t* readers;
     SyAtomicSizeT readerLen;
     SyAtomicSizeT readerCapacity;
+    volatile size_t* threadsWantElevate;
+    SyAtomicSizeT threadsWantElevateLen;
+    SyAtomicSizeT threadsWantElevateCapacity;
 } SyRawRwLock;
 
 typedef enum SyAcquireErr {
@@ -172,6 +175,7 @@ typedef enum SyAcquireErr {
     SY_ACQUIRE_ERR_SHARED_HAS_EXCLUSIVE = 2,
     SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS = 3,
     SY_ACQUIRE_ERR_EXCLUSIVE_HAS_EXCLUSIVE = 4,
+    SY_ACQUIRE_ERR_DEADLOCK = 5,
 
     _SY_ACQUIRE_ERR_MAX = 0x7FFFFFFF
 } SyAcquireErr;
@@ -211,10 +215,12 @@ void sy_raw_rwlock_release_shared(SyRawRwLock* self);
 /// @param self Non-null pointer to lock object
 /// @return If the acquire was a success, `SY_ACQUIRE_ERR_NONE`. If another thread has an exclusive lock,
 /// `SY_ACQUIRE_ERR_EXCLUSIVE_HAS_EXCLUSIVE`. If another thread has a shared lock,
-/// `SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS`.
+/// `SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS`. If two or more threads are trying to elevate from shared to exclusive,
+/// `SY_ACQUIRE_ERR_DEADLOCK`. If memory allocation fails, `SY_ACQUIRE_ERR_OUT_OF_MEMORY`.
 /// @warning `sy_raw_rwlock_release_exclusive` must be called to release the lock. Failure to do so is undefined
 /// behavior. It is best to not re-try the lock if `SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS` is returned,
-/// as this can easily lead to deadlocks.
+/// as this can easily lead to deadlocks. If `SY_ACQUIRE_ERR_DEADLOCK` is returned, two threads are competing to elevate
+/// their locks to exclusive. Analyze carefully where this is happening at the call-site.
 SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self);
 
 /// Attempts to acquire an exclusive lock to `self`. If the calling thread already has an exclusive lock, the
@@ -223,11 +229,12 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self);
 /// `sy_raw_rwlock_release_exclusive`.
 /// @param self Non-null pointer to lock object
 /// @return If the acquire was a success, `SY_ACQUIRE_ERR_NONE`. If another thread is also trying to elevate their lock
-/// from shared to exclusive, `SY_ACQUIRE_ERR_DEADLOCK`.
+/// from shared to exclusive, `SY_ACQUIRE_ERR_DEADLOCK`. If memory allocation fails, `SY_ACQUIRE_ERR_OUT_OF_MEMORY`.
 /// @warning `sy_raw_rwlock_release_exclusive` must be called to release the lock. Failure to do so is undefined
 /// behavior. This function also does not re-try the lock if `SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS` is returned,
 /// as this can easily lead to deadlocks. For instance, if thread A and B both have shared locks, and then both want to
-/// elevate them to exclusive, this would be a deadlock.
+/// elevate them to exclusive, this would be a deadlock. If `SY_ACQUIRE_ERR_DEADLOCK` is returned, two threads are
+/// competing to elevate their locks to exclusive. Analyze carefully where this is happening at the call-site.
 SyAcquireErr sy_raw_rwlock_acquire_exclusive(SyRawRwLock* self);
 
 /// Releases a shared lock to `self` from this thread. If there are multiple shared acquisitions on this thread,

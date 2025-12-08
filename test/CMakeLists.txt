@@ -85,5 +85,6 @@ add_core_sync_test(SyncTestCore_RwLockOneThreadReenterExclusive "core/rwlock/rwl
 add_core_sync_test(SyncTestCore_RwLockOneThreadElevateLock "core/rwlock/rwlock_one_thread_elevate_lock.cpp")
 add_core_sync_test(SyncTestCore_RwLockTwoThreadNoElevate "core/rwlock/rwlock_two_thread_no_elevate.cpp")
 add_core_sync_test(SyncTestCore_RwLockTwoThreadSuccessElevate "core/rwlock/rwlock_two_thread_success_elevate.cpp")
+add_core_sync_test(SyncTestCore_RwLockTwoThreadDeadlock "core/rwlock/rwlock_two_thread_deadlock.cpp")
 
 add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "core/rwlock/rwlock_fail_destroy_on_shared_lock.cpp" ".*cannot release exclusive lock that was locked by another thread.*")
