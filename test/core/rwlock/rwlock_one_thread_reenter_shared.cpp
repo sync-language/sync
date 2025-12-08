@@ -4,19 +4,20 @@
 int main() {
     SyRawRwLock lock{};
     assert(sy_raw_rwlock_acquire_shared(&lock) == SY_ACQUIRE_ERR_NONE);
-    assert(lock.readerLen.value == 1);
+    assert(lock.readerLen == 1);
     // re-enter
     assert(sy_raw_rwlock_acquire_shared(&lock) == SY_ACQUIRE_ERR_NONE);
-    assert(lock.readerLen.value == 2);
+    assert(lock.readerLen == 2);
     sy_raw_rwlock_release_shared(&lock);
-    assert(lock.readerLen.value == 1);
+    assert(lock.readerLen == 1);
     sy_raw_rwlock_release_shared(&lock);
-    assert(lock.readerLen.value == 0);
+    assert(lock.readerLen == 0);
 
     assert(sy_raw_rwlock_acquire_shared(&lock) == SY_ACQUIRE_ERR_NONE);
-    assert(lock.readerLen.value == 1);
+    assert(lock.readerLen == 1);
     sy_raw_rwlock_release_shared(&lock);
-    assert(lock.readerLen.value == 0);
+    assert(lock.readerLen == 0);
 
     sy_raw_rwlock_destroy(&lock);
+    return 0;
 }

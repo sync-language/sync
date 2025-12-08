@@ -20,4 +20,5 @@ int main() {
     t2.join();
     assert(counter == 20000);
     sy_raw_rwlock_destroy(&lock);
+    return 0;
 }

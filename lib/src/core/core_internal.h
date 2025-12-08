@@ -161,12 +161,13 @@ typedef struct SyRawRwLock {
     SyAtomicBool fence;
     SyAtomicSizeT exclusiveId;
     SyAtomicSizeT exclusiveCount;
-    volatile size_t* readers;
-    SyAtomicSizeT readerLen;
-    SyAtomicSizeT readerCapacity;
-    volatile size_t* threadsWantElevate;
-    SyAtomicSizeT threadsWantElevateLen;
-    SyAtomicSizeT threadsWantElevateCapacity;
+    size_t* readers;
+    int32_t readerLen;
+    int32_t readerCapacity;
+    size_t* threadsWantElevate;
+    int32_t threadsWantElevateLen;
+    int32_t threadsWantElevateCapacity;
+    SyAtomicSizeT deadlockGeneration;
 } SyRawRwLock;
 
 typedef enum SyAcquireErr {

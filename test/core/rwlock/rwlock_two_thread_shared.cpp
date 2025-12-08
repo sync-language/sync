@@ -17,4 +17,5 @@ int main() {
     t1.join();
     t2.join();
     sy_raw_rwlock_destroy(&lock);
+    return 0;
 }

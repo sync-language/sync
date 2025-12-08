@@ -13,6 +13,7 @@ project("Sync")
 option(BUILD_SHARED_LIBS "Build Sync as a shared library" OFF)
 option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" ON)
 option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
+option(SYNC_LIB_CODE_COVERAGE "Enable code coverage" ON)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" ON)
 option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
 option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" OFF)
@@ -359,6 +360,25 @@ set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY
 if(NOT EMSCRIPTEN AND NOT (DEFINED XBOX_CONSOLE_TARGET))
     if(CMAKE_BUILD_TYPE EQUAL "Debug" OR CMAKE_BUILD_TYPE EQUAL "RelWithDebInfo")
         target_compile_definitions(SyncLib PRIVATE SYNC_BACKTRACE_SUPPORTED)
+    endif()
+endif()
+
+if(SYNC_LIB_CODE_COVERAGE)
+    message(STATUS "Code coverage enabled")
+    if(MSVC)
+        # OpenCppCoverage?
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        # llvm-cov
+        target_compile_options(SyncLib PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+        target_compile_options(SyncLibTests PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+        target_link_options(SyncLib PRIVATE -fprofile-instr-generate)
+        target_link_options(SyncLibTests PRIVATE -fprofile-instr-generate)
+    else(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        # gcov
+        target_compile_options(SyncLib PRIVATE --coverage)
+        target_compile_options(SyncLibTests PRIVATE --coverage)
+        target_link_options(SyncLib PRIVATE --coverage)
+        target_link_options(SyncLibTests PRIVATE --coverage)
     endif()
 endif()
 

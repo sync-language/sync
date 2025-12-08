@@ -19,4 +19,5 @@ int main() {
     assert(lock.exclusiveCount.value == 0);
 
     sy_raw_rwlock_destroy(&lock);
+    return 0;
 }

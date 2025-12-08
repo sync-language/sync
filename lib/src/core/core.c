@@ -185,7 +185,7 @@ void sy_make_pages_read_write(void* pagesStart, size_t len) {
 }
 #endif // SYNC_CUSTOM_PAGE_MEMORY
 
-#if defined(_WIN32)
+#if defined(_MSC_VER)
 #ifdef __STDC_NO_ATOMICS__
 #error "Enable MSVC C11 flag `/experimental:c11atomics`"
 #endif
@@ -296,9 +296,11 @@ static SyAtomicSizeT globalThreadIdGenerator;
 #if (__STDC_VERSION__ >= 202311L) // C23
 /// Not actual thread id
 thread_local size_t threadLocalThreadId = 0;
+#define RAW_RWLOCK_ALLOC_ALIGN alignof(size_t)
 #else
 /// Not actual thread id
 _Thread_local size_t threadLocalThreadId = 0;
+#define RAW_RWLOCK_ALLOC_ALIGN _Alignof(size_t)
 #endif
 
 static void initializeThisThreadId(void) {
@@ -306,7 +308,7 @@ static void initializeThisThreadId(void) {
         return;
 
     size_t fetched = sy_atomic_size_t_fetch_add(&globalThreadIdGenerator, 1, SY_MEMORY_ORDER_SEQ_CST);
-    if (fetched == SIZE_MAX) {
+    if (fetched >= (SIZE_MAX - 1)) {
         defaultFatalErrorHandlerFn("[initializeThisThreadId] reached max value for thread id generator (how?)");
     }
 
@@ -318,37 +320,37 @@ static bool addThisThreadToReaders(SyRawRwLock* self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
-    const size_t currentLen = sy_atomic_size_t_load(&self->readerLen, SY_MEMORY_ORDER_SEQ_CST);
-    const size_t currentCapacity = sy_atomic_size_t_load(&self->readerCapacity, SY_MEMORY_ORDER_SEQ_CST);
+    const int32_t currentLen = self->readerLen;
+    const int32_t currentCapacity = self->readerCapacity;
 
     if (currentLen == currentCapacity) { // reallocate if necessary
-        if (currentCapacity > ((SIZE_MAX / 2) - 1)) {
+        if (currentCapacity > ((INT32_MAX / 2) - 1)) {
             defaultFatalErrorHandlerFn("[addThisThreadToReaders] reached max value for reader capacity (how?)");
         }
-        size_t newCapacity = currentCapacity * 2;
+        int32_t newCapacity = currentCapacity * 2;
         if (newCapacity == 0) {
-            newCapacity = SYNC_CACHE_LINE_SIZE / sizeof(size_t); // each thread id
+            newCapacity = 4; // reasonable default number of readers
         }
 
-        size_t* newReaders = (size_t*)sy_aligned_malloc(newCapacity * sizeof(size_t), SYNC_CACHE_LINE_SIZE);
+        size_t* newReaders = (size_t*)sy_aligned_malloc((size_t)(newCapacity) * sizeof(size_t), RAW_RWLOCK_ALLOC_ALIGN);
         if (newReaders == NULL) {
             return false; // out of memory
         }
         size_t* oldReaders = (size_t*)self->readers; // can be NULL it is fine
-        for (size_t i = 0; i < currentLen; i++) {
+        for (int32_t i = 0; i < currentLen; i++) {
             newReaders[i] = oldReaders[i];
         }
 
         if (oldReaders != NULL) {
-            sy_aligned_free((void*)oldReaders, currentCapacity, SYNC_CACHE_LINE_SIZE);
+            sy_aligned_free((void*)oldReaders, currentCapacity * sizeof(size_t), RAW_RWLOCK_ALLOC_ALIGN);
         }
 
-        self->readers = (volatile size_t*)newReaders;
-        sy_atomic_size_t_store(&self->readerCapacity, newCapacity, SY_MEMORY_ORDER_SEQ_CST);
+        self->readers = newReaders;
+        self->readerCapacity = newCapacity;
     }
 
     self->readers[currentLen] = threadId;
-    sy_atomic_size_t_store(&self->readerLen, currentLen + 1, SY_MEMORY_ORDER_SEQ_CST);
+    self->readerLen = currentLen + 1;
     return true;
 }
 
@@ -356,33 +358,35 @@ static void removeThisThreadFromReadersFirstInstance(SyRawRwLock* self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
-    const size_t currentLen = sy_atomic_size_t_load(&self->readerLen, SY_MEMORY_ORDER_SEQ_CST);
-    size_t* readers = (size_t*)self->readers;
+    const int32_t currentLen = self->readerLen;
+    size_t* readers = self->readers;
 
-    size_t found = SIZE_MAX;
-    for (size_t i = 0; i < currentLen; i++) {
+    int32_t found = -1;
+    for (int32_t i = 0; i < currentLen; i++) {
         if (readers[i] == threadId) {
             found = i;
             break;
         }
     }
 
-    for (size_t i = found; i < (currentLen - 1); i++) {
-        readers[i] = readers[i + 1]; // shift down
-    }
+    if (found != -1) {
+        for (int32_t i = found; i < (currentLen - 1); i++) {
+            readers[i] = readers[i + 1]; // shift down
+        }
 
-    sy_atomic_size_t_store(&self->readerLen, currentLen - 1, SY_MEMORY_ORDER_SEQ_CST);
+        self->readerLen = currentLen - 1;
+    }
 }
 
 static bool isThisThreadOnlyReader(const SyRawRwLock* self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
-    const size_t currentLen = sy_atomic_size_t_load(&self->readerLen, SY_MEMORY_ORDER_SEQ_CST);
+    const int32_t currentLen = self->readerLen;
     const size_t* readers = (const size_t*)self->readers;
 
     // as many of this thread re-entrance
-    for (size_t i = 0; i < currentLen; i++) {
+    for (int32_t i = 0; i < currentLen; i++) {
         if (readers[i] != threadId) {
             return false;
         }
@@ -394,15 +398,34 @@ static bool isThisThreadAReader(const SyRawRwLock* self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
-    const size_t currentLen = sy_atomic_size_t_load(&self->readerLen, SY_MEMORY_ORDER_SEQ_CST);
+    const int32_t currentLen = self->readerLen;
     const size_t* readers = (const size_t*)self->readers;
 
-    for (size_t i = 0; i < currentLen; i++) {
+    for (int32_t i = 0; i < currentLen; i++) {
         if (readers[i] == threadId) {
             return true;
         }
     }
     return false;
+}
+
+static void removeThisThreadFromWantToElevate(SyRawRwLock* self) {
+    initializeThisThreadId();
+    const size_t threadId = threadLocalThreadId;
+
+    const int32_t currentLen = self->threadsWantElevateLen;
+
+    for (int32_t i = 0; i < currentLen; i++) {
+        if (self->threadsWantElevate[i] != threadId) {
+            continue;
+        }
+
+        for (; i < (currentLen - 1); i++) {
+            self->threadsWantElevate[i] = self->threadsWantElevate[i + 1];
+        }
+        self->threadsWantElevateLen -= 1;
+        break;
+    }
 }
 
 static void acquireFence(SyRawRwLock* self) {
@@ -416,21 +439,30 @@ static void acquireFence(SyRawRwLock* self) {
 static void releaseFence(SyRawRwLock* self) { sy_atomic_bool_store(&self->fence, false, SY_MEMORY_ORDER_SEQ_CST); }
 
 void sy_raw_rwlock_destroy(SyRawRwLock* self) {
+    acquireFence(self);
+
     const size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
-    const size_t currentReadersLen = sy_atomic_size_t_load(&self->readerLen, SY_MEMORY_ORDER_SEQ_CST);
+    const int32_t currentReadersLen = self->readerLen;
+    const int32_t currentWantElevateLen = self->threadsWantElevateLen;
     if (currentExclusiveId != 0) {
         defaultFatalErrorHandlerFn("[sy_raw_rwlock_destroy] cannot destroy rwlock when a thread has exclusive access");
     }
     if (currentReadersLen > 0) {
+        defaultFatalErrorHandlerFn("[sy_raw_rwlock_destroy] cannot destroy rwlock that was locked by another thread");
+    }
+    if (currentWantElevateLen > 0) {
         defaultFatalErrorHandlerFn(
-            "[sy_raw_rwlock_destroy] cannot release exclusive lock that was locked by another thread");
+            "[sy_raw_rwlock_destroy] cannot destroy rwlock that other threads wanting to elevate");
     }
 
     if (self->readers != NULL) {
-        sy_aligned_free((void*)self->readers,
-                        sy_atomic_size_t_load(&self->readerCapacity, SY_MEMORY_ORDER_SEQ_CST) * sizeof(size_t),
-                        SYNC_CACHE_LINE_SIZE);
+        sy_aligned_free((void*)self->readers, (size_t)(self->readerCapacity) * sizeof(size_t), RAW_RWLOCK_ALLOC_ALIGN);
     }
+    if (self->threadsWantElevate != NULL) {
+        sy_aligned_free((void*)self->threadsWantElevate, (size_t)(self->threadsWantElevateCapacity) * sizeof(size_t),
+                        RAW_RWLOCK_ALLOC_ALIGN);
+    }
+    releaseFence(self);
 }
 
 SyAcquireErr sy_raw_rwlock_try_acquire_shared(SyRawRwLock* self) {
@@ -446,29 +478,23 @@ SyAcquireErr sy_raw_rwlock_try_acquire_shared(SyRawRwLock* self) {
         }
     }
 
-    { // Acquire fence
-        // TODO timeout?
-        bool expected = false;
-        while (!(sy_atomic_bool_compare_exchange_weak(&self->fence, &expected, true, SY_MEMORY_ORDER_SEQ_CST))) {
-            expected = false;
-            sy_thread_yield();
-        }
-    }
+    acquireFence(self);
 
     { // Fence acquired, check exclusive id again in case someone else acquired in the meantime
         size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
         if (currentExclusiveId != threadId) {
             if (currentExclusiveId != 0) {
-                sy_atomic_bool_store(&self->fence, false, SY_MEMORY_ORDER_SEQ_CST);
+                releaseFence(self);
                 return SY_ACQUIRE_ERR_SHARED_HAS_EXCLUSIVE;
             }
         }
     }
 
     if (addThisThreadToReaders(self) == false) {
+        releaseFence(self);
         return SY_ACQUIRE_ERR_OUT_OF_MEMORY;
     }
-    sy_atomic_bool_store(&self->fence, false, SY_MEMORY_ORDER_SEQ_CST);
+    releaseFence(self);
     return SY_ACQUIRE_ERR_NONE;
 }
 
@@ -486,14 +512,7 @@ void sy_raw_rwlock_release_shared(SyRawRwLock* self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
-    { // Acquire fence
-        // TODO timeout?
-        bool expected = false;
-        while (!(sy_atomic_bool_compare_exchange_weak(&self->fence, &expected, true, SY_MEMORY_ORDER_SEQ_CST))) {
-            expected = false;
-            sy_thread_yield();
-        }
-    }
+    acquireFence(self);
 
     const size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
     // releasing shared lock on a thread that ALSO has exclusive lock (re-entrant)
@@ -501,16 +520,18 @@ void sy_raw_rwlock_release_shared(SyRawRwLock* self) {
         defaultFatalErrorHandlerFn(
             "[sy_raw_rwlock_release_exclusive] cannot release shared lock when another thread has an exclusive lock");
     }
-    if (sy_atomic_size_t_load(&self->readerLen, SY_MEMORY_ORDER_SEQ_CST) == 0) {
+    if (self->readerLen == 0) {
         defaultFatalErrorHandlerFn(
             "[sy_raw_rwlock_release_exclusive] cannot release shared lock if no thread has a shared lock");
     }
 
     removeThisThreadFromReadersFirstInstance(self);
-    sy_atomic_bool_store(&self->fence, false, SY_MEMORY_ORDER_SEQ_CST);
+    releaseFence(self);
 }
 
 SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
+    const size_t oldDeadlockGeneration = sy_atomic_size_t_load(&self->deadlockGeneration, SY_MEMORY_ORDER_SEQ_CST);
+
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
@@ -532,38 +553,40 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
         if (isThisThreadAReader(self)) {
             thisThreadIsReader = true;
 
-            const size_t currentElevateCapacity =
-                sy_atomic_size_t_load(&self->threadsWantElevateCapacity, SY_MEMORY_ORDER_SEQ_CST);
-            const size_t currentElevateLen =
-                sy_atomic_size_t_load(&self->threadsWantElevateLen, SY_MEMORY_ORDER_SEQ_CST);
+            const int32_t currentElevateCapacity = self->threadsWantElevateCapacity;
+            const int32_t currentElevateLen = self->threadsWantElevateLen;
 
             if (currentElevateLen == currentElevateCapacity) {
-                size_t newCapacity = currentElevateCapacity * 2;
+                if (currentElevateCapacity > ((INT32_MAX / 2) - 1)) {
+                    defaultFatalErrorHandlerFn(
+                        "[sy_raw_rwlock_try_acquire_exclusive] reached max value for elevate capacity (how?)");
+                }
+                int32_t newCapacity = currentElevateCapacity * 2;
                 if (newCapacity == 0) {
-                    newCapacity = SYNC_CACHE_LINE_SIZE / sizeof(size_t);
+                    newCapacity = 2; // reasonable default for elevation
                 }
                 size_t* newThreadsWantElevate =
-                    (size_t*)sy_aligned_malloc(newCapacity * sizeof(size_t), SYNC_CACHE_LINE_SIZE);
+                    (size_t*)sy_aligned_malloc((size_t)(newCapacity) * sizeof(size_t), RAW_RWLOCK_ALLOC_ALIGN);
                 if (newThreadsWantElevate == NULL) {
                     releaseFence(self);
                     return SY_ACQUIRE_ERR_OUT_OF_MEMORY;
                 }
 
-                for (size_t i = 0; i < currentElevateLen; i++) {
+                for (int32_t i = 0; i < currentElevateLen; i++) {
                     newThreadsWantElevate[i] = self->threadsWantElevate[i];
                 }
 
                 if (self->threadsWantElevate != NULL) {
                     sy_aligned_free((void*)self->threadsWantElevate, currentElevateCapacity * sizeof(size_t),
-                                    SYNC_CACHE_LINE_SIZE);
+                                    RAW_RWLOCK_ALLOC_ALIGN);
                 }
 
-                self->threadsWantElevate = (volatile size_t*)newThreadsWantElevate;
-                sy_atomic_size_t_store(&self->threadsWantElevateCapacity, newCapacity, SY_MEMORY_ORDER_SEQ_CST);
+                self->threadsWantElevate = newThreadsWantElevate;
+                self->threadsWantElevateCapacity = newCapacity;
             }
 
             self->threadsWantElevate[currentElevateLen] = threadId;
-            sy_atomic_size_t_fetch_add(&self->threadsWantElevateLen, 1, SY_MEMORY_ORDER_SEQ_CST);
+            self->threadsWantElevateLen = currentElevateLen + 1;
             releaseFence(self);
             sy_thread_yield(); // let others update wait graph
         } else {
@@ -573,22 +596,32 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
 
     acquireFence(self);
 
+    const size_t newDeadlockGeneration = sy_atomic_size_t_load(&self->deadlockGeneration, SY_MEMORY_ORDER_SEQ_CST);
+    if (oldDeadlockGeneration != newDeadlockGeneration) {
+        // another thread detected a deadlock on this rwlock
+        removeThisThreadFromWantToElevate(self);
+        releaseFence(self);
+        return SY_ACQUIRE_ERR_DEADLOCK;
+    }
+
     // deadlock detection now that wait graph has been updated properly
     if (thisThreadIsReader) {
-        const size_t currentElevateLen = sy_atomic_size_t_load(&self->threadsWantElevateLen, SY_MEMORY_ORDER_SEQ_CST);
-        size_t i = currentElevateLen;
-        while (i > 0) {
-            i -= 1;
-
-            if (self->threadsWantElevate[i] == threadId) {
-                continue;
+        const int32_t currentElevateLen = self->threadsWantElevateLen;
+        bool foundOther = false;
+        for (int32_t i = 0; i < currentElevateLen; i++) {
+            if (self->threadsWantElevate[i] != threadId) {
+                foundOther = true;
+                break;
             }
-            // deadlock happened! remove entry that isn't this thread id so other threads can go through this same
-            // process.
-            for (; i < (currentElevateLen - 1); i++) {
-                self->threadsWantElevate[i] = self->threadsWantElevate[i + 1]; // shift over
+        }
+        removeThisThreadFromWantToElevate(self); // remove no matter what
+        if (foundOther) {
+            if (oldDeadlockGeneration >= (SIZE_MAX - 1)) {
+                defaultFatalErrorHandlerFn(
+                    "[sy_raw_rwlock_try_acquire_exclusive] too many deadlocks have occurred on this rwlock");
             }
 
+            (void)sy_atomic_size_t_fetch_add(&self->deadlockGeneration, 1, SY_MEMORY_ORDER_SEQ_CST);
             releaseFence(self);
             return SY_ACQUIRE_ERR_DEADLOCK;
         }
@@ -597,14 +630,14 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
     { // Fence acquired, check exclusive id again in case someone else acquired in the meantime
         size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
         if (currentExclusiveId != 0) {
-            sy_atomic_bool_store(&self->fence, false, SY_MEMORY_ORDER_SEQ_CST);
+            releaseFence(self);
             return SY_ACQUIRE_ERR_EXCLUSIVE_HAS_EXCLUSIVE;
         }
     }
 
     { // Check if we are the only reader, if so we can elevate this thread to exclusive
         if (!isThisThreadOnlyReader(self)) {
-            sy_atomic_bool_store(&self->fence, false, SY_MEMORY_ORDER_SEQ_CST);
+            releaseFence(self);
             return SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS;
         }
 
@@ -629,14 +662,8 @@ SyAcquireErr sy_raw_rwlock_acquire_exclusive(SyRawRwLock* self) {
 void sy_raw_rwlock_release_exclusive(SyRawRwLock* self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
-    { // Acquire fence
-        // TODO timeout?
-        bool expected = false;
-        while (!(sy_atomic_bool_compare_exchange_weak(&self->fence, &expected, true, SY_MEMORY_ORDER_SEQ_CST))) {
-            expected = false;
-            sy_thread_yield();
-        }
-    }
+
+    acquireFence(self);
 
     const size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
     if (currentExclusiveId == 0) {
@@ -652,5 +679,5 @@ void sy_raw_rwlock_release_exclusive(SyRawRwLock* self) {
     if (currentExclusiveCount == 1) {
         sy_atomic_size_t_store(&self->exclusiveId, 0, SY_MEMORY_ORDER_SEQ_CST);
     }
-    sy_atomic_bool_store(&self->fence, false, SY_MEMORY_ORDER_SEQ_CST);
+    releaseFence(self);
 }
