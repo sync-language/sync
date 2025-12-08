@@ -13,7 +13,7 @@ project("Sync")
 option(BUILD_SHARED_LIBS "Build Sync as a shared library" OFF)
 option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" ON)
 option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
-option(SYNC_LIB_CODE_COVERAGE "Enable code coverage" ON)
+option(SYNC_LIB_CODE_COVERAGE "Enable code coverage" OFF)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" ON)
 option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
 option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" OFF)
@@ -160,7 +160,7 @@ if(SYNC_NO_PAGES)
     target_compile_definitions(SyncLibTests PRIVATE SYNC_NO_PAGES)
 endif()
 
-# C11 Atomic Support
+# C11 Atomic Support. NOT REQUIRED, can build using the Interlocked API
 if(MSVC)
     target_compile_options(SyncLib PRIVATE /experimental:c11atomics)
     target_compile_options(SyncLibTests PRIVATE /experimental:c11atomics)

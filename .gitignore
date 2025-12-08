@@ -16,3 +16,6 @@ out/
 .DS_Store
 # Dev Personal Stuff
 temp
+# Code Coverage
+LastCoverageResults.log
+CombinedCoverage

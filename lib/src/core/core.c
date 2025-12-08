@@ -185,12 +185,9 @@ void sy_make_pages_read_write(void* pagesStart, size_t len) {
 }
 #endif // SYNC_CUSTOM_PAGE_MEMORY
 
-#if defined(_MSC_VER)
-#ifdef __STDC_NO_ATOMICS__
-#error "Enable MSVC C11 flag `/experimental:c11atomics`"
-#endif
-#endif
-
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+// To avoid `/experimental:c11atomics`, lets just used the Interlocked functions
+#else
 #include <stdatomic.h>
 static enum memory_order sy_memory_order_to_std(SyMemoryOrder order) {
     // let compiler optimize this.
@@ -212,48 +209,113 @@ static enum memory_order sy_memory_order_to_std(SyMemoryOrder order) {
         unreachable();
     }
 }
+#endif
 
 size_t sy_atomic_size_t_load(const SyAtomicSizeT* self, SyMemoryOrder order) {
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+    (void)order; // Interlocked functions use full memory barrier (seq_cst)
+    return (size_t)_InterlockedOr64((volatile LONG64*)&self->value, 0);
+#else
     return atomic_load_explicit((const _Atomic volatile size_t*)&self->value, sy_memory_order_to_std(order));
+#endif
 }
 
 void sy_atomic_size_t_store(SyAtomicSizeT* self, size_t newValue, SyMemoryOrder order) {
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+    (void)order;
+    _InterlockedExchange64((volatile LONG64*)&self->value, (LONG64)newValue);
+#else
     atomic_store_explicit((_Atomic volatile size_t*)&self->value, newValue, sy_memory_order_to_std(order));
+#endif
 }
 
 size_t sy_atomic_size_t_fetch_add(SyAtomicSizeT* self, size_t toAdd, SyMemoryOrder order) {
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+    (void)order;
+    return (size_t)_InterlockedExchangeAdd64((volatile LONG64*)&self->value, (LONG64)toAdd); // no overflow?
+#else
     return atomic_fetch_add_explicit((_Atomic volatile size_t*)&self->value, toAdd, sy_memory_order_to_std(order));
+#endif
 }
 
 size_t sy_atomic_size_t_fetch_sub(SyAtomicSizeT* self, size_t toSub, SyMemoryOrder order) {
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+    (void)order;
+    return (size_t)_InterlockedExchangeAdd64((volatile LONG64*)&self->value, -(LONG64)toSub); // no overflow?
+#else
     return atomic_fetch_sub_explicit((_Atomic volatile size_t*)&self->value, toSub, sy_memory_order_to_std(order));
+#endif
 }
 
 size_t sy_atomic_size_t_exchange(SyAtomicSizeT* self, size_t newValue, SyMemoryOrder order) {
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+    (void)order;
+    return (size_t)_InterlockedExchange64((volatile LONG64*)&self->value, (LONG64)newValue);
+#else
     return atomic_exchange_explicit((_Atomic volatile size_t*)&self->value, newValue, sy_memory_order_to_std(order));
+#endif
 }
 
 bool sy_atomic_size_t_compare_exchange_weak(SyAtomicSizeT* self, size_t* expected, size_t desired,
                                             SyMemoryOrder order) {
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+    (void)order;
+    LONG64 prev = _InterlockedCompareExchange64((volatile LONG64*)&self->value, (LONG64)desired, (LONG64)*expected);
+    if (prev == (LONG64)*expected) {
+        return true;
+    } else {
+        *expected = (size_t)prev;
+        return false;
+    }
+#else
     return atomic_compare_exchange_weak_explicit((_Atomic volatile size_t*)&self->value, expected, desired,
                                                  sy_memory_order_to_std(order), memory_order_relaxed);
+#endif
 }
 
 bool sy_atomic_bool_load(const SyAtomicBool* self, SyMemoryOrder order) {
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+    (void)order;
+    return (_InterlockedOr8((volatile char*)&self->value, 0) != 0);
+#else
     return atomic_load_explicit((const _Atomic volatile bool*)&self->value, sy_memory_order_to_std(order));
+#endif
 }
 
 void sy_atomic_bool_store(SyAtomicBool* self, bool newValue, SyMemoryOrder order) {
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+    (void)order;
+    _InterlockedExchange8((volatile char*)&self->value, (char)(newValue ? 1 : 0));
+#else
     atomic_store_explicit((_Atomic volatile bool*)&self->value, newValue, sy_memory_order_to_std(order));
+#endif
 }
 
 bool sy_atomic_bool_exchange(SyAtomicBool* self, bool newValue, SyMemoryOrder order) {
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+    (void)order;
+    return (_InterlockedExchange8((volatile char*)&self->value, (char)(newValue ? 1 : 0)) != 0);
+#else
     return atomic_exchange_explicit((_Atomic volatile bool*)&self->value, newValue, sy_memory_order_to_std(order));
+#endif
 }
 
 bool sy_atomic_bool_compare_exchange_weak(SyAtomicBool* self, bool* expected, bool desired, SyMemoryOrder order) {
+#if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
+    (void)order;
+    char expectedChar = (char)(*expected ? 1 : 0);
+    char desiredChar = (char)(desired ? 1 : 0);
+    char prev = _InterlockedCompareExchange8((volatile char*)&self->value, desiredChar, expectedChar);
+    if (prev == expectedChar) {
+        return true;
+    } else {
+        *expected = (prev != 0);
+        return false;
+    }
+#else
     return atomic_compare_exchange_weak_explicit((_Atomic volatile bool*)&self->value, expected, desired,
                                                  sy_memory_order_to_std(order), memory_order_relaxed);
+#endif
 }
 
 #ifndef SYNC_CUSTOM_THREAD_YIELD
