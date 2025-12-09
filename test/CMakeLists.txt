@@ -8,7 +8,7 @@ set(CORE_DIR ${SYNC_LIB_SRC_DIR}/core)
 set(CORE_SOURCES ${CORE_DIR}/core.c)
 
 if(SYNC_LIB_CODE_COVERAGE)
-    message(STATUS "Enabling coverage for tests")
+    message(STATUS "Enabling coverage for tests, and disabiling any sanitizers for test executables")
 endif()
 
 include(CheckCXXCompilerFlag)
@@ -42,17 +42,16 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
             target_compile_options(${TEST_NAME} PRIVATE -fsanitize=thread)
             target_link_options(${TEST_NAME} PRIVATE -fsanitize=thread)
         endif()
-        
     endif()
 
     if(SYNC_LIB_CODE_COVERAGE)
         if(MSVC)
             # OpenCppCoverage?
-        elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
             # llvm-cov
             target_compile_options(${TEST_NAME} PRIVATE -fprofile-instr-generate -fcoverage-mapping)
             target_link_options(${TEST_NAME} PRIVATE -fprofile-instr-generate)
-        else(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
             # gcov
             target_compile_options(${TEST_NAME} PRIVATE --coverage)
             target_link_options(${TEST_NAME} PRIVATE --coverage)
@@ -64,6 +63,38 @@ function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
     add_sync_test_flags(${TEST_NAME} TRUE TRUE FALSE)
     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
+    if(SYNC_LIB_CODE_COVERAGE)
+        if(MSVC)
+        cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
+        file(TO_NATIVE_PATH "${SYNC_ROOT_DIR}" SYNC_WINDOWS_NATIVE_ROOT_DIR)
+        add_test(NAME ${TEST_NAME} 
+            COMMAND OpenCppCoverage.exe 
+            --sources ${SYNC_WINDOWS_NATIVE_ROOT_DIR}\\lib\\src\\core\\*
+            --export_type binary:${TEST_NAME}.cov
+            -- ${CMAKE_CURRENT_BINARY_DIR}\\Debug\\${TEST_NAME})
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            # set proper file output name for llvm-cov
+            add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+            set_property(TEST ${TEST_NAME} PROPERTY ENVIRONMENT "LLVM_PROFILE_FILE=${TEST_NAME}.profraw")
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+            add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+        endif()
+    else()
+        add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+
+        if(NOT MSVC)
+            add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
+            add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE TRUE)
+            target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
+            add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
+        endif()
+    endif()
+endfunction()
+
+function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
+    add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
+    add_sync_test_flags(${TEST_NAME} TRUE TRUE FALSE)
+    target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})   
     if(SYNC_LIB_CODE_COVERAGE AND MSVC)
         cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
         file(TO_NATIVE_PATH "${SYNC_ROOT_DIR}" SYNC_WINDOWS_NATIVE_ROOT_DIR)
@@ -75,23 +106,10 @@ function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
     else()
         add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     endif()
-    
-    if(NOT MSVC)
-        add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
-        add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE TRUE)
-        target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
-        add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
-    endif()
-endfunction()
-
-function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
-    add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    add_sync_test_flags(${TEST_NAME} TRUE TRUE FALSE)
-    target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
-    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     set_tests_properties(${TEST_NAME} PROPERTIES
         PASS_REGULAR_EXPRESSION ${ERR_MSG}
     )
+
     if(NOT MSVC)
         add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
         add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE TRUE)
@@ -127,4 +145,4 @@ add_core_sync_test(SyncTestCore_RwLockStressMixedWorkload "core/rwlock/rwlock_st
 add_core_sync_test(SyncTestCore_RwLockArrayReallocation "core/rwlock/rwlock_array_reallocation.cpp")
 add_core_sync_test(SyncTestCore_RwLockExclusiveToSharedMultithread "core/rwlock/rwlock_exclusive_to_shared_multithread.cpp")
 
-add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "core/rwlock/rwlock_fail_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
+add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "core/rwlock_death/rwlock_death_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
