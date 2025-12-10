@@ -5,7 +5,7 @@
 
 void fatalHandler(const char* msg) {
     std::cerr << msg << std::endl;
-    exit(EXIT_FAILURE);
+    exit(0);
 }
 
 int main() {
@@ -13,5 +13,5 @@ int main() {
     SyRawRwLock lock{};
     assert(sy_raw_rwlock_acquire_shared(&lock) == SY_ACQUIRE_ERR_NONE);
     sy_raw_rwlock_destroy(&lock);
-    return 0;
+    exit(EXIT_FAILURE);
 }
