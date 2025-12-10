@@ -1,5 +1,7 @@
 # CMake
 build/
+build-x64/
+build-arm64/
 CMakeUserPresets.json
 compile_commands.json
 .cache/

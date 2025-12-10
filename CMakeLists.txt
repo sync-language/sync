@@ -12,9 +12,11 @@ project("Sync")
 
 option(BUILD_SHARED_LIBS "Build Sync as a shared library" OFF)
 option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" ON)
+option(SYNC_SKIP_TSAN_TESTS "Disable TSan tests even if the compiler supports it, such as in containerized environments" OFF)
 option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
 option(SYNC_LIB_CODE_COVERAGE "Enable code coverage" OFF)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" ON)
+option(SYNC_LIB_TSAN "Use compiler specific thread sanitizing" OFF)
 option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
 option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" OFF)
 option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" OFF)
@@ -85,16 +87,6 @@ else()
 endif()
 target_include_directories(SyncLib INTERFACE "include")
 
-add_executable(SyncLibTests "lib/test/test.cpp" "lib/test/test_runner.cpp" ${SyncLibSources})
-set_property(TARGET SyncLibTests PROPERTY EXCLUDE_FROM_ALL TRUE)
-if(SYNC_LIB_WITH_TESTS)
-    add_subdirectory(test)
-endif()
-
-# ======================================
-# C/C++ Standard
-# Doctest with Emscripten requires C++23
-# ======================================
 if(NOT DEFINED CMAKE_CXX_STANDARD)
     if(EMSCRIPTEN)
         message(STATUS "Using C++23 for Emscripten") # __COUNTER__ for doctest
@@ -104,20 +96,8 @@ if(NOT DEFINED CMAKE_CXX_STANDARD)
             CXX_STANDARD 23
             CXX_STANDARD_REQUIRED YES
         )
-        set_target_properties(SyncLibTests PROPERTIES
-            C_STANDARD 11
-            C_STANDARD_REQUIRED YES
-            CXX_STANDARD 23
-            CXX_STANDARD_REQUIRED YES
-        )
     else()
         set_target_properties(SyncLib PROPERTIES
-            C_STANDARD 11
-            C_STANDARD_REQUIRED YES
-            CXX_STANDARD 17
-            CXX_STANDARD_REQUIRED YES
-        )
-        set_target_properties(SyncLibTests PROPERTIES
             C_STANDARD 11
             C_STANDARD_REQUIRED YES
             CXX_STANDARD 17
@@ -145,11 +125,7 @@ endif()
 
 if(MSVC)
     target_compile_options(SyncLib PRIVATE /MP)
-    target_compile_options(SyncLibTests PRIVATE /MP)
 endif()
-
-# Doctest Shenanigans
-target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS)
 
 if(SYNC_LIB_WITH_TESTS)
     target_compile_definitions(SyncLib PRIVATE SYNC_LIB_WITH_TESTS)
@@ -157,44 +133,34 @@ endif()
 
 if(SYNC_NO_PAGES)
     target_compile_definitions(SyncLib PRIVATE SYNC_NO_PAGES)
-    target_compile_definitions(SyncLibTests PRIVATE SYNC_NO_PAGES)
 endif()
 
 # C11 Atomic Support. NOT REQUIRED, can build using the Interlocked API
 if(MSVC)
     target_compile_options(SyncLib PRIVATE /experimental:c11atomics)
-    target_compile_options(SyncLibTests PRIVATE /experimental:c11atomics)
 endif()
 
 # Ensure all warnings are caught
 if(EMSCRIPTEN)
     if (CMAKE_GENERATOR MATCHES "Visual Studio")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX /EHsc /Zi")
+        target_compile_options(SyncLib PRIVATE "/W4 /WX /EHsc /Zi")
     else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror -Wno-c2y-extensions")
-        # TODO -Wno-c2y-extensions not this. __COUNTER__ is not liked by emsdk right now.
+        target_compile_options(SyncLib PRIVATE "-Wall -Wextra -Wpedantic -Werror -Wno-c2y-extensions")
+        target_compile_options(SyncLib PRIVATE "-Wno-c2y-extensions") # TODO -Wno-c2y-extensions not this. __COUNTER__ is not liked by emsdk right now.  
     endif()
 elseif(MSVC)
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX /EHsc /Zi")
     target_compile_options(SyncLib PRIVATE /W4 /WX /EHsc /Zi)
-    target_compile_options(SyncLibTests PRIVATE /W4 /WX /EHsc /Zi)
     target_link_libraries(SyncLib PRIVATE dbghelp)
-    target_link_libraries(SyncLibTests PRIVATE dbghelp)
 else()
     target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    target_compile_options(SyncLibTests PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
 if(SYNC_LIB_ASAN)
     if(MSVC)
-        #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fsanitize=address")
         target_compile_options(SyncLib PRIVATE /fsanitize=address)
-        target_compile_options(SyncLibTests PRIVATE /fsanitize=address)
     else()
         target_compile_options(SyncLib PRIVATE -fsanitize=address)
-        target_compile_options(SyncLibTests PRIVATE -fsanitize=address)
         target_link_options(SyncLib PRIVATE -fsanitize=address)
-        target_link_options(SyncLibTests PRIVATE -fsanitize=address)
     endif()
 endif()
 
@@ -204,40 +170,7 @@ if(ANDROID)
         SyncLib
         android
         log)
-    target_link_libraries(
-        SyncLibTests
-        android
-        log)
 endif()
-
-if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    message(STATUS "Building Sync for iOS")
-
-    set_target_properties(SyncLibTests PROPERTIES
-        MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_GUI_IDENTIFIER "org.synclang"
-        MACOSX_BUNDLE_BUNDLE_NAME "SyncLibTests"
-        MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
-        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/lib/test/ios/Info.plist.in"
-        XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
-        XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO"
-        XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO"
-    )
-endif()
-
-# find_package(JNI)
-# if(JNI_FOUND)
-#     message("Building SyncNative with JNI")
-    
-#     add_library(SyncNative SHARED "lib/src/sync_native.cpp")
-#     target_link_libraries(SyncNative SyncLib)
-#     target_include_directories(SyncNative PRIVATE ${JNI_INCLUDE_DIRS})
-#     target_link_libraries(SyncNative ${JNI_LIBRARIES})
-#     if(SYNC_LIB_WITH_TESTS)
-#         target_compile_definitions(SyncNative PRIVATE SYNC_LIB_WITH_TESTS)
-#     endif()
-# endif()
 
 # ========================
 # X86_64 SIMD instructions
@@ -265,11 +198,9 @@ if(SYNC_X86_64) # TODO evaluate using -msimd128
             if(MSVC)
                 message(STATUS "SSE2 supported by this system - enabling")
                 target_compile_options(SyncLib PRIVATE /arch:SSE2)
-                target_compile_options(SyncLibTests PRIVATE /arch:SSE2)
             else()
                 message(STATUS "SSE2 supported by this system - enabling")
-                target_compile_options(SyncLib PRIVATE -msse2)
-                target_compile_options(SyncLibTests PRIVATE -msse2)   
+                target_compile_options(SyncLib PRIVATE -msse2)  
             endif()
         else()
             message(STATUS "SSE2 not supported by this system")
@@ -292,11 +223,9 @@ if(SYNC_X86_64) # TODO evaluate using -msimd128
                 if(MSVC)
                     message(STATUS "AVX2 supported on this system - enabling")
                     target_compile_options(SyncLib PRIVATE /arch:AVX2)
-                    target_compile_options(SyncLibTests PRIVATE /arch:AVX2)
                 else()
                     message(STATUS "AVX2 supported on this system - enabling")
                     target_compile_options(SyncLib PRIVATE -mavx2)
-                    target_compile_options(SyncLibTests PRIVATE -mavx2)
                 endif()
             else()
                 message(STATUS "AVX2 not supported on this system")
@@ -320,11 +249,9 @@ if(SYNC_X86_64) # TODO evaluate using -msimd128
                 if(MSVC)
                     message(STATUS "AVX512 supported on this system - enabling")
                     target_compile_options(SyncLib PRIVATE /arch:AVX512)
-                    target_compile_options(SyncLibTests PRIVATE /arch:AVX512)
                 else()
                     message(STATUS "AVX512 supported on this system - enabling")
                     target_compile_options(SyncLib PRIVATE -mavx512f -mavx512bw)
-                    target_compile_options(SyncLibTests PRIVATE -mavx512f -mavx512bw)
                 endif()
             else()
                 message(STATUS "AVX512 not supported on this system")
@@ -338,7 +265,14 @@ if(EMSCRIPTEN AND SYNC_WASM_USE_SIMD)
     # Fixed-width SIMD supported by everything
     message(STATUS "Enabling Fixed-width SIMD for WASM")
     target_compile_options(SyncLib PRIVATE -msimd128)
-    target_compile_options(SyncLibTests PRIVATE -msimd128)
+endif()
+
+if(EMSCRIPTEN)
+    message(STATUS "Enabling pthread support for Emscripten")
+    target_compile_options(SyncLib PRIVATE -pthread)
+    target_link_options(SyncLib PRIVATE -pthread)
+    # Sure
+    target_link_options(SyncLib PRIVATE "SHELL:-s PTHREAD_POOL_SIZE=8")
 endif()
 
 if(MSVC)
@@ -383,5 +317,10 @@ if(SYNC_LIB_CODE_COVERAGE)
 endif()
 
 install(TARGETS SyncLib DESTINATION .)
+
+if(SYNC_LIB_WITH_TESTS)
+    target_compile_definitions(SyncLib PRIVATE SYNC_LIB_WITH_TESTS=1)
+    add_subdirectory(test)
+endif()
 
 enable_testing()

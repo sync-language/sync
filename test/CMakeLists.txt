@@ -2,6 +2,12 @@ cmake_minimum_required (VERSION 3.16)
 
 enable_testing()
 
+# Configure test runner for Emscripten
+if(EMSCRIPTEN)
+    find_program(NODE_EXECUTABLE NAMES node nodejs REQUIRED)
+    set(CMAKE_CROSSCOMPILING_EMULATOR "${NODE_EXECUTABLE}")
+endif()
+
 set(SYNC_LIB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../lib/src)
 
 set(CORE_DIR ${SYNC_LIB_SRC_DIR}/core)
@@ -14,15 +20,26 @@ endif()
 include(CheckCXXCompilerFlag)
 
 function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
-    set_target_properties(${TEST_NAME} PROPERTIES
-        C_STANDARD 11
-        C_STANDARD_REQUIRED YES
-        CXX_STANDARD 17
-        CXX_STANDARD_REQUIRED YES
-    )
+    if(EMSCRIPTEN)
+        set_target_properties(${TEST_NAME} PROPERTIES
+            C_STANDARD 11
+            C_STANDARD_REQUIRED YES
+            CXX_STANDARD 23  # __COUNTER__ for doctest
+            CXX_STANDARD_REQUIRED YES
+        )
+    else()
+        set_target_properties(${TEST_NAME} PROPERTIES
+            C_STANDARD 11
+            C_STANDARD_REQUIRED YES
+            CXX_STANDARD 17
+            CXX_STANDARD_REQUIRED YES
+        )
+    endif()
+
     if(MSVC)
         target_compile_options(${TEST_NAME} PRIVATE /experimental:c11atomics)
         target_compile_options(${TEST_NAME} PRIVATE /W4 /WX /EHsc /Zi)
+        target_compile_options(${TEST_NAME} PRIVATE /MP)
         if(ENABLE_ASAN)
             if(NOT SYNC_LIB_CODE_COVERAGE)
                 target_compile_options(${TEST_NAME} PRIVATE /fsanitize=address)
@@ -30,19 +47,23 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
         endif()
     else()
         target_compile_options(${TEST_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
-        if(ENABLE_ASAN)
-            target_compile_options(${TEST_NAME} PRIVATE -fsanitize=address)
-            target_link_options(${TEST_NAME} PRIVATE -fsanitize=address)
-        endif()
-        if(ENABLE_UBSAN)
-            target_compile_options(${TEST_NAME} PRIVATE -fsanitize=undefined)
-            target_link_options(${TEST_NAME} PRIVATE -fsanitize=undefined)
-        endif()
-        if(ENABLE_TSAN)
-            target_compile_options(${TEST_NAME} PRIVATE -fsanitize=thread)
-            target_link_options(${TEST_NAME} PRIVATE -fsanitize=thread)
-        endif()
+        if(NOT EMSCRIPTEN)
+            if(ENABLE_ASAN)
+                target_compile_options(${TEST_NAME} PRIVATE -fsanitize=address)
+                target_link_options(${TEST_NAME} PRIVATE -fsanitize=address)
+            endif()
+            if(ENABLE_UBSAN)
+                target_compile_options(${TEST_NAME} PRIVATE -fsanitize=undefined)
+                target_link_options(${TEST_NAME} PRIVATE -fsanitize=undefined)
+            endif()
+            if(ENABLE_TSAN)
+                target_compile_options(${TEST_NAME} PRIVATE -fsanitize=thread -fno-PIE)
+                target_link_options(${TEST_NAME} PRIVATE -fsanitize=thread -no-pie)
+            endif()
         
+        else()
+            target_compile_options(${TEST_NAME} PRIVATE "-Wno-c2y-extensions")
+        endif()
     endif()
 
     if(SYNC_LIB_CODE_COVERAGE)
@@ -58,11 +79,53 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
             target_link_options(${TEST_NAME} PRIVATE --coverage)
         endif()
     endif()
+
+    if(HAS_SSE2)
+        if(MSVC)
+            target_compile_options(${TEST_NAME} PRIVATE /arch:SSE2)
+        else()
+            target_compile_options(${TEST_NAME} PRIVATE -msse2)
+        endif()
+    endif()
+
+    if(NOT ${SYNC_NO_AVX2})
+        if(HAS_AVX2)
+            if(MSVC)
+                target_compile_options(${TEST_NAME} PRIVATE /arch:AVX2)
+            else()
+                target_compile_options(${TEST_NAME} PRIVATE -mavx2)
+            endif()
+        endif()
+    endif()
+
+    if(NOT ${SYNC_NO_AVX512})
+        if(HAS_AVX2)
+            if(MSVC)
+                target_compile_options(${TEST_NAME} PRIVATE /arch:AVX512)
+            else()
+                target_compile_options(${TEST_NAME} PRIVATE -mavx512f -mavx512bw)
+            endif()
+        endif()
+    endif()
+
+
+    if(EMSCRIPTEN AND SYNC_WASM_USE_SIMD)
+        # https://webassembly.org/features/
+        # Fixed-width SIMD supported by everything
+        target_compile_options(${TEST_NAME} PRIVATE -msimd128)
+    endif()
+
+    if(EMSCRIPTEN)
+        target_compile_options(${TEST_NAME} PRIVATE -pthread)
+        target_link_options(${TEST_NAME} PRIVATE -pthread)
+        target_link_options(${TEST_NAME} PRIVATE "SHELL:-s PTHREAD_POOL_SIZE=8")
+    endif()
+
 endfunction()
 
 function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    add_sync_test_flags(${TEST_NAME} TRUE TRUE FALSE)
+    add_sync_test_flags(${TEST_NAME} ${SYNC_LIB_ASAN} TRUE FALSE)
     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
     if(SYNC_LIB_CODE_COVERAGE AND MSVC)
         cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
@@ -76,7 +139,7 @@ function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
         add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     endif()
     
-    if(NOT MSVC)
+    if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
         add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
         add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE TRUE)
         target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
@@ -86,13 +149,13 @@ endfunction()
 
 function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    add_sync_test_flags(${TEST_NAME} TRUE TRUE FALSE)
+    add_sync_test_flags(${TEST_NAME} ${SYNC_LIB_ASAN} TRUE FALSE)
     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     set_tests_properties(${TEST_NAME} PROPERTIES
         PASS_REGULAR_EXPRESSION ${ERR_MSG}
     )
-    if(NOT MSVC)
+    if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
         add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
         add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE TRUE)
         target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
@@ -128,3 +191,80 @@ add_core_sync_test(SyncTestCore_RwLockArrayReallocation "core/rwlock/rwlock_arra
 add_core_sync_test(SyncTestCore_RwLockExclusiveToSharedMultithread "core/rwlock/rwlock_exclusive_to_shared_multithread.cpp")
 
 add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "core/rwlock/rwlock_fail_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
+
+# ==================
+# Main Library Tests
+# ==================
+set(SYNC_LIB_TESTS_SOURCES
+    "../lib/src/core/core.c"
+    "../lib/src/util/panic.cpp"
+    "../lib/src/util/os_callstack.cpp"
+    "../lib/src/util/simd.cpp"
+    "../lib/src/mem/allocator.cpp"
+    "../lib/src/mem/os_mem.cpp"
+    "../lib/src/mem/protected_allocator.cpp"
+    "../lib/src/threading/sync_queue.cpp"
+    "../lib/src/threading/sync_obj_val.cpp"
+    "../lib/src/types/type_info.cpp"
+    "../lib/src/types/function/function.cpp"
+    "../lib/src/types/string/string_slice.cpp"
+    "../lib/src/types/string/string.cpp"
+    "../lib/src/types/sync_obj/sync_obj.cpp"
+    "../lib/src/types/array/dynamic_array.cpp"
+    "../lib/src/types/array/slice.cpp"
+    "../lib/src/types/hash/groups.cpp"
+    "../lib/src/types/hash/map.cpp"
+    "../lib/src/types/option/option.cpp"
+    "../lib/src/types/result/result.cpp"
+    "../lib/src/types/box/box.cpp"
+    "../lib/src/interpreter/stack/frame.cpp"
+    "../lib/src/interpreter/stack/node.cpp"
+    "../lib/src/interpreter/stack/stack.cpp"
+    "../lib/src/interpreter/bytecode.cpp"
+    "../lib/src/interpreter/interpreter.cpp"
+    "../lib/src/interpreter/function_builder.cpp"
+    "../lib/src/compiler/compiler.cpp"
+    "../lib/src/compiler/tokenizer/token.cpp"
+    "../lib/src/compiler/tokenizer/tokenizer.cpp"
+    "../lib/src/compiler/tokenizer/file_literals.cpp"
+    "../lib/src/compiler/source_tree/source_tree.cpp"
+    "../lib/src/compiler/parser/parser.cpp"
+    "../lib/src/compiler/parser/base_nodes.cpp"
+    "../lib/src/compiler/parser/stack_variables.cpp"
+    "../lib/src/compiler/parser/type_resolution.cpp"
+    "../lib/src/compiler/parser/expression.cpp"
+    "../lib/src/compiler/graph/scope.cpp"
+    "../lib/src/compiler/graph/module_dependency_graph.cpp"
+    "../lib/src/compiler/parser/ast/function_definition.cpp"
+    "../lib/src/compiler/parser/ast/return.cpp"
+    "../lib/src/program/program.cpp"
+    "../lib/src/program/program_error.cpp"
+    "../lib/src/testing/child_process.cpp"
+    "../lib/src/testing/assert_handler.cpp"
+
+    "../lib/test/test_runner.cpp"
+    "../lib/test/test.cpp"
+)
+add_executable(SyncLibTests ${SYNC_LIB_TESTS_SOURCES})
+target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS=1)
+add_sync_test_flags(SyncLibTests ${SYNC_LIB_ASAN} TRUE FALSE)
+if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
+    add_executable(SyncLibTests_ThreadSanitizer ${SYNC_LIB_TESTS_SOURCES})
+    target_compile_definitions(SyncLibTests_ThreadSanitizer PRIVATE SYNC_LIB_WITH_TESTS=1)
+    add_sync_test_flags(SyncLibTests_ThreadSanitizer TRUE TRUE FALSE)
+endif()
+
+if(SYNC_LIB_CODE_COVERAGE AND MSVC)
+    cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
+    file(TO_NATIVE_PATH "${SYNC_ROOT_DIR}" SYNC_WINDOWS_NATIVE_ROOT_DIR)
+    add_test(NAME SyncLibTests 
+        COMMAND OpenCppCoverage.exe 
+        --sources ${SYNC_WINDOWS_NATIVE_ROOT_DIR}\\lib\\src\\*
+        --export_type binary:SyncLibTests.cov
+        -- ${CMAKE_CURRENT_BINARY_DIR}\\Debug\\SyncLibTests)
+else()
+    add_test(NAME SyncLibTests COMMAND SyncLibTests)
+    if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
+        add_test(NAME SyncLibTests_ThreadSanitizer COMMAND SyncLibTests_ThreadSanitizer)
+    endif()
+endif()

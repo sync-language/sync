@@ -2,6 +2,24 @@
 #include "core_internal.h"
 #include <stdlib.h>
 
+// WHAT
+#if defined(__SANITIZE_THREAD__)
+#define SYNC_TSAN_ENABLED 1
+#elif defined(__clang__)
+#if __has_feature(thread_sanitizer)
+#define SYNC_TSAN_ENABLED 1
+#endif
+#endif
+
+#ifdef SYNC_TSAN_ENABLED
+extern void __tsan_mutex_destroy(void* addr, unsigned flags);
+extern void __tsan_mutex_pre_lock(void* addr, unsigned flags);
+extern void __tsan_mutex_post_lock(void* addr, unsigned flags);
+extern void __tsan_mutex_pre_unlock(void* addr, unsigned flags);
+extern void __tsan_mutex_post_unlock(void* addr, unsigned flags);
+#define __tsan_mutex_not_static 0x1
+#endif
+
 #ifndef SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER
 #include <stdio.h>
 static void sy_default_fatal_error_handler(const char* message) {
@@ -87,7 +105,7 @@ void* sy_page_malloc(size_t len) {
         defaultFatalErrorHandlerFn("[sy_page_malloc] len must be multiple of sy_page_size");
     }
 #if defined(SYNC_NO_PAGES)
-    return aligned_malloc(len, pageSize);
+    return sy_aligned_malloc(len, pageSize);
 #elif defined(_WIN32)
     return VirtualAlloc(NULL, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 #elif defined(__GNUC__)
@@ -103,7 +121,7 @@ void sy_page_free(void* pagesStart, size_t len) {
         defaultFatalErrorHandlerFn("[sy_page_malloc] len must be multiple of sy_page_size");
     }
 #if defined(SYNC_NO_PAGES)
-    return sy_aligned_free(pagesStart, len, pageSize);
+    sy_aligned_free(pagesStart, len, pageSize);
 #elif defined(_WIN32)
     bool result = VirtualFree(pagesStart, 0, MEM_RELEASE);
     if (result == false) {
@@ -186,25 +204,24 @@ void sy_make_pages_read_write(void* pagesStart, size_t len) {
 #endif // SYNC_CUSTOM_PAGE_MEMORY
 
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
-// To avoid `/experimental:c11atomics`, lets just used the Interlocked functions
+// If someone wants to build Sync using only the source files, and not the provided build scripts, they should be able
+// to do that. To avoid `/experimental:c11atomics`, lets just used the Interlocked functions
 #else
 #include <stdatomic.h>
-static enum memory_order sy_memory_order_to_std(SyMemoryOrder order) {
-    // let compiler optimize this.
-    // On my MacBook, these values are the same.
+static int sy_memory_order_to_std(SyMemoryOrder order) {
     switch (order) {
     case SY_MEMORY_ORDER_RELAXED:
-        return memory_order_relaxed;
+        return (int)memory_order_relaxed;
     case SY_MEMORY_ORDER_CONSUME:
-        return memory_order_consume;
+        return (int)memory_order_consume;
     case SY_MEMORY_ORDER_ACQUIRE:
-        return memory_order_acquire;
+        return (int)memory_order_acquire;
     case SY_MEMORY_ORDER_RELEASE:
-        return memory_order_release;
+        return (int)memory_order_release;
     case SY_MEMORY_ORDER_ACQ_REL:
-        return memory_order_acq_rel;
+        return (int)memory_order_acq_rel;
     case SY_MEMORY_ORDER_SEQ_CST:
-        return memory_order_seq_cst;
+        return (int)memory_order_seq_cst;
     default:
         unreachable();
     }
@@ -491,14 +508,28 @@ static void removeThisThreadFromWantToElevate(SyRawRwLock* self) {
 }
 
 static void acquireFence(SyRawRwLock* self) {
+#ifdef SYNC_TSAN_ENABLED
+    __tsan_mutex_pre_lock(&self->fence, 0);
+#endif
     bool expected = false;
     while (!(sy_atomic_bool_compare_exchange_weak(&self->fence, &expected, true, SY_MEMORY_ORDER_SEQ_CST))) {
         expected = false;
         sy_thread_yield();
     }
+#ifdef SYNC_TSAN_ENABLED
+    __tsan_mutex_post_lock(&self->fence, 0);
+#endif
 }
 
-static void releaseFence(SyRawRwLock* self) { sy_atomic_bool_store(&self->fence, false, SY_MEMORY_ORDER_SEQ_CST); }
+static void releaseFence(SyRawRwLock* self) {
+#ifdef SYNC_TSAN_ENABLED
+    __tsan_mutex_pre_unlock(&self->fence, 0);
+#endif
+    sy_atomic_bool_store(&self->fence, false, SY_MEMORY_ORDER_SEQ_CST);
+#ifdef SYNC_TSAN_ENABLED
+    __tsan_mutex_post_unlock(&self->fence, 0);
+#endif
+}
 
 void sy_raw_rwlock_destroy(SyRawRwLock* self) {
     acquireFence(self);
@@ -525,6 +556,9 @@ void sy_raw_rwlock_destroy(SyRawRwLock* self) {
                         RAW_RWLOCK_ALLOC_ALIGN);
     }
     releaseFence(self);
+#ifdef SYNC_TSAN_ENABLED
+    __tsan_mutex_destroy(&self->fence, 0);
+#endif
 }
 
 SyAcquireErr sy_raw_rwlock_try_acquire_shared(SyRawRwLock* self) {

@@ -117,6 +117,10 @@ sy::FunctionDefinitionNode::~FunctionDefinitionNode() noexcept {
     for (size_t i = 0; i < this->statements.len(); i++) {
         delete statements[i];
     }
+    if (this->scope != nullptr) {
+        this->alloc().freeObject(this->scope);
+        this->scope = nullptr;
+    }
 }
 
 Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo, Scope* outerScope) noexcept {
