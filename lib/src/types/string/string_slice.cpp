@@ -21,7 +21,7 @@ extern "C" {
 
         size_t i = 0;
         while (i < len) {
-            const char c = str[i];
+            const uint8_t c = static_cast<uint8_t>(str[i]);
             if (c == 0) {
                 return false;
             }
@@ -29,28 +29,37 @@ extern "C" {
                 i += 1;
             }
             else if ((c & twoByteBitmask) == twoByteCodePoint) {
-                if ((str[i + 1] & trailingBytesBitmask) != trailingBytesCodePoint) {
+                if (i + 1 >= len) {
+                    return false;
+                }
+                if ((static_cast<uint8_t>(str[i + 1]) & trailingBytesBitmask) != trailingBytesCodePoint) {
                     return false;
                 }
                 i += 2;
             }
             else if ((c & threeByteBitmask) == threeByteCodePoint) {
-                if ((str[i + 1] & trailingBytesBitmask) != trailingBytesCodePoint) {
+                if (i + 2 >= len) {
                     return false;
                 }
-                if ((str[i + 2] & trailingBytesBitmask) != trailingBytesCodePoint) {
+                if ((static_cast<uint8_t>(str[i + 1]) & trailingBytesBitmask) != trailingBytesCodePoint) {
+                    return false;
+                }
+                if ((static_cast<uint8_t>(str[i + 2]) & trailingBytesBitmask) != trailingBytesCodePoint) {
                     return false;
                 }
                 i += 3;
             }
             else if ((c & fourByteBitmask) == fourByteCodePoint) {
-                if ((str[i + 1] & trailingBytesBitmask) != trailingBytesCodePoint) {
+                if (i + 3 >= len) {
                     return false;
                 }
-                if ((str[i + 2] & trailingBytesBitmask) != trailingBytesCodePoint) {
+                if ((static_cast<uint8_t>(str[i + 1]) & trailingBytesBitmask) != trailingBytesCodePoint) {
                     return false;
                 }
-                if ((str[i + 3] & trailingBytesBitmask) != trailingBytesCodePoint) {
+                if ((static_cast<uint8_t>(str[i + 2]) & trailingBytesBitmask) != trailingBytesCodePoint) {
+                    return false;
+                }
+                if ((static_cast<uint8_t>(str[i + 3]) & trailingBytesBitmask) != trailingBytesCodePoint) {
                     return false;
                 }
                 i += 4;

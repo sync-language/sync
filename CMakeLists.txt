@@ -304,15 +304,11 @@ if(SYNC_LIB_CODE_COVERAGE)
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         # llvm-cov
         target_compile_options(SyncLib PRIVATE -fprofile-instr-generate -fcoverage-mapping)
-        target_compile_options(SyncLibTests PRIVATE -fprofile-instr-generate -fcoverage-mapping)
         target_link_options(SyncLib PRIVATE -fprofile-instr-generate)
-        target_link_options(SyncLibTests PRIVATE -fprofile-instr-generate)
     else(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         # gcov
         target_compile_options(SyncLib PRIVATE --coverage)
-        target_compile_options(SyncLibTests PRIVATE --coverage)
         target_link_options(SyncLib PRIVATE --coverage)
-        target_link_options(SyncLibTests PRIVATE --coverage)
     endif()
 endif()
 

@@ -5,7 +5,7 @@ enable_testing()
 # Configure test runner for Emscripten
 if(EMSCRIPTEN)
     find_program(NODE_EXECUTABLE NAMES node nodejs REQUIRED)
-    set(CMAKE_CROSSCOMPILING_EMULATOR "${NODE_EXECUTABLE}")
+    set(CMAKE_CROSSCOMPILING_EMULATOR "${NODE_EXECUTABLE};--experimental-wasm-threads")
 endif()
 
 set(SYNC_LIB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../lib/src)
@@ -47,7 +47,6 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
         endif()
     else()
         target_compile_options(${TEST_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
-<<<<<<< HEAD
         if(NOT EMSCRIPTEN)
             if(ENABLE_ASAN)
                 target_compile_options(${TEST_NAME} PRIVATE -fsanitize=address)
@@ -64,19 +63,6 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
         
         else()
             target_compile_options(${TEST_NAME} PRIVATE "-Wno-c2y-extensions")
-=======
-        if(ENABLE_ASAN)
-            target_compile_options(${TEST_NAME} PRIVATE -fsanitize=address)
-            target_link_options(${TEST_NAME} PRIVATE -fsanitize=address)
-        endif()
-        if(ENABLE_UBSAN)
-            target_compile_options(${TEST_NAME} PRIVATE -fsanitize=undefined)
-            target_link_options(${TEST_NAME} PRIVATE -fsanitize=undefined)
-        endif()
-        if(ENABLE_TSAN)
-            target_compile_options(${TEST_NAME} PRIVATE -fsanitize=thread)
-            target_link_options(${TEST_NAME} PRIVATE -fsanitize=thread)
->>>>>>> 9e6ebbc5fcfcc18d4c224360281644303ab159ea
         endif()
     endif()
 
@@ -160,7 +146,7 @@ function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
     else()
         add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 
-        if(NOT MSVC)
+        if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
             add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
             add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE TRUE)
             target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
@@ -171,7 +157,7 @@ endfunction()
 
 function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    add_sync_test_flags(${TEST_NAME} TRUE TRUE FALSE)
+    add_sync_test_flags(${TEST_NAME} ${SYNC_LIB_ASAN} TRUE FALSE)
     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})   
     if(SYNC_LIB_CODE_COVERAGE AND MSVC)
         cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
@@ -184,7 +170,6 @@ function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
     else()
         add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     endif()
-<<<<<<< HEAD
     
     if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
         add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
@@ -203,13 +188,6 @@ function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
         PASS_REGULAR_EXPRESSION ${ERR_MSG}
     )
     if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
-=======
-    set_tests_properties(${TEST_NAME} PROPERTIES
-        PASS_REGULAR_EXPRESSION ${ERR_MSG}
-    )
-
-    if(NOT MSVC)
->>>>>>> 9e6ebbc5fcfcc18d4c224360281644303ab159ea
         add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
         add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE TRUE)
         target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
@@ -244,7 +222,7 @@ add_core_sync_test(SyncTestCore_RwLockStressMixedWorkload "core/rwlock/rwlock_st
 add_core_sync_test(SyncTestCore_RwLockArrayReallocation "core/rwlock/rwlock_array_reallocation.cpp")
 add_core_sync_test(SyncTestCore_RwLockExclusiveToSharedMultithread "core/rwlock/rwlock_exclusive_to_shared_multithread.cpp")
 
-add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "core/rwlock/rwlock_fail_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
+add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "core/rwlock_death/rwlock_death_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
 
 # ==================
 # Main Library Tests

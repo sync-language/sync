@@ -121,6 +121,8 @@ sy::FunctionDefinitionNode::~FunctionDefinitionNode() noexcept {
         this->alloc().freeObject(this->scope);
         this->scope = nullptr;
     }
+    Allocator alloc = this->alloc();
+    this->functionQualifiedName.destroy(alloc);
 }
 
 Result<void, ProgramError> sy::FunctionDefinitionNode::init(ParseInfo* parseInfo, Scope* outerScope) noexcept {

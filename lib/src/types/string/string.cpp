@@ -409,7 +409,7 @@ sy::Result<void, sy::AllocErr> sy::StringUnmanaged::append(StringSlice slice, Al
     memcpy(thisData + this->len_, slice.data(), slice.len());
     this->len_ += slice.len();
     if (!isSso()) {
-        zeroSetLastSIMDElement(thisData, slice.len());
+        zeroSetLastSIMDElement(thisData, this->len_);
     }
     return {};
 }

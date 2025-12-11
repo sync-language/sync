@@ -1,8 +1,12 @@
-FROM --platform=linux/arm64 ubuntu:24.04
+# cached
+FROM --platform=linux/arm64 ubuntu:24.04 AS ubuntu-arm64-base
 
 RUN apt-get update && \
     apt-get install -y build-essential cmake && \
     rm -rf /var/lib/apt/lists/*
+
+# not cached
+FROM ubuntu-arm64-base AS ubuntu-arm64-build
 
 WORKDIR /sync
 COPY . .

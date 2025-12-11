@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <utility>
 
-#if _WIN32 // allow non dll-interface types to be used here
+#if _MSC_VER // allow non dll-interface types to be used here
 #pragma warning(push)
 #pragma warning(disable : 4251)
 #endif
@@ -152,7 +152,7 @@ template <typename T> class SY_API Option<T, std::enable_if_t<!std::is_reference
 };
 } // namespace sy
 
-#if _WIN32
+#if _MSC_VER
 #pragma warning(pop)
 #endif
 
