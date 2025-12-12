@@ -13,7 +13,6 @@ namespace sy {
 class Type;
 class Function;
 class CallStack;
-} // namespace sy
 
 struct Bytecode;
 
@@ -39,7 +38,7 @@ class Stack final {
     /// 0 is a valid input. See types/function.h and types/function.hpp as to why.
     /// @param retValDst Memory address where the return value of a function should be copied to. Can be `nullptr`,
     /// meaning no return value destination.
-    [[nodiscard]] FrameGuard pushFrame(uint32_t frameLength, uint16_t alignment, void* retValDst);
+    [[nodiscard]] FrameGuard pushFrame(uint16_t frameLength, uint16_t alignment, void* retValDst);
 
     [[nodiscard]] FrameGuard pushFunctionFrame(const sy::Function* function, void* retValDst);
 
@@ -71,12 +70,12 @@ class Stack final {
     /// @param offset The offset within the next stack frame to set it at.
     /// @return The new starting offset for the next argument
     uint16_t pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset,
-                                   const uint32_t frameLength, const uint16_t frameAlign);
+                                   const uint16_t frameLength, const uint16_t frameAlign);
 
     [[nodiscard]] std::optional<Frame> getCurrentFrame();
 
   private:
-    void addOneNode(const uint32_t requiredFrameLength);
+    void addOneNode(const uint16_t requiredFrameLength);
 
     friend class FrameGuard;
 
@@ -124,5 +123,7 @@ template <typename T> inline T* Stack::frameValueAt(const uint16_t offset) {
 template <typename T> inline const T* Stack::frameValueAt(const uint16_t offset) const {
     return this->nodes[this->currentNode].frameValueAt<T>(offset);
 }
+
+} // namespace sy
 
 #endif // SY_INTERPRETER_STACK_STACK_HPP_

@@ -3,16 +3,18 @@
 #include "../util/assert.hpp"
 #include "../util/unreachable.hpp"
 
-OpCode Bytecode::getOpcode() const {
+using namespace sy;
+
+OpCode sy::Bytecode::getOpcode() const {
     // This is safe.
     return static_cast<OpCode>(this->value & OPCODE_BITMASK);
 }
 
-void Bytecode::assertOpCodeMatch(OpCode actual, OpCode expected) {
+void sy::Bytecode::assertOpCodeMatch(OpCode actual, OpCode expected) {
     sy_assert(actual == expected, "Cannot convert this bytecode to an invalid operand");
 }
 
-const sy::Type* scalarTypeFromTag(ScalarTag tag) {
+const sy::Type* sy::scalarTypeFromTag(ScalarTag tag) {
     switch (tag) {
     case ScalarTag::Bool:
         return sy::Type::TYPE_BOOL;
@@ -42,7 +44,7 @@ const sy::Type* scalarTypeFromTag(ScalarTag tag) {
     unreachable();
 }
 
-size_t operators::CallImmediateNoReturn::bytecodeUsed(uint16_t argCount) {
+size_t sy::operators::CallImmediateNoReturn::bytecodeUsed(uint16_t argCount) {
     /// Initial bytecode + immediate function
     size_t used = 1 + 1;
     if ((argCount % 4) == 0) {
@@ -53,7 +55,7 @@ size_t operators::CallImmediateNoReturn::bytecodeUsed(uint16_t argCount) {
     return used;
 }
 
-size_t operators::CallSrcNoReturn::bytecodeUsed(uint16_t argCount) {
+size_t sy::operators::CallSrcNoReturn::bytecodeUsed(uint16_t argCount) {
     /// Initial bytecode
     size_t used = 1;
     if ((argCount % 4) == 0) {
@@ -64,7 +66,7 @@ size_t operators::CallSrcNoReturn::bytecodeUsed(uint16_t argCount) {
     return used;
 }
 
-size_t operators::CallImmediateWithReturn::bytecodeUsed(uint16_t argCount) {
+size_t sy::operators::CallImmediateWithReturn::bytecodeUsed(uint16_t argCount) {
     /// Initial bytecode + immediate function
     size_t used = 1 + 1;
     if ((argCount % 4) == 0) {
@@ -75,7 +77,7 @@ size_t operators::CallImmediateWithReturn::bytecodeUsed(uint16_t argCount) {
     return used;
 }
 
-size_t operators::CallSrcWithReturn::bytecodeUsed(uint16_t argCount) {
+size_t sy::operators::CallSrcWithReturn::bytecodeUsed(uint16_t argCount) {
     /// Initial bytecode
     size_t used = 1;
     if ((argCount % 4) == 0) {
@@ -86,7 +88,7 @@ size_t operators::CallSrcWithReturn::bytecodeUsed(uint16_t argCount) {
     return used;
 }
 
-size_t operators::LoadImmediateScalar::bytecodeUsed(ScalarTag scalarTag) {
+size_t sy::operators::LoadImmediateScalar::bytecodeUsed(ScalarTag scalarTag) {
     const sy::Type* scalarType = scalarTypeFromTag(scalarTag);
     if (scalarType->sizeType <= 4) {
         // Fits into initial bytecode

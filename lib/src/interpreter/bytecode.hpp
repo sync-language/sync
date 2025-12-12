@@ -7,11 +7,11 @@
 
 namespace sy {
 class Type;
-}
 
+/// All OpCodes occupy 1 byte
 enum class OpCode : uint8_t {
     /// Does nothing
-    Nop = 0,
+    Noop = 0x00,
     /// Returns from a function without a return value. After this operation, the function stops executing, the stack
     /// is then unwinded, and the frame is popped. Uses `operators::Return`.
     Return,
@@ -265,5 +265,6 @@ struct Destruct {
 };
 
 } // namespace operators
+} // namespace sy
 
 #endif // SY_INTERPRETER_BYTECODE_HPP_

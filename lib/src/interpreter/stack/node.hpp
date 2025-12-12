@@ -7,10 +7,9 @@
 #include <cstddef>
 #include <optional>
 
-struct Bytecode;
 namespace sy {
+struct Bytecode;
 class Type;
-}
 
 class Node final {
   public:
@@ -73,7 +72,7 @@ class Node final {
     /// @param minSlotSize Can be less than `this->slots`.
     void reallocate(const uint32_t minSlotSize);
 
-    [[nodiscard]] bool hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t alignment) const;
+    [[nodiscard]] bool hasEnoughSpaceForFrame(const uint16_t frameLength, const uint16_t alignment) const;
 
     /// @brief Attempts to push a new frame onto this node while the node is currently in use,
     /// meaning reallocation is not possible.
@@ -85,7 +84,7 @@ class Node final {
     /// @param instructionPointer The instruction pointer that was being executed. May be `nullptr`. NOTE If
     /// `instructionPointer == nullptr`, then it is assumed that there is no previous frame.
     /// @return `true` the frame was successfully pushed onto this node.
-    [[nodiscard]] bool pushFrameNoReallocate(const uint32_t frameLength, const uint16_t byteAlign,
+    [[nodiscard]] bool pushFrameNoReallocate(const uint16_t frameLength, const uint16_t byteAlign,
                                              void* const retValDst, const Bytecode* const instructionPointer);
 
     /// @brief Pushes a frame onto this node from a previous node. Expects this node to not be in use,
@@ -97,7 +96,7 @@ class Node final {
     /// @param instructionPointer The instruction pointer that was being executed. May be `nullptr`. NOTE If
     /// `instructionPointer == nullptr`, then it is assumed that there is no previous frame, and when calling
     /// `Node::popFrame()`, will not return a frame and instruction pointer.
-    void pushFrameAllowReallocate(const uint32_t frameLength, const uint16_t byteAlign, void* const retValDst,
+    void pushFrameAllowReallocate(const uint16_t frameLength, const uint16_t byteAlign, void* const retValDst,
                                   std::optional<Frame> previousFrame, const Bytecode* const instructionPointer);
 
     /// @brief Pops a frame from this node. If this node owned the previous frame, it's information
@@ -116,7 +115,7 @@ class Node final {
     /// @return std::nullopt if cannot fit the argument and it's frame into this node. Otherwise
     /// returns the offset for where the next argument should go.
     [[nodiscard]] std::optional<uint16_t> pushScriptFunctionArg(const void* argMem, const sy::Type* type,
-                                                                uint16_t offset, const uint32_t frameLength,
+                                                                uint16_t offset, const uint16_t frameLength,
                                                                 const uint16_t frameByteAlign);
 
     /// Checks if this node needs reallocation for the new frame length and alignment.
@@ -126,7 +125,7 @@ class Node final {
     /// If it does not need reallocation, returns a null option.
     /// # Debug Asserts
     /// `this->currentFrame.has_value() == false`.
-    [[nodiscard]] std::optional<uint32_t> shouldReallocate(uint32_t frameLength, uint16_t alignment) const;
+    [[nodiscard]] std::optional<uint32_t> shouldReallocate(uint16_t frameLength, uint16_t alignment) const;
 
     /// @return non-null pointer to the value at the specific offset within the current stack frame.
     template <typename T> T* frameValueAt(const uint16_t offset);
@@ -167,5 +166,7 @@ template <typename T> inline const T* Node::frameValueAt(const uint16_t offset) 
     ensureOffsetWithinFrameBounds(offset);
     return reinterpret_cast<const T*>(&this->values[offset + this->nextBaseOffset]);
 }
+
+} // namespace sy
 
 #endif // SY_INTERPRETER_STACK_NODE_HPP_

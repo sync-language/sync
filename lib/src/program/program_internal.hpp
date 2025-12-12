@@ -11,16 +11,15 @@
 #include "../types/type_info.hpp"
 #include "program.hpp"
 
-struct Bytecode;
-
 namespace sy {
+struct Bytecode;
 
 /// Extra metadata for script functions.
 /// Corresponds with `SyFunction::fptr` if `SyFunction::tag == SyFunctionTypeScript`.
 struct InterpreterFunctionScriptInfo {
     const Program* program;
     /// Less than or equal to `Stack::MAX_FRAME_LEN`
-    uint32_t stackSpaceRequired;
+    uint16_t stackSpaceRequired;
     size_t bytecodeCount;
     const Bytecode* bytecode;
     /// When this script function is getting unwinded, it will unwind this array of slots in their specific order.

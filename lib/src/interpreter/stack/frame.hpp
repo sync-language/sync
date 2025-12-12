@@ -6,6 +6,7 @@
 #include <optional>
 #include <tuple>
 
+namespace sy {
 struct Bytecode;
 
 class Frame {
@@ -14,7 +15,7 @@ class Frame {
     // due to the existence of wasm32). As a result, frame metadata is stored as 4, 64 bit integer (2 + 2).
 
     uint32_t basePointerOffset = 0;
-    uint32_t frameLength = 0;
+    uint16_t frameLength = 0;
     uint16_t functionIndex = 0;
     void* retValueDst = nullptr;
 
@@ -56,5 +57,7 @@ class Frame {
     /// From `Frame::basePointerOffset - OLD_FRAME_INFO_RESERVED_SLOTS`, from array `Raw::types`.
     static constexpr size_t OLD_BASE_POINTER_OFFSET = 1;
 };
+
+} // namespace sy
 
 #endif // SY_INTERPRETER_STACK_FRAME_HPP_

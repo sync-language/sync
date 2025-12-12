@@ -23,6 +23,8 @@ constexpr size_t MIN_SLOTS = 128;
 /// Alignments greater than page alignment makes no sense.
 constexpr size_t MIN_VALUES_ALIGNMENT = 128 * alignof(uint64_t);
 
+using namespace sy;
+
 #pragma region Memory_Allocation
 
 struct Allocation {
@@ -138,7 +140,7 @@ static uint32_t requiredBaseOffsetForByteAlignment(uint32_t currentNextBaseOffse
     return currentNextBaseOffset + (normalizedAlign - remainder);
 }
 
-Node::Node(const uint32_t minSlotSize) {
+sy::Node::Node(const uint32_t minSlotSize) {
     Allocation allocation = allocateStack(minSlotSize);
 
     this->values = allocation.values;
@@ -146,7 +148,7 @@ Node::Node(const uint32_t minSlotSize) {
     this->slots = allocation.slots;
 }
 
-Node::~Node() noexcept {
+sy::Node::~Node() noexcept {
     if (this->slots == 0)
         return;
 
@@ -160,7 +162,7 @@ Node::~Node() noexcept {
     this->nextBaseOffset = 0;
 }
 
-Node::Node(Node&& other) noexcept
+sy::Node::Node(Node&& other) noexcept
     : values(other.values), types(other.types), slots(other.slots), nextBaseOffset(other.nextBaseOffset),
       currentFrame(std::move(other.currentFrame)), frameDepth(other.frameDepth) {
     other.values = nullptr;
@@ -171,20 +173,20 @@ Node::Node(Node&& other) noexcept
     other.frameDepth = 0;
 }
 
-bool Node::hasEnoughSpaceForFrame(const uint32_t frameLength, const uint16_t alignment) const {
+bool sy::Node::hasEnoughSpaceForFrame(const uint16_t frameLength, const uint16_t alignment) const {
     (void)alignment; // TODO what
-    if ((this->nextBaseOffset + frameLength) > this->slots) {
+    if ((this->nextBaseOffset + static_cast<uint32_t>(frameLength)) > this->slots) {
         return false;
     }
     return true;
 }
 
-bool Node::isInUse() const {
+bool sy::Node::isInUse() const {
     sy_assert(this->currentFrame.has_value() == (this->frameDepth != 0), "Invalid state");
     return this->frameDepth != 0;
 }
 
-void Node::reallocate(const uint32_t minSlotSize) {
+void sy::Node::reallocate(const uint32_t minSlotSize) {
     sy_assert(!this->currentFrame.has_value(), "Cannot reallocate stack node while it's being used");
     sy_assert(this->frameDepth == 0, "Cannot reallocate stack node while it's being used");
 
@@ -224,8 +226,8 @@ void Node::reallocate(const uint32_t minSlotSize) {
 //     }
 // }
 
-bool Node::pushFrameNoReallocate(const uint32_t frameLength, const uint16_t byteAlign, void* const retValDst,
-                                 const Bytecode* const instructionPointer) {
+bool sy::Node::pushFrameNoReallocate(const uint16_t frameLength, const uint16_t byteAlign, void* const retValDst,
+                                     const Bytecode* const instructionPointer) {
     sy_assert(this->currentFrame.has_value(), "Expected this node to be in use");
     sy_assert(this->frameDepth > 0, "Expected frame depth");
     sy_assert(this->nextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS, "next base offset invalid value");
@@ -240,7 +242,10 @@ bool Node::pushFrameNoReallocate(const uint32_t frameLength, const uint16_t byte
         // even if the frame cannot be pushed onto this node, increasing the previous frame's length and
         // updated the next base offset is safe.
         // increase frame length by the difference
-        this->currentFrame.value().frameLength += newNextBaseOffset - this->nextBaseOffset;
+        const uint32_t newFrameLength =
+            static_cast<uint32_t>(this->currentFrame.value().frameLength) + (newNextBaseOffset - this->nextBaseOffset);
+        sy_assert(newFrameLength < Stack::MAX_FRAME_LEN, "Align extended frame length exceeds maximum");
+        this->currentFrame.value().frameLength = static_cast<uint16_t>(newFrameLength);
         this->nextBaseOffset = newNextBaseOffset;
     }
 
@@ -274,8 +279,8 @@ bool Node::pushFrameNoReallocate(const uint32_t frameLength, const uint16_t byte
     return true;
 }
 
-void Node::pushFrameAllowReallocate(const uint32_t frameLength, const uint16_t byteAlign, void* const retValDst,
-                                    std::optional<Frame> previousFrame, const Bytecode* const instructionPointer) {
+void sy::Node::pushFrameAllowReallocate(const uint16_t frameLength, const uint16_t byteAlign, void* const retValDst,
+                                        std::optional<Frame> previousFrame, const Bytecode* const instructionPointer) {
     sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
     sy_assert(this->frameDepth == 0, "Expected no frame depth");
     sy_assert(this->nextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS, "next base offset invalid value");
@@ -319,7 +324,7 @@ void Node::pushFrameAllowReallocate(const uint32_t frameLength, const uint16_t b
     }
 }
 
-std::optional<std::tuple<Frame, const Bytecode*>> Node::popFrame() {
+std::optional<std::tuple<Frame, const Bytecode*>> sy::Node::popFrame() {
     sy_assert(this->isInUse(), "No frames to pop");
 
     const Frame currFrame = this->currentFrame.value();
@@ -351,8 +356,8 @@ std::optional<std::tuple<Frame, const Bytecode*>> Node::popFrame() {
     }
 }
 
-std::optional<uint16_t> Node::pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset,
-                                                    const uint32_t frameLength, const uint16_t frameByteAlign) {
+std::optional<uint16_t> sy::Node::pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset,
+                                                        const uint16_t frameLength, const uint16_t frameByteAlign) {
     sy_assert(argMem != nullptr, "Expected valid argument memory");
     sy_assert(type != nullptr, "Expected valid type memory");
     const uint16_t normalizedAlign =
@@ -368,7 +373,10 @@ std::optional<uint16_t> Node::pushScriptFunctionArg(const void* argMem, const sy
         // even if the frame cannot be pushed onto this node, increasing the previous frame's length and
         // updated the next base offset is safe.
         // increase frame length by the difference
-        this->currentFrame.value().frameLength += newNextBaseOffset - this->nextBaseOffset;
+        const uint32_t newFrameLength =
+            static_cast<uint32_t>(this->currentFrame.value().frameLength) + (newNextBaseOffset - this->nextBaseOffset);
+        sy_assert(newFrameLength < Stack::MAX_FRAME_LEN, "Align extended frame length exceeds maximum");
+        this->currentFrame.value().frameLength = static_cast<uint16_t>(newFrameLength);
         this->nextBaseOffset = newNextBaseOffset;
 
         if (!this->hasEnoughSpaceForFrame(frameLength, frameByteAlign)) {
@@ -426,7 +434,7 @@ std::optional<uint16_t> Node::pushScriptFunctionArg(const void* argMem, const sy
     return std::optional(newOffset);
 }
 
-std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t alignment) const {
+std::optional<uint32_t> sy::Node::shouldReallocate(uint16_t frameLength, uint16_t alignment) const {
     // `alignment` must always be a power of 2
     // `frameLength` must be a multiple of alignment
     // Despite that, since Frame::OLD_FRAME_INFO_RESERVED_SLOTS are needed,
@@ -465,12 +473,12 @@ std::optional<uint32_t> Node::shouldReallocate(uint32_t frameLength, uint16_t al
     return std::nullopt;
 }
 
-Node::TypeOfValue Node::typeAt(const uint16_t offset) const {
+Node::TypeOfValue sy::Node::typeAt(const uint16_t offset) const {
     this->ensureOffsetWithinFrameBounds(offset);
     return this->types[offset + this->nextBaseOffset];
 }
 
-void Node::setTypeAt(const TypeOfValue type, const uint16_t offset) {
+void sy::Node::setTypeAt(const TypeOfValue type, const uint16_t offset) {
     this->ensureOffsetWithinFrameBounds(offset);
     const auto frame = this->currentFrame.value();
     const uint32_t actualOffset = frame.basePointerOffset + static_cast<uint32_t>(offset);
@@ -490,42 +498,42 @@ void Node::setTypeAt(const TypeOfValue type, const uint16_t offset) {
     }
 }
 
-void Node::setFrameFunction(const uint16_t functionIndex) {
+void sy::Node::setFrameFunction(const uint16_t functionIndex) {
     sy_assert(this->isInUse(), "Expected node to have a frame");
     this->currentFrame.value().functionIndex = functionIndex;
 }
 
-void Node::ensureOffsetWithinFrameBounds(const uint16_t offset) const {
+void sy::Node::ensureOffsetWithinFrameBounds(const uint16_t offset) const {
     sy_assert(this->currentFrame.has_value(), "No frame");
     sy_assert(offset < this->currentFrame.value().frameLength, "Index out of bounds for stack frame");
 }
 
-Node::TypeOfValue::TypeOfValue(const sy::Type* type, bool owned) { this->set(type, owned); }
+sy::Node::TypeOfValue::TypeOfValue(const sy::Type* type, bool owned) { this->set(type, owned); }
 
-Node::TypeOfValue& Node::TypeOfValue::operator=(std::nullptr_t) {
+Node::TypeOfValue& sy::Node::TypeOfValue::operator=(std::nullptr_t) {
     this->mask_ = 0;
     return *this;
 }
 
-const sy::Type* Node::TypeOfValue::get() const {
+const sy::Type* sy::Node::TypeOfValue::get() const {
     const uintptr_t maskedAwayFlag = this->mask_ & (~TYPE_NOT_OWNED_FLAG);
     return reinterpret_cast<const sy::Type*>(maskedAwayFlag);
 }
 
-Node::TypeOfValue::operator const sy::Type *() const { return this->get(); }
+sy::Node::TypeOfValue::operator const sy::Type *() const { return this->get(); }
 
-void Node::TypeOfValue::set(const sy::Type* type, bool owned) {
+void sy::Node::TypeOfValue::set(const sy::Type* type, bool owned) {
     sy_assert(type != nullptr, "Use operator=(nullptr) to explicitly set this type to null");
 
     const uintptr_t typeMask = reinterpret_cast<uintptr_t>(type);
     this->mask_ = typeMask | static_cast<uintptr_t>(owned ? 0 : TYPE_NOT_OWNED_FLAG);
 }
 
-bool Node::TypeOfValue::operator==(const TypeOfValue& other) const { return this->get() == other.get(); }
+bool sy::Node::TypeOfValue::operator==(const TypeOfValue& other) const { return this->get() == other.get(); }
 
-bool Node::TypeOfValue::operator==(const sy::Type* otherType) const { return this->get() == otherType; }
+bool sy::Node::TypeOfValue::operator==(const sy::Type* otherType) const { return this->get() == otherType; }
 
-bool Node::TypeOfValue::isOwned() const {
+bool sy::Node::TypeOfValue::isOwned() const {
     const uintptr_t maskedAwayType = this->mask_ & TYPE_NOT_OWNED_FLAG;
     return maskedAwayType != TYPE_NOT_OWNED_FLAG;
 }
@@ -606,7 +614,7 @@ TEST_CASE("Node reallocate smaller") {
 
 TEST_CASE("Node should reallocate true with simple alignment") {
     auto node = Node(4);
-    auto result = node.shouldReallocate(node.slots + 1, alignof(size_t));
+    auto result = node.shouldReallocate(static_cast<uint16_t>(node.slots) + 1, alignof(size_t));
     CHECK(result.has_value());
     CHECK_GT(result.value(), node.slots);
 }
@@ -714,9 +722,9 @@ TEST_CASE("hasEnoughSpaceForFrame minimum") {
     }
 
     // all slots excluding reserve
-    CHECK(node.hasEnoughSpaceForFrame(node.slots - Frame::OLD_FRAME_INFO_RESERVED_SLOTS, 1));
+    CHECK(node.hasEnoughSpaceForFrame(static_cast<uint16_t>(node.slots - Frame::OLD_FRAME_INFO_RESERVED_SLOTS), 1));
     // not all slots but not enough for reserve
-    CHECK_FALSE(node.hasEnoughSpaceForFrame(node.slots - 1, 1));
+    CHECK_FALSE(node.hasEnoughSpaceForFrame(static_cast<uint16_t>(node.slots - 1), 1));
 }
 
 TEST_CASE("pushFrameAllowReallocate, no previous frame, non-special align") {
@@ -855,7 +863,7 @@ TEST_CASE("pushFrameNoReallocate, not successful, non-special align") {
     {
         auto node = Node(1);
         node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
-        CHECK_FALSE(node.pushFrameNoReallocate(node.slots, 1, nullptr, &unusedBytecode));
+        CHECK_FALSE(node.pushFrameNoReallocate(static_cast<uint16_t>(node.slots), 1, nullptr, &unusedBytecode));
 
         // retains all old data
         CHECK(node.isInUse());
@@ -870,7 +878,7 @@ TEST_CASE("pushFrameNoReallocate, not successful, non-special align") {
     {
         auto node = Node(1);
         node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
-        CHECK_FALSE(node.pushFrameNoReallocate(node.slots, 1, nullptr, &unusedBytecode));
+        CHECK_FALSE(node.pushFrameNoReallocate(static_cast<uint16_t>(node.slots), 1, nullptr, &unusedBytecode));
 
         // retains all old data
         // despite mostly not doing anything, the frame is still extended (maybe this is stupid)
@@ -902,7 +910,7 @@ TEST_CASE("pushFrameNoReallocate, not successful, special align") {
     { // cannot fit frame because of length
         auto node = Node(1);
         node.pushFrameAllowReallocate(8, 64, nullptr, std::nullopt, nullptr);
-        CHECK_FALSE(node.pushFrameNoReallocate(node.slots, 64, nullptr, &unusedBytecode));
+        CHECK_FALSE(node.pushFrameNoReallocate(static_cast<uint16_t>(node.slots), 64, nullptr, &unusedBytecode));
 
         // retains all old data
         CHECK(node.isInUse());

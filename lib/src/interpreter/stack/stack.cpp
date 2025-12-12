@@ -17,12 +17,16 @@
 #include <sys/mman.h>
 #endif
 
+namespace sy {
 namespace detail {
 /// For now, this value will never change, however it'll be supported anyways for when coroutines become a thing.
 static thread_local Stack activeStack{};
 } // namespace detail
+} // namespace sy
 
-Stack::~Stack() noexcept {
+using namespace sy;
+
+sy::Stack::~Stack() noexcept {
     if (this->nodes == nullptr && this->callstackFunctions == nullptr)
         return;
 
@@ -36,9 +40,9 @@ Stack::~Stack() noexcept {
     alloc.freeAlignedArray(this->callstackFunctions, this->callstackCapacity, ALLOC_CACHE_ALIGN);
 }
 
-Stack& Stack::getThisThreadDefaultStack() { return detail::activeStack; }
+Stack& sy::Stack::getThisThreadDefaultStack() { return detail::activeStack; }
 
-Stack& Stack::getActiveStack() {
+Stack& sy::Stack::getActiveStack() {
     // TODO stack switching for co-routines?
     return detail::activeStack;
 }
@@ -59,7 +63,7 @@ static constexpr size_t minCallstackFunctionCapacityForCacheAlign() {
     return bytes / sizeof(const sy::Function*);
 }
 
-FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void* retValDst) {
+FrameGuard sy::Stack::pushFrame(uint16_t frameLength, uint16_t alignment, void* retValDst) {
     sy_assert(frameLength > 0, "Frame length of 0 is useless");
     sy_assert(frameLength <= MAX_FRAME_LEN, "Frame length too big");
     // TODO validate alignment power of 2
@@ -100,7 +104,7 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void* retV
             sy_assert(currNode.isInUse(), "Expected node to be in use");
             const Frame currFrame = this->nodes[currentNode].currentFrame.value();
             // initialize the next node if necessary
-            this->addOneNode(currNode.slots + frameLength); // TODO determine better way to do over-allocation
+            this->addOneNode(frameLength); // TODO determine better way to do over-allocation
             this->nodes[currentNode + 1].pushFrameAllowReallocate(frameLength, actualAlignment, retValDst, currFrame,
                                                                   this->instructionPointer);
             this->currentNode += 1;
@@ -110,11 +114,11 @@ FrameGuard Stack::pushFrame(uint32_t frameLength, uint16_t alignment, void* retV
     return FrameGuard(this);
 }
 
-FrameGuard Stack::pushFunctionFrame(const sy::Function* function, void* retValDst) {
+FrameGuard sy::Stack::pushFunctionFrame(const sy::Function* function, void* retValDst) {
     sy_assert(function->tag == sy::Function::CallType::Script, "Can only push frames for script functions");
     const sy::InterpreterFunctionScriptInfo* scriptInfo =
         reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(function->fptr);
-    const uint32_t frameLength = scriptInfo->stackSpaceRequired;
+    const uint16_t frameLength = scriptInfo->stackSpaceRequired;
     FrameGuard guard = this->pushFrame(frameLength, function->alignment, retValDst);
 
     { // potentially reallocate
@@ -143,28 +147,30 @@ FrameGuard Stack::pushFunctionFrame(const sy::Function* function, void* retValDs
     return guard;
 }
 
-sy::CallStack Stack::callStack() const { return sy::CallStack(this->callstackFunctions, this->callstackLen); }
+sy::CallStack sy::Stack::callStack() const { return sy::CallStack(this->callstackFunctions, this->callstackLen); }
 
-const Bytecode* Stack::getInstructionPointer() {
+const Bytecode* sy::Stack::getInstructionPointer() {
     sy_assert(this->instructionPointer != nullptr, "Cannot get invalid instruction pointer");
     return this->instructionPointer;
 }
 
-void Stack::setInstructionPointer(const Bytecode* bytecode) {
+void sy::Stack::setInstructionPointer(const Bytecode* bytecode) {
     sy_assert(bytecode != nullptr, "Cannot set invalid instruction pointer");
     this->instructionPointer = bytecode;
 }
 
-Node::TypeOfValue Stack::typeAt(const uint16_t offset) const { return this->nodes[this->currentNode].typeAt(offset); }
+Node::TypeOfValue sy::Stack::typeAt(const uint16_t offset) const {
+    return this->nodes[this->currentNode].typeAt(offset);
+}
 
-void Stack::setTypeAt(const Node::TypeOfValue type, const uint16_t offset) {
+void sy::Stack::setTypeAt(const Node::TypeOfValue type, const uint16_t offset) {
     this->nodes[this->currentNode].setTypeAt(type, offset);
 }
 
-void* Stack::returnDst() { return this->nodes[currentNode].currentFrame.value().retValueDst; }
+void* sy::Stack::returnDst() { return this->nodes[currentNode].currentFrame.value().retValueDst; }
 
-uint16_t Stack::pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset,
-                                      const uint32_t frameLength, const uint16_t frameAlign) {
+uint16_t sy::Stack::pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset,
+                                          const uint16_t frameLength, const uint16_t frameAlign) {
     std::optional<uint16_t> result =
         this->nodes[this->currentNode].pushScriptFunctionArg(argMem, type, offset, frameLength, frameAlign);
     if (result.has_value()) {
@@ -172,15 +178,15 @@ uint16_t Stack::pushScriptFunctionArg(const void* argMem, const sy::Type* type, 
     }
 
     // TODO determine better way to do over-allocation
-    this->addOneNode(this->nodes[this->currentNode].slots + frameLength);
+    this->addOneNode(frameLength);
     uint16_t actualResult =
         this->nodes[this->currentNode + 1].pushScriptFunctionArg(argMem, type, offset, frameLength, frameAlign).value();
     return actualResult;
 }
 
-std::optional<Frame> Stack::getCurrentFrame() { return this->nodes[this->currentNode].currentFrame; }
+std::optional<Frame> sy::Stack::getCurrentFrame() { return this->nodes[this->currentNode].currentFrame; }
 
-void Stack::popFrame() {
+void sy::Stack::popFrame() {
     auto popResult = this->nodes[this->currentNode].popFrame();
     if (!popResult.has_value()) {
         sy_assert(this->currentNode == 0, "Node incorrectly reported having no previous frame");
@@ -200,7 +206,7 @@ void Stack::popFrame() {
     this->instructionPointer = oldInstructionPointer;
 }
 
-void Stack::addOneNode(const uint32_t requiredFrameLength) {
+void sy::Stack::addOneNode(const uint16_t requiredFrameLength) {
     sy_assert(this->nodesCapacity != 0, "Initial allocation should have been done");
 
     if (this->nodesLen > (this->currentNode + 1)) {
@@ -223,14 +229,14 @@ void Stack::addOneNode(const uint32_t requiredFrameLength) {
         this->nodesCapacity = newCapacity;
     }
 
-    const uint32_t minSlots =
-        static_cast<uint32_t>(static_cast<double>(this->nodes[this->nodesLen - 1].slots + requiredFrameLength) * 1.5);
+    const uint32_t minSlots = static_cast<uint32_t>(
+        static_cast<double>(this->nodes[this->nodesLen - 1].slots + static_cast<uint32_t>(requiredFrameLength)) * 1.5);
     Node* placedNode = new (&this->nodes[this->nodesLen]) Node(minSlots);
     (void)placedNode;
     this->nodesLen += 1;
 }
 
-FrameGuard::~FrameGuard() {
+sy::FrameGuard::~FrameGuard() {
     if (this->stack == nullptr)
         return;
 
@@ -238,9 +244,9 @@ FrameGuard::~FrameGuard() {
     this->stack = nullptr;
 }
 
-FrameGuard::FrameGuard(FrameGuard&& other) : stack(other.stack) { other.stack = nullptr; }
+sy::FrameGuard::FrameGuard(FrameGuard&& other) : stack(other.stack) { other.stack = nullptr; }
 
-FrameGuard& FrameGuard::operator=(FrameGuard&& other) {
+FrameGuard& sy::FrameGuard::operator=(FrameGuard&& other) {
     this->stack = other.stack;
     other.stack = nullptr;
     return *this;

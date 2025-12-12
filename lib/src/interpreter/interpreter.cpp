@@ -9,12 +9,7 @@
 #include "stack/stack.hpp"
 #include <cstring>
 
-using sy::Error;
-using sy::Function;
-using sy::Program;
-using sy::ProgramError;
-using sy::Result;
-using sy::Type;
+using namespace sy;
 
 static Result<void, ProgramError> interpreterExecuteContinuous(const Program* program);
 static Result<void, ProgramError> interpreterExecuteOperation(const Program* program);
@@ -99,7 +94,7 @@ static Result<void, ProgramError> interpreterExecuteOperation(const Program* pro
 
     auto potentialErr = [opcode, instructionPointer, &ipChange]() -> Result<void, ProgramError> {
         switch (opcode) {
-        case OpCode::Nop:
+        case OpCode::Noop:
             break;
         case OpCode::Return: {
             executeReturn(*instructionPointer);
