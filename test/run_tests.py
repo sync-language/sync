@@ -43,7 +43,7 @@ try:
     USE_MULTIARCH_BUILDX = "docker buildx use multiarch"
     BOOTSTRAP = "docker buildx inspect --bootstrap"
 
-    install_result = subprocess.run(INSTALL_CROSS_PLATFORM_EMULATOR, shell=True, check=True, capture_output=True)
+    install_result = subprocess.run(INSTALL_CROSS_PLATFORM_EMULATOR, shell=True, check=True, capture_output=True, text=True)
     if(install_result.returncode != 0):
         if install_result.stdout:
             print("STDOUT:")
@@ -52,12 +52,12 @@ try:
             print("STDERR:")
             print(install_result.stderr)
 
-    result = subprocess.run(CHECK_MULTIARCH_EXISTS, shell=True, capture_output=True)
+    result = subprocess.run(CHECK_MULTIARCH_EXISTS, shell=True, capture_output=True, text=True)
     multiarch_result = None
     if result.returncode != 0:
-        multiarch_result = subprocess.run(CREATE_MULTIARCH_BUILDX, shell=True, check=True, capture_output=True)
+        multiarch_result = subprocess.run(CREATE_MULTIARCH_BUILDX, shell=True, check=True, capture_output=True, text=True)
     else:
-        multiarch_result = subprocess.run(USE_MULTIARCH_BUILDX, shell=True, check=True, capture_output=True)
+        multiarch_result = subprocess.run(USE_MULTIARCH_BUILDX, shell=True, check=True, capture_output=True, text=True)
 
     if(multiarch_result.returncode != 0):
         if multiarch_result.stdout:
