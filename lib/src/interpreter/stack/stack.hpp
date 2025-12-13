@@ -38,9 +38,9 @@ class Stack final {
     /// 0 is a valid input. See types/function.h and types/function.hpp as to why.
     /// @param retValDst Memory address where the return value of a function should be copied to. Can be `nullptr`,
     /// meaning no return value destination.
-    [[nodiscard]] FrameGuard pushFrame(uint16_t frameLength, uint16_t alignment, void* retValDst);
+    void pushFrame(uint16_t frameLength, uint16_t alignment, void* retValDst);
 
-    [[nodiscard]] FrameGuard pushFunctionFrame(const sy::Function* function, void* retValDst);
+    void pushFunctionFrame(const sy::Function* function, void* retValDst);
 
     [[nodiscard]] sy::CallStack callStack() const;
 
@@ -74,16 +74,16 @@ class Stack final {
 
     [[nodiscard]] std::optional<Frame> getCurrentFrame();
 
-  private:
-    void addOneNode(const uint16_t requiredFrameLength);
-
-    friend class FrameGuard;
-
     /// Pops the current frame from the stack, and restores the old one. Does not unwind the stack.
     /// # Debug Asserts
     /// Expects there to be an old stack to restore. For example, calling `pushFrame(...)` once, and then calling
     /// `popFrame(...)` twice is an error. The first pop is fine, but the second has no frame to restore.
     void popFrame();
+
+  private:
+    void addOneNode(const uint16_t requiredFrameLength);
+
+    friend class FrameGuard;
 
   private:
     const Bytecode* instructionPointer = nullptr;

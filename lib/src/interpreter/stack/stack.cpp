@@ -63,7 +63,7 @@ static constexpr size_t minCallstackFunctionCapacityForCacheAlign() {
     return bytes / sizeof(const sy::Function*);
 }
 
-FrameGuard sy::Stack::pushFrame(uint16_t frameLength, uint16_t alignment, void* retValDst) {
+void sy::Stack::pushFrame(uint16_t frameLength, uint16_t alignment, void* retValDst) {
     sy_assert(frameLength > 0, "Frame length of 0 is useless");
     sy_assert(frameLength <= MAX_FRAME_LEN, "Frame length too big");
     // TODO validate alignment power of 2
@@ -110,16 +110,14 @@ FrameGuard sy::Stack::pushFrame(uint16_t frameLength, uint16_t alignment, void* 
             this->currentNode += 1;
         }
     }
-
-    return FrameGuard(this);
 }
 
-FrameGuard sy::Stack::pushFunctionFrame(const sy::Function* function, void* retValDst) {
+void sy::Stack::pushFunctionFrame(const sy::Function* function, void* retValDst) {
     sy_assert(function->tag == sy::Function::CallType::Script, "Can only push frames for script functions");
     const sy::InterpreterFunctionScriptInfo* scriptInfo =
         reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(function->fptr);
     const uint16_t frameLength = scriptInfo->stackSpaceRequired;
-    FrameGuard guard = this->pushFrame(frameLength, function->alignment, retValDst);
+    this->pushFrame(frameLength, function->alignment, retValDst);
 
     { // potentially reallocate
         sy_assert(this->callstackFunctions != nullptr, "Initial allocations should have happened");
@@ -143,8 +141,6 @@ FrameGuard sy::Stack::pushFunctionFrame(const sy::Function* function, void* retV
     this->callstackFunctions[this->callstackLen] = function;
     this->nodes[this->currentNode].setFrameFunction(this->callstackLen);
     this->callstackLen += 1;
-
-    return guard;
 }
 
 sy::CallStack sy::Stack::callStack() const { return sy::CallStack(this->callstackFunctions, this->callstackLen); }
@@ -258,70 +254,93 @@ FrameGuard& sy::FrameGuard::operator=(FrameGuard&& other) {
 
 TEST_CASE("push frame on thread local stack") {
     Stack& tls = Stack::getThisThreadDefaultStack();
-    FrameGuard guard = tls.pushFrame(1, 1, nullptr);
+    tls.pushFrame(1, 1, nullptr);
     tls.setTypeAt(nullptr, 0);
+    tls.popFrame();
 }
 
 TEST_CASE("push frame on active stack") {
     Stack& active = Stack::getActiveStack();
-    FrameGuard guard = active.pushFrame(1, 1, nullptr);
+    active.pushFrame(1, 1, nullptr);
+    active.popFrame();
 }
 
 TEST_CASE("construct stack") {
     Stack stack = Stack();
-    FrameGuard guard = stack.pushFrame(1, 1, nullptr);
+    stack.pushFrame(1, 1, nullptr);
+    stack.popFrame();
 }
 
 TEST_CASE("overflow stack with first frame") {
     Stack stack = Stack(); // only has 1 actual slot
-    FrameGuard guard = stack.pushFrame(2, 1, nullptr);
+    stack.pushFrame(2, 1, nullptr);
+    stack.popFrame();
 }
 
 TEST_CASE("2 frames") {
     Stack& active = Stack::getActiveStack();
-    FrameGuard guard1 = active.pushFrame(4, 1, nullptr);
+    active.pushFrame(4, 1, nullptr);
     Bytecode bytecode;
     active.setInstructionPointer(&bytecode);
-    { FrameGuard guard2 = active.pushFrame(9, 1, nullptr); }
+    {
+        active.pushFrame(9, 1, nullptr);
+        active.popFrame();
+    }
+    active.popFrame();
 }
 
 TEST_CASE("many nested frames") {
     Stack& active = Stack::getActiveStack();
-    FrameGuard guard1 = active.pushFrame(1, 1, nullptr);
+    active.pushFrame(1, 1, nullptr);
     Bytecode bytecode;
     active.setInstructionPointer(&bytecode);
     {
-        FrameGuard guard2 = active.pushFrame(1, 1, nullptr);
+        active.pushFrame(1, 1, nullptr);
         {
-            FrameGuard guard3 = active.pushFrame(1, 1, nullptr);
+            active.pushFrame(1, 1, nullptr);
             {
-                FrameGuard guard4 = active.pushFrame(1, 1, nullptr);
-                { FrameGuard guard5 = active.pushFrame(1, 1, nullptr); }
+                active.pushFrame(1, 1, nullptr);
+                {
+                    active.pushFrame(1, 1, nullptr);
+                    active.popFrame();
+                }
+                active.popFrame();
             }
+            active.popFrame();
         }
+        active.popFrame();
     }
+    active.popFrame();
 }
 
 TEST_CASE("frames of various length") {
     Stack& active = Stack::getActiveStack();
-    FrameGuard guard1 = active.pushFrame(100, 1, nullptr);
+    active.pushFrame(100, 1, nullptr);
     Bytecode bytecode;
     active.setInstructionPointer(&bytecode);
     {
-        FrameGuard guard2 = active.pushFrame(400, 1, nullptr);
+        active.pushFrame(400, 1, nullptr);
         {
-            FrameGuard guard3 = active.pushFrame(3, 1, nullptr);
+            active.pushFrame(3, 1, nullptr);
             {
-                FrameGuard guard4 = active.pushFrame(80, 1, nullptr);
-                { FrameGuard guard5 = active.pushFrame(1000, 1, nullptr); }
+                active.pushFrame(80, 1, nullptr);
+                {
+                    active.pushFrame(1000, 1, nullptr);
+                    active.popFrame();
+                }
+                active.popFrame();
             }
+            active.popFrame();
         }
+        active.popFrame();
     }
+    active.popFrame();
 }
 
 TEST_CASE("max frame") {
     Stack& active = Stack::getActiveStack();
-    FrameGuard guard = active.pushFrame(0x8000, 1, nullptr);
+    active.pushFrame(0x8000, 1, nullptr);
+    active.popFrame();
 }
 
 #endif // SYNC_LIB_NO_TESTS

@@ -11,11 +11,13 @@
 
 using namespace sy;
 
-static Result<void, ProgramError> interpreterExecuteContinuous(const Program* program);
-static Result<void, ProgramError> interpreterExecuteOperation(const Program* program);
+enum class OkExecStatus { Continue, FunctionCall, Return };
+
+static Result<OkExecStatus, ProgramError> interpreterExecuteContinuous(const Program* program);
+static Result<OkExecStatus, ProgramError> interpreterExecuteOperation(const Program* program);
 static void unwindStackFrame(const int16_t* unwindSlots, const uint16_t len);
 
-Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const Function* scriptFunction, void* outReturnValue) {
+static void setupFunctionStackFrame(const Function* scriptFunction, void* outReturnValue) {
     sy_assert(scriptFunction->tag == Function::CallType::Script,
               "Interpreter can only start executing from script functions");
     if (scriptFunction->returnType != nullptr) {
@@ -26,24 +28,35 @@ Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const Function* 
     }
 
     Stack& activeStack = Stack::getActiveStack();
-    FrameGuard guard = activeStack.pushFunctionFrame(scriptFunction, outReturnValue);
+    activeStack.pushFunctionFrame(scriptFunction, outReturnValue);
+
+    const sy::InterpreterFunctionScriptInfo* scriptInfo =
+        reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(scriptFunction->fptr);
+    activeStack.setInstructionPointer(scriptInfo->bytecode);
+}
+
+Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const Function* scriptFunction, void* outReturnValue) {
+    setupFunctionStackFrame(scriptFunction, outReturnValue);
 
     const sy::InterpreterFunctionScriptInfo* scriptInfo =
         reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(scriptFunction->fptr);
 
-    activeStack.setInstructionPointer(scriptInfo->bytecode);
-
     sy_assert(scriptInfo->program != nullptr, "Script function must have a valid program");
 
-    const auto res = interpreterExecuteContinuous(scriptInfo->program);
+    auto res = interpreterExecuteContinuous(scriptInfo->program);
     // Regardless of an error or not, the frame should be unwinded.
     unwindStackFrame(scriptInfo->unwindSlots, scriptInfo->unwindLen);
 
-    return res;
+    Stack::getActiveStack().popFrame();
+
+    if (res.hasErr()) {
+        return Error(res.takeErr());
+    }
+    return {};
     // `FrameGuard guard` goes out of scope here, popping the frame.
 }
 
-static Result<void, ProgramError> interpreterExecuteContinuous(const Program* program) {
+static Result<OkExecStatus, ProgramError> interpreterExecuteContinuous(const Program* program) {
     while (true) {
         const Bytecode ipBytecode = *Stack::getActiveStack().getInstructionPointer();
         const OpCode opcode = ipBytecode.getOpcode();
@@ -76,7 +89,7 @@ static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChan
 static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
-static Result<void, ProgramError> executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static void executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeMemsetUninitialized(const Bytecode bytecode);
 static void executeSetType(ptrdiff_t& ipChange, const Bytecode* bytecodes);
@@ -85,37 +98,51 @@ static void executeJump(ptrdiff_t& ipChange, const Bytecode bytecode);
 static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode);
 static void executeDestruct(const Bytecode bytecode);
 
-static Result<void, ProgramError> interpreterExecuteOperation(const Program* program) {
+static Result<OkExecStatus, ProgramError> interpreterExecuteOperation(const Program* program) {
     (void)program;
 
     ptrdiff_t ipChange = 1;
     const Bytecode* instructionPointer = Stack::getActiveStack().getInstructionPointer();
     const OpCode opcode = instructionPointer->getOpcode();
 
-    auto potentialErr = [opcode, instructionPointer, &ipChange]() -> Result<void, ProgramError> {
+    auto result = [opcode, instructionPointer, &ipChange]() -> Result<OkExecStatus, ProgramError> {
         switch (opcode) {
         case OpCode::Noop:
             break;
         case OpCode::Return: {
             executeReturn(*instructionPointer);
+            return OkExecStatus::Return;
         } break;
         case OpCode::ReturnValue: {
             executeReturnValue(*instructionPointer);
+            return OkExecStatus::Return;
         } break;
         case OpCode::CallImmediateNoReturn: {
-            return executeCallImmediateNoReturn(ipChange, instructionPointer);
+            if (auto callRes = executeCallImmediateNoReturn(ipChange, instructionPointer); callRes.hasErr()) {
+                return Error(callRes.takeErr());
+            }
+            return OkExecStatus::FunctionCall;
         } break;
         case OpCode::CallSrcNoReturn: {
-            return executeCallSrcNoReturn(ipChange, instructionPointer);
+            if (auto callRes = executeCallSrcNoReturn(ipChange, instructionPointer); callRes.hasErr()) {
+                return Error(callRes.takeErr());
+            }
+            return OkExecStatus::FunctionCall;
         } break;
         case OpCode::CallImmediateWithReturn: {
-            return executeCallImmediateWithReturn(ipChange, instructionPointer);
+            if (auto callRes = executeCallImmediateWithReturn(ipChange, instructionPointer); callRes.hasErr()) {
+                return Error(callRes.takeErr());
+            }
+            return OkExecStatus::FunctionCall;
         } break;
         case OpCode::CallSrcWithReturn: {
-            return executeCallSrcWithReturn(ipChange, instructionPointer);
+            if (auto callRes = executeCallSrcWithReturn(ipChange, instructionPointer); callRes.hasErr()) {
+                return Error(callRes.takeErr());
+            }
+            return OkExecStatus::FunctionCall;
         } break;
         case OpCode::LoadDefault: {
-            return executeLoadDefault(ipChange, instructionPointer);
+            executeLoadDefault(ipChange, instructionPointer);
         } break;
         case OpCode::LoadImmediateScalar: {
             executeLoadImmediateScalar(ipChange, instructionPointer);
@@ -143,10 +170,10 @@ static Result<void, ProgramError> interpreterExecuteOperation(const Program* pro
             sy_assert(static_cast<uint8_t>(opcode) && false, "Unimplemented opcode");
         }
         }
-        return {};
+        return OkExecStatus::Continue;
     }();
 
-    return potentialErr;
+    return result;
 }
 
 static void executeReturn(const Bytecode b) {
@@ -263,7 +290,7 @@ static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange, 
     return performCall(function, returnDst, operands.argCount, argsSrcs);
 }
 
-Result<void, ProgramError> executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
+void executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::LoadDefault operands = bytecodes[0].toOperands<operators::LoadDefault>();
 
     Stack& activeStack = Stack::getActiveStack();
@@ -277,8 +304,6 @@ Result<void, ProgramError> executeLoadDefault(ptrdiff_t& ipChange, const Bytecod
         // TODO call default constructors or default initializer
         sy_assert(false, "Cannot load default for non-scalar types currently");
     }
-
-    return {};
 }
 
 void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
