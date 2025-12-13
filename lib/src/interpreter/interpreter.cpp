@@ -36,35 +36,51 @@ static void setupFunctionStackFrame(const Function* scriptFunction, void* outRet
 }
 
 Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const Function* scriptFunction, void* outReturnValue) {
+    // Just setup the initial function call stack
     setupFunctionStackFrame(scriptFunction, outReturnValue);
 
-    const sy::InterpreterFunctionScriptInfo* scriptInfo =
-        reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(scriptFunction->fptr);
+    size_t depth = 1;
+    while (depth > 0) {
+        Stack& activeStack = Stack::getActiveStack();
+        const sy::Function* currentFunction = activeStack.getCurrentFunction().value();
+        const sy::InterpreterFunctionScriptInfo* currentScriptInfo =
+            reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(currentFunction->fptr);
 
-    sy_assert(scriptInfo->program != nullptr, "Script function must have a valid program");
+        auto res = interpreterExecuteContinuous(currentScriptInfo->program);
+        if (res.hasErr()) {
+            while (depth > 0) {
+                currentFunction = activeStack.getCurrentFunction().value();
+                currentScriptInfo = reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(currentFunction->fptr);
+                unwindStackFrame(currentScriptInfo->unwindSlots, currentScriptInfo->unwindLen);
+                activeStack.popFrame();
+                depth -= 1;
+            }
+            return Error(res.takeErr());
+        }
 
-    auto res = interpreterExecuteContinuous(scriptInfo->program);
-    // Regardless of an error or not, the frame should be unwinded.
-    unwindStackFrame(scriptInfo->unwindSlots, scriptInfo->unwindLen);
+        sy_assert(res.value() != OkExecStatus::Continue, "Continue should not have escaped to here");
 
-    Stack::getActiveStack().popFrame();
+        if (res.value() == OkExecStatus::Return) {
+            unwindStackFrame(currentScriptInfo->unwindSlots, currentScriptInfo->unwindLen);
+            activeStack.popFrame();
+            depth -= 1;
+        }
 
-    if (res.hasErr()) {
-        return Error(res.takeErr());
+        if (res.value() == OkExecStatus::FunctionCall) {
+            depth += 1;
+        }
     }
+
     return {};
-    // `FrameGuard guard` goes out of scope here, popping the frame.
 }
 
 static Result<OkExecStatus, ProgramError> interpreterExecuteContinuous(const Program* program) {
     while (true) {
-        const Bytecode ipBytecode = *Stack::getActiveStack().getInstructionPointer();
-        const OpCode opcode = ipBytecode.getOpcode();
-        const bool isReturn = opcode == OpCode::Return;
-
-        const auto err = interpreterExecuteOperation(program);
-        if (err.hasErr() || isReturn) {
-            return err;
+        auto execResult = interpreterExecuteOperation(program);
+        if (execResult.hasValue() && execResult.value() == OkExecStatus::Continue) {
+            // just keep executing bytecode
+        } else {
+            return execResult;
         }
     }
 }
@@ -173,6 +189,10 @@ static Result<OkExecStatus, ProgramError> interpreterExecuteOperation(const Prog
         return OkExecStatus::Continue;
     }();
 
+    if (result.hasValue() && result.value() == OkExecStatus::Continue) {
+        Stack::getActiveStack().setInstructionPointer(instructionPointer + ipChange);
+    }
+
     return result;
 }
 
@@ -223,27 +243,31 @@ static bool pushScriptFunctionArgs(const Function* function, const uint16_t args
     return true;
 }
 
-static Result<void, ProgramError> performCall(const Function* function, void* retDst, const uint16_t argsCount,
-                                              const uint16_t* argsSrc) {
+static Result<void, ProgramError> setupInterpreterNestedCall(const Function* function, void* retDst,
+                                                             const uint16_t argsCount, const uint16_t* argsSrc) {
     if (function->tag == Function::CallType::Script) {
         (void)pushScriptFunctionArgs(function, argsCount, argsSrc);
-        return sy::interpreterExecuteScriptFunction(function, retDst);
+        setupFunctionStackFrame(function, retDst);
     } else {
         sy_assert(false, "Cannot handle C function calling currently");
     }
 
-    unreachable();
+    return {};
 }
 
 static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::CallImmediateNoReturn operands = bytecodes[0].toOperands<operators::CallImmediateNoReturn>();
+
+    Stack& activeStack = Stack::getActiveStack();
 
     const Function* function = *reinterpret_cast<const Function* const*>(&bytecodes[1]);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[2]);
 
     ipChange = static_cast<ptrdiff_t>(operators::CallImmediateNoReturn::bytecodeUsed(operands.argCount));
 
-    return performCall(function, nullptr, operands.argCount, argsSrcs);
+    activeStack.setInstructionPointer(activeStack.getInstructionPointer() + ipChange);
+
+    return setupInterpreterNestedCall(function, nullptr, operands.argCount, argsSrcs);
 }
 
 static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
@@ -257,7 +281,9 @@ static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange, co
 
     ipChange = static_cast<ptrdiff_t>(operators::CallSrcNoReturn::bytecodeUsed(operands.argCount));
 
-    return performCall(function, nullptr, operands.argCount, argsSrcs);
+    activeStack.setInstructionPointer(activeStack.getInstructionPointer() + ipChange);
+
+    return setupInterpreterNestedCall(function, nullptr, operands.argCount, argsSrcs);
 }
 
 static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
@@ -271,7 +297,9 @@ static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipCh
     Stack& activeStack = Stack::getActiveStack();
     void* returnDst = activeStack.frameValueAt<void>(operands.retDst);
 
-    return performCall(function, returnDst, operands.argCount, argsSrcs);
+    activeStack.setInstructionPointer(activeStack.getInstructionPointer() + ipChange);
+
+    return setupInterpreterNestedCall(function, returnDst, operands.argCount, argsSrcs);
 }
 
 static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
@@ -287,7 +315,9 @@ static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange, 
 
     void* returnDst = activeStack.frameValueAt<void>(operands.retDst);
 
-    return performCall(function, returnDst, operands.argCount, argsSrcs);
+    activeStack.setInstructionPointer(activeStack.getInstructionPointer() + ipChange);
+
+    return setupInterpreterNestedCall(function, returnDst, operands.argCount, argsSrcs);
 }
 
 void executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes) {

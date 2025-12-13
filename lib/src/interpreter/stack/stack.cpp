@@ -180,7 +180,16 @@ uint16_t sy::Stack::pushScriptFunctionArg(const void* argMem, const sy::Type* ty
     return actualResult;
 }
 
-std::optional<Frame> sy::Stack::getCurrentFrame() { return this->nodes[this->currentNode].currentFrame; }
+std::optional<Frame> sy::Stack::getCurrentFrame() const noexcept { return this->nodes[this->currentNode].currentFrame; }
+
+std::optional<const sy::Function*> sy::Stack::getCurrentFunction() const noexcept {
+    auto frame = this->getCurrentFrame();
+    if (frame.has_value()) {
+        sy_assert(frame.value().functionIndex < this->callstackLen, "Invalid callstack");
+        return std::optional<const sy::Function*>(this->callstackFunctions[frame.value().functionIndex]);
+    }
+    return std::optional<const sy::Function*>();
+}
 
 void sy::Stack::popFrame() {
     auto popResult = this->nodes[this->currentNode].popFrame();
@@ -200,6 +209,9 @@ void sy::Stack::popFrame() {
     }
 
     this->instructionPointer = oldInstructionPointer;
+    if (this->callstackLen > 0) {
+        this->callstackLen -= 1;
+    }
 }
 
 void sy::Stack::addOneNode(const uint16_t requiredFrameLength) {

@@ -72,7 +72,9 @@ class Stack final {
     uint16_t pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset,
                                    const uint16_t frameLength, const uint16_t frameAlign);
 
-    [[nodiscard]] std::optional<Frame> getCurrentFrame();
+    [[nodiscard]] std::optional<Frame> getCurrentFrame() const noexcept;
+
+    [[nodiscard]] std::optional<const sy::Function*> getCurrentFunction() const noexcept;
 
     /// Pops the current frame from the stack, and restores the old one. Does not unwind the stack.
     /// # Debug Asserts
