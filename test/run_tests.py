@@ -114,7 +114,7 @@ if OPERATING_SYSTEM == "Darwin" and IS_ARM64:
 
     run_test_sequentially(
         "MacOS arm64",
-        'cmake -B build-x64 -DCMAKE_OSX_ARCHITECTURES="arm64" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF && cmake --build build-x64 --config Debug --parallel && ctest --test-dir build-x64 -C Debug --output-on-failure'
+        'cmake -B build-arm64 -DCMAKE_OSX_ARCHITECTURES="arm64" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF && cmake --build build-arm64 --config Debug --parallel && ctest --test-dir build-arm64 -C Debug --output-on-failure'
     )
 
     run_test_sequentially(

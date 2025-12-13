@@ -1,5 +1,5 @@
 # cached
-FROM --platform=linux/amd64 ubuntu:24.04 AS wasm-base
+FROM ubuntu:24.04 AS wasm-base
 
 RUN apt-get update && \
     apt-get install -y build-essential cmake git-all python3 nodejs && \
@@ -25,4 +25,4 @@ COPY . .
 RUN emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
 RUN cmake --build build --parallel
 RUN ctest --test-dir build --output-on-failure --verbose
-# node --experimental-wasm-threads --experimental-wasm-bulk-memory build/test/SyncTestCore_RwLockTwoThreadShared.js
+#RUN node --experimental-wasm-threads build/test/SyncLibTests.js

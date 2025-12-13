@@ -119,6 +119,10 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
         target_compile_options(${TEST_NAME} PRIVATE -pthread)
         target_link_options(${TEST_NAME} PRIVATE -pthread)
         target_link_options(${TEST_NAME} PRIVATE "SHELL:-s PTHREAD_POOL_SIZE=8")
+
+        target_link_options(${TEST_NAME} PRIVATE
+            "-s ASSERTIONS=1 -s DEMANGLE_SUPPORT=1 --profiling-funcs -g"
+        )
     endif()
 
 endfunction()
