@@ -25,6 +25,8 @@ All tokens are whitespace sensitive. For instance, `11 11` would not be the inte
 - union
   - Should maybe be like rust enums instead for simplicity?
 - dyn
+- dyn'
+  - Lifetime bound dynamic dispatch reference (pointer + vtable)
 - trait
 - sync
 - unsafe
@@ -76,21 +78,16 @@ Naturally there are more primitive types, such as arrays. The ones here are the 
   - Some types may result in invalid ordering such as NaN. Is this necessary?
 - Ord
   - For types that have total ordering. Is this necessary?
-- Map
-  - How should this look? Maybe like golang `map[K]V`? Tokenizer would check for `map` string.
-- Set
-  - How should this look? Maybe similar above `set[K]`? Tokenizer would check for `set` string.
 - Owned
   - Allocated type with thread locking mechanisms, with single ownership.
 - Shared
   - Allocated type with thread locking mechanisms, with shared ownership.
 - Weak
   - Weak reference type with thread locking mechanisms, with no ownership.
-- Sync Map
-  - Is this necessary? Like [Java ConcurrentHashMap](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentHashMap.html). How should this look? Maybe `SyncMap[K]V`?  Tokenizer would check for `SyncMap` string.
-- Sync Set
-  - Is this necessary? Similar to above. How should this look? Maybe `SyncSet[K]`? Tokenizer would check for `SyncSet` string.
 - Type
+- List
+- Map
+- Set
 
 ### Literals
 
@@ -168,10 +165,13 @@ Identifiers must start with alphabetical characters, being [a-z] or [A-Z], or an
 - ? (Optional)
 - ! (Error Result)
   - Cannot be meaningfully distinguished from not operator, as knowing if it's the not operator or the error result type can only be known with more information, such as if it's part of type information (return type for instance), the multiple symbols that came before, etc. As a result it will use `ExclamationSymbol`.
-- & (Immutable Reference)
+- & (Make Reference)
   - Cannot be meaningfully distinguished from bit-and at tokenizing time, as knowing if it's a reference type, make reference operator, or bit-and can only be known with more information, such as if it's part of function signature, the multiple symbols that came before, etc. As a result, it will use `AmpersandSymbol`.
-- &mut (Mutable Reference)
-  - Must be distinguished from bit and and make reference. Whitespace sensitive? Cannot be after an identifier.
+- \* (Pointer)
+  - Cannot be meaningfully disginguished from multiply at tokenizing time, as knowing which it is requires more information.
+- \*' (Lifetime Pointer)
+- @' (Conrete Lifetime)
+  - For FFI, lifetime bounds may not be clear especially with types that don't contain references (handles such as GPU buffers?), so having a concrete lifetime annotation on a type is useful. This can also be used on string slices (str@'a).
 
 ## Token Bit Optimization
 

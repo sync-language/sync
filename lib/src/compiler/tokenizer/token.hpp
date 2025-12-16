@@ -6,6 +6,7 @@
 #include "../../types/string/string_slice.hpp"
 #include <tuple>
 
+namespace sy {
 /// Maximum length of a source file mustn't exceed 24 bits
 static constexpr size_t MAX_SOURCE_LEN = 0x00FFFFFF;
 
@@ -30,7 +31,8 @@ enum class TokenType : uint8_t {
     StructKeyword,
     EnumKeyword,
     // UnionKeyword,
-    // DynKeyword,
+    DynKeyword,
+    LifetimeDynKeyword,
     TraitKeyword,
     SyncKeyword,
     // UnsafeKeyword,
@@ -39,7 +41,6 @@ enum class TokenType : uint8_t {
     NullKeyword,
     AndKeyword,
     OrKeyword,
-    DynKeyword,
     // ImportKeyword,
     // ModKeyword,
     // ExternKeyword,
@@ -62,14 +63,13 @@ enum class TokenType : uint8_t {
     StringPrimitive,
     // PartialOrdPrimitive,
     // OrdPrimitive,
-    // MapPrimitive,
-    // SetPrimitive,
     SyncOwnedPrimitive,
     SyncSharedPrimitive,
     SyncWeakPrimitive,
-    // SyncMapPrimitive,
-    // SyncSetPrimitive,
     TypePrimitive,
+    ListPrimitive,
+    MapPrimitive,
+    SetPrimitive,
 
     NumberLiteral,
     CharLiteral,
@@ -93,7 +93,7 @@ enum class TokenType : uint8_t {
     SubtractAssignOperator,
     SubtractOperator,
     MultiplyAssignOperator,
-    MultiplyOperator,
+    // MultiplyOperator,
     DivideAssignOperator,
     DivideOperator,
     // PowerAssignOperator,
@@ -129,9 +129,13 @@ enum class TokenType : uint8_t {
     MutableReferenceSymbol,
     AmpersandSymbol,
     ExclamationSymbol,
+    AsteriskSymbol,
+
+    LifetimePointer,
+    ConcreteLifetime,
 };
 
-sy::StringSlice tokenTypeToString(TokenType tokenType);
+StringSlice tokenTypeToString(TokenType tokenType);
 
 class Token {
   public:
@@ -141,8 +145,7 @@ class Token {
     /// location to start. If the second tuple value is `-1`, then the end of
     /// file has been reached but a token was at the end. Third tuple value
     /// is the line number
-    static std::tuple<Token, uint32_t> parseToken(const sy::StringSlice source, const uint32_t start,
-                                                  uint32_t* lineNumber);
+    static std::tuple<Token, uint32_t> parseToken(const StringSlice source, const uint32_t start, uint32_t* lineNumber);
 
     [[nodiscard]] constexpr TokenType tag() const { return static_cast<TokenType>(tag_); }
 
@@ -152,5 +155,6 @@ class Token {
     uint32_t tag_ : 8;
     uint32_t location_ : 24;
 };
+} // namespace sy
 
 #endif // SY_COMPILER_TOKENIZER_TOKEN_HPP_

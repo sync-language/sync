@@ -2,11 +2,11 @@
 #include "../../util/assert.hpp"
 #include "../../util/unreachable.hpp"
 
+using namespace sy;
+
 static_assert(sizeof(Token) == sizeof(uint32_t));
 
-using sy::StringSlice;
-
-StringSlice tokenTypeToString(TokenType tokenType) {
+StringSlice sy::tokenTypeToString(TokenType tokenType) {
     switch (tokenType) {
     case TokenType::Error:
         return "Error";
@@ -43,6 +43,10 @@ StringSlice tokenTypeToString(TokenType tokenType) {
         return "StructKeyword";
     case TokenType::EnumKeyword:
         return "EnumKeyword";
+    case TokenType::DynKeyword:
+        return "DynKeyword";
+    case TokenType::LifetimeDynKeyword:
+        return "LifetimeDynKeyword";
     case TokenType::TraitKeyword:
         return "TraitKeyword";
     case TokenType::SyncKeyword:
@@ -57,8 +61,6 @@ StringSlice tokenTypeToString(TokenType tokenType) {
         return "AndKeyword";
     case TokenType::OrKeyword:
         return "OrKeyword";
-    case TokenType::DynKeyword:
-        return "DynKeyword";
 
     case TokenType::BoolPrimitive:
         return "BoolPrimitive";
@@ -138,8 +140,8 @@ StringSlice tokenTypeToString(TokenType tokenType) {
         return "SubtractOperator";
     case TokenType::MultiplyAssignOperator:
         return "MultiplyAssignOperator";
-    case TokenType::MultiplyOperator:
-        return "MultiplyOperator";
+    // case TokenType::MultiplyOperator:
+    //     return "MultiplyOperator";
     case TokenType::DivideAssignOperator:
         return "DivideAssignOperator";
     case TokenType::DivideOperator:
@@ -204,6 +206,13 @@ StringSlice tokenTypeToString(TokenType tokenType) {
         return "AmpersandSymbol";
     case TokenType::ExclamationSymbol:
         return "ExclamationSymbol";
+    case TokenType::AsteriskSymbol:
+        return "AsteriskSymbol";
+
+    case TokenType::LifetimePointer:
+        return "LifetimePointer";
+    case TokenType::ConcreteLifetime:
+        return "ConcreteLifetime";
     default:
         sy_assert(false, "Invalid token");
     }
@@ -221,7 +230,10 @@ constexpr static bool isAlpha(char c) { return (c >= 'A' && c <= 'Z') || (c >= '
 constexpr static bool isNumeric(char c) { return (c >= '0' && c <= '9'); }
 
 constexpr static bool isSeparator(char c) {
-    return c == ';' || c == ',' || c == ':' || c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}';
+    // @ and ' for lifetime stuff
+
+    return c == ';' || c == ',' || c == ':' || c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}' ||
+           c == '@' || c == '\'';
 }
 
 constexpr static bool isAlphaNumeric(char c) { return isAlpha(c) || isNumeric(c); }
@@ -329,7 +341,7 @@ static std::tuple<Token, uint32_t> parseReturnOrIdentifier(const StringSlice sou
 
 static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseStringSharedOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseStringSharedSetOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnOrIdentifier(const StringSlice source,
                                                                          const uint32_t start);
@@ -353,6 +365,10 @@ static std::tuple<Token, uint32_t> parseDynOrIdentifier(const StringSlice source
 static std::tuple<Token, uint32_t> parseWhileOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseTypeOrIdentifier(const StringSlice source, const uint32_t start);
+
+static std::tuple<Token, uint32_t> parseListOrIdentifier(const StringSlice source, const uint32_t start);
+
+static std::tuple<Token, uint32_t> parseMapOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseIdentifier(const StringSlice source, const uint32_t start);
 
@@ -500,6 +516,39 @@ static std::tuple<Token, uint32_t> parseAmpersandOrMutableReference(const String
     return std::make_tuple(Token(TokenType::AmpersandSymbol, start - 1), start);
 }
 
+static std::tuple<Token, uint32_t> parseMultiplyOrPointer(const StringSlice source, const uint32_t start) {
+    sy_assert(source[start - 1] == '*', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if (remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::AsteriskSymbol, start - 1), static_cast<uint32_t>(-1));
+    }
+
+    if (source[start] == '=') {
+        return std::make_tuple(Token(TokenType::MultiplyAssignOperator, start - 1), start + 1);
+    } else if (source[start] == '\'') {
+        return std::make_tuple(Token(TokenType::LifetimePointer, start - 1), start + 1);
+    }
+
+    return std::make_tuple(Token(TokenType::AsteriskSymbol, start - 1), start);
+}
+
+static std::tuple<Token, uint32_t> parseConcreteLifetime(const StringSlice source, const uint32_t start) {
+    sy_assert(source[start - 1] == '@', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+    if (remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::Error, start - 1), static_cast<uint32_t>(-1));
+    }
+
+    if (source[start] == '\'') {
+        return std::make_tuple(Token(TokenType::ConcreteLifetime, start - 1), start + 1);
+    }
+
+    return std::make_tuple(Token(TokenType::Error, start - 1), start);
+}
+
 #pragma endregion
 
 static std::tuple<Token, uint32_t> parseSubtractOrNegativeNumberLiteral(const StringSlice source,
@@ -619,7 +668,8 @@ static std::tuple<Token, uint32_t> parseNumberLiteral(const StringSlice source, 
     return std::make_tuple(Token(TokenType::NumberLiteral, start - 1), i);
 }
 
-std::tuple<Token, uint32_t> Token::parseToken(const StringSlice source, const uint32_t start, uint32_t* lineNumber) {
+std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, const uint32_t start,
+                                                  uint32_t* lineNumber) {
     const uint32_t nonWhitespaceStart = nonWhitespaceStartFrom(source, start, lineNumber);
     if (nonWhitespaceStart == static_cast<uint32_t>(-1)) {
         return std::make_tuple(Token(TokenType::EndOfFile, nonWhitespaceStart), 0);
@@ -702,7 +752,7 @@ std::tuple<Token, uint32_t> Token::parseToken(const StringSlice source, const ui
 
     // capital S (String, Shared)
     if (source[nonWhitespaceStart] == 'S') {
-        return parseStringSharedOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseStringSharedSetOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // float types, for, false, fn
@@ -760,12 +810,30 @@ std::tuple<Token, uint32_t> Token::parseToken(const StringSlice source, const ui
         return parseTypeOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
+    // List
+    if (source[nonWhitespaceStart] == 'L') {
+        return parseListOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
+    // Map
+    if (source[nonWhitespaceStart] == 'M') {
+        return parseMapOrIdentifier(source, nonWhitespaceStart + 1);
+    }
+
     if (source[nonWhitespaceStart] == '.') {
         return parseDotOperatorsAndSymbol(source, nonWhitespaceStart + 1);
     }
 
+    if (source[nonWhitespaceStart] == '*') {
+        return parseMultiplyOrPointer(source, nonWhitespaceStart + 1);
+    }
+
     if (source[nonWhitespaceStart] == '&') {
         return parseAmpersandOrMutableReference(source, nonWhitespaceStart + 1);
+    }
+
+    if (source[nonWhitespaceStart] == '@') {
+        return parseConcreteLifetime(source, nonWhitespaceStart + 1);
     }
 
     if (source[nonWhitespaceStart] == '<') {
@@ -782,11 +850,6 @@ std::tuple<Token, uint32_t> Token::parseToken(const StringSlice source, const ui
 
     if (source[nonWhitespaceStart] == '+') {
         return parseMathOperatorWithAssign<'+', TokenType::AddOperator, TokenType::AddAssignOperator>(
-            source, nonWhitespaceStart + 1);
-    }
-
-    if (source[nonWhitespaceStart] == '*') {
-        return parseMathOperatorWithAssign<'*', TokenType::MultiplyOperator, TokenType::MultiplyAssignOperator>(
             source, nonWhitespaceStart + 1);
     }
 
@@ -1092,10 +1155,16 @@ static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(const St
     }
 }
 
-static std::tuple<Token, uint32_t> parseStringSharedOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parseStringSharedSetOrIdentifier(const StringSlice source, const uint32_t start) {
     sy_assert(source[start - 1] == 'S', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if (remainingSourceLen >= 2) {
+        if (sliceFoundAtUnchecked(source, "et", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::SetPrimitive);
+        }
+    }
 
     if (remainingSourceLen < 5) {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
@@ -1310,13 +1379,16 @@ static std::tuple<Token, uint32_t> parseDynOrIdentifier(const StringSlice source
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
-    if (remainingSourceLen < 2) {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
-        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    if (remainingSourceLen >= 3) {
+        if (sliceFoundAtUnchecked(source, "yn\'", start)) {
+            return std::make_tuple(Token(TokenType::LifetimeDynKeyword, start - 1), start + 3);
+        }
     }
 
-    if (sliceFoundAtUnchecked(source, "yn", start)) {
-        return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::DynKeyword);
+    if (remainingSourceLen >= 2) {
+        if (sliceFoundAtUnchecked(source, "yn", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::DynKeyword);
+        }
     }
 
     {
@@ -1353,6 +1425,40 @@ static std::tuple<Token, uint32_t> parseTypeOrIdentifier(const StringSlice sourc
     if (remainingSourceLen >= 3) {
         if (sliceFoundAtUnchecked(source, "ype", start)) {
             return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::TypePrimitive);
+        }
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseListOrIdentifier(const StringSlice source, const uint32_t start) {
+    sy_assert(source[start - 1] == 'L', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if (remainingSourceLen >= 3) {
+        if (sliceFoundAtUnchecked(source, "ist", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::ListPrimitive);
+        }
+    }
+
+    {
+        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
+        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+}
+
+static std::tuple<Token, uint32_t> parseMapOrIdentifier(const StringSlice source, const uint32_t start) {
+    sy_assert(source[start - 1] == 'M', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if (remainingSourceLen >= 2) {
+        if (sliceFoundAtUnchecked(source, "ap", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::MapPrimitive);
         }
     }
 
@@ -1433,91 +1539,132 @@ static void testParseKeyword(const char* keyword, TokenType expectedTokenType) {
     }
 }
 
-TEST_CASE("const") { testParseKeyword("const", TokenType::ConstKeyword); }
+TEST_CASE("[Token] const") { testParseKeyword("const", TokenType::ConstKeyword); }
 
-TEST_CASE("continue") { testParseKeyword("continue", TokenType::ContinueKeyword); }
+TEST_CASE("[Token] continue") { testParseKeyword("continue", TokenType::ContinueKeyword); }
 
-TEST_CASE("comptime") { testParseKeyword("comptime", TokenType::ComptimeKeyword); }
+TEST_CASE("[Token] comptime") { testParseKeyword("comptime", TokenType::ComptimeKeyword); }
 
-TEST_CASE("if") { testParseKeyword("if", TokenType::IfKeyword); }
+TEST_CASE("[Token] if") { testParseKeyword("if", TokenType::IfKeyword); }
 
-TEST_CASE("i8") { testParseKeyword("i8", TokenType::I8Primitive); }
+TEST_CASE("[Token] i8") { testParseKeyword("i8", TokenType::I8Primitive); }
 
-TEST_CASE("i16") { testParseKeyword("i16", TokenType::I16Primitive); }
+TEST_CASE("[Token] i16") { testParseKeyword("i16", TokenType::I16Primitive); }
 
-TEST_CASE("i32") { testParseKeyword("i32", TokenType::I32Primitive); }
+TEST_CASE("[Token] i32") { testParseKeyword("i32", TokenType::I32Primitive); }
 
-TEST_CASE("i64") { testParseKeyword("i64", TokenType::I64Primitive); }
+TEST_CASE("[Token] i64") { testParseKeyword("i64", TokenType::I64Primitive); }
 
-TEST_CASE("u8") { testParseKeyword("u8", TokenType::U8Primitive); }
+TEST_CASE("[Token] u8") { testParseKeyword("u8", TokenType::U8Primitive); }
 
-TEST_CASE("u16") { testParseKeyword("u16", TokenType::U16Primitive); }
+TEST_CASE("[Token] u16") { testParseKeyword("u16", TokenType::U16Primitive); }
 
-TEST_CASE("u32") { testParseKeyword("u32", TokenType::U32Primitive); }
+TEST_CASE("[Token] u32") { testParseKeyword("u32", TokenType::U32Primitive); }
 
-TEST_CASE("u64") { testParseKeyword("u64", TokenType::U64Primitive); }
+TEST_CASE("[Token] u64") { testParseKeyword("u64", TokenType::U64Primitive); }
 
-TEST_CASE("usize") { testParseKeyword("usize", TokenType::USizePrimitive); }
+TEST_CASE("[Token] usize") { testParseKeyword("usize", TokenType::USizePrimitive); }
 
-TEST_CASE("else") { testParseKeyword("else", TokenType::ElseKeyword); }
+TEST_CASE("[Token] else") { testParseKeyword("else", TokenType::ElseKeyword); }
 
-TEST_CASE("enum") { testParseKeyword("enum", TokenType::EnumKeyword); }
+TEST_CASE("[Token] enum") { testParseKeyword("enum", TokenType::EnumKeyword); }
 
-TEST_CASE("bool") { testParseKeyword("bool", TokenType::BoolPrimitive); }
+TEST_CASE("[Token] bool") { testParseKeyword("bool", TokenType::BoolPrimitive); }
 
-TEST_CASE("break") { testParseKeyword("break", TokenType::BreakKeyword); }
+TEST_CASE("[Token] break") { testParseKeyword("break", TokenType::BreakKeyword); }
 
-TEST_CASE("mut") { testParseKeyword("mut", TokenType::MutKeyword); }
+TEST_CASE("[Token] mut") { testParseKeyword("mut", TokenType::MutKeyword); }
 
-TEST_CASE("str") { testParseKeyword("str", TokenType::StrPrimitive); }
+TEST_CASE("[Token] str") { testParseKeyword("str", TokenType::StrPrimitive); }
 
-TEST_CASE("sync") { testParseKeyword("sync", TokenType::SyncKeyword); }
+TEST_CASE("[Token] sync") { testParseKeyword("sync", TokenType::SyncKeyword); }
 
-TEST_CASE("struct") { testParseKeyword("struct", TokenType::StructKeyword); }
+TEST_CASE("[Token] struct") { testParseKeyword("struct", TokenType::StructKeyword); }
 
-TEST_CASE("switch") { testParseKeyword("switch", TokenType::SwitchKeyword); }
+TEST_CASE("[Token] switch") { testParseKeyword("switch", TokenType::SwitchKeyword); }
 
-TEST_CASE("String") { testParseKeyword("String", TokenType::StringPrimitive); }
+TEST_CASE("[Token] String") { testParseKeyword("String", TokenType::StringPrimitive); }
 
-TEST_CASE("Shared") { testParseKeyword("Shared", TokenType::SyncSharedPrimitive); }
+TEST_CASE("[Token] Shared") { testParseKeyword("Shared", TokenType::SyncSharedPrimitive); }
 
-TEST_CASE("f32") { testParseKeyword("f32", TokenType::F32Primitive); }
+TEST_CASE("[Token] f32") { testParseKeyword("f32", TokenType::F32Primitive); }
 
-TEST_CASE("f64") { testParseKeyword("f64", TokenType::F64Primitive); }
+TEST_CASE("[Token] f64") { testParseKeyword("f64", TokenType::F64Primitive); }
 
-TEST_CASE("for") { testParseKeyword("for", TokenType::ForKeyword); }
+TEST_CASE("[Token] for") { testParseKeyword("for", TokenType::ForKeyword); }
 
-TEST_CASE("false") { testParseKeyword("false", TokenType::FalseKeyword); }
+TEST_CASE("[Token] false") { testParseKeyword("false", TokenType::FalseKeyword); }
 
-TEST_CASE("char") { testParseKeyword("char", TokenType::CharPrimitive); }
+TEST_CASE("[Token] char") { testParseKeyword("char", TokenType::CharPrimitive); }
 
-TEST_CASE("fn") { testParseKeyword("fn", TokenType::FnKeyword); }
+TEST_CASE("[Token] fn") { testParseKeyword("fn", TokenType::FnKeyword); }
 
-TEST_CASE("true") { testParseKeyword("true", TokenType::TrueKeyword); }
+TEST_CASE("[Token] true") { testParseKeyword("true", TokenType::TrueKeyword); }
 
-TEST_CASE("pub") { testParseKeyword("pub", TokenType::PubKeyword); }
+TEST_CASE("[Token] pub") { testParseKeyword("pub", TokenType::PubKeyword); }
 
-TEST_CASE("Owned") { testParseKeyword("Owned", TokenType::SyncOwnedPrimitive); }
+TEST_CASE("[Token] Owned") { testParseKeyword("Owned", TokenType::SyncOwnedPrimitive); }
 
-TEST_CASE("Weak") { testParseKeyword("Weak", TokenType::SyncWeakPrimitive); }
+TEST_CASE("[Token] Weak") { testParseKeyword("Weak", TokenType::SyncWeakPrimitive); }
 
-TEST_CASE("return") { testParseKeyword("return", TokenType::ReturnKeyword); }
+TEST_CASE("[Token] return") { testParseKeyword("return", TokenType::ReturnKeyword); }
 
-TEST_CASE("throw") { testParseKeyword("throw", TokenType::ThrowKeyword); }
+TEST_CASE("[Token] throw") { testParseKeyword("throw", TokenType::ThrowKeyword); }
 
-TEST_CASE("and") { testParseKeyword("and", TokenType::AndKeyword); }
+TEST_CASE("[Token] and") { testParseKeyword("and", TokenType::AndKeyword); }
 
-TEST_CASE("or") { testParseKeyword("or", TokenType::OrKeyword); }
+TEST_CASE("[Token] or") { testParseKeyword("or", TokenType::OrKeyword); }
 
-TEST_CASE("null") { testParseKeyword("null", TokenType::NullKeyword); }
+TEST_CASE("[Token] null") { testParseKeyword("null", TokenType::NullKeyword); }
 
-TEST_CASE("dyn") { testParseKeyword("dyn", TokenType::DynKeyword); }
+TEST_CASE("[Token] dyn") { testParseKeyword("dyn", TokenType::DynKeyword); }
 
-TEST_CASE("while") { testParseKeyword("while", TokenType::WhileKeyword); }
+TEST_CASE("[Token] lifetime dyn") {
+    const char* keyword = "dyn\'";
+    const size_t keywordLength = std::strlen(keyword);
+    auto stdStringToSlice = [](const std::string& s) { return StringSlice(s.data(), s.size()); };
 
-TEST_CASE("trait") { testParseKeyword("trait", TokenType::TraitKeyword); }
+    { // as is
+        const auto slice = StringSlice(keyword, keywordLength);
+        auto [token, end] = Token::parseToken(slice, 0, &lineNumberUnused);
+        CHECK_EQ(token.tag(), TokenType::LifetimeDynKeyword);
+        CHECK_EQ(token.location(), 0);
+        CHECK_GE(end, keywordLength);
+    }
+    { // with space in front
+        const std::string str = std::string(" ") + keyword;
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0, &lineNumberUnused);
+        CHECK_EQ(token.tag(), TokenType::LifetimeDynKeyword);
+        CHECK_EQ(token.location(), 1);
+        CHECK_GE(end, keywordLength);
+    }
+    { // with space at the end
+        const std::string str = keyword + std::string(" ");
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0, &lineNumberUnused);
+        CHECK_EQ(token.tag(), TokenType::LifetimeDynKeyword);
+        CHECK_EQ(token.location(), 0);
+        CHECK_EQ(end, keywordLength);
+    }
+    { // with space at the front and end
+        const std::string str = std::string(" ") + keyword + ' ';
+        auto [token, end] = Token::parseToken(stdStringToSlice(str), 0, &lineNumberUnused);
+        CHECK_EQ(token.tag(), TokenType::LifetimeDynKeyword);
+        CHECK_EQ(token.location(), 1);
+        CHECK_EQ(end, keywordLength + 1); // space before so 1 after
+    }
+}
 
-TEST_CASE("Type") { testParseKeyword("Type", TokenType::TypePrimitive); }
+TEST_CASE("[Token] while") { testParseKeyword("while", TokenType::WhileKeyword); }
+
+TEST_CASE("[Token] trait") { testParseKeyword("trait", TokenType::TraitKeyword); }
+
+TEST_CASE("[Token] Type") { testParseKeyword("Type", TokenType::TypePrimitive); }
+
+TEST_CASE("[Token] List") { testParseKeyword("List", TokenType::ListPrimitive); }
+
+TEST_CASE("[Token] Map") { testParseKeyword("Map", TokenType::MapPrimitive); }
+
+TEST_CASE("[Token] Set") { testParseKeyword("Set", TokenType::SetPrimitive); }
 
 static void testParseOperatorOrSymbol(const char* operatorOrSymbol, TokenType expectedTokenType, bool checkAlphaAfter,
                                       bool checkAnyOperatorAfter, bool checkSameOperatorAfter) {
@@ -1584,93 +1731,97 @@ static void testParseOperatorOrSymbol(const char* operatorOrSymbol, TokenType ex
     }
 }
 
-TEST_CASE("<") { testParseOperatorOrSymbol("<", TokenType::LessOperator, true, true, false); }
+TEST_CASE("[Token] <") { testParseOperatorOrSymbol("<", TokenType::LessOperator, true, true, false); }
 
-TEST_CASE("<=") { testParseOperatorOrSymbol("<=", TokenType::LessOrEqualOperator, true, true, true); }
+TEST_CASE("[Token] <=") { testParseOperatorOrSymbol("<=", TokenType::LessOrEqualOperator, true, true, true); }
 
-TEST_CASE("<<") { testParseOperatorOrSymbol("<<", TokenType::BitshiftLeftOperator, true, true, true); }
+TEST_CASE("[Token] <<") { testParseOperatorOrSymbol("<<", TokenType::BitshiftLeftOperator, true, true, true); }
 
-TEST_CASE("<<=") { testParseOperatorOrSymbol("<<=", TokenType::BitshiftLeftAssignOperator, true, true, true); }
+TEST_CASE("[Token] <<=") { testParseOperatorOrSymbol("<<=", TokenType::BitshiftLeftAssignOperator, true, true, true); }
 
-TEST_CASE(">") { testParseOperatorOrSymbol(">", TokenType::GreaterOperator, true, true, false); }
+TEST_CASE("[Token] >") { testParseOperatorOrSymbol(">", TokenType::GreaterOperator, true, true, false); }
 
-TEST_CASE(">=") { testParseOperatorOrSymbol(">=", TokenType::GreaterOrEqualOperator, true, true, true); }
+TEST_CASE("[Token] >=") { testParseOperatorOrSymbol(">=", TokenType::GreaterOrEqualOperator, true, true, true); }
 
-TEST_CASE(">>") { testParseOperatorOrSymbol(">>", TokenType::BitshiftRightOperator, true, true, true); }
+TEST_CASE("[Token] >>") { testParseOperatorOrSymbol(">>", TokenType::BitshiftRightOperator, true, true, true); }
 
-TEST_CASE(">>=") { testParseOperatorOrSymbol(">>=", TokenType::BitshiftRightAssignOperator, true, true, true); }
+TEST_CASE("[Token] >>=") { testParseOperatorOrSymbol(">>=", TokenType::BitshiftRightAssignOperator, true, true, true); }
 
-TEST_CASE("=") { testParseOperatorOrSymbol("=", TokenType::AssignOperator, true, true, false); }
+TEST_CASE("[Token] =") { testParseOperatorOrSymbol("=", TokenType::AssignOperator, true, true, false); }
 
-TEST_CASE("==") { testParseOperatorOrSymbol("==", TokenType::EqualOperator, true, true, true); }
+TEST_CASE("[Token] ==") { testParseOperatorOrSymbol("==", TokenType::EqualOperator, true, true, true); }
 
-TEST_CASE("+") { testParseOperatorOrSymbol("+", TokenType::AddOperator, true, true, true); }
+TEST_CASE("[Token] +") { testParseOperatorOrSymbol("+", TokenType::AddOperator, true, true, true); }
 
-TEST_CASE("+=") { testParseOperatorOrSymbol("+=", TokenType::AddAssignOperator, true, true, true); }
+TEST_CASE("[Token] +=") { testParseOperatorOrSymbol("+=", TokenType::AddAssignOperator, true, true, true); }
 
-TEST_CASE("*") { testParseOperatorOrSymbol("*", TokenType::MultiplyOperator, true, true, true); }
+TEST_CASE("[Token] *") { testParseOperatorOrSymbol("*", TokenType::AsteriskSymbol, true, true, true); }
 
-TEST_CASE("*=") { testParseOperatorOrSymbol("*=", TokenType::MultiplyAssignOperator, true, true, true); }
+TEST_CASE("[Token] *\'") { testParseOperatorOrSymbol("*\'", TokenType::LifetimePointer, true, true, true); }
 
-TEST_CASE("/") { testParseOperatorOrSymbol("/", TokenType::DivideOperator, true, true, true); }
+TEST_CASE("[Token] *=") { testParseOperatorOrSymbol("*=", TokenType::MultiplyAssignOperator, true, true, true); }
 
-TEST_CASE("/=") { testParseOperatorOrSymbol("/=", TokenType::DivideAssignOperator, true, true, true); }
+TEST_CASE("[Token] /") { testParseOperatorOrSymbol("/", TokenType::DivideOperator, true, true, true); }
 
-TEST_CASE("%") { testParseOperatorOrSymbol("%", TokenType::ModuloOperator, true, true, true); }
+TEST_CASE("[Token] /=") { testParseOperatorOrSymbol("/=", TokenType::DivideAssignOperator, true, true, true); }
 
-TEST_CASE("%=") { testParseOperatorOrSymbol("%=", TokenType::ModuloAssignOperator, true, true, true); }
+TEST_CASE("[Token] %") { testParseOperatorOrSymbol("%", TokenType::ModuloOperator, true, true, true); }
 
-TEST_CASE("|") { testParseOperatorOrSymbol("|", TokenType::BitOrOperator, true, true, true); }
+TEST_CASE("[Token] %=") { testParseOperatorOrSymbol("%=", TokenType::ModuloAssignOperator, true, true, true); }
 
-TEST_CASE("|=") { testParseOperatorOrSymbol("|=", TokenType::BitOrAssignOperator, true, true, true); }
+TEST_CASE("[Token] |") { testParseOperatorOrSymbol("|", TokenType::BitOrOperator, true, true, true); }
 
-TEST_CASE("^") { testParseOperatorOrSymbol("^", TokenType::BitXorOperator, true, true, true); }
+TEST_CASE("[Token] |=") { testParseOperatorOrSymbol("|=", TokenType::BitOrAssignOperator, true, true, true); }
 
-TEST_CASE("^=") { testParseOperatorOrSymbol("^=", TokenType::BitXorAssignOperator, true, true, true); }
+TEST_CASE("[Token] ^") { testParseOperatorOrSymbol("^", TokenType::BitXorOperator, true, true, true); }
 
-TEST_CASE("~") { testParseOperatorOrSymbol("~", TokenType::BitNotOperator, true, true, true); }
+TEST_CASE("[Token] ^=") { testParseOperatorOrSymbol("^=", TokenType::BitXorAssignOperator, true, true, true); }
 
-TEST_CASE("~=") { testParseOperatorOrSymbol("~=", TokenType::BitNotAssignOperator, true, true, true); }
+TEST_CASE("[Token] ~") { testParseOperatorOrSymbol("~", TokenType::BitNotOperator, true, true, true); }
 
-TEST_CASE("!") { testParseOperatorOrSymbol("!", TokenType::ExclamationSymbol, true, true, true); }
+TEST_CASE("[Token] ~=") { testParseOperatorOrSymbol("~=", TokenType::BitNotAssignOperator, true, true, true); }
 
-TEST_CASE("!=") { testParseOperatorOrSymbol("!=", TokenType::NotEqualOperator, true, true, true); }
+TEST_CASE("[Token] !") { testParseOperatorOrSymbol("!", TokenType::ExclamationSymbol, true, true, true); }
 
-TEST_CASE(".") { testParseOperatorOrSymbol(".", TokenType::DotSymbol, true, false, true); }
+TEST_CASE("[Token] !=") { testParseOperatorOrSymbol("!=", TokenType::NotEqualOperator, true, true, true); }
 
-TEST_CASE(".?") { testParseOperatorOrSymbol(".?", TokenType::OptionUnwrapOperator, true, true, true); }
+TEST_CASE("[Token] .") { testParseOperatorOrSymbol(".", TokenType::DotSymbol, true, false, true); }
 
-TEST_CASE(".!") { testParseOperatorOrSymbol(".!", TokenType::ErrorUnwrapOperator, true, true, true); }
+TEST_CASE("[Token] .?") { testParseOperatorOrSymbol(".?", TokenType::OptionUnwrapOperator, true, true, true); }
 
-TEST_CASE("&") { testParseOperatorOrSymbol("&", TokenType::AmpersandSymbol, true, true, true); }
+TEST_CASE("[Token] .!") { testParseOperatorOrSymbol(".!", TokenType::ErrorUnwrapOperator, true, true, true); }
 
-TEST_CASE("&mut") { testParseOperatorOrSymbol("&mut", TokenType::MutableReferenceSymbol, false, true, true); }
+TEST_CASE("[Token] &") { testParseOperatorOrSymbol("&", TokenType::AmpersandSymbol, true, true, true); }
 
-TEST_CASE("(") { testParseOperatorOrSymbol("(", TokenType::LeftParenthesesSymbol, true, true, true); }
+TEST_CASE("[Token] &mut") { testParseOperatorOrSymbol("&mut", TokenType::MutableReferenceSymbol, false, true, true); }
 
-TEST_CASE(")") { testParseOperatorOrSymbol(")", TokenType::RightParenthesesSymbol, true, true, true); }
+TEST_CASE("[Token] @\'") { testParseOperatorOrSymbol("@\'", TokenType::ConcreteLifetime, false, true, true); }
 
-TEST_CASE("[") { testParseOperatorOrSymbol("[", TokenType::LeftBracketSymbol, true, true, true); }
+TEST_CASE("[Token] (") { testParseOperatorOrSymbol("(", TokenType::LeftParenthesesSymbol, true, true, true); }
 
-TEST_CASE("]") { testParseOperatorOrSymbol("]", TokenType::RightBracketSymbol, true, true, true); }
+TEST_CASE("[Token] )") { testParseOperatorOrSymbol(")", TokenType::RightParenthesesSymbol, true, true, true); }
 
-TEST_CASE("{") { testParseOperatorOrSymbol("{", TokenType::LeftBraceSymbol, true, true, true); }
+TEST_CASE("[Token] [") { testParseOperatorOrSymbol("[", TokenType::LeftBracketSymbol, true, true, true); }
 
-TEST_CASE("}") { testParseOperatorOrSymbol("}", TokenType::RightBraceSymbol, true, true, true); }
+TEST_CASE("[Token] ]") { testParseOperatorOrSymbol("]", TokenType::RightBracketSymbol, true, true, true); }
 
-TEST_CASE(":") { testParseOperatorOrSymbol(":", TokenType::ColonSymbol, true, true, true); }
+TEST_CASE("[Token] {") { testParseOperatorOrSymbol("{", TokenType::LeftBraceSymbol, true, true, true); }
 
-TEST_CASE(";") { testParseOperatorOrSymbol(";", TokenType::SemicolonSymbol, true, true, true); }
+TEST_CASE("[Token] }") { testParseOperatorOrSymbol("}", TokenType::RightBraceSymbol, true, true, true); }
 
-TEST_CASE(",") { testParseOperatorOrSymbol(",", TokenType::CommaSymbol, true, true, true); }
+TEST_CASE("[Token] :") { testParseOperatorOrSymbol(":", TokenType::ColonSymbol, true, true, true); }
 
-TEST_CASE("?") { testParseOperatorOrSymbol("?", TokenType::OptionalSymbol, true, true, true); }
+TEST_CASE("[Token] ;") { testParseOperatorOrSymbol(";", TokenType::SemicolonSymbol, true, true, true); }
 
-TEST_CASE("-") { testParseOperatorOrSymbol("-", TokenType::SubtractOperator, true, true, true); }
+TEST_CASE("[Token] ,") { testParseOperatorOrSymbol(",", TokenType::CommaSymbol, true, true, true); }
 
-TEST_CASE("-=") { testParseOperatorOrSymbol("-=", TokenType::SubtractAssignOperator, true, true, true); }
+TEST_CASE("[Token] ?") { testParseOperatorOrSymbol("?", TokenType::OptionalSymbol, true, true, true); }
 
-TEST_CASE("Negative Numbers") {
+TEST_CASE("[Token] -") { testParseOperatorOrSymbol("-", TokenType::SubtractOperator, true, true, true); }
+
+TEST_CASE("[Token] -=") { testParseOperatorOrSymbol("-=", TokenType::SubtractAssignOperator, true, true, true); }
+
+TEST_CASE("[Token] Negative Numbers") {
     testParseOperatorOrSymbol("-0", TokenType::NumberLiteral, true, true, true);
     testParseOperatorOrSymbol("-1", TokenType::NumberLiteral, true, true, true);
     testParseOperatorOrSymbol("-2", TokenType::NumberLiteral, true, true, true);
@@ -1694,7 +1845,7 @@ TEST_CASE("Negative Numbers") {
 }
 
 TEST_SUITE("string literals") {
-    TEST_CASE("empty string") {
+    TEST_CASE("[Token] empty string") {
         {
             const StringSlice s = "\"\"";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1718,7 +1869,7 @@ TEST_SUITE("string literals") {
         }
     }
 
-    TEST_CASE("1 character string") {
+    TEST_CASE("[Token] 1 character string") {
         {
             const StringSlice s = "\"a\"";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1742,7 +1893,7 @@ TEST_SUITE("string literals") {
         }
     }
 
-    TEST_CASE("multiple character string") {
+    TEST_CASE("[Token] multiple character string") {
         {
             const StringSlice s = "\"abc\"";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1766,7 +1917,7 @@ TEST_SUITE("string literals") {
         }
     }
 
-    TEST_CASE("has quote character within") {
+    TEST_CASE("[Token] has quote character within") {
         {
             const StringSlice s = "\"\\\"\"";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1790,7 +1941,7 @@ TEST_SUITE("string literals") {
         }
     }
 
-    TEST_CASE("has apostrophe character within") {
+    TEST_CASE("[Token] has apostrophe character within") {
         {
             const StringSlice s = "\"\\\'\"";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1814,7 +1965,7 @@ TEST_SUITE("string literals") {
         }
     }
 
-    TEST_CASE("invalid") {
+    TEST_CASE("[Token] invalid") {
         { // not terminated last character
             const StringSlice s = " \"";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1840,7 +1991,7 @@ TEST_SUITE("string literals") {
 }
 
 TEST_SUITE("char literals") {
-    TEST_CASE("1 character string") {
+    TEST_CASE("[Token] 1 character string") {
         {
             const StringSlice s = "\'a\'";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1864,7 +2015,7 @@ TEST_SUITE("char literals") {
         }
     }
 
-    TEST_CASE("multiple character string") {
+    TEST_CASE("[Token] multiple character string") {
         {
             const StringSlice s = "\'abc\'";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1888,7 +2039,7 @@ TEST_SUITE("char literals") {
         }
     }
 
-    TEST_CASE("has escaped quote character within") {
+    TEST_CASE("[Token] has escaped quote character within") {
         {
             const StringSlice s = "\'\\\"\'";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1912,7 +2063,7 @@ TEST_SUITE("char literals") {
         }
     }
 
-    TEST_CASE("has escaped apostrophe character within") {
+    TEST_CASE("[Token] has escaped apostrophe character within") {
         {
             const StringSlice s = "\'\\\'\'";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1936,7 +2087,7 @@ TEST_SUITE("char literals") {
         }
     }
 
-    TEST_CASE("invalid") {
+    TEST_CASE("[Token] invalid") {
         { // empty
             const StringSlice s = " \'\'";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
@@ -1968,7 +2119,7 @@ TEST_SUITE("char literals") {
     }
 }
 
-TEST_CASE("Positive Numbers") {
+TEST_CASE("[Token] Positive Numbers") {
     testParseOperatorOrSymbol("0", TokenType::NumberLiteral, true, true, false);
     testParseOperatorOrSymbol("1", TokenType::NumberLiteral, true, true, false);
     testParseOperatorOrSymbol("2", TokenType::NumberLiteral, true, true, false);
@@ -2049,7 +2200,7 @@ static void testParseIdentifier(const char* identifier) {
     }
 }
 
-TEST_CASE("identifiers") {
+TEST_CASE("[Token] identifiers") {
     for (char i = 'a'; i < 'z'; i++) {
         char buf[3] = {i, '\0', '\0'};
         // testParseIdentifier(buf);

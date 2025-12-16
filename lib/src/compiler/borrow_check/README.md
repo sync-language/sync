@@ -51,7 +51,7 @@ A reference must not become invalid inside a loop body if it could be used in su
 
 ### External Functions
 
-When returning a reference from an external function (such as a C function), having a lifetime annotation is required, as there is no way for the Sync compiler itself to know the lifetime bounds of that reference. For familiarity, using Rust style `*'a` may be the best decision.
+When returning a reference from an external function (such as a C function), having a lifetime annotation is required, as there is no way for the Sync compiler itself to know the lifetime bounds of that reference. For familiarity, using Rust style `*'identifier` may be the best decision.
 
 Passing any mutable reference to an external function will automatically invalidate any existing reference, as there is no way of validating if any operations cause reference / iterator invalidation across boundaries.
 
