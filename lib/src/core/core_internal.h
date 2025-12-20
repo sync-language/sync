@@ -245,6 +245,36 @@ SyAcquireErr sy_raw_rwlock_acquire_exclusive(SyRawRwLock* self);
 /// lock.
 void sy_raw_rwlock_release_exclusive(SyRawRwLock* self);
 
+#ifndef SYNC_NO_FILESYSTEM
+
+/// Fetches relevant file info from a file on disk. This functionality is not strictly required for Sync to work, but is
+/// simply useful. The compiler can function without it if you do not call any file system specific compiler
+/// functionality. Can be overridden by defining `SYNC_CUSTOM_GET_FILE_INFO`, in which you must supply a definition of
+/// the function at final link time. Since it's not required the compiler, you can link a function that just returns
+/// false, and not use any file system logic for the compiler.
+/// @param path Non-null pointer to a path string. Does not need to be null terminated.
+/// @param pathLen Length, in bytes, of the string pointed to by `path`.
+/// @param outFileSize Non-null pointer where the size of the file at `path` will be written to.
+/// @return `true` if succeeds to get the info, otherwise `false`. This could mean not a valid file.
+extern bool sy_get_file_info(const char* path, size_t pathLen, size_t* outFileSize);
+
+/// Converts a relative path to an absolute path. This functionality is not strictly required for Sync to work, but it
+/// is simply useful. The compiler can function without it if you do not call any file system specific compiler
+/// functionality. Can be overridden by defining
+/// `SYNC_CUSTOM_RELATIVE_TO_ABSOLUTE_PATH`, in which you must supply a definition of the function at final link time.
+/// Since it's not required the compiler, you can link a function that just returns false, and not use any file system
+/// logic for the compiler.c
+/// @param relativePath Non-null pointer to the relative path string. Does not need to be null terminated.
+/// @param relativePathLen Length, in bytes, of the string pointed to by `relativePath`.
+/// @param outAbsolutePath Non-null pointer where the absolute path will be written to. Will have a null terminator
+/// written to the end.
+/// @param outAbsoluteBufSize Size of the buffer pointed to by `outAbsolutePath`.
+/// @return `true` if succeeds to convert to absolute, otherwise `false`.
+extern bool sy_relative_to_absolute_path(const char* relativePath, size_t relativePathLen, char* outAbsolutePath,
+                                         size_t outAbsoluteBufSize);
+
+#endif // SYNC_NO_FILESYSTEM
+
 #ifdef __cplusplus
 }
 #endif

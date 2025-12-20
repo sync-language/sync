@@ -1,5 +1,6 @@
 #include "core.h"
 #include "core_internal.h"
+#include <limits.h>
 #include <stdlib.h>
 
 // WHAT
@@ -777,3 +778,88 @@ void sy_raw_rwlock_release_exclusive(SyRawRwLock* self) {
     }
     releaseFence(self);
 }
+
+#ifndef SYNC_NO_FILESYSTEM
+
+#ifndef SYNC_CUSTOM_GET_FILE_INFO
+#include <sys/stat.h>
+
+#include <errno.h>
+#include <string.h>
+#include <stdio.h>
+
+bool sy_get_file_info(const char* path, size_t pathLen, size_t* outFileSize) {
+#if defined(_MSC_VER)
+    char nullTermPath[MAX_PATH];
+#else
+    char nullTermPath[PATH_MAX];
+#endif
+
+    for (size_t i = 0; i < pathLen; i++) {
+        nullTermPath[i] = path[i];
+    }
+    nullTermPath[pathLen] = '\0';
+
+#if defined(_MSC_VER)
+    struct _stat64 s;
+    if (_stat64(nullTermPath, &s) != 0) {
+        return false;
+    }
+#else
+    struct stat s;
+    if (stat(nullTermPath, &s) != 0) {
+        fprintf(stderr, "stat failed %s\n", strerror(errno));
+        fprintf(stderr, "THE FILE: %s\n", nullTermPath);
+        return false;
+    }
+#endif
+    *outFileSize = (size_t)s.st_size;
+    return true;
+}
+#endif // SYNC_CUSTOM_GET_FILE_INFO
+
+#ifndef SYNC_CUSTOM_RELATIVE_TO_ABSOLUTE_PATH
+bool sy_relative_to_absolute_path(const char* relativePath, size_t relativePathLen, char* outAbsolutePath,
+                                  size_t outAbsoluteBufSize) {
+#if defined(_MSC_VER)
+    char relative[MAX_PATH];
+    char absolute[MAX_PATH]; // TODO long paths
+#else
+    char relative[PATH_MAX];
+    char absolute[PATH_MAX];
+#endif
+
+    for (size_t i = 0; i < relativePathLen; i++) {
+        relative[i] = relativePath[i];
+    }
+    relative[relativePathLen] = '\0';
+#if defined(_MSC_VER)
+    // TODO symlink?
+    if (GetFullPathNameA(relativePath, MAX_PATH, absolute, NULL) == 0) {
+        return false;
+    }
+#else
+    if (realpath(relative, absolute) == NULL) {
+        return false;
+    }
+#endif
+
+    size_t absoluteLen = 0;
+    for (size_t i = 0; absolute[i] != '\0'; i++) {
+        absoluteLen += 1;
+    }
+
+    if (outAbsoluteBufSize <= absoluteLen) {
+        return false;
+    }
+
+    for (size_t i = 0; i < absoluteLen; i++) {
+        outAbsolutePath[i] = absolute[i];
+    }
+    outAbsolutePath[absoluteLen] = '\0';
+
+    return true;
+}
+#endif // SYNC_CUSTOM_RELATIVE_TO_ABSOLUTE_PATH
+
+#endif // SYNC_NO_FILESYSTEM

@@ -25,4 +25,4 @@ COPY . .
 RUN emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
 RUN cmake --build build --parallel
 RUN ctest --test-dir build --output-on-failure --verbose
-#RUN node --experimental-wasm-threads build/test/SyncLibTests.js
+#RUN node --experimental-wasm-threads build/test/SyncTestCore_FilesystemGetFileSizeSmall.js

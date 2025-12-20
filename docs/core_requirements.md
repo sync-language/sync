@@ -41,6 +41,8 @@ There are many macros available to disable certain default functionality dependi
 | SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER | <ul><li>`void sy_default_fatal_error_handler(const char* message)` defaults printing to stderr, then debug breaking / aborting</li></ul> |
 | SYNC_CUSTOM_THREAD_YIELD | <ul><li>`void sy_thread_yield(void)` yield the thread for spin locks</li></ul> |
 | SYNC_CACHE_LINE_SIZE | <ul><li>`SYNC_CACHE_LINE_SIZE` default to 64</li></ul> |
+| SYNC_CUSTOM_GET_FILE_INFO | <ul><li>`bool sy_get_file_info(const char* path, size_t pathLen, size_t* outFileSize)`</li></ul> |
+| SYNC_CUSTOM_RELATIVE_TO_ABSOLUTE_PATH | <ul><li>`bool sy_relative_to_absolute_path(const char* relativePath, size_t relativePathLen, char* outAbsolutePath, size_t outAbsoluteBufSize)`</li></ul> |
 
 ## Future Plans
 

@@ -123,6 +123,9 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
         target_link_options(${TEST_NAME} PRIVATE
             "-s ASSERTIONS=1 -s DEMANGLE_SUPPORT=1 --profiling-funcs -g"
         )
+
+        # Give node filesystem access
+        target_link_options(${TEST_NAME} PRIVATE "-sNODERAWFS=1")
     endif()
 
 endfunction()
@@ -227,6 +230,11 @@ add_core_sync_test(SyncTestCore_RwLockArrayReallocation "core/rwlock/rwlock_arra
 add_core_sync_test(SyncTestCore_RwLockExclusiveToSharedMultithread "core/rwlock/rwlock_exclusive_to_shared_multithread.cpp")
 
 add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "core/rwlock_death/rwlock_death_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
+
+add_core_sync_test(SyncTestCore_FilesystemGetFileSizeSmall "core/filesystem/filesystem_get_file_size_this_file_small.cpp")
+add_core_sync_test(SyncTestCore_FilesystemGetFileSizeBigger "core/filesystem/filesystem_get_file_size_this_file_bigger.cpp")
+add_core_sync_test(SyncTestCore_FilesystemGetFileSizeNotAFile "core/filesystem/filesystem_get_file_size_not_a_file.cpp")
+add_core_sync_test(SyncTestCore_FilesystemRelativeToAbsoluteDir "core/filesystem/filesystem_relative_to_absolute_dir.cpp")
 
 # ==================
 # Main Library Tests

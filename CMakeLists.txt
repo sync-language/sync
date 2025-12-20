@@ -21,6 +21,7 @@ option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
 option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" OFF)
 option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" OFF)
 option(SYNC_WASM_USE_SIMD "Use Fixed-width SIMD on WASM" OFF)
+option(SYNC_NO_FILESYSTEM "Disable file system access" OFF)
 
 # Overriding core functionality. See docs/core_requirements.md
 option(SYNC_CUSTOM_ALIGNED_MALLOC_FREE "Provide and link your own custom implementation of basic memory allocation operations" OFF)
@@ -120,6 +121,9 @@ if(SYNC_DEFAULT_PAGE_ALIGNMENT)
 endif()
 if(SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER)
     target_compile_definitions(SyncLib PRIVATE SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER=1)
+endif()
+if(SYNC_NO_FILESYSTEM)
+    target_compile_definitions(SyncLib PRIVATE SYNC_NO_FILESYSTEM=1)
 endif()
 
 
