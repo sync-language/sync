@@ -61,6 +61,12 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "AndKeyword";
     case TokenType::OrKeyword:
         return "OrKeyword";
+    case TokenType::UniqueKeyword:
+        return "UniqueKeyword";
+    case TokenType::SharedKeyword:
+        return "SharedKeyword";
+    case TokenType::WeakKeyword:
+        return "WeakKeyword";
 
     case TokenType::BoolPrimitive:
         return "BoolPrimitive";
@@ -92,12 +98,6 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "StrPrimitive";
     case TokenType::StringPrimitive:
         return "StringPrimitive";
-    case TokenType::SyncOwnedPrimitive:
-        return "SyncOwnedPrimitive";
-    case TokenType::SyncSharedPrimitive:
-        return "SyncSharedPrimitive";
-    case TokenType::SyncWeakPrimitive:
-        return "SyncWeakPrimitive";
     case TokenType::TypePrimitive:
         return "TypePrimitive";
 
@@ -350,7 +350,7 @@ static std::tuple<Token, uint32_t> parseTrueThrowTraitOrIdentifier(const StringS
 
 static std::tuple<Token, uint32_t> parsePubOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseOwnedOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseUniqueOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseWeakOrIdentifier(const StringSlice source, const uint32_t start);
 
@@ -770,9 +770,9 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         return parsePubOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // Owned
-    if (source[nonWhitespaceStart] == 'O') {
-        return parseOwnedOrIdentifier(source, nonWhitespaceStart + 1);
+    // Unique
+    if (source[nonWhitespaceStart] == 'U') {
+        return parseUniqueOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // Weak
@@ -1175,7 +1175,7 @@ static std::tuple<Token, uint32_t> parseStringSharedSetOrIdentifier(const String
         return extractKeywordOrIdentifier(source, remainingSourceLen, 5, start, TokenType::StringPrimitive);
     }
     if (sliceFoundAtUnchecked(source, "hared", start)) {
-        return extractKeywordOrIdentifier(source, remainingSourceLen, 5, start, TokenType::SyncSharedPrimitive);
+        return extractKeywordOrIdentifier(source, remainingSourceLen, 5, start, TokenType::SharedKeyword);
     }
 
     {
@@ -1275,18 +1275,18 @@ static std::tuple<Token, uint32_t> parsePubOrIdentifier(const StringSlice source
     }
 }
 
-static std::tuple<Token, uint32_t> parseOwnedOrIdentifier(const StringSlice source, const uint32_t start) {
-    sy_assert(source[start - 1] == 'O', "Invalid parse operation");
+static std::tuple<Token, uint32_t> parseUniqueOrIdentifier(const StringSlice source, const uint32_t start) {
+    sy_assert(source[start - 1] == 'U', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
-    if (remainingSourceLen < 4) {
+    if (remainingSourceLen < 5) {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 
-    if (sliceFoundAtUnchecked(source, "wned", start)) {
-        return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::SyncOwnedPrimitive);
+    if (sliceFoundAtUnchecked(source, "nique", start)) {
+        return extractKeywordOrIdentifier(source, remainingSourceLen, 5, start, TokenType::UniqueKeyword);
     }
 
     {
@@ -1306,7 +1306,7 @@ static std::tuple<Token, uint32_t> parseWeakOrIdentifier(const StringSlice sourc
     }
 
     if (sliceFoundAtUnchecked(source, "eak", start)) {
-        return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::SyncWeakPrimitive);
+        return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::WeakKeyword);
     }
 
     {
@@ -1585,7 +1585,7 @@ TEST_CASE("[Token] switch") { testParseKeyword("switch", TokenType::SwitchKeywor
 
 TEST_CASE("[Token] String") { testParseKeyword("String", TokenType::StringPrimitive); }
 
-TEST_CASE("[Token] Shared") { testParseKeyword("Shared", TokenType::SyncSharedPrimitive); }
+TEST_CASE("[Token] Shared") { testParseKeyword("Shared", TokenType::SharedKeyword); }
 
 TEST_CASE("[Token] f32") { testParseKeyword("f32", TokenType::F32Primitive); }
 
@@ -1603,9 +1603,9 @@ TEST_CASE("[Token] true") { testParseKeyword("true", TokenType::TrueKeyword); }
 
 TEST_CASE("[Token] pub") { testParseKeyword("pub", TokenType::PubKeyword); }
 
-TEST_CASE("[Token] Owned") { testParseKeyword("Owned", TokenType::SyncOwnedPrimitive); }
+TEST_CASE("[Token] Unique") { testParseKeyword("Unique", TokenType::UniqueKeyword); }
 
-TEST_CASE("[Token] Weak") { testParseKeyword("Weak", TokenType::SyncWeakPrimitive); }
+TEST_CASE("[Token] Weak") { testParseKeyword("Weak", TokenType::WeakKeyword); }
 
 TEST_CASE("[Token] return") { testParseKeyword("return", TokenType::ReturnKeyword); }
 

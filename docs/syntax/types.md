@@ -156,6 +156,81 @@ i16!f32 // Error union that contains either a signed 16 bit integer indicating a
 str!i32 // Error union that contains either a string slice indicating an error, or a signed 32 bit integer indicating no error.
 ```
 
+## Thread-safe Types
+
+Any type can be prefixed with `Unique`, `Shared`, or `Weak` to mark it as a thread-safe, and able to be used across thread boundaries. All of these types come with reference counts (see Weak), and an rwlock.
+
+### Unique
+
+The `Unique` type modifier gives single ownership. When the object goes out of scope or is generally destroyed, all references become invalidated.
+
+```sync
+Unique i32 // Single ownership to shared memory of a signed 32 bit integer
+
+fn main() {
+    mut num: Unique i32 = 0;
+    sync mut num {
+        num += 1;
+    }
+}
+```
+
+### Shared
+
+The `Shared` type modifier provides shared ownership. If the refcount is greater than 1, going out of scope or a destructor call does not invalidate the object, just decrements the refcount. It is only destroyed when the refcount reaches zero.
+
+```sync
+Shared i32 // Shared ownership to shared memory of a signed 32 bit integer
+
+fn main() {
+    mut num1: Shared i32 = 0;
+    mut num2: Shared i32 = num1;
+    sync mut num1 {
+        num1 += 1;
+    }
+
+    sync num2 {
+        print(num2); // 1
+    }
+}
+```
+
+### Weak
+
+The `Weak` type modifier provides a weak reference that auto invalidates if the unique or shared object it references is destroyed.
+
+```sync
+Weak i32 // Weak reference to another Unique or Shared which owns the i32
+
+fn main() {
+    mut num1: Unique i32 = 0;
+    mut num2: Weak i32 = num1;
+    sync mut num1 {
+        num1 += 1;
+    }
+
+    sync num2 {
+        print(num2.?); // 1
+    }
+}
+```
+
+And if the object gets destroyed, the weak reference is invalidated.
+
+```sync
+fn main() {
+    mut num1: Shared i32 = 0;
+    mut num2: Weak i32 = num1;
+    someFunctionThatDestroys(num1);
+
+    sync num2 {
+        if(num2 == null) {
+            print("invalid!"); // prints!
+        }
+    }
+}
+```
+
 ## Built in Containers
 
 Since Sync is designed to be embedded, many generic containers are implemented and optimized for Sync.

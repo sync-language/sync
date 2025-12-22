@@ -61,21 +61,21 @@ class SY_API BaseSyncObj {
 /// ``` .cpp
 ///
 /// ```
-template <typename T> class SY_API Owned final : public detail::BaseSyncObj {
+template <typename T> class SY_API Unique final : public detail::BaseSyncObj {
   public:
-    Owned(T value);
+    Unique(T value);
 
-    Result<Owned, AllocErr> init(Allocator alloc, T value);
+    Result<Unique, AllocErr> init(Allocator alloc, T value);
 
-    Owned(const Owned&) = delete;
+    Unique(const Unique&) = delete;
 
-    Owned& operator=(const Owned&) = delete;
+    Unique& operator=(const Unique&) = delete;
 
-    Owned(Owned&& other);
+    Unique(Unique&& other);
 
-    Owned& operator=(Owned&& other);
+    Unique& operator=(Unique&& other);
 
-    ~Owned();
+    ~Unique();
 
     const T* operator->() const { return this->get(); }
 
@@ -91,8 +91,10 @@ template <typename T> class SY_API Owned final : public detail::BaseSyncObj {
 
     Weak<T> makeWeak() const;
 
+    // TODO maybe promote to shared?
+
   private:
-    Owned(void* p) : BaseSyncObj(p) {}
+    Unique(void* p) : BaseSyncObj(p) {}
 };
 
 template <typename T> class SY_API Shared final : public detail::BaseSyncObj {
@@ -178,7 +180,7 @@ template <typename T> class SY_API Weak final : public detail::BaseSyncObj {
     T* get();
 
   private:
-    friend class Owned<T>;
+    friend class Unique<T>;
     friend class Shared<T>;
 
     Weak(const void* inInner);
@@ -202,9 +204,9 @@ void syncObjDestroyAndFreeShared(void* inner, void (*destruct)(void* ptr));
 void syncObjDestroyAndFreeWeak(void* inner);
 } // namespace detail
 
-template <typename T> inline Owned<T>::Owned(Owned&& other) : BaseSyncObj(other.inner) { other.inner = nullptr; }
+template <typename T> inline Unique<T>::Unique(Unique&& other) : BaseSyncObj(other.inner) { other.inner = nullptr; }
 
-template <typename T> inline Owned<T>& Owned<T>::operator=(Owned&& other) {
+template <typename T> inline Unique<T>& Unique<T>::operator=(Unique&& other) {
     if (this->inner != nullptr) {
         detail::syncObjDestroyAndFreeOwned(
             this->inner,
@@ -220,7 +222,7 @@ template <typename T> inline Owned<T>& Owned<T>::operator=(Owned&& other) {
     return *this;
 }
 
-template <typename T> inline Owned<T>::~Owned() {
+template <typename T> inline Unique<T>::~Unique() {
     if (this->inner == nullptr) {
         return;
     }
@@ -234,30 +236,30 @@ template <typename T> inline Owned<T>::~Owned() {
 }
 
 template <typename T>
-inline Owned<T>::Owned(T value) : BaseSyncObj(detail::syncObjCreate(Allocator(), sizeof(T), alignof(T)).value()) {
+inline Unique<T>::Unique(T value) : BaseSyncObj(detail::syncObjCreate(Allocator(), sizeof(T), alignof(T)).value()) {
     new (detail::syncObjValueMemMut(this->inner)) T(std::move(value));
 }
 
-template <typename T> inline Result<Owned<T>, AllocErr> Owned<T>::init(Allocator alloc, T value) {
+template <typename T> inline Result<Unique<T>, AllocErr> Unique<T>::init(Allocator alloc, T value) {
     auto res = detail::syncObjCreate(alloc, sizeof(T), alignof(T));
     if (res.hasErr()) {
         return Error(AllocErr::OutOfMemory);
     }
     new (detail::syncObjValueMemMut(res.value())) T(std::move(value));
-    return Owned(res.value());
+    return Unique(res.value());
 }
 
-template <typename T> const T* Owned<T>::get() const {
+template <typename T> const T* Unique<T>::get() const {
     const void* obj = detail::syncObjValueMem(this->inner);
     return reinterpret_cast<const T*>(obj);
 }
 
-template <typename T> T* Owned<T>::get() {
+template <typename T> T* Unique<T>::get() {
     void* obj = detail::syncObjValueMemMut(this->inner);
     return reinterpret_cast<T*>(obj);
 }
 
-template <typename T> inline Weak<T> Owned<T>::makeWeak() const { return Weak<T>(this->inner); }
+template <typename T> inline Weak<T> Unique<T>::makeWeak() const { return Weak<T>(this->inner); }
 
 template <typename T>
 inline Shared<T>::Shared(T value) : BaseSyncObj(detail::syncObjCreate(Allocator(), sizeof(T), alignof(T)).value()) {

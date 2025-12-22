@@ -10,9 +10,9 @@
 struct SyType;
 
 /// Not meaningful when zero initialized. Still able to be destroyed without crashing.
-typedef struct SyOwned {
+typedef struct SyUnique {
     void* inner;
-} SyOwned;
+} SyUnique;
 
 /// Not meaningful when zero initialized. Still able to be destroyed without crashing.
 typedef struct SyShared {
@@ -28,35 +28,35 @@ typedef struct SyWeak {
 extern "C" {
 #endif
 
-SY_API SyOwned sy_owned_init(void* value, const size_t sizeType, const size_t alignType);
+SY_API SyUnique sy_unique_init(void* value, const size_t sizeType, const size_t alignType);
 
-SY_API SyOwned sy_owned_init_empty(const size_t sizeType, const size_t alignType);
+SY_API SyUnique sy_unique_init_empty(const size_t sizeType, const size_t alignType);
 
-SY_API SyOwned sy_owned_init_script_typed(void* value, const struct SyType* typeInfo);
+SY_API SyUnique sy_unique_init_script_typed(void* value, const struct SyType* typeInfo);
 
-SY_API void sy_owned_destroy(SyOwned* self, void (*destruct)(void* ptr));
+SY_API void sy_unique_destroy(SyUnique* self, void (*destruct)(void* ptr));
 
-SY_API void sy_owned_destroy_script_typed(SyOwned* self, const struct SyType* typeInfo);
+SY_API void sy_unique_destroy_script_typed(SyUnique* self, const struct SyType* typeInfo);
 
-SY_API SyWeak sy_owned_make_weak(const SyOwned* self);
+SY_API SyWeak sy_unique_make_weak(const SyUnique* self);
 
-SY_API void sy_owned_lock_exclusive(SyOwned* self);
+SY_API void sy_unique_lock_exclusive(SyUnique* self);
 
-SY_API bool sy_owned_try_lock_exclusive(SyOwned* self);
+SY_API bool sy_unique_try_lock_exclusive(SyUnique* self);
 
-SY_API void sy_owned_unlock_exclusive(SyOwned* self);
+SY_API void sy_unique_unlock_exclusive(SyUnique* self);
 
-SY_API void sy_owned_lock_shared(const SyOwned* self);
+SY_API void sy_unique_lock_shared(const SyUnique* self);
 
-SY_API bool sy_owned_try_lock_shared(const SyOwned* self);
+SY_API bool sy_unique_try_lock_shared(const SyUnique* self);
 
-SY_API void sy_owned_unlock_shared(const SyOwned* self);
+SY_API void sy_unique_unlock_shared(const SyUnique* self);
 
-SY_API const void* sy_owned_get(const SyOwned* self);
+SY_API const void* sy_unique_get(const SyUnique* self);
 
-SY_API void* sy_owned_get_mut(SyOwned* self);
+SY_API void* sy_unique_get_mut(SyUnique* self);
 
-SY_API SySyncObject sy_owned_to_queue_obj(const SyOwned* self);
+SY_API SySyncObject sy_unique_to_queue_obj(const SyUnique* self);
 
 SY_API SyShared sy_shared_init(void* value, const size_t sizeType, const size_t alignType);
 

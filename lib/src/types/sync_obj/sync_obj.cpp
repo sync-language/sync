@@ -108,22 +108,22 @@ void sy::detail::syncObjDestroyAndFreeWeak(void* inner) {
 }
 
 extern "C" {
-SY_API SyOwned sy_owned_init(void* value, const size_t sizeType, const size_t alignType) {
-    SyOwned self = sy_owned_init_empty(sizeType, alignType);
+SY_API SyUnique sy_unique_init(void* value, const size_t sizeType, const size_t alignType) {
+    SyUnique self = sy_unique_init_empty(sizeType, alignType);
     memcpy(sy::detail::syncObjValueMemMut(self.inner), value, sizeType);
     return self;
 }
 
-SY_API SyOwned sy_owned_init_empty(const size_t sizeType, const size_t alignType) {
-    SyOwned self = {sy::detail::syncObjCreate(sy::Allocator(), sizeType, alignType).value()};
+SY_API SyUnique sy_unique_init_empty(const size_t sizeType, const size_t alignType) {
+    SyUnique self = {sy::detail::syncObjCreate(sy::Allocator(), sizeType, alignType).value()};
     return self;
 }
 
-SY_API SyOwned sy_owned_init_script_typed(void* value, const struct SyType* typeInfo) {
-    return sy_owned_init(value, typeInfo->sizeType, typeInfo->alignType);
+SY_API SyUnique sy_unique_init_script_typed(void* value, const struct SyType* typeInfo) {
+    return sy_unique_init(value, typeInfo->sizeType, typeInfo->alignType);
 }
 
-SY_API void sy_owned_destroy(SyOwned* self, void (*destruct)(void* ptr)) {
+SY_API void sy_unique_destroy(SyUnique* self, void (*destruct)(void* ptr)) {
     if (self->inner == nullptr) {
         return;
     }
@@ -133,7 +133,7 @@ SY_API void sy_owned_destroy(SyOwned* self, void (*destruct)(void* ptr)) {
     self->inner = nullptr;
 }
 
-SY_API void sy_owned_destroy_script_typed(SyOwned* self, const struct SyType* typeInfo) {
+SY_API void sy_unique_destroy_script_typed(SyUnique* self, const struct SyType* typeInfo) {
     if (self->inner == nullptr) {
         return;
     }
@@ -143,29 +143,29 @@ SY_API void sy_owned_destroy_script_typed(SyOwned* self, const struct SyType* ty
     self->inner = nullptr;
 }
 
-SY_API SyWeak sy_owned_make_weak(const SyOwned* self) {
+SY_API SyWeak sy_unique_make_weak(const SyUnique* self) {
     SyWeak weak = {const_cast<void*>(self->inner)};
     sy::detail::syncObjAddWeakCount(weak.inner);
     return weak;
 }
 
-SY_API void sy_owned_lock_exclusive(SyOwned* self) { syncObjLockExclusive(self->inner); }
+SY_API void sy_unique_lock_exclusive(SyUnique* self) { syncObjLockExclusive(self->inner); }
 
-SY_API bool sy_owned_try_lock_exclusive(SyOwned* self) { return syncObjTryLockExclusive(self->inner); }
+SY_API bool sy_unique_try_lock_exclusive(SyUnique* self) { return syncObjTryLockExclusive(self->inner); }
 
-SY_API void sy_owned_unlock_exclusive(SyOwned* self) { syncObjUnlockExclusive(self->inner); }
+SY_API void sy_unique_unlock_exclusive(SyUnique* self) { syncObjUnlockExclusive(self->inner); }
 
-SY_API void sy_owned_lock_shared(const SyOwned* self) { syncObjLockShared(self->inner); }
+SY_API void sy_unique_lock_shared(const SyUnique* self) { syncObjLockShared(self->inner); }
 
-SY_API bool sy_owned_try_lock_shared(const SyOwned* self) { return syncObjTryLockShared(self->inner); }
+SY_API bool sy_unique_try_lock_shared(const SyUnique* self) { return syncObjTryLockShared(self->inner); }
 
-SY_API void sy_owned_unlock_shared(const SyOwned* self) { syncObjUnlockShared(self->inner); }
+SY_API void sy_unique_unlock_shared(const SyUnique* self) { syncObjUnlockShared(self->inner); }
 
-SY_API const void* sy_owned_get(const SyOwned* self) { return asObj(self->inner)->valueMem(); }
+SY_API const void* sy_unique_get(const SyUnique* self) { return asObj(self->inner)->valueMem(); }
 
-SY_API void* sy_owned_get_mut(SyOwned* self) { return asObjMut(self->inner)->valueMemMut(); }
+SY_API void* sy_unique_get_mut(SyUnique* self) { return asObjMut(self->inner)->valueMemMut(); }
 
-SY_API SySyncObject sy_owned_to_queue_obj(const SyOwned* self) {
+SY_API SySyncObject sy_unique_to_queue_obj(const SyUnique* self) {
     const SySyncObject obj{const_cast<void*>(self->inner), reinterpret_cast<const SySyncObjectVTable*>(&queueVTable)};
     return obj;
 }
@@ -333,20 +333,20 @@ void sy::detail::BaseSyncObj::checkNotExpired() const {
 using namespace sy;
 
 TEST_CASE("Owned into sync queue") {
-    Owned<int> owned = 5;
+    Unique<int> owned = 5;
     sync_queue::addExclusive(owned);
     sync_queue::lock();
     sync_queue::unlock();
 }
 
 TEST_CASE("Owned lock normally") {
-    Owned<int> owned = 5;
+    Unique<int> owned = 5;
     owned.lockExclusive();
     owned.unlockExclusive();
 }
 
 TEST_CASE("Owned make weak") {
-    Owned<int> owned = 5;
+    Unique<int> owned = 5;
     Weak<int> weak = owned.makeWeak();
 
     weak.lockExclusive();
@@ -357,7 +357,7 @@ TEST_CASE("Owned make weak") {
 }
 
 TEST_CASE("Owned make weak, then expire") {
-    Owned<int>* owned = new Owned<int>(5);
+    Unique<int>* owned = new Unique<int>(5);
     Weak<int> weak = owned->makeWeak();
     delete owned;
 
@@ -413,7 +413,7 @@ TEST_CASE("Shared clone") {
 }
 
 TEST_CASE("Weak into sync queue") {
-    Owned<int> owned = 9;
+    Unique<int> owned = 9;
     Weak<int> weak = owned.makeWeak();
 
     sync_queue::addExclusive(weak);
@@ -422,7 +422,7 @@ TEST_CASE("Weak into sync queue") {
 }
 
 TEST_CASE("Weak clone") {
-    Owned<int> owned = 9;
+    Unique<int> owned = 9;
     Weak<int> w1 = owned.makeWeak();
     Weak<int> w2 = w1;
 
