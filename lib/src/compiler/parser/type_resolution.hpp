@@ -50,18 +50,22 @@ struct ParsedTypeNode {
     /// - Slice (reference lifetime)
     /// - Dyn (reference lifetime)
     StringSlice lifetime{};
+    /// Indices to the children of this node.
+    ///
+    /// If tag is `StaticArray`
+    /// - `childrenIndices[0]` - The expression indicating the size of the array
+    /// - `childrenIndices[1]` - The nested type info
     DynArray<uint16_t> childrenIndices{};
-};
-
-enum class ParsedTypeErr {
-
 };
 
 struct ParsedType {
     /// The actual type info nodes. `ParsedTypeNode::childrenIndices` references this array.
-    DynArray<ParsedTypeNode> nodes;
+    DynArray<ParsedTypeNode> nodes{};
+    uint16_t rootNode = 0;
 
     static Result<ParsedType, ProgramError> parse(ParseInfo* parseInfo);
+
+    const ParsedTypeNode& getRootNode() const noexcept { return this->nodes[this->rootNode]; }
 };
 
 struct TypeResolutionInfo {

@@ -213,6 +213,10 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "LifetimePointer";
     case TokenType::ConcreteLifetime:
         return "ConcreteLifetime";
+    case TokenType::Slice:
+        return "Slice";
+    case TokenType::SliceLifetime:
+        return "SliceLifetime";
     default:
         sy_assert(false, "Invalid token");
     }
@@ -549,6 +553,28 @@ static std::tuple<Token, uint32_t> parseConcreteLifetime(const StringSlice sourc
     return std::make_tuple(Token(TokenType::Error, start - 1), start);
 }
 
+static std::tuple<Token, uint32_t> parseSliceOrLeftBracket(const StringSlice source, const uint32_t start) {
+    sy_assert(source[start - 1] == '[', "Invalid parse operation");
+
+    const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if (remainingSourceLen == 0) {
+        return std::make_tuple(Token(TokenType::LeftBracketSymbol, start - 1), static_cast<uint32_t>(-1));
+    }
+
+    if (remainingSourceLen >= 2) {
+        if (sliceFoundAtUnchecked(source, "]\'", start)) {
+            return std::make_tuple(Token(TokenType::SliceLifetime, start - 1), start + 2);
+        }
+    }
+
+    if (source[start] == ']') {
+        return std::make_tuple(Token(TokenType::Slice, start - 1), start + 1);
+    }
+
+    return std::make_tuple(Token(TokenType::LeftBracketSymbol, start - 1), start);
+}
+
 #pragma endregion
 
 static std::tuple<Token, uint32_t> parseSubtractOrNegativeNumberLiteral(const StringSlice source,
@@ -690,8 +716,8 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         return std::make_tuple(Token(TokenType::LeftParenthesesSymbol, nonWhitespaceStart), nonWhitespaceStart + 1);
     case ')':
         return std::make_tuple(Token(TokenType::RightParenthesesSymbol, nonWhitespaceStart), nonWhitespaceStart + 1);
-    case '[':
-        return std::make_tuple(Token(TokenType::LeftBracketSymbol, nonWhitespaceStart), nonWhitespaceStart + 1);
+    // case '[':
+    //     return std::make_tuple(Token(TokenType::LeftBracketSymbol, nonWhitespaceStart), nonWhitespaceStart + 1);
     case ']':
         return std::make_tuple(Token(TokenType::RightBracketSymbol, nonWhitespaceStart), nonWhitespaceStart + 1);
     case ':':
@@ -830,6 +856,10 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
 
     if (source[nonWhitespaceStart] == '&') {
         return parseAmpersandOrMutableReference(source, nonWhitespaceStart + 1);
+    }
+
+    if (source[nonWhitespaceStart] == '[') {
+        return parseSliceOrLeftBracket(source, nonWhitespaceStart + 1);
     }
 
     if (source[nonWhitespaceStart] == '@') {
@@ -1820,6 +1850,10 @@ TEST_CASE("[Token] ?") { testParseOperatorOrSymbol("?", TokenType::OptionalSymbo
 TEST_CASE("[Token] -") { testParseOperatorOrSymbol("-", TokenType::SubtractOperator, true, true, true); }
 
 TEST_CASE("[Token] -=") { testParseOperatorOrSymbol("-=", TokenType::SubtractAssignOperator, true, true, true); }
+
+TEST_CASE("[Token] []") { testParseOperatorOrSymbol("[]", TokenType::Slice, true, true, true); }
+
+TEST_CASE("[Token] []\'") { testParseOperatorOrSymbol("[]\'", TokenType::SliceLifetime, true, true, true); }
 
 TEST_CASE("[Token] Negative Numbers") {
     testParseOperatorOrSymbol("-0", TokenType::NumberLiteral, true, true, true);

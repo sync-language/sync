@@ -133,6 +133,8 @@ enum class TokenType : uint8_t {
 
     LifetimePointer,
     ConcreteLifetime,
+    Slice,
+    SliceLifetime,
 };
 
 StringSlice tokenTypeToString(TokenType tokenType);
