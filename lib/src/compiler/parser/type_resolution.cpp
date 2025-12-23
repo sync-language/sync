@@ -472,6 +472,7 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
 
         switch (parsePhase) {
         case TypeParsePhase::CollectPrefixOrGetNamed: {
+            bool shouldStepIter = true;
             TokenType currentToken = parseInfo->tokenIter.current().tag();
             switch (currentToken) {
 
@@ -546,13 +547,22 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                 }
             } break;
 
+            case TokenType::LeftParenthesesSymbol: {
+                ParsedTypeNode node;
+                node.tag = ParsedTypeTag::Tuple;
+                if (parsedType.nodes.push(std::move(node)).hasErr()) {
+                    return Error(ProgramError::OutOfMemory);
+                }
+                shouldStepIter = false;
+                parsePhase = TypeParsePhase::CollectPostfix;
+            } break;
+
             default:
 
                 break;
             }
 
-            // step iter
-            if (parseInfo->tokenIter.next().has_value() == false) {
+            if (shouldStepIter && parseInfo->tokenIter.next().has_value() == false) {
                 parsePhase = TypeParsePhase::DoneParse;
             }
         } break;
@@ -606,6 +616,13 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                 } break;
 
                 case TokenType::NumberLiteral: {
+                    if (parsedType.nodes[currentGenericContext->parentNode].tag == ParsedTypeTag::Tuple) {
+                        parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                             parseInfo->tokenIter.current().location(),
+                                             "Tuple may not contain number literals");
+                        return Error(ProgramError::CompileUnknownType);
+                    }
+
                     ParsedTypeNode argNode;
                     argNode.tag = ParsedTypeTag::IntLiteral;
                     argNode.expression = parseInfo->tokenIter.currentSlice();
@@ -1251,6 +1268,84 @@ TEST_CASE("[ParsedType::parse] Parse generic many int literal") {
         CHECK_EQ(generic.expression, StringSlice(buf));
         CHECK_EQ(generic.childrenIndices.len(), 0);
     }
+}
+
+TEST_CASE("[ParsedType::parse] Parse tuple one type") {
+    Tokenizer tokenizer = Tokenizer::create({}, "(i32)").takeValue();
+    ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    ParsedType type = ParsedType::parse(&parseInfo).takeValue();
+    const ParsedTypeNode& root = type.getRootNode();
+    CHECK_EQ(root.tag, ParsedTypeTag::Tuple);
+    CHECK_EQ(root.childrenIndices.len(), 1);
+
+    const ParsedTypeNode& firstGeneric = type.nodes[root.childrenIndices[0]];
+    CHECK_EQ(firstGeneric.tag, ParsedTypeTag::Named);
+    CHECK_EQ(firstGeneric.name, "i32");
+    CHECK_EQ(firstGeneric.lifetime, "");
+    CHECK_EQ(firstGeneric.childrenIndices.len(), 0);
+}
+
+TEST_CASE("[ParsedType::parse] Parse tuple one type") {
+    Tokenizer tokenizer = Tokenizer::create({}, "(i32)").takeValue();
+    ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    ParsedType type = ParsedType::parse(&parseInfo).takeValue();
+    const ParsedTypeNode& root = type.getRootNode();
+    CHECK_EQ(root.tag, ParsedTypeTag::Tuple);
+    CHECK_EQ(root.childrenIndices.len(), 1);
+
+    const ParsedTypeNode& firstGeneric = type.nodes[root.childrenIndices[0]];
+    CHECK_EQ(firstGeneric.tag, ParsedTypeTag::Named);
+    CHECK_EQ(firstGeneric.name, "i32");
+    CHECK_EQ(firstGeneric.lifetime, "");
+    CHECK_EQ(firstGeneric.childrenIndices.len(), 0);
+}
+
+TEST_CASE("[ParsedType::parse] Parse tuple two types") {
+    Tokenizer tokenizer = Tokenizer::create({}, "(f32, i32)").takeValue();
+    ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    ParsedType type = ParsedType::parse(&parseInfo).takeValue();
+    const ParsedTypeNode& root = type.getRootNode();
+    CHECK_EQ(root.tag, ParsedTypeTag::Tuple);
+    CHECK_EQ(root.childrenIndices.len(), 2);
+
+    const ParsedTypeNode& firstGeneric = type.nodes[root.childrenIndices[0]];
+    CHECK_EQ(firstGeneric.tag, ParsedTypeTag::Named);
+    CHECK_EQ(firstGeneric.name, "f32");
+    CHECK_EQ(firstGeneric.lifetime, "");
+    CHECK_EQ(firstGeneric.childrenIndices.len(), 0);
+
+    const ParsedTypeNode& secondGeneric = type.nodes[root.childrenIndices[1]];
+    CHECK_EQ(secondGeneric.tag, ParsedTypeTag::Named);
+    CHECK_EQ(secondGeneric.name, "i32");
+    CHECK_EQ(secondGeneric.lifetime, "");
+    CHECK_EQ(secondGeneric.childrenIndices.len(), 0);
+}
+
+TEST_CASE("[ParsedType::parse] Parse tuple many types") {
+    Tokenizer tokenizer = Tokenizer::create({}, "(u8, f32, i32)").takeValue();
+    ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    ParsedType type = ParsedType::parse(&parseInfo).takeValue();
+    const ParsedTypeNode& root = type.getRootNode();
+    CHECK_EQ(root.tag, ParsedTypeTag::Tuple);
+    CHECK_EQ(root.childrenIndices.len(), 3);
+
+    const ParsedTypeNode& firstGeneric = type.nodes[root.childrenIndices[0]];
+    CHECK_EQ(firstGeneric.tag, ParsedTypeTag::Named);
+    CHECK_EQ(firstGeneric.name, "u8");
+    CHECK_EQ(firstGeneric.lifetime, "");
+    CHECK_EQ(firstGeneric.childrenIndices.len(), 0);
+
+    const ParsedTypeNode& secondGeneric = type.nodes[root.childrenIndices[1]];
+    CHECK_EQ(secondGeneric.tag, ParsedTypeTag::Named);
+    CHECK_EQ(secondGeneric.name, "f32");
+    CHECK_EQ(secondGeneric.lifetime, "");
+    CHECK_EQ(secondGeneric.childrenIndices.len(), 0);
+
+    const ParsedTypeNode& thirdGeneric = type.nodes[root.childrenIndices[2]];
+    CHECK_EQ(thirdGeneric.tag, ParsedTypeTag::Named);
+    CHECK_EQ(thirdGeneric.name, "i32");
+    CHECK_EQ(thirdGeneric.lifetime, "");
+    CHECK_EQ(thirdGeneric.childrenIndices.len(), 0);
 }
 
 #endif // SYNC_LIB_WITH_TESTS
