@@ -756,6 +756,7 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
 TEST_CASE("[ParsedType::parse] Parse normal i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     CHECK_EQ(type.getRootNode().tag, ParsedTypeTag::Named);
     CHECK_EQ(type.getRootNode().name, "i32");
@@ -765,6 +766,7 @@ TEST_CASE("[ParsedType::parse] Parse normal i32") {
 TEST_CASE("[ParsedType::parse] Parse nullable i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "?i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Nullable);
@@ -778,6 +780,7 @@ TEST_CASE("[ParsedType::parse] Parse nullable i32") {
 TEST_CASE("[ParsedType::parse] Parse pointer i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "*i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Pointer);
@@ -792,6 +795,7 @@ TEST_CASE("[ParsedType::parse] Parse pointer i32") {
 TEST_CASE("[ParsedType::parse] Parse mut pointer i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "*mut i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Pointer);
@@ -806,6 +810,7 @@ TEST_CASE("[ParsedType::parse] Parse mut pointer i32") {
 TEST_CASE("[ParsedType::parse] Parse lifetime pointer i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "*'a i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Pointer);
@@ -821,6 +826,7 @@ TEST_CASE("[ParsedType::parse] Parse lifetime pointer i32") {
 TEST_CASE("[ParsedType::parse] Parse mut lifetime pointer i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "*'a mut i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Pointer);
@@ -836,6 +842,7 @@ TEST_CASE("[ParsedType::parse] Parse mut lifetime pointer i32") {
 TEST_CASE("[ParsedType::parse] Parse slice i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "[]i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Slice);
@@ -850,6 +857,7 @@ TEST_CASE("[ParsedType::parse] Parse slice i32") {
 TEST_CASE("[ParsedType::parse] Parse mut slice i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "[]mut i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Slice);
@@ -864,6 +872,7 @@ TEST_CASE("[ParsedType::parse] Parse mut slice i32") {
 TEST_CASE("[ParsedType::parse] Parse lifetime slice i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "[]'a i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Slice);
@@ -879,6 +888,7 @@ TEST_CASE("[ParsedType::parse] Parse lifetime slice i32") {
 TEST_CASE("[ParsedType::parse] Parse mut lifetime slice i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "[]'a mut i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Slice);
@@ -894,6 +904,7 @@ TEST_CASE("[ParsedType::parse] Parse mut lifetime slice i32") {
 TEST_CASE("[ParsedType::parse] Parse dyn trait") {
     Tokenizer tokenizer = Tokenizer::create({}, "dyn Example").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Dyn);
@@ -908,6 +919,7 @@ TEST_CASE("[ParsedType::parse] Parse dyn trait") {
 TEST_CASE("[ParsedType::parse] Parse mut dyn trait") {
     Tokenizer tokenizer = Tokenizer::create({}, "dyn mut Example").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Dyn);
@@ -922,6 +934,7 @@ TEST_CASE("[ParsedType::parse] Parse mut dyn trait") {
 TEST_CASE("[ParsedType::parse] Parse lifetime dyn trait") {
     Tokenizer tokenizer = Tokenizer::create({}, "dyn'a Example").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Dyn);
@@ -937,6 +950,7 @@ TEST_CASE("[ParsedType::parse] Parse lifetime dyn trait") {
 TEST_CASE("[ParsedType::parse] Parse mut lifetime dyn trait") {
     Tokenizer tokenizer = Tokenizer::create({}, "dyn'a mut Example").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Dyn);
@@ -952,6 +966,7 @@ TEST_CASE("[ParsedType::parse] Parse mut lifetime dyn trait") {
 TEST_CASE("[ParsedType::parse] Parse unique i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "Unique i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Unique);
@@ -966,6 +981,7 @@ TEST_CASE("[ParsedType::parse] Parse unique i32") {
 TEST_CASE("[ParsedType::parse] Parse shared i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "Shared i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Shared);
@@ -980,6 +996,7 @@ TEST_CASE("[ParsedType::parse] Parse shared i32") {
 TEST_CASE("[ParsedType::parse] Parse weak i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "Weak i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Weak);
@@ -994,6 +1011,7 @@ TEST_CASE("[ParsedType::parse] Parse weak i32") {
 TEST_CASE("[ParsedType::parse] Parse static array int literal i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "[8]i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::StaticArray);
@@ -1012,6 +1030,7 @@ TEST_CASE("[ParsedType::parse] Parse static array int literal i32") {
 TEST_CASE("[ParsedType::parse] Parse nullable pointer i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "?*i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Nullable);
@@ -1030,6 +1049,7 @@ TEST_CASE("[ParsedType::parse] Parse nullable pointer i32") {
 TEST_CASE("[ParsedType::parse] Parse nullable mut lifetime pointer i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "?*'a mut i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Nullable);
@@ -1048,6 +1068,7 @@ TEST_CASE("[ParsedType::parse] Parse nullable mut lifetime pointer i32") {
 TEST_CASE("[ParsedType::parse] Parse error union err i32 ok i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "i32!i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::ErrorUnion);
@@ -1066,6 +1087,7 @@ TEST_CASE("[ParsedType::parse] Parse error union err i32 ok i32") {
 TEST_CASE("[ParsedType::parse] Parse error union mix of type prefixes") {
     Tokenizer tokenizer = Tokenizer::create({}, "?*i32![]'a mut i32").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::ErrorUnion);
@@ -1101,6 +1123,7 @@ TEST_CASE("[ParsedType::parse] Parse error union mix of type prefixes") {
 TEST_CASE("[ParsedType::parse] Parse concrete lifetime i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "i32@'a").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     CHECK_EQ(type.getRootNode().tag, ParsedTypeTag::Named);
     CHECK_EQ(type.getRootNode().name, "i32");
@@ -1110,6 +1133,7 @@ TEST_CASE("[ParsedType::parse] Parse concrete lifetime i32") {
 TEST_CASE("[ParsedType::parse] Parse List generic i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "List(i32)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Named);
@@ -1126,6 +1150,7 @@ TEST_CASE("[ParsedType::parse] Parse List generic i32") {
 TEST_CASE("[ParsedType::parse] Parse Set generic i32") {
     Tokenizer tokenizer = Tokenizer::create({}, "Set(i32)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Named);
@@ -1142,6 +1167,7 @@ TEST_CASE("[ParsedType::parse] Parse Set generic i32") {
 TEST_CASE("[ParsedType::parse] Parse Map generic i32, f32") {
     Tokenizer tokenizer = Tokenizer::create({}, "Map(i32, f32)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Named);
@@ -1164,6 +1190,7 @@ TEST_CASE("[ParsedType::parse] Parse Map generic i32, f32") {
 TEST_CASE("[ParsedType::parse] Parse generic 3 args u8, i32, f32") {
     Tokenizer tokenizer = Tokenizer::create({}, "Example(u8, i32, f32)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Named);
@@ -1192,6 +1219,7 @@ TEST_CASE("[ParsedType::parse] Parse generic 3 args u8, i32, f32") {
 TEST_CASE("[ParsedType::parse] Parse generic int literal arg") {
     Tokenizer tokenizer = Tokenizer::create({}, "Example(15)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Named);
@@ -1208,6 +1236,7 @@ TEST_CASE("[ParsedType::parse] Parse generic int literal arg") {
 TEST_CASE("[ParsedType::parse] Parse Vec 3, f32") {
     Tokenizer tokenizer = Tokenizer::create({}, "Vec(3, f32)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Named);
@@ -1229,6 +1258,7 @@ TEST_CASE("[ParsedType::parse] Parse Vec 3, f32") {
 TEST_CASE("[ParsedType::parse] Parse Mat 4, 3, f32") {
     Tokenizer tokenizer = Tokenizer::create({}, "Mat(4, 3, f32)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Named);
@@ -1255,6 +1285,7 @@ TEST_CASE("[ParsedType::parse] Parse Mat 4, 3, f32") {
 TEST_CASE("[ParsedType::parse] Parse generic many int literal") {
     Tokenizer tokenizer = Tokenizer::create({}, "Example(0, 1, 2, 3, 4)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Named);
@@ -1273,6 +1304,7 @@ TEST_CASE("[ParsedType::parse] Parse generic many int literal") {
 TEST_CASE("[ParsedType::parse] Parse tuple one type") {
     Tokenizer tokenizer = Tokenizer::create({}, "(i32)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Tuple);
@@ -1288,6 +1320,7 @@ TEST_CASE("[ParsedType::parse] Parse tuple one type") {
 TEST_CASE("[ParsedType::parse] Parse tuple one type") {
     Tokenizer tokenizer = Tokenizer::create({}, "(i32)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Tuple);
@@ -1303,6 +1336,7 @@ TEST_CASE("[ParsedType::parse] Parse tuple one type") {
 TEST_CASE("[ParsedType::parse] Parse tuple two types") {
     Tokenizer tokenizer = Tokenizer::create({}, "(f32, i32)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Tuple);
@@ -1324,6 +1358,7 @@ TEST_CASE("[ParsedType::parse] Parse tuple two types") {
 TEST_CASE("[ParsedType::parse] Parse tuple many types") {
     Tokenizer tokenizer = Tokenizer::create({}, "(u8, f32, i32)").takeValue();
     ParseInfo parseInfo(tokenizer.iter(), {}, "", nullptr, nullptr);
+    (void)parseInfo.tokenIter.next();
     ParsedType type = ParsedType::parse(&parseInfo).takeValue();
     const ParsedTypeNode& root = type.getRootNode();
     CHECK_EQ(root.tag, ParsedTypeTag::Tuple);
