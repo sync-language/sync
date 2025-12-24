@@ -71,6 +71,7 @@ set(SyncLibSources
     "lib/src/compiler/graph/module_dependency_graph.cpp"
     "lib/src/compiler/parser/ast/function_definition.cpp"
     "lib/src/compiler/parser/ast/return.cpp"
+    "lib/src/compiler/parser/ast.cpp"
     "lib/src/program/program.cpp"
     "lib/src/program/program_error.cpp"
     "lib/src/testing/child_process.cpp"

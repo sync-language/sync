@@ -45,6 +45,7 @@ fn main() {
         .file("src/compiler/parser/expression.cpp")
         .file("src/compiler/parser/ast/function_definition.cpp")
         .file("src/compiler/parser/ast/return.cpp")
+        .file("src/compiler/parser/ast.cpp")
         .file("src/program/program.cpp")
         .file("src/program/program_error.cpp")
         .file("src/testing/child_process.cpp")
