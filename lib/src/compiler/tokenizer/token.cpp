@@ -53,6 +53,10 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "LifetimeDynKeyword";
     case TokenType::TraitKeyword:
         return "TraitKeyword";
+    case TokenType::WhereKeyword:
+        return "WhereKeyword";
+    case TokenType::SelfKeyword:
+        return "SelfKeyword";
     case TokenType::SyncKeyword:
         return "SyncKeyword";
     case TokenType::TrueKeyword:
@@ -357,7 +361,7 @@ static std::tuple<Token, uint32_t> parseReturnOrIdentifier(const StringSlice sou
 
 static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseStringSharedSetOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseStringSharedSetSelfOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnFormatstrOrIdentifier(const StringSlice source,
                                                                                   const uint32_t start);
@@ -378,7 +382,7 @@ static std::tuple<Token, uint32_t> parseNullOrIdentifier(const StringSlice sourc
 
 static std::tuple<Token, uint32_t> parseDynOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseWhileOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseWhileWhereOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseTypeOrIdentifier(const StringSlice source, const uint32_t start);
 
@@ -788,9 +792,9 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         return parseStructSyncStrSwitchOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // capital S (String, Shared)
+    // capital S (String, Shared, Set, Self)
     if (source[nonWhitespaceStart] == 'S') {
-        return parseStringSharedSetOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseStringSharedSetSelfOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // float types, for, false, fn, f-string
@@ -838,9 +842,9 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         return parseDynOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // while
+    // while, where
     if (source[nonWhitespaceStart] == 'w') {
-        return parseWhileOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseWhileWhereOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // Type
@@ -1203,7 +1207,8 @@ static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(const St
     }
 }
 
-static std::tuple<Token, uint32_t> parseStringSharedSetOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parseStringSharedSetSelfOrIdentifier(const StringSlice source,
+                                                                        const uint32_t start) {
     sy_assert(source[start - 1] == 'S', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
@@ -1211,6 +1216,12 @@ static std::tuple<Token, uint32_t> parseStringSharedSetOrIdentifier(const String
     if (remainingSourceLen >= 2) {
         if (sliceFoundAtUnchecked(source, "et", start)) {
             return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::SetPrimitive);
+        }
+    }
+
+    if (remainingSourceLen >= 3) {
+        if (sliceFoundAtUnchecked(source, "elf", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::SelfKeyword);
         }
     }
 
@@ -1483,18 +1494,19 @@ static std::tuple<Token, uint32_t> parseDynOrIdentifier(const StringSlice source
     }
 }
 
-static std::tuple<Token, uint32_t> parseWhileOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parseWhileWhereOrIdentifier(const StringSlice source, const uint32_t start) {
     sy_assert(source[start - 1] == 'w', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
-    if (remainingSourceLen < 2) {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
-        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
-    }
+    if (remainingSourceLen >= 4) {
+        if (sliceFoundAtUnchecked(source, "hile", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::WhileKeyword);
+        }
 
-    if (sliceFoundAtUnchecked(source, "hile", start)) {
-        return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::WhileKeyword);
+        if (sliceFoundAtUnchecked(source, "here", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::WhereKeyword);
+        }
     }
 
     {
@@ -1714,6 +1726,10 @@ TEST_CASE("[Token] as") { testParseKeyword("as", TokenType::AsKeyword); }
 TEST_CASE("[Token] panic") { testParseKeyword("panic", TokenType::PanicKeyword); }
 
 TEST_CASE("[Token] extern") { testParseKeyword("extern", TokenType::ExternKeyword); }
+
+TEST_CASE("[Token] where") { testParseKeyword("where", TokenType::WhereKeyword); }
+
+TEST_CASE("[Token] Self") { testParseKeyword("Self", TokenType::SelfKeyword); }
 
 TEST_CASE("[Token] lifetime dyn") {
     const char* keyword = "dyn\'";

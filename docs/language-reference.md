@@ -411,8 +411,6 @@ GLSL uses column major ordering, but 2d arrays in most languages use row major o
 Mat(4, 3, f32) // Matrix of 4x3 containing all 32 bit floats.
 ```
 
-## Traits
-
 ## Lifetimes
 
 Since Sync does not use a garbage collector, a borrow checker is used to validate references. As a result, explicit lifetime syntax is supported, but ideally the compiler can determine it for you. The lifetime syntax is extremely similar to [Rust explicit lifetimes](https://doc.rust-lang.org/rust-by-example/scope/lifetime/explicit.html).
@@ -472,14 +470,14 @@ Sync structs use the [C Structure Layout](https://www.gnu.org/software/c-intro-a
 
 ```sync
 struct Example {
-    a: u32,     // Starts at byte offset 0
-    b: bool,    // Starts at byte offset 4
-    c: u64,     // Starts at byte offset 8 due to padding
+    a: u32,     // Starts at byte offset 0.
+    b: bool,    // Starts at byte offset 4.
+    c: u64,     // Starts at byte offset 8 due to padding.
 } // Size: 16 bytes, Align: 8 bytes.
 
-Example // Identifier referring to defined struct
+Example // Identifier referring to defined struct.
 
-const e: Example = { .a = 1, .b = false, .c = 2 } // Struct usage
+const e: Example = { .a = 1, .b = false, .c = 2 } // Struct usage.
 ```
 
 ### Struct Member Accessibility
@@ -488,10 +486,271 @@ All struct members are not `pub` by default. You must mark them `pub` to access 
 
 ```sync
 struct Example {
-    pub a: u32, // accessible outside of the source file
-    b: bool,    // not accessible
-    pub c: u64, // accessible
+    pub a: u32, // accessible outside of the source file.
+    b: bool,    // not accessible.
+    pub c: u64, // accessible.
 }
+```
+
+## Functions
+
+```sync
+// Not accessible outside of this file.
+fn add(a: i32, b: i32) i32 {
+    return a + b;
+}
+
+// Accessible outside of this file.
+pub fn pubAdd(a: i32, b: i32) i32 {
+    return a + b;
+}
+
+// External function linked to this module from the host program
+extern fn externAdd(a: i32, b: i32);
+```
+
+### Member Functions
+
+Like Rust, Sync uses `impl` blocks to associate functions with a type.
+
+```sync
+struct Person {
+    name: str
+    age: u16
+}
+
+impl Person {
+    // static function on Person.
+    fn new(name: str, age: u16) Person {
+        return Person{.name = name, .age = age};
+    } 
+
+    // member function, queryable by host program.
+    fn birthday(self: *mut Self) {
+        self.age += 1;
+    }
+
+    // member function. The `self` can be any name, not strictly `self`.
+    // pub means this function can be used outside of this file.
+    pub fn goBackInTime(this: *mut Self) {
+        this.age -= 1;
+    }
+}
+
+// multiple impl blocks is fine.
+// impl blocks can also be defined outside of the file the struct / trait / enum is defined in.Is th
+impl Person {
+    // static function, since the first argument isn't one of `Self`, `*Self`, or `*mut Self`.
+    fn changeName(name: str, self: *mut Self) {
+        self.name = name;
+    }
+}
+
+fn main() {
+    mut person = Person.new("john smith", 32);
+    person.birthday();
+    Person.birthday(&mut person); // alternatively call with Type.function syntax.
+    person.goBackInTime();
+    Person.changeName("jane doe", &mut person); // have to use Type.function syntax because it's not a member function.
+}
+```
+
+For convenience, [UFCS](https://en.wikipedia.org/wiki/Uniform_function_call_syntax) is also supported.
+
+```sync
+struct Person {
+    name: str
+    age: u16
+}
+
+fn makeToBaby(self: *mut Person) {
+    self.age = 1;
+}
+
+fn main() {
+    mut person = Person{.name = "donald", .age = 75};
+    person.makeToBaby();
+    makeToBaby(&mut person); // calling normally also works.
+}
+```
+
+### Function Pointer
+
+A function pointer points to metadata to execute a function. This memory is immutable, so a function pointer can never be `mut`. It also does not need a lifetime, as functions have static lifetime.
+
+```sync
+fn sayMessage(msg: str) {
+    print(msg);
+}
+
+fn getSomething() i32 {
+    return 1;
+}
+
+fn main() {
+    const fptrMessage: *fn(str) = sayMessage;
+    fptrMessage("hello!");
+
+    const fptrNumber: *fn() i32 = getSomething;
+    const num = fptrNumber();
+}
+```
+
+### Extern Functions
+
+Sync needs to communicate with the host program, meaning extern functions are a requirement. Extern functions are only linked to the module that the host application explicitly specifies, but like all functions, can be marked pub and allowed to use across module boundaries.
+
+```sync
+struct Person {
+    name: str
+    age: u16
+}
+
+extern fn writePersonToDatabase(person: *Person); // no function body.
+
+fn main() {
+    const person1 = Person{.name = "richard jingles", .age = 50};
+    writePersonToDatabase(&person1);
+
+    const person2 = Person{.name = "elizabeth jonkles", .age = 51};
+    person2.writePersonToDatabase(); // UFCS works
+}
+```
+
+Extern functions can also be namespaces, but must have a matching name.
+
+```sync
+struct Person {
+    name: str
+    age: u16
+}
+
+impl Person {
+    extern fn writePersonToDatabase(person: *Person);
+}
+
+fn main() {
+    const person1 = Person{.name = "richard jingles", .age = 50};
+    person1.writePersonToDatabase();
+
+    const person2 = Person{.name = "elizabeth jonkles", .age = 51};
+    Person.writePersonToDatabase(&person2); // Type.function works too.
+}
+```
+
+### Anonymous Functions / Closures / Lambdas
+
+Anonymous functions are just function pointers.
+
+```sync
+fn callFunc(*fn doThing(msg: str)) {
+    doThing("hello?");
+}
+
+fn main() {
+    callFunc(fn(msg: str) {
+        print(msg);
+    });
+}
+```
+
+## Traits
+
+Sync does not allow traditional OOP inheritance whatsoever. Sync does allow traits / interfaces without members. This is specifically to ensure exact memory layouts for host program compatibility, and stay compatible with everything. Function pointers and discriminants work on every valid target system and every supported programming language.
+
+```sync
+trait Speak {
+    // any type that derives must implement this function.
+    fn sayHi(self: *Self);
+
+    // default implementation. any type that derives does not need to implement this.
+    fn sayBye(self: *Self) {
+        print("bye bye!");
+    }
+}
+
+struct Person {
+    name: str
+    age: u16
+}
+
+struct Cat {
+    name: str
+    breed: str
+}
+
+impl Speak for Person {
+    // implement the required function.
+    fn sayHi(self: *Self) {
+        print("hello there!");
+    }
+
+    // don't need to implement sayBye() because it has a default already.
+}
+
+impl Speak for Cat {
+    // implement the required function.
+    fn sayHi(self: *Self) {
+        print("meow");
+    }
+
+    // override the default implementation of sayBye() explicitly.
+    fn sayBye(self: *Self) {
+        print("miau");
+    }
+}
+
+fn main() {
+    const person = Person{.name = "cat guy", .age = 38};
+    const cat = Cat{.name = "bug", .breed = "orange"};
+
+    person.sayHi();     // hello there!
+    cat.sayHi();        // meow
+    person.sayBye();    // bye bye!
+    cat.sayBye();       // miau
+
+    Person.sayHi(&person); // works like other functions too.
+}
+```
+
+All trait functions are `pub` right now. This is open to being changed.
+
+Traits abide by the [Orphan Rule](https://ianbull.com/notes/rusts-orphan-rule/) right now as well.
+
+### Dynamic Dispatch
+
+Sync uses fat pointers for dynamic dispatch, with the `dyn` keyword, which is a type that contains a pointer to some object, and a pointer to a [Virtual Method Table](https://en.wikipedia.org/wiki/Virtual_method_table).
+
+```sync
+fn callSayHi(obj: dyn Speak) {
+    obj.sayHi();
+}
+
+fn main() {
+    const person = Person{.name = "cat guy", .age = 38};
+    const cat = Cat{.name = "bug", .breed = "orange"};
+    callSayHi(&person); // hello there
+    callSayHi(&cat);    // meow
+}
+```
+
+For mutable trait references, use `dyn mut`. For lifetime bound trait references, use `dyn'a`
+
+### Multiple Traits
+
+Since traits don't add any extra memory to a type itself, you can add as many traits as you want to a type.
+
+```sync
+trait Jump {
+    // trait functions
+}
+
+trait Swim {
+    // trait functions
+}
+
+impl Jump for Person { ... }
+impl Swim for Person { ... }
 ```
 
 ## Enums
@@ -527,6 +786,35 @@ enum FileType : i32 {
 ```
 
 All variants are `pub` if the enum itself is `pub`.
+
+### Enum Member Functions
+
+All Sync enums support impl blocks and can derive traits.
+
+```sync
+enum State {
+    Walking,    // 0 implicitly
+    Running,    // 1 ...
+    Swimming,   // 2 ...
+    Jumping,    // 3 ...
+}
+
+enum AnimationState {
+    Idle = 4,
+    Walking = State.Walking,
+    Running = State.Running,
+    Swimming = State.Swimming,
+    Jumping = State.Jumping,
+}
+
+impl State {
+    fn asAnimationState() AnimationState {
+        // convert enums
+    }
+}
+```
+
+This applies to [Sum Types](#sum-types) as well.
 
 ## Sum Types
 
@@ -593,42 +881,13 @@ enum State {
 
 All variants are `pub` if the enum itself is `pub`.
 
-## Functions
+## Extending Built-ins
+
+You may implement functions and traits on a built-in type within a module.
 
 ```sync
-// Not accessible outside of this file
-fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
-
-// Accessible outside of this file
-pub fn pubAdd(a: i32, b: i32) i32 {
-    return a + b;
-}
-
-// External function linked to this module from the host program
-extern fn externAdd(a: i32, b: i32);
-```
-
-### Function Pointer
-
-A function pointer points to metadata to execute a function. This memory is immutable, so a function pointer can never be `mut`. It also does not need a lifetime, as functions have static lifetime.
-
-```sync
-fn sayMessage(msg: str) {
-    print(msg);
-}
-
-fn getSomething() i32 {
-    return 1;
-}
-
-fn main() {
-    const fptrMessage: *fn(str) = sayMessage;
-    fptrMessage("hello!");
-
-    const fptrNumber: *fn() i32 = getSomething;
-    const num = fptrNumber();
+impl i32 {
+    fn logToDatabase(self: i32) { ... }
 }
 ```
 
@@ -699,3 +958,24 @@ Based on [C++ Operator Precedence](https://en.cppreference.com/w/cpp/language/op
 
 | Precedence | Operator | Description | Associativity |
 |------------|----------|-------------|---------------|
+
+## Host
+
+### Fetch Member Functions
+
+As you can implement member functions on any type within a Sync program, the host program needs to be able to query these functions.
+
+```sync
+impl i32 {
+    fn logToDatabase(self: i32) { ... }
+}
+```
+
+```C
+void getMembersExample(const SyProgram* program) {
+    const SyType* i32TypeInfo = SY_TYPE_I32;
+    const SyTypeFunctions* funcs = sy_program_get_members_of(program, i32TypeInfo);
+    printf("%s\n", funcs.functions[0].name); // logToDatabase
+    // do something with them
+}
+```

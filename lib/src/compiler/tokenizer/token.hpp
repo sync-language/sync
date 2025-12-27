@@ -36,6 +36,8 @@ enum class TokenType : uint8_t {
     DynKeyword,
     LifetimeDynKeyword,
     TraitKeyword,
+    WhereKeyword,
+    SelfKeyword,
     SyncKeyword,
     // UnsafeKeyword,
     TrueKeyword,
