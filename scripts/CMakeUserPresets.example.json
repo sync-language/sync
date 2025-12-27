@@ -16,6 +16,22 @@
             }
         },
         {
+        "name": "win-base",
+        "hidden": true,
+        "generator": "Ninja",
+        "binaryDir": "${sourceDir}/build/${presetName}",
+        "installDir": "${sourceDir}/install/${presetName}",
+        "cacheVariables": {
+          "CMAKE_C_COMPILER": "cl.exe",
+          "CMAKE_CXX_COMPILER": "cl.exe"
+        },
+        "condition": {
+          "type": "equals",
+          "lhs": "${hostSystemName}",
+          "rhs": "Windows"
+        }
+      },
+        {
             "name": "mac-arm64-debug",
             "displayName": "arm64 Debug",
             "inherits": "mac-base",
@@ -30,11 +46,39 @@
             }
         },
         {
-            "name": "mac-amd64-debug",
+            "name": "mac-x64-debug",
             "displayName": "x64 Debug",
             "inherits": "mac-base",
             "architecture": {
                 "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SYNC_LIB_WITH_TESTS": "ON",
+                "SYNC_LIB_ASAN": "ON"
+            }
+        },
+        {
+            "name": "win-x64-debug",
+            "displayName": "x64 Debug",
+            "inherits": "win-base",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SYNC_LIB_WITH_TESTS": "ON",
+                "SYNC_LIB_ASAN": "ON"
+            }
+        },
+        {
+            "name": "win-arm64-debug",
+            "displayName": "arm64 Debug",
+            "inherits": "mac-base",
+            "architecture": {
+                "value": "arm64",
                 "strategy": "external"
             },
             "cacheVariables": {
