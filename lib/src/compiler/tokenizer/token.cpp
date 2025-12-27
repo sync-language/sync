@@ -21,6 +21,10 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "ReturnKeyword";
     case TokenType::ThrowKeyword:
         return "ThrowKeyword";
+    case TokenType::TryKeyword:
+        return "TryKeyword";
+    case TokenType::CatchKeyword:
+        return "CatchKeyword";
     case TokenType::FnKeyword:
         return "FnKeyword";
     case TokenType::PubKeyword:
@@ -67,6 +71,12 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "SharedKeyword";
     case TokenType::WeakKeyword:
         return "WeakKeyword";
+    case TokenType::AsKeyword:
+        return "AsKeyword";
+    case TokenType::PanicKeyword:
+        return "PanicKeyword";
+    case TokenType::ExternKeyword:
+        return "ExternKeyword";
 
     case TokenType::BoolPrimitive:
         return "BoolPrimitive";
@@ -107,6 +117,8 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "CharLiteral";
     case TokenType::StringLiteral:
         return "StringLiteral";
+    case TokenType::FormatString:
+        return "FormatString";
 
     case TokenType::Identifier:
         return "Identifier";
@@ -329,15 +341,15 @@ static std::tuple<Token, uint32_t> extractKeywordOrIdentifier(const StringSlice 
 static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(const StringSlice source,
                                                                             const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseElseEnumOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseElseEnumExternOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseUnsignedIntegerTypesOrIdentifier(const StringSlice source,
                                                                          const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseBoolTypeBreakOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseCharConstContinueComptimeOrIdentifier(const StringSlice source,
-                                                                              const uint32_t start);
+static std::tuple<Token, uint32_t> parseCharConstContinueComptimeCatchOrIdentifier(const StringSlice source,
+                                                                                   const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseMutOrIdentifier(const StringSlice source, const uint32_t start);
 
@@ -347,18 +359,18 @@ static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(const St
 
 static std::tuple<Token, uint32_t> parseStringSharedSetOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnOrIdentifier(const StringSlice source,
-                                                                         const uint32_t start);
+static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnFormatstrOrIdentifier(const StringSlice source,
+                                                                                  const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseTrueThrowTraitOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseTrueThrowTraitTryOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parsePubOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parsePubPanicOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseUniqueOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseWeakOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseAndOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseAndAsOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseOrOrIdentifier(const StringSlice source, const uint32_t start);
 
@@ -743,12 +755,12 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
 
     // else will probably be used a lot as well
     if (source[nonWhitespaceStart] == 'e') {
-        return parseElseEnumOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseElseEnumExternOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // const should be extremely used. char and continue exist too.
     if (source[nonWhitespaceStart] == 'c') {
-        return parseCharConstContinueComptimeOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseCharConstContinueComptimeCatchOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // mut also should be extremely used
@@ -781,19 +793,19 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         return parseStringSharedSetOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // float types, for, false, fn
+    // float types, for, false, fn, f-string
     if (source[nonWhitespaceStart] == 'f') {
-        return parseFloatTypesForFalseFnOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseFloatTypesForFalseFnFormatstrOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // true
     if (source[nonWhitespaceStart] == 't') {
-        return parseTrueThrowTraitOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseTrueThrowTraitTryOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // pub
     if (source[nonWhitespaceStart] == 'p') {
-        return parsePubOrIdentifier(source, nonWhitespaceStart + 1);
+        return parsePubPanicOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // Unique
@@ -808,7 +820,7 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
 
     // and
     if (source[nonWhitespaceStart] == 'a') {
-        return parseAndOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseAndAsOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // or
@@ -978,22 +990,25 @@ static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(cons
     }
 }
 
-static std::tuple<Token, uint32_t> parseElseEnumOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parseElseEnumExternOrIdentifier(const StringSlice source, const uint32_t start) {
     sy_assert(source[start - 1] == 'e', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
-    if (remainingSourceLen < 3) {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
-        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    if (remainingSourceLen >= 5) {
+        if (sliceFoundAtUnchecked(source, "xtern", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 5, start, TokenType::ExternKeyword);
+        }
     }
 
-    if (sliceFoundAtUnchecked(source, "lse", start)) {
-        return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::ElseKeyword);
-    }
+    if (remainingSourceLen >= 3) {
+        if (sliceFoundAtUnchecked(source, "lse", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::ElseKeyword);
+        }
 
-    if (sliceFoundAtUnchecked(source, "num", start)) {
-        return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::EnumKeyword);
+        if (sliceFoundAtUnchecked(source, "num", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::EnumKeyword);
+        }
     }
 
     {
@@ -1072,8 +1087,8 @@ static std::tuple<Token, uint32_t> parseBoolTypeBreakOrIdentifier(const StringSl
     }
 }
 
-static std::tuple<Token, uint32_t> parseCharConstContinueComptimeOrIdentifier(const StringSlice source,
-                                                                              const uint32_t start) {
+static std::tuple<Token, uint32_t> parseCharConstContinueComptimeCatchOrIdentifier(const StringSlice source,
+                                                                                   const uint32_t start) {
     sy_assert(source[start - 1] == 'c', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
@@ -1083,16 +1098,6 @@ static std::tuple<Token, uint32_t> parseCharConstContinueComptimeOrIdentifier(co
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 
-    if (sliceFoundAtUnchecked(source, "har", start)) {
-        return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::CharPrimitive);
-    }
-
-    if (remainingSourceLen >= 4) {
-        if (sliceFoundAtUnchecked(source, "onst", start)) {
-            return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::ConstKeyword);
-        }
-    }
-
     if (remainingSourceLen >= 7) {
         if (sliceFoundAtUnchecked(source, "ontinue", start)) {
             return extractKeywordOrIdentifier(source, remainingSourceLen, 7, start, TokenType::ContinueKeyword);
@@ -1100,6 +1105,19 @@ static std::tuple<Token, uint32_t> parseCharConstContinueComptimeOrIdentifier(co
         if (sliceFoundAtUnchecked(source, "omptime", start)) {
             return extractKeywordOrIdentifier(source, remainingSourceLen, 7, start, TokenType::ComptimeKeyword);
         }
+    }
+
+    if (remainingSourceLen >= 4) {
+        if (sliceFoundAtUnchecked(source, "onst", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::ConstKeyword);
+        }
+        if (sliceFoundAtUnchecked(source, "atch", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::CatchKeyword);
+        }
+    }
+
+    if (sliceFoundAtUnchecked(source, "har", start)) {
+        return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::CharPrimitive);
     }
 
     {
@@ -1214,14 +1232,40 @@ static std::tuple<Token, uint32_t> parseStringSharedSetOrIdentifier(const String
     }
 }
 
-static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnOrIdentifier(const StringSlice source,
-                                                                         const uint32_t start) {
+static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnFormatstrOrIdentifier(const StringSlice source,
+                                                                                  const uint32_t start) {
     sy_assert(source[start - 1] == 'f', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
     if (remainingSourceLen == 0) {
         return std::make_tuple(Token(TokenType::Identifier, start - 1), start + 1);
+    }
+
+    if (source[start] == '\"') {
+        // A str literal of "" is valid, as that's just an empty string
+
+        uint32_t i = start + 1;
+        bool didFind = false;
+        for (; i < (remainingSourceLen + start); i++) {
+            const char c = source[i];
+            const char before = source[i - 1];
+            // TODO is this right?
+            if (c == '\n') {
+                // TODO figure out how to do multiline string literals
+                return std::make_tuple(Token(TokenType::Error, i), static_cast<uint32_t>(-1));
+            }
+            if (c == '\"' && before != '\\') {
+                didFind = true;
+                break;
+            }
+        }
+
+        if (didFind) {
+            return std::make_tuple(Token(TokenType::FormatString, start - 1), i + 1);
+        } else {
+            return std::make_tuple(Token(TokenType::Error, start - 1), static_cast<uint32_t>(-1));
+        }
     }
 
     if (source[start] == 'n') {
@@ -1255,7 +1299,7 @@ static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnOrIdentifier(const S
     }
 }
 
-static std::tuple<Token, uint32_t> parseTrueThrowTraitOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parseTrueThrowTraitTryOrIdentifier(const StringSlice source, const uint32_t start) {
     sy_assert(source[start - 1] == 't', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
@@ -1279,24 +1323,33 @@ static std::tuple<Token, uint32_t> parseTrueThrowTraitOrIdentifier(const StringS
         }
     }
 
+    if (remainingSourceLen >= 2) {
+        if (sliceFoundAtUnchecked(source, "ry", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::TryKeyword);
+        }
+    }
+
     {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
     }
 }
 
-static std::tuple<Token, uint32_t> parsePubOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parsePubPanicOrIdentifier(const StringSlice source, const uint32_t start) {
     sy_assert(source[start - 1] == 'p', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
-    if (remainingSourceLen < 2) {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
-        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    if (remainingSourceLen >= 4) {
+        if (sliceFoundAtUnchecked(source, "anic", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::PanicKeyword);
+        }
     }
 
-    if (sliceFoundAtUnchecked(source, "ub", start)) {
-        return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::PubKeyword);
+    if (remainingSourceLen >= 2) {
+        if (sliceFoundAtUnchecked(source, "ub", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::PubKeyword);
+        }
     }
 
     {
@@ -1345,18 +1398,21 @@ static std::tuple<Token, uint32_t> parseWeakOrIdentifier(const StringSlice sourc
     }
 }
 
-static std::tuple<Token, uint32_t> parseAndOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parseAndAsOrIdentifier(const StringSlice source, const uint32_t start) {
     sy_assert(source[start - 1] == 'a', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
-    if (remainingSourceLen < 2) {
-        const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
-        return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    if (remainingSourceLen >= 2) {
+        if (sliceFoundAtUnchecked(source, "nd", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::AndKeyword);
+        }
     }
 
-    if (sliceFoundAtUnchecked(source, "nd", start)) {
-        return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::AndKeyword);
+    if (remainingSourceLen >= 1) {
+        if (sliceFoundAtUnchecked(source, "s", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 1, start, TokenType::AsKeyword);
+        }
     }
 
     {
@@ -1641,6 +1697,10 @@ TEST_CASE("[Token] return") { testParseKeyword("return", TokenType::ReturnKeywor
 
 TEST_CASE("[Token] throw") { testParseKeyword("throw", TokenType::ThrowKeyword); }
 
+TEST_CASE("[Token] try") { testParseKeyword("try", TokenType::TryKeyword); }
+
+TEST_CASE("[Token] catch") { testParseKeyword("catch", TokenType::CatchKeyword); }
+
 TEST_CASE("[Token] and") { testParseKeyword("and", TokenType::AndKeyword); }
 
 TEST_CASE("[Token] or") { testParseKeyword("or", TokenType::OrKeyword); }
@@ -1648,6 +1708,12 @@ TEST_CASE("[Token] or") { testParseKeyword("or", TokenType::OrKeyword); }
 TEST_CASE("[Token] null") { testParseKeyword("null", TokenType::NullKeyword); }
 
 TEST_CASE("[Token] dyn") { testParseKeyword("dyn", TokenType::DynKeyword); }
+
+TEST_CASE("[Token] as") { testParseKeyword("as", TokenType::AsKeyword); }
+
+TEST_CASE("[Token] panic") { testParseKeyword("panic", TokenType::PanicKeyword); }
+
+TEST_CASE("[Token] extern") { testParseKeyword("extern", TokenType::ExternKeyword); }
 
 TEST_CASE("[Token] lifetime dyn") {
     const char* keyword = "dyn\'";
@@ -2145,6 +2211,152 @@ TEST_SUITE("char literals") {
         }
         { // new line within
             const StringSlice s = " \'\n\'";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::Error);
+            CHECK_EQ(token.location(), 2);
+            CHECK_GE(end, s.len());
+        }
+    }
+}
+
+TEST_SUITE("format string literals") {
+    TEST_CASE("[Token] format empty string") {
+        {
+            const StringSlice s = "f\"\"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " f\"\"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "f\"\" ";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 2);
+        }
+    }
+
+    TEST_CASE("[Token] format 1 character string") {
+        {
+            const StringSlice s = "f\"a\"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " f\"a\"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "f\"a\" ";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 3);
+        }
+    }
+
+    TEST_CASE("[Token] format multiple character string") {
+        {
+            const StringSlice s = "f\"abc\"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " f\"abc\"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "f\"abc\" ";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 5);
+        }
+    }
+
+    TEST_CASE("[Token] format has quote character within") {
+        {
+            const StringSlice s = "f\"\\\"\"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " f\"\\\"\"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "f\"\\\"\" ";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 3);
+        }
+    }
+
+    TEST_CASE("[Token] format has apostrophe character within") {
+        {
+            const StringSlice s = "f\"\\\'\"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = " f\"\\\'\"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        {
+            const StringSlice s = "f\"\\\'\" ";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::FormatString);
+            CHECK_EQ(token.location(), 0);
+            CHECK_GE(end, 3);
+        }
+    }
+
+    TEST_CASE("[Token] format invalid") {
+        { // not terminated last character
+            const StringSlice s = " \"";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::Error);
+            CHECK_EQ(token.location(), 1);
+            CHECK_GE(end, s.len());
+        }
+        { // not terminated
+            const StringSlice s = "  \" ";
+            auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
+            CHECK_EQ(token.tag(), TokenType::Error);
+            CHECK_EQ(token.location(), 2);
+            CHECK_GE(end, s.len());
+        }
+        { // new line within
+            const StringSlice s = " \"\n\"";
             auto [token, end] = Token::parseToken(s, 0, &lineNumberUnused);
             CHECK_EQ(token.tag(), TokenType::Error);
             CHECK_EQ(token.location(), 2);

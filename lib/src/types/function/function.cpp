@@ -534,6 +534,7 @@ TEST_SUITE("C 1 arg no return") {
                                argTypes,
                                1,
                                SY_FUNCTION_MIN_ALIGN,
+                               false,
                                Function::CallType::C,
                                reinterpret_cast<const void*>(&simpleFunc1Arg<int32_t, 56>)};
 

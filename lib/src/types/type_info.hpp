@@ -246,6 +246,7 @@ class SY_API Type {
                                           argsTypes,
                                           1,                     // number of args
                                           SY_FUNCTION_MIN_ALIGN, // alignment
+                                          true,
                                           Function::CallType::C,
                                           reinterpret_cast<const void*>(func)};
             concreteType.destructor = &cEqualFunc;
@@ -261,6 +262,7 @@ class SY_API Type {
                                           argsTypes,
                                           2,                     // number of args
                                           SY_FUNCTION_MIN_ALIGN, // alignment
+                                          true,
                                           Function::CallType::C,
                                           reinterpret_cast<const void*>(func)};
             concreteType.copyConstructor = &cEqualFunc;
@@ -276,6 +278,7 @@ class SY_API Type {
                                           argsTypes,
                                           2,                     // number of args
                                           SY_FUNCTION_MIN_ALIGN, // alignment
+                                          true,
                                           Function::CallType::C,
                                           reinterpret_cast<const void*>(func)};
             concreteType.equality = &cEqualFunc;
@@ -291,6 +294,7 @@ class SY_API Type {
                                          argsTypes,
                                          1,                     // number of args
                                          SY_FUNCTION_MIN_ALIGN, // alignment
+                                         true,
                                          Function::CallType::C,
                                          reinterpret_cast<const void*>(func)};
             concreteType.hash = &cHashFunc;

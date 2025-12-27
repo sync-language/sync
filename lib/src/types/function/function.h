@@ -38,6 +38,8 @@ typedef struct SyFunction {
     /// Alignment must be a multiple of 2.
     /// `alignment % 2 == 0`.
     uint16_t alignment;
+    /// If `true`, this function can be called in a comptime context within Sync source code.
+    bool comptimeSafe;
     /// Determines if this function is a C function or script function.
     SyFunctionType tag;
     /// Both for C functions and script functions. Given `tag` and `info`, the function will be correctly called.

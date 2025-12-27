@@ -88,6 +88,8 @@ class Function {
     const Type** argsTypes;
     uint16_t argsLen;
     uint16_t alignment = SY_FUNCTION_MIN_ALIGN;
+    /// If `true`, this function can be called in a comptime context within Sync source code.
+    bool comptimeSafe;
     CallType tag;
     /// Both for C functions and script functions. Given `tag` and `info`, the function will be correctly called.
     /// For C functions, this should be a function with the signature of `Function::c_function_t`.

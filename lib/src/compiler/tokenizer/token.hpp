@@ -19,6 +19,8 @@ enum class TokenType : uint8_t {
     ComptimeKeyword,
     ReturnKeyword,
     ThrowKeyword,
+    TryKeyword,
+    CatchKeyword,
     FnKeyword,
     PubKeyword,
     IfKeyword,
@@ -43,11 +45,13 @@ enum class TokenType : uint8_t {
     OrKeyword,
     // ImportKeyword,
     // ModKeyword,
-    // ExternKeyword,
     // AssertKeyword,
     UniqueKeyword,
     SharedKeyword,
     WeakKeyword,
+    AsKeyword,
+    PanicKeyword,
+    ExternKeyword,
 
     BoolPrimitive,
     I8Primitive,
@@ -74,6 +78,7 @@ enum class TokenType : uint8_t {
     NumberLiteral,
     CharLiteral,
     StringLiteral,
+    FormatString,
 
     Identifier,
 

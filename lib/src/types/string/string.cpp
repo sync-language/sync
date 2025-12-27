@@ -153,7 +153,7 @@ void sy::StringUnmanaged::moveAssign(StringUnmanaged&& other, Allocator& alloc) 
         this->raw_[i] = other.raw_[i];
     }
     other.len_ = 0;
-    asAllocMut(this->raw_)->flag = 0;
+    asAllocMut(this->raw_)->flag = 1;
 }
 
 sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::copyConstruct(const StringUnmanaged& other,
@@ -181,6 +181,7 @@ sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::copyConstruct
         buffer[i] = otherHeap->ptr[i];
     }
     zeroSetLastSIMDElement(buffer, self.len_);
+    buffer[self.len_] = '\0';
 
     self.setHeapFlag();
     AllocBuffer* thisHeap = asAllocMut(self.raw_);
@@ -397,6 +398,10 @@ sy::Result<void, sy::AllocErr> sy::StringUnmanaged::append(StringSlice slice, Al
         auto res = detail::mallocStringBuffer(newCapacity, alloc);
         if (res.hasErr()) {
             return Error(AllocErr::OutOfMemory);
+        }
+        if (!this->isSso()) {
+            AllocBuffer* oldHeap = asAllocMut(this->raw_);
+            detail::freeStringBuffer(oldHeap->ptr, oldHeap->capacity, alloc);
         }
         memcpy(res.value(), this->cstr(), this->len_);
         this->setHeapFlag();
