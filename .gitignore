@@ -20,6 +20,7 @@ out/
 .DS_Store
 # Dev Personal Stuff
 temp
+CMakeUserPresets.json
 # Code Coverage
 LastCoverageResults.log
 CombinedCoverage
