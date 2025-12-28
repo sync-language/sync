@@ -39,6 +39,8 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "WhileKeyword";
     case TokenType::ForKeyword:
         return "ForKeyword";
+    case TokenType::InKeyword:
+        return "InKeyword";
     case TokenType::BreakKeyword:
         return "BreakKeyword";
     case TokenType::ContinueKeyword:
@@ -57,6 +59,10 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "WhereKeyword";
     case TokenType::SelfKeyword:
         return "SelfKeyword";
+    case TokenType::ImplKeyword:
+        return "ImplKeyword";
+    case TokenType::SpecificKeyword:
+        return "SpecificKeyword";
     case TokenType::SyncKeyword:
         return "SyncKeyword";
     case TokenType::TrueKeyword:
@@ -79,8 +85,12 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "AsKeyword";
     case TokenType::PanicKeyword:
         return "PanicKeyword";
+    case TokenType::AssertKeyword:
+        return "AssertKeyword";
     case TokenType::ExternKeyword:
         return "ExternKeyword";
+    case TokenType::ImportKeyword:
+        return "ImportKeyword";
 
     case TokenType::BoolPrimitive:
         return "BoolPrimitive";
@@ -342,8 +352,8 @@ static std::tuple<Token, uint32_t> extractKeywordOrIdentifier(const StringSlice 
     return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
 }
 
-static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(const StringSlice source,
-                                                                            const uint32_t start);
+static std::tuple<Token, uint32_t> parseIfInImplImportAndSignedIntegerTypesOrIdentifier(const StringSlice source,
+                                                                                        const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseElseEnumExternOrIdentifier(const StringSlice source, const uint32_t start);
 
@@ -359,7 +369,8 @@ static std::tuple<Token, uint32_t> parseMutOrIdentifier(const StringSlice source
 
 static std::tuple<Token, uint32_t> parseReturnOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseStructSyncStrSwitchSpecificOrIdentifier(const StringSlice source,
+                                                                                const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseStringSharedSetSelfOrIdentifier(const StringSlice source, const uint32_t start);
 
@@ -374,7 +385,7 @@ static std::tuple<Token, uint32_t> parseUniqueOrIdentifier(const StringSlice sou
 
 static std::tuple<Token, uint32_t> parseWeakOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseAndAsOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseAndAsAssertOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseOrOrIdentifier(const StringSlice source, const uint32_t start);
 
@@ -751,10 +762,10 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         break;
     }
 
-    // if will definitely be used a lot, along with probably the signed integer
+    // if, impl, and import will definitely be used a lot, along with probably the signed integer
     // types so checking those first is good
     if (source[nonWhitespaceStart] == 'i') {
-        return parseIfAndSignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseIfInImplImportAndSignedIntegerTypesOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // else will probably be used a lot as well
@@ -789,7 +800,7 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
 
     // struct, sync (lowercase), str, switch
     if (source[nonWhitespaceStart] == 's') {
-        return parseStructSyncStrSwitchOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseStructSyncStrSwitchSpecificOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // capital S (String, Shared, Set, Self)
@@ -822,9 +833,9 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         return parseWeakOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // and
+    // and, as, assert
     if (source[nonWhitespaceStart] == 'a') {
-        return parseAndAsOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseAndAsAssertOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // or
@@ -952,8 +963,8 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
     return std::make_tuple(Token(TokenType::Error, nonWhitespaceStart), nonWhitespaceStart + 1);
 }
 
-static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(const StringSlice source,
-                                                                            const uint32_t start) {
+static std::tuple<Token, uint32_t> parseIfInImplImportAndSignedIntegerTypesOrIdentifier(const StringSlice source,
+                                                                                        const uint32_t start) {
     sy_assert(source[start - 1] == 'i', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
@@ -965,6 +976,9 @@ static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(cons
 
     if (source[start] == 'f') {
         return extractKeywordOrIdentifier(source, remainingSourceLen, 1, start, TokenType::IfKeyword);
+    }
+    if (source[start] == 'n') {
+        return extractKeywordOrIdentifier(source, remainingSourceLen, 1, start, TokenType::InKeyword);
     }
     if (source[start] == '8') {
         return extractKeywordOrIdentifier(source, remainingSourceLen, 1, start, TokenType::I8Primitive);
@@ -985,6 +999,18 @@ static std::tuple<Token, uint32_t> parseIfAndSignedIntegerTypesOrIdentifier(cons
         // 16 bit integers probably used the least
         if (sliceFoundAtUnchecked(source, "16", start)) {
             return extractKeywordOrIdentifier(source, remainingSourceLen, 2, start, TokenType::I16Primitive);
+        }
+    }
+
+    if (remainingSourceLen >= 3) {
+        if (sliceFoundAtUnchecked(source, "mpl", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::ImplKeyword);
+        }
+    }
+
+    if (remainingSourceLen >= 5) {
+        if (sliceFoundAtUnchecked(source, "mport", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 5, start, TokenType::ImportKeyword);
         }
     }
 
@@ -1170,8 +1196,8 @@ static std::tuple<Token, uint32_t> parseReturnOrIdentifier(const StringSlice sou
     }
 }
 
-static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(const StringSlice source,
-                                                                        const uint32_t start) {
+static std::tuple<Token, uint32_t> parseStructSyncStrSwitchSpecificOrIdentifier(const StringSlice source,
+                                                                                const uint32_t start) {
     sy_assert(source[start - 1] == 's', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
@@ -1179,6 +1205,13 @@ static std::tuple<Token, uint32_t> parseStructSyncStrSwitchOrIdentifier(const St
     if (remainingSourceLen < 2) {
         const uint32_t end = endOfAlphaNumericOrUnderscore(source, start);
         return std::make_tuple(Token(TokenType::Identifier, start - 1), end);
+    }
+
+    // struct starts with str so this must be done first
+    if (remainingSourceLen >= 7) {
+        if (sliceFoundAtUnchecked(source, "pecific", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 7, start, TokenType::SpecificKeyword);
+        }
     }
 
     // struct starts with str so this must be done first
@@ -1409,10 +1442,16 @@ static std::tuple<Token, uint32_t> parseWeakOrIdentifier(const StringSlice sourc
     }
 }
 
-static std::tuple<Token, uint32_t> parseAndAsOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parseAndAsAssertOrIdentifier(const StringSlice source, const uint32_t start) {
     sy_assert(source[start - 1] == 'a', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if (remainingSourceLen >= 5) {
+        if (sliceFoundAtUnchecked(source, "ssert", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 5, start, TokenType::AssertKeyword);
+        }
+    }
 
     if (remainingSourceLen >= 2) {
         if (sliceFoundAtUnchecked(source, "nd", start)) {
@@ -1730,6 +1769,16 @@ TEST_CASE("[Token] extern") { testParseKeyword("extern", TokenType::ExternKeywor
 TEST_CASE("[Token] where") { testParseKeyword("where", TokenType::WhereKeyword); }
 
 TEST_CASE("[Token] Self") { testParseKeyword("Self", TokenType::SelfKeyword); }
+
+TEST_CASE("[Token] impl") { testParseKeyword("impl", TokenType::ImplKeyword); }
+
+TEST_CASE("[Token] specific") { testParseKeyword("specific", TokenType::SpecificKeyword); }
+
+TEST_CASE("[Token] import") { testParseKeyword("import", TokenType::ImportKeyword); }
+
+TEST_CASE("[Token] assert") { testParseKeyword("assert", TokenType::AssertKeyword); }
+
+TEST_CASE("[Token] in") { testParseKeyword("in", TokenType::InKeyword); }
 
 TEST_CASE("[Token] lifetime dyn") {
     const char* keyword = "dyn\'";
