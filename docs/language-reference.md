@@ -71,6 +71,7 @@ struct Person {
 | Unique(T) | SyUnique / sy::Unique<T> | thread-safe single owned object |
 | Shared(T) | SyShared / sy::Shared<T> | thread-safe multiple owned object |
 | Weak(T) | SyWeak / sy::Weak<T> | thread-safe weak reference to Unique or Shared |
+| Ordering | SyOrdering / sy::Ordering | order of two elements |
 
 ### Primitive Values
 
@@ -154,6 +155,7 @@ Struct literals follow the format of `StructName{.member1 = value1, .member2 = v
 | mut | Mutable variable |
 | or | Boolean or |
 | panic | Abort the Sync program (does not abort the host process) |
+| print | Prints a string to the consoles or host specified location |
 | pub | Allow access of the symbol outside of the file it is declared in |
 | return | Return a non-error value from a function to the caller |
 | Self | The primary type in an `impl` block |
@@ -341,7 +343,7 @@ fn main() {
 extern fn getRandomNumber() u8;
 
 fn main() {
-    bool randomFlag = false;
+    mut randomFlag: bool = false;
     // loop on condition until condition evaluates to false
     while randomFlag == false {
         if getRandomNumber() > 200 {
@@ -439,7 +441,7 @@ fn main() {
             print("in bad range");
         }
         else {
-            print("outside of known range);
+            print("outside of known range");
         }
     } // in good range
 }
@@ -646,11 +648,12 @@ All math operators are checked for any failure conditions. Integer overflow is n
 | Bitwise And | a & b<br>a &= b | Integers | Bit AND on two integers |
 | Bitwise Or | a \| b<br>a \|= b | Integers | Bit OR on two integers |
 | Bitwise Xor | a ^ b<br>a ^= b | Integers | Bit XOR on two integers |
-| Bitwise Not | ~a | Integers | Bitwise completemtn on an integer |
+| Bitwise Not | ~a | Integers | Bitwise complement on an integer |
 | Boolean Not | !a | Boolean expression | Converts `true` to `false` and `false` to `true` |
 | Optional Unwrap | a.? | Any optional type `?T` | Unwraps an optional value, or aborts if null |
 | Error Unwrap | a.! | Any error union `ErrorT!OkT` | Unwraps an ok value from an error union, or aborts if error |
 | Dereference | a.* | Any pointer type `*T` | Dereferences a pointer to the underlying value. Identical to C `*a` |
+| Field Access | a.b | Any type with fields | Access field `b` on object `a` |
 | Address of | &a<br>&mut a | Any type | Gets the address of a value |
 
 ### Precedence
@@ -659,6 +662,46 @@ Based on [C++ Operator Precedence](https://en.cppreference.com/w/cpp/language/op
 
 | Precedence | Operator | Description | Associativity |
 |------------|----------|-------------|---------------|
+| 1 (highest)| a.b | Field access | Left-to-right |
+| 1 | a(args)  | Function call | Left-to-right |
+| 1 | a[i] | Index | Left-to-right |
+| 1 | a.? | Optional unwrap | Left-to-right |
+| 1 | a.! | Error unwrap | Left-to-right |
+| 1 | a.* | Dereference | Left-to-right |
+| 2 | &a | Address of (immutable) | Right-to-left |
+| 2 | &mut a | Address of (mutable) | Right-to-left |
+| 2 | !a | Boolean not | Right-to-left |
+| 2 | ~a | Bitwise not | Right-to-left |
+| 2 | -a | Negation | Right-to-left |
+| 3 | a * b | Multiply | Left-to-right |
+| 3 | a / b | Divide | Left-to-right |
+| 3 | a % b | Remainder | Left-to-right |
+| 4 | a + b | Add | Left-to-right |
+| 4 | a - b | Subtract | Left-to-right |
+| 5 | a << b | Bit shift left | Left-to-right |
+| 5 | a >> b | Bit shift right | Left-to-right |
+| 6 | a & b | Bitwise and | Left-to-right |
+| 7 | a ^ b | Bitwise xor | Left-to-right |
+| 8 | a \| b | Bitwise or | Left-to-right |
+| 9 | a == b | Equality | Left-to-right |
+| 9 | a != b | Inequality | Left-to-right |
+| 9 | a < b | Less than | Left-to-right |
+| 9 | a <= b | Less or equal | Left-to-right |
+| 9 | a > b | Greater than | Left-to-right |
+| 9 | a >= b | Greater or equal | Left-to-right |
+| 10 | a and b | Logical and | Left-to-right |
+| 11 | a or b | Logical or (and has higher priority) | Left-to-right |
+| 12 (lowest) | a = b | Assignment | Right-to-left |
+| 12 | a += b | Compound assignment add | Right-to-left |
+| 12 | a -= b | Compound assignment subtract | Right-to-left |
+| 12 | a *= b | Compound assignment multiply | Right-to-left |
+| 12 | a /= b | Compound assignment divide | Right-to-left |
+| 12 | a %= b | Compound assignment modulo | Right-to-left |
+| 12 |a <<= b | Compound assignment bitshift left | Right-to-left |
+| 12 | a >>= b | Compound assignment bitshift right | Right-to-left |
+| 12 | a &= b | Compound assignment bitwise and | Right-to-left |
+| 12 | a \|= b | Compound assignment bitwise or | Right-to-left |
+| 12 | a ^= b | Compound assignment bitwise xor | Right-to-left |
 
 ## Ownership
 
@@ -732,7 +775,7 @@ Similar to Rust, a block of code encapsulated within `{}` can yield a value.
 fn main() {
     const x: i32 = 50;
     const y = {
-        val: i32 = x * 2
+        mut val: i32 = x * 2
         if val < 0 {
             val *= -1;
         }
@@ -760,7 +803,7 @@ See [Generics](#generics).
 
 ### Comptime Blocks
 
-A block of code marked comptime has is forcibly evaluated at compile time. If the block cannot be evaluated at compile time, this is a compile error.
+A block of code marked comptime is forcibly evaluated at compile time. If the block cannot be evaluated at compile time, this is a compile error.
 
 ```sync
 fn main() {
@@ -896,7 +939,7 @@ const nullPointer: ?*i32 = null;
 
 Sync does not use exceptions, rather choosing to have errors as values. Similar to [Zig errors](https://ziglang.org/documentation/0.15.2/#Errors), error values have special syntax associated with them. Like [Rust std::Result](https://doc.rust-lang.org/std/result/), error values can be of any type, containing any user defined payload.
 
-The syntax for an error type definition is `ErrorType!OkType`. The `ErrorType` may not be omitted, whereas the `OkType` does not have to be provided, indicated no value.
+The syntax for an error type definition is `ErrorType!OkType`. The `ErrorType` and `OkType` may be omitted.
 
 ```sync
 // error union containing a f32 as an ok value, rather than an i16 error
@@ -908,6 +951,14 @@ const errorNumbers: i16!f32 = 1 as i16;
 const okValues: str!i32 = 5;
 // error union containing a str as an error value, rather than a i32 ok value
 const errorValues: str!i32 = "failed!";
+
+// This function DOES return, but it either returns nothing, or errors and also has no error value
+fn doSomeLogic(num: i32) ! {
+    if num == 0 {
+        throw;
+    }
+    return;
+}
 ```
 
 ### Throw / Try / Catch
@@ -1026,7 +1077,7 @@ fn main() {
         print(f"Val 3 before {val3}") // 3
 
         val2 += 1;
-        val2 += 1;
+        val3 += 1;
     } catch panic;
 
     sync val1, val2, val3 {
@@ -1154,7 +1205,7 @@ const slice: []u8 = arr; // Coerce to slice
 
 #### Hash Map
 
-The second, and extremely important is a hash map. Is it similar to C++ std::map, Rust std::collections::HashMap, Zig std.HashMap, and Python dict[T]. Is it written as `Map(K, V)` where K is a generic type for the map key, and V is a generic type for the map value. K must be hashable and be able to be equality compared.
+The second, and extremely important is a hash map. It is similar to C++ std::map, Rust std::collections::HashMap, Zig std.HashMap, and Python dict[T]. It is written as `Map(K, V)` where K is a generic type for the map key, and V is a generic type for the map value. K must be hashable and be able to be equality compared.
 
 ```sync
 Map(i32, f32) // Hash map of signed 32 bit integer keys and 32 bit float values.
@@ -1162,7 +1213,7 @@ Map(i32, f32) // Hash map of signed 32 bit integer keys and 32 bit float values.
 
 #### Hash Set
 
-The third, and fairly important is a hash set. Is it similar to C++ std::set, Rust std::collections::HashSet, and Python set[T]. Is it written as `Set(K)` where K is a generic type for the map key. K must be hashable and be able to be equality compared.
+The third, and fairly important is a hash set. It is similar to C++ std::set, Rust std::collections::HashSet, and Python set[T]. It is written as `Set(K)` where K is a generic type for the map key. K must be hashable and be able to be equality compared.
 
 ```sync
 Set(i32) // Hash set of signed 32 bit integer keys.
@@ -1223,6 +1274,10 @@ str@'a // String slice (pointer to immutable utf8 character array + length) with
 
 u64@'a // Unsigned 64 bit integer with an explicit lifetime specifier.
 ```
+
+### Comptime Lifetime
+
+A lifetime may be valid for the entire duration of the program. For this, annotate with `'comptime`. This behaves like Rust `'static`.
 
 ## Tuples
 
@@ -1337,7 +1392,7 @@ impl Person {
 }
 
 // multiple impl blocks is fine.
-// impl blocks can also be defined outside of the file the struct / trait / enum is defined in.Is th
+// impl blocks can also be defined outside of the file the struct / trait / enum is defined in.
 impl Person {
     // static function, since the first argument isn't one of `Self`, `*Self`, or `*mut Self`.
     fn changeName(name: str, self: *mut Self) {
@@ -1580,9 +1635,40 @@ trait BigNoise {
 }
 ```
 
+### Associated Types
+
+Sometimes it is necessary for a trait to associate a type / value with the implementation. These are just compile time values.
+
+```sync
+pub trait Iterator {
+    // user must provide a type at compile time
+    const Item: Type;
+
+    fn next(self: *mut Self) ?Item;
+};
+```
+
 ### Built-in Traits
 
+| Trait | Description | Implemented by Default on Type |
+|-------|-------------|--------------------------------|
+| [Destruct](#destruct) | The destructor of a type. All types must implement this | Yes |
+| [Default](#default) | The default initialization of a type | Yes if possible |
+| [Clone](#clone) | Allows cloning a type with `.clone()` | Yes if possible |
+| [ByteCopy](#bytecopy) | Allows copying a type by bytes rather than moving and invalidating. Will forcibly implement `Clone` as well. | Yes if possible |
+| [Equal](#equal) | Equality between two objects of a type | Yes if possible |
+| [Order](#order) | Ordering between two types | No |
+| [Hash](#hash) | Ordering between two types | Yes if possible |
+| [Format](#format) | Convert a type to a formatted string | Yes |
+| [Iterator](#iterator) | Provides iterators in for loops | No |
+| [Cast](#cast) | Convert one type to another | No |
+| [TryCast](#try-cast) | Convert one type to another that can fail | No |
+
+To disable a trait, that is implemented by default, use `@derive(!TraitName)`. See [@derive](#derive).
+
 #### Destruct
+
+All types implement destructors.
 
 ```sync
 trait Destruct {
@@ -1594,7 +1680,27 @@ trait Destruct {
 
 TODO evaluate validating infallible destructors
 
+#### Default
+
+All types whose members implement `Default` will implement it by default. Numbers will initialize to 0, bool will initialize to false.
+
+```sync
+trait Default {
+    fn default() Self;
+}
+```
+
+#### Clone
+
+All types whose members implement `Clone` will implement it by default.
+
+#### ByteCopy
+
+Any type that implements this indicates that it's bytes can be copied rather than be moved and invalidated. All types whose members implement `ByteCopy` will implement it by default.
+
 #### Equal
+
+All types whose members implement `Equal` will implement it by default, as an equality of all members.
 
 ```sync
 trait Equal {
@@ -1608,7 +1714,9 @@ trait Equal {
 
 #### Order
 
-In reality, the only reason to distinguish between partial vs total ordering is from float NaN. If you think we are wrong, we are happy to evaluate if a distinction between partial vs total ordering is important enough for Sync. Given that Sync already does checked math, checking for non-NaN in cases where ordering is relevant such as sorting is acceptable.
+This is not implemented by default on types.
+
+In reality, the only reason to distinguish between partial vs total ordering is from float NaN. If you think we are wrong, we are happy to evaluate if a distinction between partial and total ordering is important enough for Sync. Given that Sync already does checked math, checking for non-NaN in cases where ordering is relevant such as sorting is acceptable.
 
 ```sync
 enum Ordering: i32 {
@@ -1624,13 +1732,125 @@ trait Order {
 
 #### Hash
 
-#### Iterator
+All types whose members implement `Hash` will implement it by default, as a hash of all members.
 
-TODO
+```sync
+trait Hash {
+    fn hash(self: *Self) usize;
+}
+```
 
 #### Format
 
 Sync has [Format Strings](#format-strings).
+
+TODO
+
+```sync
+trait Format {
+    /// parsed at compile time, storing the format that then gets passed when formatting
+    const Formatter: Type;
+
+    /// compile time function to parse the format string
+    fn parse();
+
+    fn format();
+
+    fn debug();
+}
+```
+
+#### Iterator
+
+```sync
+pub trait Iterator {
+    // user must provide a type at compile time
+    const Item: Type;
+
+    fn next(self: *mut Self) ?Item;
+};
+```
+
+By default, many types have built-in support for iterators without requiring an explicit function call.
+
+| Type | Yields (immutable) | Yields (mutable) |
+|------|--------------------|------------------|
+| `[N]T` (static array) | `*T` | `*mut T` |
+| `[]T` (slice) | `*T` | `*mut T` |
+| `str` | `char` | N/A |
+| `String` | `char` | N/A |
+| `List(T)` | `*T` | `*mut T` |
+| `Set(K)` | `*K` | N/A |
+| `Map(K, V)` | `(*K, *V)` | `(*K, *mut V)` |
+| `a..b` / `a..=b` | `T` | N/A |
+
+#### Cast
+
+```sync
+pub trait Cast(T: Type) {
+    fn cast(self: *Self) T
+}
+```
+
+Works with normal casts.
+
+```sync
+struct Player {
+    name: str
+}
+
+impl Cast(str) for Player {
+    fn cast(self: *Self) str {
+        return self.name;
+    }
+}
+
+fn main() {
+    const player = Player{.name = "brad"};
+    print(player as str); // brad
+}
+```
+
+#### TryCast
+
+```sync
+pub trait TryCast(T: Type) {
+    // Required at compile time
+    const Err: Type;
+
+    fn tryCast(self: *Self) Err!T
+}
+```
+
+```sync
+struct Player {
+    name: str
+}
+
+enum NameErr {
+    InvalidName
+};
+
+impl TryCast(str) for Player {
+    const Err: Type = NameErr;
+
+    fn cast(self: *Self) Err!str {
+        if self.name == "" {
+            throw NameErr.InvalidName;
+        }
+        return self.name;
+    }
+}
+
+fn main() {
+    const player = Player{.name = ""};
+    const name = player as str catch as err: NameErr {
+        print(err); // InvalidName
+        return;
+    }
+    print(name); // not reached
+}
+```
 
 ## Enums
 
@@ -2067,7 +2287,7 @@ TODO evaluate handling failed casts, such as downsizing integer.
 @sizeOf(T: Type) usize
 ```
 
-Get the size in bytes of a type `T`
+Get the size in bytes of a type `T` at compile time.
 
 ### @alignOf
 
@@ -2075,7 +2295,17 @@ Get the size in bytes of a type `T`
 @alignOf(T: Type) usize
 ```
 
-Get the align in bytes of a type `T`
+Get the align in bytes of a type `T` at compile time.
+
+### @sort
+
+```sync
+@sort(iter: Iterate) List(T)
+where @implements(T, Order) and @implements(T, Clone)
+
+@sort(iter: Iterate, []mut T) ![]mut T
+where @implements(T, Order) and @implements(T, Clone)
+```
 
 ### @implements
 
@@ -2083,7 +2313,27 @@ Get the align in bytes of a type `T`
 @implements(T: Type, Trait: Type) bool
 ```
 
-Boolean test for if a type `T` implements the trait `Trait`.
+Boolean test for if a type `T` implements the trait `Trait` at compile time.
+
+### @derive
+
+```sync
+trait Serialize {
+    fn serialize(self: *Self) String {
+        // default implementation
+    }
+}
+
+// Use the default implementation of Serialize on the Player type.
+// Disable cloning the player, despite it being able to be implemented on this type by default.
+@derive(Serialize, !Clone)
+struct Player {
+    name: str,
+    class: str
+}
+```
+
+Modifier on a trait to implement a trait default, or disable a trait implementation.
 
 ### @skipTest
 
@@ -2100,7 +2350,13 @@ Skips the current test case, logging it but not marking it as failed. See [Testi
 @expectPanic(msg) { ... }
 ```
 
-Only for use within a test. Expect that the block of code correctly panics, optionally with an expected error message.
+Only for use within a test. Expect that the block of code correctly panics, optionally with an expected error message. See [Testing](#testing).
+
+### @testConfig
+
+```sync
+
+```
 
 ## Testing
 
@@ -2108,8 +2364,6 @@ TODO test metadata:
 
 - Setup function
 - Teardown function
-- Skip of failure
-- Should fail, optionally with error message
 
 ## Host
 

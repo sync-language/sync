@@ -52,6 +52,7 @@ enum class TokenType : uint8_t {
     AsKeyword,
     PanicKeyword,
     AssertKeyword,
+    PrintKeyword,
     ExternKeyword,
     ImportKeyword,
 
@@ -70,8 +71,6 @@ enum class TokenType : uint8_t {
     CharPrimitive,
     StrPrimitive,
     StringPrimitive,
-    // PartialOrdPrimitive,
-    // OrdPrimitive,
     TypePrimitive,
     ListPrimitive,
     MapPrimitive,
@@ -142,13 +141,6 @@ enum class TokenType : uint8_t {
     ConcreteLifetime,
     Slice,
     SliceLifetime,
-
-    DestructTrait,
-    EqualTrait,
-    OrderTrait,
-    HashTrait,
-    // IteratorTrait,
-    FormatTrait,
 };
 
 StringSlice tokenTypeToString(TokenType tokenType);

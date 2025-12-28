@@ -87,6 +87,8 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "PanicKeyword";
     case TokenType::AssertKeyword:
         return "AssertKeyword";
+    case TokenType::PrintKeyword:
+        return "PrintKeyword";
     case TokenType::ExternKeyword:
         return "ExternKeyword";
     case TokenType::ImportKeyword:
@@ -379,7 +381,7 @@ static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnFormatstrOrIdentifie
 
 static std::tuple<Token, uint32_t> parseTrueThrowTraitTryOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parsePubPanicOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parsePubPanicPrintOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseUniqueOrIdentifier(const StringSlice source, const uint32_t start);
 
@@ -818,9 +820,9 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         return parseTrueThrowTraitTryOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // pub
+    // pub, panic, print
     if (source[nonWhitespaceStart] == 'p') {
-        return parsePubPanicOrIdentifier(source, nonWhitespaceStart + 1);
+        return parsePubPanicPrintOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // Unique
@@ -1379,12 +1381,15 @@ static std::tuple<Token, uint32_t> parseTrueThrowTraitTryOrIdentifier(const Stri
     }
 }
 
-static std::tuple<Token, uint32_t> parsePubPanicOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parsePubPanicPrintOrIdentifier(const StringSlice source, const uint32_t start) {
     sy_assert(source[start - 1] == 'p', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
 
     if (remainingSourceLen >= 4) {
+        if (sliceFoundAtUnchecked(source, "rint", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::PrintKeyword);
+        }
         if (sliceFoundAtUnchecked(source, "anic", start)) {
             return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::PanicKeyword);
         }
@@ -1779,6 +1784,8 @@ TEST_CASE("[Token] import") { testParseKeyword("import", TokenType::ImportKeywor
 TEST_CASE("[Token] assert") { testParseKeyword("assert", TokenType::AssertKeyword); }
 
 TEST_CASE("[Token] in") { testParseKeyword("in", TokenType::InKeyword); }
+
+TEST_CASE("[Token] print") { testParseKeyword("print", TokenType::PrintKeyword); };
 
 TEST_CASE("[Token] lifetime dyn") {
     const char* keyword = "dyn\'";
