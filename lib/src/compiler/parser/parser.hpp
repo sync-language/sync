@@ -30,7 +30,7 @@ struct ParseInfo {
         : tokenIter(inIter), alloc(inAlloc), moduleName(inModName), imports({}), errReporter(inErrReporter),
           errReporterArg(inErrReporterArg) {}
 
-    void reportErr(ProgramError errKind, uint32_t inBytePos, StringSlice msg) const noexcept;
+    Error<ProgramError> reportErr(ProgramError errKind, uint32_t inBytePos, StringSlice msg) const noexcept;
 };
 
 class IFunctionDefinition;

@@ -84,7 +84,7 @@ enum class ParsedNodeTag : uint8_t {
     Dereference,
     UnwrapNull,
     UnwrapError,
-    Cast,
+    As,
     StructLiteral,
     ArrayLiteral,
     TupleLiteral,
@@ -131,6 +131,7 @@ struct ParsedNode {
 
     bool isMutable;
     bool isPublic;
+    bool isComptime;
     ExprBinaryOp binaryOp;
     ExprUnaryOp unaryOp;
 

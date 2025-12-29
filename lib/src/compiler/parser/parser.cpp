@@ -10,11 +10,12 @@ namespace sy {
 extern ProgramErrorReporter defaultErrReporter;
 }
 
-void sy::ParseInfo::reportErr(ProgramError errKind, uint32_t inBytePos, StringSlice msg) const noexcept {
+Error<ProgramError> sy::ParseInfo::reportErr(ProgramError errKind, uint32_t inBytePos, StringSlice msg) const noexcept {
     SourceFileLocation asFileLocation = SourceFileLocation(this->tokenIter.source(), inBytePos);
     asFileLocation.fileName = this->moduleName;
     if (this->errReporter)
         this->errReporter(errKind, asFileLocation, msg, this->errReporterArg);
+    return Error(errKind);
 }
 
 sy::FileAst::~FileAst() noexcept {
