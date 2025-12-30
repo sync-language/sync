@@ -66,16 +66,12 @@ brew install --cask utm
 
 #### Setup Windows VM with UTM
 
-**1.**
-
-Get a Windows ISO.
+##### 1. Get a Windows ISO.
 
 - For Apple Silicon: [Windows 11 ARM64 ISO](https://www.microsoft.com/en-us/software-download/windows11arm64)
 - For Intel Mac: A Windows 10/11 x64 ISO should be fine
 
-**2.**
-
-Create the Virtual Machine.
+##### 2. Create the Virtual Machine.
 
 1. Open UTM
 2. Click "+"
@@ -93,9 +89,7 @@ Create the Virtual Machine.
 9. No shared directories are required
 10. Name the VM. This name will be used later. Prefer the format `Windows <10 or 11> <arch>` for instance `Windows 11 arm64`
 
-**3.**
-
-Setup Windows.
+##### 3. Setup Windows
 
 I encountered some difficulty with this part. At first I only see `SHELL>`. Run `map` to see some FS devices.
 
@@ -111,8 +105,51 @@ Once you're actually in the Windows setup, follow it as normally.
 
 After it restarts, to not press a key to boot into CD / DVD again. It will keep restarting, which is fine. It is making progress as can be seen by the visible percentage.
 
-**4.**
+##### 4. Setup UTM guest tools
 
 Setup UTM guest tools with the `UTM Guest Tools Installer`. This should be loaded on first setup already.
 
 `https://docs.getutm.app/guest-support/windows/`.
+
+##### 5. Configure SSH
+
+Configure SSH
+
+Open Adminstrator Powershell
+
+```sh
+# This first one may take a while
+Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+Start-Service sshd
+Set-Service -Name sshd -StartupType Automatic
+```
+
+##### 6. Perform Windows Environment Setup as Normal
+
+Install Windows Environment Tools by performing the [Windows Environment Setup](#windows-setup).
+
+You do not need to setup Emscripten or Docker for the Virtual Machine.
+
+### Windows Setup
+
+#### 1. Visual Studio Build Tools
+
+Download [Visual Studio]().
+
+Run the Visual Studio Installer Installer (Microsoft what the HECK).
+
+Select the C++ Desktop build tools, then select Install. This may take a while.
+
+#### 2. Install CMake
+
+Install [CMake](https://cmake.org/download/) for your architecture.
+
+#### 3. Download Rust and Cargo
+
+Download the [rustup-init.exe](https://rust-lang.org/learn/get-started/) for your architecture.
+
+#### 4. Download Zig
+
+```sh
+winget install -e --id zig.zig
+```

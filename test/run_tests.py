@@ -79,6 +79,28 @@ except subprocess.CalledProcessError as e:
     print(f"Error output: {e.stderr}")
     exit(-1)
 
+def run_docker_tests():
+    run_test_sequentially(
+        "Docker Ubuntu x64",
+        'docker buildx build --platform linux/amd64 --load -t sync:ubuntu-x64 -f test/docker/ubuntu-x64.Dockerfile .'
+    )
+
+    run_test_sequentially(
+        "Docker Ubuntu arm64",
+        'docker buildx build --platform linux/arm64 --load -t sync:ubuntu-arm64 -f test/docker/ubuntu-arm64.Dockerfile .'
+    )
+
+    run_test_sequentially(
+        "Docker Ubuntu riscv64",
+        'docker buildx build --platform linux/riscv64 --load -t sync:ubuntu-riscv64 -f test/docker/ubuntu-riscv64.Dockerfile .'
+    )
+
+    run_test_sequentially(
+        "Docker Ubuntu WASM",
+        'docker build -t sync:wasm -f test/docker/wasm.Dockerfile .'
+    )
+    
+
 ARCHITECTURE = platform.machine()
 IS_X64 = ARCHITECTURE == 'AMD64' or ARCHITECTURE == 'x86_64'
 IS_ARM64 = ARCHITECTURE == 'arm64' or ARCHITECTURE == 'aarch64'
@@ -122,23 +144,4 @@ if OPERATING_SYSTEM == "Darwin" and IS_ARM64:
         'cmake -B build-x64 -DCMAKE_OSX_ARCHITECTURES="x86_64" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF && cmake --build build-x64 --config Debug --parallel && ctest --test-dir build-x64 -C Debug --output-on-failure'
     )
 
-
-run_test_sequentially(
-    "Docker Ubuntu x64",
-    'docker buildx build --platform linux/amd64 --load -t sync:ubuntu-x64 -f test/docker/ubuntu-x64.Dockerfile .'
-)
-
-run_test_sequentially(
-    "Docker Ubuntu arm64",
-    'docker buildx build --platform linux/arm64 --load -t sync:ubuntu-arm64 -f test/docker/ubuntu-arm64.Dockerfile .'
-)
-
-run_test_sequentially(
-    "Docker Ubuntu riscv64",
-    'docker buildx build --platform linux/riscv64 --load -t sync:ubuntu-riscv64 -f test/docker/ubuntu-riscv64.Dockerfile .'
-)
-
-run_test_sequentially(
-    "Docker Ubuntu WASM",
-    'docker build -t sync:wasm -f test/docker/wasm.Dockerfile .'
-)
+run_docker_tests()
