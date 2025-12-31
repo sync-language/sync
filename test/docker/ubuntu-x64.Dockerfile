@@ -16,4 +16,4 @@ RUN cmake --build build --parallel
 
 # LSan doesn't work in Docker/qemu
 ENV ASAN_OPTIONS="detect_leaks=0:abort_on_error=1"
-RUN ctest --test-dir build --output-on-failure 
+RUN --network=none ctest --test-dir build --output-on-failure 

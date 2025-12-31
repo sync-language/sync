@@ -46,7 +46,22 @@
             }
         },
         {
-            "name": "mac-x64-debug",
+            "name": "mac-arm64-debug-sandbox",
+            "displayName": "arm64 Debug Sandbox",
+            "inherits": "mac-base",
+            "architecture": {
+                "value": "arm64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SYNC_LIB_WITH_TESTS": "ON",
+                "SYNC_LIB_ASAN": "ON",
+                "SYNC_SANDBOX_TESTS": "ON"
+            }
+        },
+        {
+            "name": "mac-amd64-debug",
             "displayName": "x64 Debug",
             "inherits": "mac-base",
             "architecture": {
@@ -57,6 +72,21 @@
                 "CMAKE_BUILD_TYPE": "Debug",
                 "SYNC_LIB_WITH_TESTS": "ON",
                 "SYNC_LIB_ASAN": "ON"
+            }
+        },
+        {
+            "name": "mac-amd64-debug-sandbox",
+            "displayName": "x64 Debug Sandbox",
+            "inherits": "mac-base",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SYNC_LIB_WITH_TESTS": "ON",
+                "SYNC_LIB_ASAN": "ON",
+                "SYNC_SANDBOX_TESTS": "ON"
             }
         },
         {

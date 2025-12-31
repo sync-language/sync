@@ -13,6 +13,7 @@ project("Sync")
 option(BUILD_SHARED_LIBS "Build Sync as a shared library" OFF)
 option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" ON)
 option(SYNC_SKIP_TSAN_TESTS "Disable TSan tests even if the compiler supports it, such as in containerized environments" OFF)
+option(SYNC_SANDBOX_TESTS "Use sandboxing for tests" OFF)
 option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
 option(SYNC_LIB_CODE_COVERAGE "Enable code coverage" OFF)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" OFF)
@@ -29,7 +30,7 @@ option(SYNC_CUSTOM_PAGE_MEMORY "Provide and link your own custom implementation 
 option(SYNC_DEFAULT_PAGE_ALIGNMENT "Provide a custom default page size / alignment" OFF)
 option(SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER "Provide and link your default fatal error handler for special requirements" OFF)
 
-set(SyncLibSources
+set(SYNC_LIB_SOURCES
     "lib/src/core/core.c"
     "lib/src/util/panic.cpp"
     "lib/src/util/os_callstack.cpp"
@@ -79,13 +80,13 @@ set(SyncLibSources
 )
 
 if(SYNC_LIB_WITH_TESTS)
-    set(SyncLibSources ${SyncLibSources} "lib/test/test_runner.cpp")
+    set(SYNC_LIB_SOURCES ${SYNC_LIB_SOURCES} "lib/test/test_runner.cpp")
 endif()
 
 if(BUILD_SHARED_LIBS)
-    add_library(SyncLib SHARED ${SyncLibSources})
+    add_library(SyncLib SHARED ${SYNC_LIB_SOURCES})
 else()
-    add_library(SyncLib STATIC ${SyncLibSources})
+    add_library(SyncLib STATIC ${SYNC_LIB_SOURCES})
 endif()
 target_include_directories(SyncLib INTERFACE "include")
 

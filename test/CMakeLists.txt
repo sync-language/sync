@@ -8,6 +8,26 @@ if(EMSCRIPTEN)
     set(CMAKE_CROSSCOMPILING_EMULATOR "${NODE_EXECUTABLE};--experimental-wasm-threads")
 endif()
 
+if(APPLE AND SYNC_SANDBOX_TESTS)
+    set(CMAKE_CROSSCOMPILING_EMULATOR "sandbox-exec" "-f" "${CMAKE_CURRENT_SOURCE_DIR}/sandbox.sb")
+endif()
+
+# idk this should probably work
+if(LINUX AND SYNC_SANDBOX_TESTS)
+    find_program(BWRAP_EXECUTABLE bwrap)
+    if(BWRAP_EXECUTABLE)
+        set(CMAKE_CROSSCOMPILING_EMULATOR
+            "${BWRAP_EXECUTABLE}"
+            "--unshare-net"           # No network
+            "--ro-bind" "/" "/"       # Read-only root
+            "--bind" "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_BINARY_DIR}"  # Writable build dir
+            "--bind" "/tmp" "/tmp"
+            "--dev" "/dev"
+            "--proc" "/proc"
+        )
+    endif()
+endif()
+
 set(SYNC_LIB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../lib/src)
 
 set(CORE_DIR ${SYNC_LIB_SRC_DIR}/core)
@@ -290,6 +310,9 @@ set(SYNC_LIB_TESTS_SOURCES
     "../lib/test/test_runner.cpp"
     "../lib/test/test.cpp"
 )
+
+#set(SYNC_LIB_TESTS_SOURCES ${SYNC_LIB_SOURCES} "../lib/test/test.cpp")
+
 add_executable(SyncLibTests ${SYNC_LIB_TESTS_SOURCES})
 target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS=1)
 add_sync_test_flags(SyncLibTests ${SYNC_LIB_ASAN} TRUE FALSE)

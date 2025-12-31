@@ -1,0 +1,20 @@
+(version 1)
+(deny default)
+(deny network*)
+
+(allow process-exec)
+(allow process-fork)
+
+(allow file-read*)
+
+(allow file-write* (subpath "/tmp"))
+(allow file-write* (subpath "/private/tmp"))
+(allow file-write* (subpath "/var/folders"))
+
+; basic
+(allow sysctl-read)
+(allow mach-lookup)
+(allow signal (target self))
+
+; threading
+(allow process-info-pidinfo)

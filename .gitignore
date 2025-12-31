@@ -1,5 +1,6 @@
 # CMake
 build/
+build-host/
 build-x64/
 build-arm64/
 build-freebsd-x64/
