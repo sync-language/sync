@@ -73,7 +73,7 @@ brew install python
 brew install --cask docker
 ```
 
-#### 7. Install Emscripten
+#### 7. Install and Build Emscripten
 
 ```sh
 git clone https://github.com/emscripten-core/emsdk.git
@@ -138,12 +138,6 @@ I encountered some difficulty with this part. At first I only see `SHELL>`. Run 
 The trick is to press a key when it says "Press any key to boot from CD or DVD" (duh). If you're in the UEFI shell, enter `exit` and then select `Reset`, or just restart the VM.
 
 Once you're actually in the Windows setup, follow it as normally.
-
-> I don't have a product key
->
-> Windows 10/11 Home
->
-> Let it Restart
 
 After it restarts, to not press a key to boot into CD / DVD again. It will keep restarting, which is fine. It is making progress as can be seen by the visible percentage.
 
@@ -211,7 +205,56 @@ winget install -e --id zig.zig
 
 ### Linux Setup
 
-TODO
+#### 1. Get Build Tools For Your Distro
+
+Getting CMake, Rust, and Zig will vary depending on your Distro.
+
+#### 2. Get Docker For Your Distro
+
+[Install Docker for Linux](https://docs.docker.com/desktop/setup/install/linux/), with command line support.
+
+#### 3. Install and Build Emscripten
+
+```sh
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install latest
+./emsdk activate latest
+# PATH and other environment variables for this terminal only
+source ./emsdk_env.sh
+```
+
+#### 4. Install Node.js or Bun
+
+```sh
+# see https://nodejs.org/en/download to get Node.js
+# alternatively get bun
+curl -fsSL https://bun.sh/install | bash
+```
+
+#### 6. Install QEMU
+
+Download [QEMU](https://www.qemu.org/download/#linux) for your distro.
+
+#### 7. Install Quickemu
+
+```sh
+git clone https://github.com/quickemu-project/quickemu.git
+cd quickemu
+# Add the quickemu runner to your path for this terminal only
+# alternatively, add this to your ~/.zshrc, ~/.bashrc, or other to have it globally
+export PATH="$PATH:."
+```
+
+#### 8. Install SSH Stuff
+
+- `sshpass`
+
+#### 9. Setup Windows VM
+
+#### 10. Setup MacOS VM
+
+**NOTE** Running MacOS on non-apple hardware is a strict violation of EULA, and we do not recommend setting this up.
 
 ## Running Tests
 
@@ -227,3 +270,49 @@ The python script [test/run_tests.py](test/run_tests.py) will run a configured s
 | `--no-docker` | N/A | Disables execution of docker tests |
 | `--no-vm` | N/A | Disables execution of Virtual Machine tests<br>- UTM on MacOS |
 | `--utm` | "VM_NAME" USER PASS | Specifies a virtual machine for UTM to run. Multiple `--utm` options are allowed |
+
+## LLM Analysis Setup
+
+### 1. Install ollama
+
+Download [Ollama](https://ollama.com/download)
+
+### 2. Install your Model of Choice
+
+```sh
+# for instance, qwen3-coder:14b
+ollama pull freehuntx/qwen3-coder:14b
+```
+
+### 3. Start ollama
+
+```sh
+ollama serve
+```
+
+### 4. Run [llm_analysis.py](test/llm_anaysis.py) Script
+
+| Argument | Options | Description |
+|----------|---------|-------------|
+| `--model` | MODEL_NAME | Select the model to use in ollama |
+| `--files` | FILE_1 FILE_2 FILE_3 ... | Files to analyze (incompatible with `--diff` or `--pr`) |
+| `--diff` | N/A | Analyze git diff (incompatible with `--files` or `--pr`) |
+| `--pr` | BASE_BRANCH | Analyze pull request diff against another branch (incompatible with `--files` or `--diff`) |
+| `--prompt` | "PROMPT" | The actual prompt, with the other args adding context |
+
+```sh
+# specific files
+python test/llm_anaysis.py --files src/main.c src/utils.c
+
+# analyze staged changes
+python test/llm_anaysis.py --diff
+
+# analyze against other branch
+python test/llm_anaysis.py --pr main
+
+# custom prompt
+python test/llm_anaysis.py --files src/main.c --prompt "Review this code for memory safety issues:"
+
+# specific model
+python test/llm_anaysis.py --model codellama:13b --diff
+```
