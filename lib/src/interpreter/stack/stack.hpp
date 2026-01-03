@@ -2,7 +2,7 @@
 #ifndef SY_INTERPRETER_STACK_STACK_HPP_
 #define SY_INTERPRETER_STACK_STACK_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "frame.hpp"
 #include "node.hpp"
 #include <optional>
@@ -49,10 +49,10 @@ class Stack final {
     void setInstructionPointer(const Bytecode* bytecode);
 
     /// @return non-null pointer to the value at the specific offset within the current stack frame.
-    template <typename T>[[nodiscard]] T* frameValueAt(const uint16_t offset);
+    template <typename T> [[nodiscard]] T* frameValueAt(const uint16_t offset);
 
     /// @return non-null pointer to the value at the specific offset within the current stack frame.
-    template <typename T>[[nodiscard]] const T* frameValueAt(const uint16_t offset) const;
+    template <typename T> [[nodiscard]] const T* frameValueAt(const uint16_t offset) const;
 
     /// @return The type within the current stack frame at `offset`. The underlying `const sy::Type*` may be nullptr.
     [[nodiscard]] Node::TypeOfValue typeAt(const uint16_t offset) const;

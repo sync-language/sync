@@ -3,7 +3,7 @@
 #ifndef SY_PROGRAM_PROGRAM_H_
 #define SY_PROGRAM_PROGRAM_H_
 
-#include "../core.h"
+#include "../core/core.h"
 
 struct SyFunction;
 

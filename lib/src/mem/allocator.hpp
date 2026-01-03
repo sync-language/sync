@@ -3,7 +3,7 @@
 #ifndef SY_MEM_ALLOCATOR_HPP_
 #define SY_MEM_ALLOCATOR_HPP_
 
-#include "../core.h"
+#include "../core/core.h"
 #include "../types/result/result.hpp"
 
 namespace sy {

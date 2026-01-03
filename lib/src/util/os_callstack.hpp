@@ -2,7 +2,7 @@
 #ifndef SY_UTIL_OS_CALLSTACK_HPP_
 #define SY_UTIL_OS_CALLSTACK_HPP_
 
-#include "../core.h"
+#include "../core/core.h"
 
 #ifdef SYNC_BACKTRACE_SUPPORTED
 

@@ -3,7 +3,7 @@
 #ifndef SY_PROGRAM_PROGRAM_HPP_
 #define SY_PROGRAM_PROGRAM_HPP_
 
-#include "../core.h"
+#include "../core/core.h"
 #include "../types/array/slice.hpp"
 #include "../types/option/option.hpp"
 #include "../types/string/string_slice.hpp"

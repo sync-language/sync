@@ -3,7 +3,7 @@
 #ifndef SY_TYPES_STRING_STRING_SLICE_HPP_
 #define SY_TYPES_STRING_STRING_SLICE_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include <memory> // some header for hash
 
 namespace sy {

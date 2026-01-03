@@ -3,7 +3,7 @@
 #ifndef SY_TYPES_TYPE_H_
 #define SY_TYPES_TYPE_H_
 
-#include "../core.h"
+#include "../core/core.h"
 #include "string/string_slice.h"
 
 struct SyType;

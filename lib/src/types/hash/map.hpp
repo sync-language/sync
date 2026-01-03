@@ -3,7 +3,7 @@
 #ifndef SY_TYPES_HASH_MAP_HPP_
 #define SY_TYPES_HASH_MAP_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../mem/allocator.hpp"
 #include "../option/option.hpp"
 #include "../template_type_operations.hpp"

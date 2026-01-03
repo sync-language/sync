@@ -2,7 +2,7 @@
 #ifndef SY_THREADING_SYNC_OBJ_VAL_HPP_
 #define SY_THREADING_SYNC_OBJ_VAL_HPP_
 
-#include "../core.h"
+#include "../core/core.h"
 #include "../mem/allocator.hpp"
 #include "../types/result/result.hpp"
 #include "alloc_cache_align.hpp"

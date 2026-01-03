@@ -2,7 +2,7 @@
 #ifndef SY_PROGRAM_MODULE_INFO_HPP_
 #define SY_PROGRAM_MODULE_INFO_HPP_
 
-#include "../core.h"
+#include "../core/core.h"
 #include "../types/string/string_slice.hpp"
 
 namespace sy {

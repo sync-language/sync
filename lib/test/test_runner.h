@@ -2,7 +2,7 @@
 #ifndef SY_TEST_RUNNER_H_
 #define SY_TEST_RUNNER_H_
 
-#include "../src/core.h"
+#include "../src/core/core.h"
 
 #if SYNC_LIB_WITH_TESTS
 

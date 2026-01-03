@@ -2,7 +2,7 @@
 #ifndef SY_COMPILER_SOURCE_TREE_SOURCE_TREE_HPP_
 #define SY_COMPILER_SOURCE_TREE_SOURCE_TREE_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../mem/allocator.hpp"
 #include "../../threading/alloc_cache_align.hpp"
 #include "../../types/array/dynamic_array.hpp"

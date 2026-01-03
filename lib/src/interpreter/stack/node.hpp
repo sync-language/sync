@@ -2,7 +2,7 @@
 #ifndef SY_INTERPRETER_STACK_NODE_HPP_
 #define SY_INTERPRETER_STACK_NODE_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "frame.hpp"
 #include <cstddef>
 #include <optional>
@@ -17,11 +17,11 @@ class Node final {
       public:
         TypeOfValue() = default;
         TypeOfValue(const sy::Type* type, bool owned);
-        TypeOfValue(std::nullptr_t) : mask_(0){};
+        TypeOfValue(std::nullptr_t) : mask_(0) {};
         TypeOfValue& operator=(std::nullptr_t);
 
         const sy::Type* get() const;
-        operator const sy::Type *() const;
+        operator const sy::Type*() const;
 
         void set(const sy::Type* type, bool owned);
 

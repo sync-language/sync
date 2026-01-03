@@ -3,7 +3,7 @@
 #ifndef SY_TYPES_FUNCTION_FUNCTION_HPP_
 #define SY_TYPES_FUNCTION_FUNCTION_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../program/program_error.hpp"
 #include "../result/result.hpp"
 #include "../string/string_slice.hpp"

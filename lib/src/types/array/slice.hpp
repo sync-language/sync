@@ -2,7 +2,7 @@
 #ifndef SY_TYPES_ARRAY_SLICE_HPP_
 #define SY_TYPES_ARRAY_SLICE_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 
 namespace sy {
 namespace detail {

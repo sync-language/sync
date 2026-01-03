@@ -3,7 +3,7 @@
 #ifndef SY_TYPES_STRING_STRING_HPP_
 #define SY_TYPES_STRING_STRING_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../mem/allocator.hpp"
 #include "string_slice.hpp"
 #include <iostream>

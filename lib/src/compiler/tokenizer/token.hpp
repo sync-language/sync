@@ -2,7 +2,7 @@
 #ifndef SY_COMPILER_TOKENIZER_TOKEN_HPP_
 #define SY_COMPILER_TOKENIZER_TOKEN_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../types/string/string_slice.hpp"
 #include <tuple>
 

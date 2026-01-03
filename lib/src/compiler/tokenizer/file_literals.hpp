@@ -2,7 +2,7 @@
 #ifndef SY_COMPILER_TOKENIZER_FILE_LITERALS_HPP_
 #define SY_COMPILER_TOKENIZER_FILE_LITERALS_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../mem/allocator.hpp"
 #include "../../program/program_error.hpp"
 #include "../../types/result/result.hpp"

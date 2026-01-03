@@ -1,7 +1,7 @@
 #ifndef SY_COMPILER_GRAPHI_MODULE_DEPENDENCY_GRAPH_HPP_
 #define SY_COMPILER_GRAPHI_MODULE_DEPENDENCY_GRAPH_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../program/program_error.hpp"
 #include "../../types/array/dynamic_array.hpp"
 #include "../../types/result/result.hpp"

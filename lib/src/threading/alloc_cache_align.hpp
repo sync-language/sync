@@ -2,7 +2,7 @@
 #ifndef SY_THREADING_ALLOC_CACHE_ALIGN
 #define SY_THREADING_ALLOC_CACHE_ALIGN
 
-#include "../core.h"
+#include "../core/core.h"
 
 #if _MSC_VER
 #include <new>

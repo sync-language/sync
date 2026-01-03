@@ -40,7 +40,7 @@ extern void sy_default_fatal_error_handler(const char* message);
 
 void (*defaultFatalErrorHandlerFn)(const char* message) = sy_default_fatal_error_handler;
 
-SYNC_API void sy_set_fatal_error_handler(void (*errHandler)(const char* message)) {
+SY_API void sy_set_fatal_error_handler(void (*errHandler)(const char* message)) {
     if (errHandler == NULL) {
         defaultFatalErrorHandlerFn("[sy_set_fatal_error_handler] expected non-null function pointer");
     }
@@ -785,8 +785,8 @@ void sy_raw_rwlock_release_exclusive(SyRawRwLock* self) {
 #include <sys/stat.h>
 
 #include <errno.h>
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
 bool sy_get_file_info(const char* path, size_t pathLen, size_t* outFileSize) {
 #if defined(_MSC_VER)

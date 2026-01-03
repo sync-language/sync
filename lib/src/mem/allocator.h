@@ -3,7 +3,7 @@
 #ifndef SY_MEM_ALLOCATOR_H_
 #define SY_MEM_ALLOCATOR_H_
 
-#include "../core.h"
+#include "../core/core.h"
 
 ///
 typedef void* (*sy_allocator_alloc_fn)(void* self, size_t len, size_t align);

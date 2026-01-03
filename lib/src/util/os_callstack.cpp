@@ -1,7 +1,7 @@
 #include "os_callstack.hpp"
 
 #ifdef SYNC_BACKTRACE_SUPPORTED
-#include "../core.h"
+#include "../core/core.h"
 #include "assert.hpp"
 #include <charconv>
 #include <cstdlib>

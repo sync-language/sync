@@ -3,7 +3,7 @@
 #ifndef SY_TYPES_SYNC_OBJ_SYNC_OBJ_H_
 #define SY_TYPES_SYNC_OBJ_SYNC_OBJ_H_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../mem/allocator.h"
 #include "../../threading/sync_queue.h"
 

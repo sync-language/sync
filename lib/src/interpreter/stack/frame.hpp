@@ -2,7 +2,7 @@
 #ifndef SY_INTERPRETER_STACK_FRAME_HPP_
 #define SY_INTERPRETER_STACK_FRAME_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include <optional>
 #include <tuple>
 

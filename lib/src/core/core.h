@@ -3,17 +3,17 @@
 #define SY_CORE_CORE_H_
 
 #if defined(__GNUC__) || defined(__clang__)
-#define SYNC_API __attribute__((visibility("default")))
+#define SY_API __attribute__((visibility("default")))
 #elif defined(_MSC_VER)
 #if SYNC_EXPORT_DLL
-#define SYNC_API __declspec(dllexport)
+#define SY_API __declspec(dllexport)
 #elif SYNC_IMPORT_DLL
-#define SYNC_API __declspec(dllimport)
+#define SY_API __declspec(dllimport)
 #else
-#define SYNC_API
+#define SY_API
 #endif
 #else
-#define SYNC_API
+#define SY_API
 #endif
 
 #ifndef __cplusplus
@@ -84,7 +84,7 @@ extern "C" {
 /// be overridden at compile time if `SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER` is defined.
 /// @param errHandler Non-null function pointer. Is expected to eventually terminate the program.
 /// @warning If `errHandler` is `NULL` the current fatal error handler is invoked.
-SYNC_API void sy_set_fatal_error_handler(void (*errHandler)(const char* message));
+SY_API void sy_set_fatal_error_handler(void (*errHandler)(const char* message));
 
 #ifdef __cplusplus
 }

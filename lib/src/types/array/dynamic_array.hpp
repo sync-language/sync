@@ -2,7 +2,7 @@
 #ifndef SY_TYPES_ARRAY_DYNAMIC_ARRAY_HPP_
 #define SY_TYPES_ARRAY_DYNAMIC_ARRAY_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../mem/allocator.hpp"
 #include "../template_type_operations.hpp"
 #include <utility>

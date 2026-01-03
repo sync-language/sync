@@ -3,7 +3,7 @@
 #ifndef SY_TYPES_FUNCTION_FUNCTION_H_
 #define SY_TYPES_FUNCTION_FUNCTION_H_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../program/program.h"
 #include "../string/string_slice.h"
 #include "function_align.h"

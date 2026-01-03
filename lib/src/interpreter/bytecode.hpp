@@ -2,7 +2,7 @@
 #ifndef SY_INTERPRETER_BYTECODE_HPP_
 #define SY_INTERPRETER_BYTECODE_HPP_
 
-#include "../core.h"
+#include "../core/core.h"
 #include "stack/stack.hpp"
 
 namespace sy {

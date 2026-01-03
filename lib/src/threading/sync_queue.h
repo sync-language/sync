@@ -3,7 +3,7 @@
 #ifndef SY_THREADING_SYNC_QUEUE_H_
 #define SY_THREADING_SYNC_QUEUE_H_
 
-#include "../core.h"
+#include "../core/core.h"
 
 typedef void (*SySyncQueueLockExclusive)(void* lock);
 typedef bool (*SySyncQueueTryLockExclusive)(void* lock);

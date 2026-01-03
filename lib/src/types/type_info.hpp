@@ -3,7 +3,7 @@
 #ifndef SY_TYPES_TYPE_HPP_
 #define SY_TYPES_TYPE_HPP_
 
-#include "../core.h"
+#include "../core/core.h"
 #include "../program/program_error.hpp"
 #include "function/function.hpp"
 #include "option/option.hpp"

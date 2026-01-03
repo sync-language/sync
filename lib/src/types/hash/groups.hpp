@@ -2,7 +2,7 @@
 #ifndef SY_TYPES_HASH_GROUPS_HPP_
 #define SY_TYPES_HASH_GROUPS_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include "../../mem/allocator.hpp"
 #include "../../util/simd.hpp"
 #include "../type_info.hpp"

@@ -3,7 +3,7 @@
 #ifndef SY_TYPES_RESULT_RESULT_HPP_
 #define SY_TYPES_RESULT_RESULT_HPP_
 
-#include "../../core.h"
+#include "../../core/core.h"
 #include <new>
 #include <type_traits>
 #include <utility>

@@ -2,7 +2,7 @@
 #ifndef SY_MEM_OS_MEM_H_
 #define SY_MEM_OS_MEM_H_
 
-#include "../core.h"
+#include "../core/core.h"
 
 extern "C" {
 extern void* aligned_malloc(size_t len, size_t align);

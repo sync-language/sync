@@ -3,7 +3,7 @@
 #ifndef SY_COMPILER_COMPILER_HPP_
 #define SY_COMPILER_COMPILER_HPP_
 
-#include "../core.h"
+#include "../core/core.h"
 #include "../mem/allocator.hpp"
 #include "../program/module_info.hpp"
 #include "../program/program_error.hpp"
@@ -53,7 +53,7 @@ class SY_API Compiler final {
                                                         void* errReporterArg) const noexcept;
 
   private:
-    Compiler() : inner_(nullptr){};
+    Compiler() : inner_(nullptr) {};
 
     void* inner_;
 };

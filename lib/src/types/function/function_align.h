@@ -3,7 +3,7 @@
 #ifndef SY_TYPES_FUNCTION_FUNCTION_ALIGN_H_
 #define SY_TYPES_FUNCTION_FUNCTION_ALIGN_H_
 
-#include "../../core.h"
+#include "../../core/core.h"
 
 #if defined(__x86_64__) || defined(_M_AMD64)
 

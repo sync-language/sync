@@ -2,7 +2,7 @@
 #ifndef SY_UTIL_SIMD_HPP_
 #define SY_UTIL_SIMD_HPP_
 
-#include "../core.h"
+#include "../core/core.h"
 #include <optional>
 #include <type_traits>
 
