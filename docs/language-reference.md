@@ -71,6 +71,7 @@ struct Person {
 | Unique(T) | SyUnique / sy::Unique<T> | thread-safe single owned object |
 | Shared(T) | SyShared / sy::Shared<T> | thread-safe multiple owned object |
 | Weak(T) | SyWeak / sy::Weak<T> | thread-safe weak reference to Unique or Shared |
+| Task(?T) | SyTask / sy::Task<T> | Parallel execution unit or result from it. See [Task](#task) |
 | Ordering | SyOrdering / sy::Ordering | order of two elements |
 
 ### Primitive Values
@@ -138,6 +139,7 @@ Struct literals follow the format of `StructName{.member1 = value1, .member2 = v
 | and | Boolean and |
 | as | Infallible cast between types, and conditionally extracting good value from optional and error unions |
 | assert | Assert that a boolean condition is true, aborting the Sync program if false |
+| await | Wait for a Task to complete, and get it's return value if it has one |
 | break | Exit while or for loops |
 | catch | Get the error value if the `try` error union has an error |
 | comptime | Variable value must be known at compile time |
@@ -155,6 +157,7 @@ Struct literals follow the format of `StructName{.member1 = value1, .member2 = v
 | mut | Mutable variable |
 | or | Boolean or |
 | panic | Abort the Sync program (does not abort the host process) |
+| parallel | Execute a function on another thread. See [Parallel Execution](#parallel-execution) |
 | print | Prints a string to the consoles or host specified location |
 | pub | Allow access of the symbol outside of the file it is declared in |
 | return | Return a non-error value from a function to the caller |
@@ -650,7 +653,7 @@ All math operators are checked for any failure conditions. Integer overflow is n
 | Bitwise Xor | a ^ b<br>a ^= b | Integers | Bit XOR on two integers |
 | Bitwise Not | ~a | Integers | Bitwise complement on an integer |
 | Boolean Not | !a | Boolean expression | Converts `true` to `false` and `false` to `true` |
-| Optional Unwrap | a.? | Any optional type `?T` | Unwraps an optional value, or aborts if null |
+| Optional Unwrap | a.? | Any optional type `?T` | For optionals, unwraps an optional value, or aborts if null. For Tasks, waits for the result. |
 | Error Unwrap | a.! | Any error union `ErrorT!OkT` | Unwraps an ok value from an error union, or aborts if error |
 | Dereference | a.* | Any pointer type `*T` | Dereferences a pointer to the underlying value. Identical to C `*a` |
 | Field Access | a.b | Any type with fields | Access field `b` on object `a` |
@@ -1007,7 +1010,7 @@ fn main() {
 }
 ```
 
-## Thread Safety
+## Multithreading
 
 ### Sync Block
 
@@ -1162,6 +1165,129 @@ fn main() {
     }
 }
 ```
+
+### Parallel Execution
+
+The `parallel` keyword allows executing a function in true parallel, depending on how the host application configures the Sync program.
+
+```sync
+fn computeHeavyTask(data: *Data) {
+    print("hello");
+    // do some large work
+    print("world");
+}
+
+fn main() {
+    const data = Data.default();
+    // calls `computeHeavyTask()` in parallel, automatically detaching it
+    parallel computeHeavyTask(&data);
+    print("big");
+
+    // does not wait for the task to finish when this function goes out of scope,
+    // as explicitly ignoring the task means auto-detach
+}
+
+// === POSSIBLE OUTPUT ===
+// hello
+// big
+// world
+```
+
+As seen by the possible output, the printed text *may* be interleaved due to the functions running in actual parallel with each other. This is generally not deterministic, and is dependent on either host application scheduling, or the operating system scheduler itself.
+
+The above snippet of code when ignoring the Task is the same as the following.
+
+```sync
+fn main() {
+    const data = Data.default();
+    const task: Task(null) = parallel computeHeavyTask(&data);
+    // waits until task is resolved, as it was not ignored.
+    // this gets special handling by the compiler
+}
+```
+
+See [Task](#task) for a deeper explanation.
+
+### Task
+
+The Task type represents a unit of execution that runs concurrently to the current one.
+
+The task type definition is `Task(?T)` which looks confusing, but means either null, or the return type of the function.
+
+```sync
+// The type of a task that has no result value, only queryable for if it is complete
+Task(null)
+
+/// The type of a task that results in a signed 32 bit integer
+Task(i32)
+```
+
+If a parallel function returns a value, you can get the value by waiting on the task
+
+```sync
+fn computeHeavyWork(data: *Data) i32 {
+    // do some large work
+    return 15;
+}
+
+fn main() {
+    const data = Data.default();
+    // Use await to wait on the task result
+    const result: i32 = await parallel computeHeavyWork(&data);
+    print(result); // 15
+}
+```
+
+Alternatively, you can store the task and wait on the value later.
+
+```sync
+fn main() {
+    const data = Data.default();
+    const task: Task(i32) = parallel computeHeavyWork(&data);
+
+    // do some more work
+
+    const result: i32 = await task;
+    print(result); // 15
+}
+```
+
+You can test if a Task contains a value by comparing it to null.
+
+```sync
+fn main() {
+    const data = Data.default();
+    // Use the .? operator to wait on the task result
+    const task: Task(i32) = parallel computeHeavyWork(&data);
+    if task == null {
+        print("no value");
+    } else {
+        print(task.?);
+    }
+}
+```
+
+Alternatively, you may use the short hand syntax.
+
+```sync
+fn main() {
+    const data = Data.default();
+    const task: Task(i32) = parallel computeHeavyWork(&data);
+    if task as result {
+        print(result);
+    } else {
+        print("no value");
+    }
+}
+```
+
+#### Await
+
+The `await` keyword is used to wait on the completion of a task, and if the task function has a return value, to get that value.
+
+##### No Async but Await??
+
+The purpose of Sync is to provide a way to do scriptable, runtime-built shared mutable state across true OS threads. Conventionally, `async` is used for I/O scheduling, which as if right now is not the priority of Sync. Should that become a clear bottleneck, then this is absolutely an acceptable route to explore. Function colouring however is unacceptable. Any function should be able to be run in parallel / asynchronously to the caller. In reality, blocking I/O is limited to certain specific cases, which can likely be handled on a case by case basis. If you believe Sync needs a built-in way to handle non-blocking I/O without the host having to explicitly handle it, then please make your case and it will be evaluated and discussed.
 
 ## Built-ins
 

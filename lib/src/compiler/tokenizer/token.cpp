@@ -93,6 +93,10 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "ExternKeyword";
     case TokenType::ImportKeyword:
         return "ImportKeyword";
+    case TokenType::ParallelKeyword:
+        return "ParallelKeyword";
+    case TokenType::AwaitKeyword:
+        return "AwaitKeyword";
 
     case TokenType::BoolPrimitive:
         return "BoolPrimitive";
@@ -126,6 +130,8 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
         return "StringPrimitive";
     case TokenType::TypePrimitive:
         return "TypePrimitive";
+    case TokenType::TaskPrimitive:
+        return "TaskPrimitive";
 
     case TokenType::NumberLiteral:
         return "NumberLiteral";
@@ -381,13 +387,14 @@ static std::tuple<Token, uint32_t> parseFloatTypesForFalseFnFormatstrOrIdentifie
 
 static std::tuple<Token, uint32_t> parseTrueThrowTraitTryOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parsePubPanicPrintOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parsePubPanicPrintParallelOrIdentifier(const StringSlice source,
+                                                                          const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseUniqueOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseWeakOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseAndAsAssertOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseAndAsAssertAwaitOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseOrOrIdentifier(const StringSlice source, const uint32_t start);
 
@@ -397,7 +404,7 @@ static std::tuple<Token, uint32_t> parseDynOrIdentifier(const StringSlice source
 
 static std::tuple<Token, uint32_t> parseWhileWhereOrIdentifier(const StringSlice source, const uint32_t start);
 
-static std::tuple<Token, uint32_t> parseTypeOrIdentifier(const StringSlice source, const uint32_t start);
+static std::tuple<Token, uint32_t> parseTypeTaskOrIdentifier(const StringSlice source, const uint32_t start);
 
 static std::tuple<Token, uint32_t> parseListOrIdentifier(const StringSlice source, const uint32_t start);
 
@@ -820,9 +827,9 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         return parseTrueThrowTraitTryOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // pub, panic, print
+    // pub, panic, print, parallel
     if (source[nonWhitespaceStart] == 'p') {
-        return parsePubPanicPrintOrIdentifier(source, nonWhitespaceStart + 1);
+        return parsePubPanicPrintParallelOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // Unique
@@ -835,9 +842,9 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         return parseWeakOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // and, as, assert
+    // and, as, assert, await
     if (source[nonWhitespaceStart] == 'a') {
-        return parseAndAsAssertOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseAndAsAssertAwaitOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // or
@@ -860,9 +867,9 @@ std::tuple<Token, uint32_t> sy::Token::parseToken(const StringSlice source, cons
         return parseWhileWhereOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
-    // Type
+    // Type, Task
     if (source[nonWhitespaceStart] == 'T') {
-        return parseTypeOrIdentifier(source, nonWhitespaceStart + 1);
+        return parseTypeTaskOrIdentifier(source, nonWhitespaceStart + 1);
     }
 
     // List
@@ -1381,10 +1388,17 @@ static std::tuple<Token, uint32_t> parseTrueThrowTraitTryOrIdentifier(const Stri
     }
 }
 
-static std::tuple<Token, uint32_t> parsePubPanicPrintOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parsePubPanicPrintParallelOrIdentifier(const StringSlice source,
+                                                                          const uint32_t start) {
     sy_assert(source[start - 1] == 'p', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
+
+    if (remainingSourceLen >= 7) {
+        if (sliceFoundAtUnchecked(source, "arallel", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 7, start, TokenType::ParallelKeyword);
+        }
+    }
 
     if (remainingSourceLen >= 4) {
         if (sliceFoundAtUnchecked(source, "rint", start)) {
@@ -1447,7 +1461,7 @@ static std::tuple<Token, uint32_t> parseWeakOrIdentifier(const StringSlice sourc
     }
 }
 
-static std::tuple<Token, uint32_t> parseAndAsAssertOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parseAndAsAssertAwaitOrIdentifier(const StringSlice source, const uint32_t start) {
     sy_assert(source[start - 1] == 'a', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
@@ -1455,6 +1469,12 @@ static std::tuple<Token, uint32_t> parseAndAsAssertOrIdentifier(const StringSlic
     if (remainingSourceLen >= 5) {
         if (sliceFoundAtUnchecked(source, "ssert", start)) {
             return extractKeywordOrIdentifier(source, remainingSourceLen, 5, start, TokenType::AssertKeyword);
+        }
+    }
+
+    if (remainingSourceLen >= 4) {
+        if (sliceFoundAtUnchecked(source, "wait", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 4, start, TokenType::AwaitKeyword);
         }
     }
 
@@ -1559,7 +1579,7 @@ static std::tuple<Token, uint32_t> parseWhileWhereOrIdentifier(const StringSlice
     }
 }
 
-static std::tuple<Token, uint32_t> parseTypeOrIdentifier(const StringSlice source, const uint32_t start) {
+static std::tuple<Token, uint32_t> parseTypeTaskOrIdentifier(const StringSlice source, const uint32_t start) {
     sy_assert(source[start - 1] == 'T', "Invalid parse operation");
 
     const uint32_t remainingSourceLen = static_cast<uint32_t>(source.len()) - start;
@@ -1567,6 +1587,9 @@ static std::tuple<Token, uint32_t> parseTypeOrIdentifier(const StringSlice sourc
     if (remainingSourceLen >= 3) {
         if (sliceFoundAtUnchecked(source, "ype", start)) {
             return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::TypePrimitive);
+        }
+        if (sliceFoundAtUnchecked(source, "ask", start)) {
+            return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start, TokenType::TaskPrimitive);
         }
     }
 
@@ -1833,6 +1856,12 @@ TEST_CASE("[Token] List") { testParseKeyword("List", TokenType::ListPrimitive); 
 TEST_CASE("[Token] Map") { testParseKeyword("Map", TokenType::MapPrimitive); }
 
 TEST_CASE("[Token] Set") { testParseKeyword("Set", TokenType::SetPrimitive); }
+
+TEST_CASE("[Token] parallel") { testParseKeyword("parallel", TokenType::ParallelKeyword); }
+
+TEST_CASE("[Token] await") { testParseKeyword("await", TokenType::AwaitKeyword); }
+
+TEST_CASE("[Token] Task") { testParseKeyword("Task", TokenType::TaskPrimitive); }
 
 static void testParseOperatorOrSymbol(const char* operatorOrSymbol, TokenType expectedTokenType, bool checkAlphaAfter,
                                       bool checkAnyOperatorAfter, bool checkSameOperatorAfter) {

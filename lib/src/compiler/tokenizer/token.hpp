@@ -55,6 +55,8 @@ enum class TokenType : uint8_t {
     PrintKeyword,
     ExternKeyword,
     ImportKeyword,
+    ParallelKeyword,
+    AwaitKeyword,
 
     BoolPrimitive,
     I8Primitive,
@@ -75,6 +77,7 @@ enum class TokenType : uint8_t {
     ListPrimitive,
     MapPrimitive,
     SetPrimitive,
+    TaskPrimitive,
 
     NumberLiteral,
     CharLiteral,
