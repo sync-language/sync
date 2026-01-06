@@ -75,6 +75,8 @@ pub fn build(b: *std.Build) void {
 
 const sync_lang_c_sources = [_][]const u8{
     "lib/src/core/core.c",
+    "lib/src/core/builtin_functions/sort.cpp",
+    "lib/src/core/builtin_traits/iterator.cpp",
     "lib/src/util/panic.cpp",
     "lib/src/util/os_callstack.cpp",
     "lib/src/util/simd.cpp",
@@ -94,6 +96,7 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/types/hash/map.cpp",
     "lib/src/types/option/option.cpp",
     "lib/src/types/result/result.cpp",
+    "lib/src/types/task/task.cpp",
     "lib/src/types/box/box.cpp",
     "lib/src/interpreter/stack/frame.cpp",
     "lib/src/interpreter/stack/node.cpp",

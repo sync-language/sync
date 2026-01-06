@@ -126,7 +126,7 @@ SY_API const SyType* SY_TYPE_F64 = reinterpret_cast<const SyType*>(Type::TYPE_F6
 SY_API const SyType* SY_TYPE_STRING = reinterpret_cast<const SyType*>(Type::TYPE_STRING);
 SY_API const SyType* SY_TYPE_STRING_SLICE = reinterpret_cast<const SyType*>(Type::TYPE_STRING_SLICE);
 
-SY_API const SyType* SY_TYPE_BOOL = reinterpret_cast<const SyType*>(Type::TYPE_ORDERING);
+SY_API const SyType* SY_TYPE_ORDERING = reinterpret_cast<const SyType*>(Type::TYPE_ORDERING);
 }
 
 void sy::Type::assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const {

@@ -32,6 +32,8 @@ option(SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER "Provide and link your default fa
 
 set(SYNC_LIB_SOURCES
     "lib/src/core/core.c"
+    "lib/src/core/builtin_functions/sort.cpp"
+    "lib/src/core/builtin_traits/iterator.cpp"
     "lib/src/util/panic.cpp"
     "lib/src/util/os_callstack.cpp"
     "lib/src/util/simd.cpp"

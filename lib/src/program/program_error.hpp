@@ -49,6 +49,7 @@ enum class ProgramError {
     CompileModuleDependencyGraph,
     CompileSelfImport,
     CompileUnknownType,
+    BufferTooSmall,
 };
 
 using ProgramErrorReporter = void (*)(ProgramError errKind, const SourceFileLocation& where, StringSlice msg,

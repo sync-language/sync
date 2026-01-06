@@ -1788,7 +1788,7 @@ pub trait Iterator {
 | [Format](#format) | Convert a type to a formatted string | Yes |
 | [Iterator](#iterator) | Provides iterators in for loops | No |
 | [Cast](#cast) | Convert one type to another | No |
-| [TryCast](#try-cast) | Convert one type to another that can fail | No |
+| [TryCast](#trycast) | Convert one type to another that can fail | No |
 
 To disable a trait, that is implemented by default, use `@derive(!TraitName)`. See [@derive](#derive).
 

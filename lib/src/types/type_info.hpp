@@ -241,6 +241,7 @@ class SY_API Type {
             nullptr,                           // copyConstructor
             nullptr,                           // equality
             nullptr,                           // hash
+            nullptr,                           // compare
             inTag,                             // tag
             inExtra,                           // extra
             nullptr,                           // constRef
@@ -257,15 +258,17 @@ class SY_API Type {
                                     "ConstRef", // TODO proper naming
                                     nullptr,          nullptr,
                                     nullptr,          nullptr,
-                                    Tag::Reference,   constRefExtra,
-                                    nullptr,          nullptr};
+                                    nullptr,          Tag::Reference,
+                                    constRefExtra,    nullptr,
+                                    nullptr};
 
-        static Type mutRefType = {sizeof(T*),     static_cast<uint16_t>(alignof(T*)),
+        static Type mutRefType = {sizeof(T*),  static_cast<uint16_t>(alignof(T*)),
                                   "MutRef", // TODO proper naming
-                                  nullptr,        nullptr,
-                                  nullptr,        nullptr,
-                                  Tag::Reference, mutRefExtra,
-                                  nullptr,        nullptr};
+                                  nullptr,     nullptr,
+                                  nullptr,     nullptr,
+                                  nullptr,     Tag::Reference,
+                                  mutRefExtra, nullptr,
+                                  nullptr};
 
         concreteType.constRef = &constRefType;
         concreteType.mutRef = &mutRefType;

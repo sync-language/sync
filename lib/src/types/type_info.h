@@ -156,6 +156,7 @@ SY_API extern const SyType* SY_TYPE_F64;
 // SY_API extern const SyType* SY_TYPE_CHAR;
 SY_API extern const SyType* SY_TYPE_STRING_SLICE;
 SY_API extern const SyType* SY_TYPE_STRING;
+SY_API extern const SyType* SY_TYPE_ORDERING;
 
 #ifdef __cplusplus
 } // extern "C"
