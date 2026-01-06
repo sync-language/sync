@@ -12,7 +12,7 @@ namespace sy {
 struct ParseInfo;
 struct Scope;
 struct FunctionBuilder;
-class Function;
+class RawFunction;
 struct InterpreterFunctionScriptInfo;
 
 namespace detail {

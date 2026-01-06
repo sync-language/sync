@@ -45,7 +45,7 @@ void SyncObjVal::destroy() {
     const size_t allocAlign = alignType < ALLOC_CACHE_ALIGN ? ALLOC_CACHE_ALIGN : alignType;
     const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType(alignType) + this->sizeType;
 
-    sy::Allocator alloc{};
+    sy::Allocator alloc = this->allocator;
     uint8_t* mem = reinterpret_cast<uint8_t*>(this);
 
     this->~SyncObjVal();
@@ -80,7 +80,7 @@ void SyncObjVal::destroyHeldObjectScriptFunction(const sy::Type* typeInfo) {
     if (typeInfo->destructor.hasValue() == false)
         return;
     this->isExpired.store(true);
-    sy::Function::CallArgs callArgs = typeInfo->destructor.value()->startCall();
+    sy::RawFunction::CallArgs callArgs = typeInfo->destructor.value()->startCall();
     callArgs.push(this->valueMemMut(), typeInfo->mutRef);
     auto err = callArgs.call(nullptr);
     sy_assert(err.hasValue(), "Destructors should not fail");

@@ -10,15 +10,15 @@ static_assert(sizeof(Program) == sizeof(SyProgram));
 static_assert(sizeof(SyProgramRuntimeErrorKind) == sizeof(int));
 static_assert(sizeof(CallStack) == sizeof(SyCallStack));
 
-sy::CallStack::CallStack(const Function* const* inFunctions, size_t inLen) : _functions(inFunctions), _len(inLen) {
+sy::CallStack::CallStack(const RawFunction* const* inFunctions, size_t inLen) : _functions(inFunctions), _len(inLen) {
     if (inLen != 0) {
         sy_assert(inFunctions != nullptr, "Expected non-null pointer for non-zero call stack length");
     }
 }
 
-const sy::Function* sy::CallStack::operator[](size_t idx) const {
+const sy::RawFunction* sy::CallStack::operator[](size_t idx) const {
     sy_assert(idx < this->_len, "Index out of bounds");
-    return reinterpret_cast<const Function*>(this->_functions[idx]);
+    return reinterpret_cast<const RawFunction*>(this->_functions[idx]);
 }
 
 ModuleVersion sy::ProgramModule::moduleInfo() const noexcept {
@@ -26,7 +26,7 @@ ModuleVersion sy::ProgramModule::moduleInfo() const noexcept {
     return ModuleVersion{self->name.asSlice(), self->version};
 }
 
-Option<const Function*> sy::ProgramModule::getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept {
+Option<const RawFunction*> sy::ProgramModule::getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept {
     const ProgramModuleInternal* self = reinterpret_cast<const ProgramModuleInternal*>(this->inner_);
     return self->getFunctionByQualifiedName(qualifiedName);
 }
@@ -77,7 +77,7 @@ Result<ProgramModuleInternal*, AllocErr> sy::ProgramModuleInternal::init(Allocat
 
     if (functionCount > 0) {
         self->allFunctionsLen = functionCount;
-        auto funcMemRes = protAlloc.allocArray<Function>(functionCount);
+        auto funcMemRes = protAlloc.allocArray<RawFunction>(functionCount);
         if (funcMemRes.hasErr())
             return Error(AllocErr::OutOfMemory);
         auto funcNameRes = protAlloc.allocArray<StringUnmanaged>(functionCount);
@@ -116,12 +116,12 @@ Result<ProgramModuleInternal*, AllocErr> sy::ProgramModuleInternal::init(Allocat
     return self;
 }
 
-Option<const Function*>
+Option<const RawFunction*>
 sy::ProgramModuleInternal::getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept {
     // TODO optimize this to use a map or something
     for (size_t i = 0; i < this->allFunctionsLen; i++) {
         if (this->allFunctionQualifiedNames[i].asSlice() == qualifiedName) {
-            return Option<const Function*>(&this->allFunctions[i]);
+            return Option<const RawFunction*>(&this->allFunctions[i]);
         }
     }
     return {};

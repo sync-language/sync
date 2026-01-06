@@ -56,11 +56,11 @@ static constexpr size_t minNodeCapacityForCacheAlign() {
 }
 
 static constexpr size_t minCallstackFunctionCapacityForCacheAlign() {
-    size_t bytes = sizeof(const sy::Function*);
+    size_t bytes = sizeof(const sy::RawFunction*);
     while ((bytes % ALLOC_CACHE_ALIGN) != 0) {
-        bytes += sizeof(const sy::Function*);
+        bytes += sizeof(const sy::RawFunction*);
     }
-    return bytes / sizeof(const sy::Function*);
+    return bytes / sizeof(const sy::RawFunction*);
 }
 
 void sy::Stack::pushFrame(uint16_t frameLength, uint16_t alignment, void* retValDst) {
@@ -85,7 +85,7 @@ void sy::Stack::pushFrame(uint16_t frameLength, uint16_t alignment, void* retVal
         if (this->callstackFunctions == nullptr) {
             constexpr size_t capacity = minCallstackFunctionCapacityForCacheAlign();
             this->callstackFunctions =
-                alloc.allocAlignedArray<const sy::Function*>(capacity, ALLOC_CACHE_ALIGN).value();
+                alloc.allocAlignedArray<const sy::RawFunction*>(capacity, ALLOC_CACHE_ALIGN).value();
             this->callstackCapacity = capacity;
         }
     }
@@ -112,8 +112,8 @@ void sy::Stack::pushFrame(uint16_t frameLength, uint16_t alignment, void* retVal
     }
 }
 
-void sy::Stack::pushFunctionFrame(const sy::Function* function, void* retValDst) {
-    sy_assert(function->tag == sy::Function::CallType::Script, "Can only push frames for script functions");
+void sy::Stack::pushFunctionFrame(const sy::RawFunction* function, void* retValDst) {
+    sy_assert(function->tag == sy::FunctionType::Script, "Can only push frames for script functions");
     const sy::InterpreterFunctionScriptInfo* scriptInfo =
         reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(function->fptr);
     const uint16_t frameLength = scriptInfo->stackSpaceRequired;
@@ -126,7 +126,7 @@ void sy::Stack::pushFunctionFrame(const sy::Function* function, void* retValDst)
             sy::Allocator alloc{};
 
             const uint16_t newCapacity = callstackCapacity * 2;
-            auto newFunctions = alloc.allocAlignedArray<const sy::Function*>(newCapacity, ALLOC_CACHE_ALIGN).value();
+            auto newFunctions = alloc.allocAlignedArray<const sy::RawFunction*>(newCapacity, ALLOC_CACHE_ALIGN).value();
 
             for (decltype(this->callstackLen) i = 0; i < this->callstackLen; i++) {
                 newFunctions[i] = this->callstackFunctions[i];
@@ -182,13 +182,13 @@ uint16_t sy::Stack::pushScriptFunctionArg(const void* argMem, const sy::Type* ty
 
 std::optional<Frame> sy::Stack::getCurrentFrame() const noexcept { return this->nodes[this->currentNode].currentFrame; }
 
-std::optional<const sy::Function*> sy::Stack::getCurrentFunction() const noexcept {
+std::optional<const sy::RawFunction*> sy::Stack::getCurrentFunction() const noexcept {
     auto frame = this->getCurrentFrame();
     if (frame.has_value()) {
         sy_assert(frame.value().functionIndex < this->callstackLen, "Invalid callstack");
-        return std::optional<const sy::Function*>(this->callstackFunctions[frame.value().functionIndex]);
+        return std::optional<const sy::RawFunction*>(this->callstackFunctions[frame.value().functionIndex]);
     }
-    return std::optional<const sy::Function*>();
+    return std::optional<const sy::RawFunction*>();
 }
 
 void sy::Stack::popFrame() {

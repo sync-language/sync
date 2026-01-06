@@ -109,7 +109,7 @@ void sy::RawDynArrayUnmanaged::destroyScript(Allocator& alloc, const sy::Type* t
             const size_t offset = i * typeInfo->sizeType;
             void* obj = &asBytes[offset];
 
-            sy::Function::CallArgs callArgs = typeInfo->destructor.value()->startCall();
+            sy::RawFunction::CallArgs callArgs = typeInfo->destructor.value()->startCall();
             callArgs.push(obj, typeInfo->mutRef);
             const auto err = callArgs.call(nullptr);
             sy_assert(err.hasErr() == false, "Destructors should not fail");

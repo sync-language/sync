@@ -11,7 +11,6 @@
 
 namespace sy {
 class Type;
-class Function;
 
 #if defined(_MSC_VER)
 // Supress warning for struct padding due to alignment specifier

@@ -7,6 +7,7 @@
 #include "../program/program_error.hpp"
 #include "function/function.hpp"
 #include "option/option.hpp"
+#include "ordering/ordering.hpp"
 #include "string/string_slice.hpp"
 #include <new>
 #include <type_traits>
@@ -29,6 +30,17 @@ template <typename T, typename = std::void_t<>> struct is_std_hashable : std::fa
 
 template <typename T>
 struct is_std_hashable<T, std::void_t<decltype(std::declval<std::hash<T>>()(std::declval<T>()))>> : std::true_type {};
+
+template <typename T> struct has_less_than {
+  private:
+    template <typename U, typename = decltype(std::declval<U>() < std::declval<U>())> static std::true_type test(U*);
+
+    template <typename> static std::false_type test(...);
+
+  public:
+    static const bool value = decltype(test<T>(nullptr))::value;
+};
+
 } // namespace detail
 
 class SY_API Type {
@@ -40,6 +52,7 @@ class SY_API Type {
         // Char = c::SyTypeTag::SyTypeTagChar,
         String = 4,
         StringSlice = 5,
+        Ordering = 6,
         Reference = 7,
         Function = 18,
     };
@@ -91,10 +104,11 @@ class SY_API Type {
     /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported.
     uint16_t alignType;
     StringSlice name;
-    Option<const Function*> destructor;
-    Option<const Function*> copyConstructor;
-    Option<const Function*> equality;
-    Option<const Function*> hash;
+    Option<const RawFunction*> destructor;
+    Option<const RawFunction*> copyConstructor;
+    Option<const RawFunction*> equality;
+    Option<const RawFunction*> hash;
+    Option<const RawFunction*> compare;
     Tag tag;
     ExtraInfo extra;
     const Type* constRef;
@@ -133,6 +147,13 @@ class SY_API Type {
         return this->hashObjectImpl(reinterpret_cast<const void*>(obj));
     }
 
+    template <typename T> sy::Ordering compareObj(const T* lhs, const T* rhs) const {
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        }
+        return this->compareObjectImpl(reinterpret_cast<const void*>(lhs), reinterpret_cast<const void*>(rhs));
+    }
+
     static const Type* const TYPE_BOOL;
     static const Type* const TYPE_I8;
     static const Type* const TYPE_I16;
@@ -148,10 +169,11 @@ class SY_API Type {
     // static const Type* const TYPE_CHAR;
     static const Type* const TYPE_STRING_SLICE;
     static const Type* const TYPE_STRING;
+    static const Type* const TYPE_ORDERING;
 
   private:
-    template <typename T> static Function::c_function_t makeDestructor() {
-        Function::c_function_t func = [](Function::CHandler handler) -> Result<void, ProgramError> {
+    template <typename T> static c_function_t makeDestructor() {
+        c_function_t func = [](FunctionHandler handler) -> Result<void, ProgramError> {
             T* obj = handler.takeArg<T*>(0);
             obj->~T();
             return {};
@@ -159,8 +181,8 @@ class SY_API Type {
         return func;
     }
 
-    template <typename T> static Function::c_function_t makeCopyConstruct() {
-        Function::c_function_t func = [](Function::CHandler handler) -> Result<void, ProgramError> {
+    template <typename T> static c_function_t makeCopyConstruct() {
+        c_function_t func = [](FunctionHandler handler) -> Result<void, ProgramError> {
             T* dst = handler.takeArg<T*>(0);
             const T* src = handler.takeArg<const T*>(1);
             T* _ = new (dst) T(*src);
@@ -170,8 +192,8 @@ class SY_API Type {
         return func;
     }
 
-    template <typename T> static Function::c_function_t makeEqualityFunction() {
-        Function::c_function_t func = [](Function::CHandler handler) -> Result<void, ProgramError> {
+    template <typename T> static c_function_t makeEqualityFunction() {
+        c_function_t func = [](FunctionHandler handler) -> Result<void, ProgramError> {
             const T* lhs = handler.takeArg<const T*>(0);
             const T* rhs = handler.takeArg<const T*>(1);
             bool equal = (*lhs) == (*rhs);
@@ -181,12 +203,30 @@ class SY_API Type {
         return func;
     }
 
-    template <typename T> static Function::c_function_t makeHashFunction() {
-        Function::c_function_t func = [](Function::CHandler handler) -> Result<void, ProgramError> {
+    template <typename T> static c_function_t makeHashFunction() {
+        c_function_t func = [](FunctionHandler handler) -> Result<void, ProgramError> {
             const T* obj = handler.takeArg<const T*>(0);
             std::hash<T> h;
             size_t hashed = h(*obj);
             handler.setReturn(std::move(hashed));
+            return {};
+        };
+        return func;
+    }
+
+    template <typename T> static c_function_t makeCompareFunction() {
+        c_function_t func = [](FunctionHandler handler) -> Result<void, ProgramError> {
+            const T* lhs = handler.takeArg<const T*>(0);
+            const T* rhs = handler.takeArg<const T*>(1);
+            bool equal = (*lhs) == (*rhs);
+            if (equal) {
+                handler.setReturn(Ordering::Equal);
+            } else if ((*lhs) < (*rhs)) {
+                handler.setReturn(Ordering::Less);
+            } else {
+
+                handler.setReturn(Ordering::Greater);
+            }
             return {};
         };
         return func;
@@ -238,66 +278,82 @@ class SY_API Type {
 
         // Destructor
         if constexpr (std::is_destructible_v<T> || !std::is_trivially_destructible_v<T>) {
-            Function::c_function_t func = makeDestructor<T>();
+            c_function_t func = makeDestructor<T>();
             static const Type* argsTypes[1] = {&mutRefType};
-            static Function cEqualFunc = {"Destructor", // name
-                                          "Destructor", // identifier name
-                                          nullptr,      // no return type
-                                          argsTypes,
-                                          1,                     // number of args
-                                          SY_FUNCTION_MIN_ALIGN, // alignment
-                                          true,
-                                          Function::CallType::C,
-                                          reinterpret_cast<const void*>(func)};
+            static RawFunction cEqualFunc = {"Destructor", // name
+                                             "Destructor", // identifier name
+                                             nullptr,      // no return type
+                                             argsTypes,
+                                             1,                     // number of args
+                                             SY_FUNCTION_MIN_ALIGN, // alignment
+                                             true,
+                                             FunctionType::C,
+                                             reinterpret_cast<const void*>(func)};
             concreteType.destructor = &cEqualFunc;
         }
 
         // Copy Constructor
         if constexpr (std::is_copy_constructible_v<T>) {
-            Function::c_function_t func = makeCopyConstruct<T>();
+            c_function_t func = makeCopyConstruct<T>();
             static const Type* argsTypes[2] = {&mutRefType, &constRefType};
-            static Function cEqualFunc = {"CopyConstructor", // name
-                                          "CopyConstructor", // identifier name
-                                          nullptr,           // no return type
-                                          argsTypes,
-                                          2,                     // number of args
-                                          SY_FUNCTION_MIN_ALIGN, // alignment
-                                          true,
-                                          Function::CallType::C,
-                                          reinterpret_cast<const void*>(func)};
+            static RawFunction cEqualFunc = {"CopyConstructor", // name
+                                             "CopyConstructor", // identifier name
+                                             nullptr,           // no return type
+                                             argsTypes,
+                                             2,                     // number of args
+                                             SY_FUNCTION_MIN_ALIGN, // alignment
+                                             true,
+                                             FunctionType::C,
+                                             reinterpret_cast<const void*>(func)};
             concreteType.copyConstructor = &cEqualFunc;
         }
 
         // Equality
         if constexpr (detail::has_operator_equal<T>::value) {
-            Function::c_function_t func = makeEqualityFunction<T>();
+            c_function_t func = makeEqualityFunction<T>();
             static const Type* argsTypes[2] = {&constRefType, &constRefType};
-            static Function cEqualFunc = {"==",            // name
-                                          "==",            // identifier name
-                                          Type::TYPE_BOOL, // return type
-                                          argsTypes,
-                                          2,                     // number of args
-                                          SY_FUNCTION_MIN_ALIGN, // alignment
-                                          true,
-                                          Function::CallType::C,
-                                          reinterpret_cast<const void*>(func)};
+            static RawFunction cEqualFunc = {"eq",            // name
+                                             "eq",            // identifier name
+                                             Type::TYPE_BOOL, // return type
+                                             argsTypes,
+                                             2,                     // number of args
+                                             SY_FUNCTION_MIN_ALIGN, // alignment
+                                             true,
+                                             FunctionType::C,
+                                             reinterpret_cast<const void*>(func)};
             concreteType.equality = &cEqualFunc;
         }
 
         // Hash
         if constexpr (detail::is_std_hashable<T>::value) {
-            Function::c_function_t func = makeHashFunction<T>();
+            c_function_t func = makeHashFunction<T>();
             static const Type* argsTypes[1] = {&constRefType};
-            static Function cHashFunc = {"hash",           // name
-                                         "hash",           // identifier name
-                                         Type::TYPE_USIZE, // return type
-                                         argsTypes,
-                                         1,                     // number of args
-                                         SY_FUNCTION_MIN_ALIGN, // alignment
-                                         true,
-                                         Function::CallType::C,
-                                         reinterpret_cast<const void*>(func)};
+            static RawFunction cHashFunc = {"hash",           // name
+                                            "hash",           // identifier name
+                                            Type::TYPE_USIZE, // return type
+                                            argsTypes,
+                                            1,                     // number of args
+                                            SY_FUNCTION_MIN_ALIGN, // alignment
+                                            true,
+                                            FunctionType::C,
+                                            reinterpret_cast<const void*>(func)};
             concreteType.hash = &cHashFunc;
+        }
+
+        // Ordering
+        if constexpr (detail::has_less_than<T>::value) {
+            c_function_t func = makeCompareFunction<T>();
+            static const Type* argsTypes[2] = {&constRefType, &constRefType};
+            static RawFunction cCompareFunc = {"cmp",               // name
+                                               "cmp",               // identifier name
+                                               Type::TYPE_ORDERING, // return type
+                                               argsTypes,
+                                               2,                     // number of args
+                                               SY_FUNCTION_MIN_ALIGN, // alignment
+                                               true,
+                                               FunctionType::C,
+                                               reinterpret_cast<const void*>(func)};
+            concreteType.compare = &cCompareFunc;
         }
 
         return &concreteType;
@@ -308,6 +364,7 @@ class SY_API Type {
     void copyConstructObjectImpl(void* dst, const void* src) const;
     bool equalObjectsImpl(const void* self, const void* other) const;
     size_t hashObjectImpl(const void* self) const;
+    Ordering compareObjectImpl(const void* self, const void* other) const;
 };
 } // namespace sy
 

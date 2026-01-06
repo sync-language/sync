@@ -34,7 +34,7 @@ extern "C" {
 #define SYNC_CACHE_LINE_SIZE 64
 #endif
 
-extern void (*defaultFatalErrorHandlerFn)(const char* message);
+extern void (*syncFatalErrorHandlerFn)(const char* message);
 
 /// Aligned memory allocation function required by sync. Can be overridden by defining
 /// `SYNC_CUSTOM_ALIGNED_MALLOC_FREE`, in which you must supply a definition of the function at final link time.
@@ -277,6 +277,18 @@ extern bool sy_relative_to_absolute_path(const char* relativePath, size_t relati
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+namespace sy {
+template <typename ContainerT> static inline size_t paddingForType(const size_t alignType) {
+    const size_t remainder = alignof(ContainerT) % alignType;
+    if (remainder == 0) {
+        return 0;
+    }
+    return alignType - remainder;
+}
+} // namespace sy
 #endif
 
 #endif

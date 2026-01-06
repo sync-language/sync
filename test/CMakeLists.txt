@@ -280,6 +280,7 @@ set(SYNC_LIB_TESTS_SOURCES
     "../lib/src/types/hash/map.cpp"
     "../lib/src/types/option/option.cpp"
     "../lib/src/types/result/result.cpp"
+    "../lib/src/types/task/task.cpp"
     "../lib/src/types/box/box.cpp"
     "../lib/src/interpreter/stack/frame.cpp"
     "../lib/src/interpreter/stack/node.cpp"

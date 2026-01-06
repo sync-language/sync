@@ -6,11 +6,11 @@
 #include "../types/result/result.hpp"
 
 namespace sy {
-class Function;
+class RawFunction;
 
 /// Begins execution of a function. Does not handle pushing the arguments of the function.
 /// The return of the call will be stored in `outReturnValue`, provided the function does return a value.
-Result<void, ProgramError> interpreterExecuteScriptFunction(const Function* scriptFunction, void* outReturnValue);
+Result<void, ProgramError> interpreterExecuteScriptFunction(const RawFunction* scriptFunction, void* outReturnValue);
 } // namespace sy
 
 #endif // SY_INTERPRETER_INTERPRETER_HPP_

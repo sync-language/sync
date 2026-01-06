@@ -10,16 +10,16 @@
 #include "module_info.hpp"
 
 namespace sy {
-class Function;
+class RawFunction;
 
 class CallStack {
   public:
-    CallStack(const Function* const* inFunctions, size_t inLen);
+    CallStack(const RawFunction* const* inFunctions, size_t inLen);
     size_t len() const { return this->_len; }
-    const Function* operator[](size_t idx) const;
+    const RawFunction* operator[](size_t idx) const;
 
   private:
-    const Function* const* _functions;
+    const RawFunction* const* _functions;
     size_t _len;
 };
 
@@ -32,7 +32,7 @@ class SY_API ProgramModule final {
     // Option<Slice<const Function*>> getFunctionsByUnqualifiedName(StringSlice unqualifiedName) const noexcept;
 
     // get function (singular) by fully qualified name
-    Option<const Function*> getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept;
+    Option<const RawFunction*> getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept;
 
     // get type(s) by unqualified name
 

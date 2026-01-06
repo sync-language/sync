@@ -7,10 +7,7 @@
 #include "string/string_slice.hpp"
 #include "type_info.hpp"
 
-using sy::Function;
-using sy::String;
-using sy::StringSlice;
-using sy::Type;
+using namespace sy;
 
 static_assert(sizeof(float) == 4);  // f32
 static_assert(sizeof(double) == 8); // f64
@@ -59,6 +56,7 @@ static_assert(offsetof(Type, destructor) == offsetof(SyType, destructor));
 static_assert(offsetof(Type, copyConstructor) == offsetof(SyType, copyConstructor));
 static_assert(offsetof(Type, equality) == offsetof(SyType, equality));
 static_assert(offsetof(Type, hash) == offsetof(SyType, hash));
+static_assert(offsetof(Type, compare) == offsetof(SyType, compare));
 static_assert(offsetof(Type, tag) == offsetof(SyType, tag));
 static_assert(offsetof(Type, extra) == offsetof(SyType, extra));
 static_assert(offsetof(Type, constRef) == offsetof(SyType, constRef));
@@ -105,6 +103,9 @@ const Type* const sy::Type::TYPE_STRING = Type::makeType<sy::String>("String", T
 
 #pragma endregion
 
+const Type* const sy::Type::TYPE_ORDERING =
+    Type::makeType<Ordering>("Ordering", Type::Tag::Ordering, Type::ExtraInfo());
+
 extern "C" {
 SY_API const SyType* SY_TYPE_BOOL = reinterpret_cast<const SyType*>(Type::TYPE_BOOL);
 
@@ -124,6 +125,8 @@ SY_API const SyType* SY_TYPE_F64 = reinterpret_cast<const SyType*>(Type::TYPE_F6
 // SY_API const SyType* SY_TYPE_CHAR           = reinterpret_cast<const SyType*>(Type::TYPE_CHAR);
 SY_API const SyType* SY_TYPE_STRING = reinterpret_cast<const SyType*>(Type::TYPE_STRING);
 SY_API const SyType* SY_TYPE_STRING_SLICE = reinterpret_cast<const SyType*>(Type::TYPE_STRING_SLICE);
+
+SY_API const SyType* SY_TYPE_BOOL = reinterpret_cast<const SyType*>(Type::TYPE_ORDERING);
 }
 
 void sy::Type::assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const {
@@ -160,7 +163,7 @@ void sy::Type::destroyObjectImpl(void* obj) const {
     sy_assert(this->mutRef->sizeType == sizeof(void*), "Mutable reference type should have the same size as void*");
     sy_assert(this->mutRef->alignType == alignof(void*), "Mutable reference type should have the same align as void*");
 
-    Function::CallArgs callArgs = this->destructor.value()->startCall();
+    RawFunction::CallArgs callArgs = this->destructor.value()->startCall();
     const bool pushSuccess = callArgs.push(&obj, this->mutRef);
     sy_assert(pushSuccess, "TODO overflow when destructor call"); // TODO decide what to do if destructor overflows
 
@@ -182,7 +185,7 @@ void sy::Type::copyConstructObjectImpl(void* dst, const void* src) const {
     sy_assert(this->constRef->sizeType == sizeof(void*), "Const reference types should be the same size as void*");
     sy_assert(this->constRef->alignType == alignof(void*), "Const reference types should be the same align as void*");
 
-    Function::CallArgs callArgs = this->copyConstructor.value()->startCall();
+    RawFunction::CallArgs callArgs = this->copyConstructor.value()->startCall();
     (void)callArgs.push(&dst, this->mutRef);
     (void)callArgs.push(&src, this->constRef);
 
@@ -201,7 +204,7 @@ bool sy::Type::equalObjectsImpl(const void* self, const void* other) const {
     sy_assert(this->constRef->sizeType == sizeof(void*), "Const reference types should be the same size as void*");
     sy_assert(this->constRef->alignType == alignof(void*), "Const reference types should be the same align as void*");
 
-    Function::CallArgs callArgs = this->equality.value()->startCall();
+    RawFunction::CallArgs callArgs = this->equality.value()->startCall();
     (void)callArgs.push(&self, this->constRef);
     (void)callArgs.push(&other, this->constRef);
     bool eql;
@@ -221,13 +224,34 @@ size_t sy::Type::hashObjectImpl(const void* self) const {
     sy_assert(this->constRef->sizeType == sizeof(void*), "Const reference types should be the same size as void*");
     sy_assert(this->constRef->alignType == alignof(void*), "Const reference types should be the same align as void*");
 
-    Function::CallArgs callArgs = this->hash.value()->startCall();
+    RawFunction::CallArgs callArgs = this->hash.value()->startCall();
     (void)callArgs.push(&self, this->constRef);
     size_t hashResult;
 
     const auto err = callArgs.call(&hashResult);
     sy_assert(err.hasErr() == false, "Hash may not throw/cause errors"); // TODO what do to if error?
     return hashResult;
+}
+
+Ordering sy::Type::compareObjectImpl(const void* self, const void* other) const {
+    sy_assert(self != nullptr, "Cannot equality compare null object");
+    sy_assert(other != nullptr, "Cannot equality compare null object");
+    sy_assert(this->compare.hasValue(), "Cannot do equality comparison without an equality function");
+
+    // TODO immediate equality comparison for simple types
+
+    sy_assert(this->constRef != nullptr, "Equality comparison takes const references");
+    sy_assert(this->constRef->sizeType == sizeof(void*), "Const reference types should be the same size as void*");
+    sy_assert(this->constRef->alignType == alignof(void*), "Const reference types should be the same align as void*");
+
+    RawFunction::CallArgs callArgs = this->equality.value()->startCall();
+    (void)callArgs.push(&self, this->constRef);
+    (void)callArgs.push(&other, this->constRef);
+    Ordering cmp;
+
+    const auto err = callArgs.call(&cmp);
+    sy_assert(err.hasErr() == false, "Compare may not throw/cause errors"); // TODO what do to if error?
+    return cmp;
 }
 
 #if SYNC_LIB_WITH_TESTS
@@ -263,7 +287,7 @@ TEST_CASE("equality") {
         bool rhs = true;
         bool ret;
 
-        Function::CallArgs args = sy::Type::TYPE_BOOL->equality.value()->startCall();
+        RawFunction::CallArgs args = sy::Type::TYPE_BOOL->equality.value()->startCall();
         const bool* lhsMem = &lhs;
         args.push(&lhsMem, sy::Type::TYPE_BOOL->constRef);
         const bool* rhsMem = &rhs;
@@ -277,7 +301,7 @@ TEST_CASE("equality") {
         bool rhs = true;
         bool ret;
 
-        Function::CallArgs args = sy::Type::TYPE_BOOL->equality.value()->startCall();
+        RawFunction::CallArgs args = sy::Type::TYPE_BOOL->equality.value()->startCall();
         const bool* lhsMem = &lhs;
         args.push(&lhsMem, sy::Type::TYPE_BOOL->constRef);
         const bool* rhsMem = &rhs;
@@ -294,7 +318,7 @@ TEST_CASE("hash") {
     uint64_t obj = 123456789;
     size_t ret = 0;
 
-    Function::CallArgs args = sy::Type::TYPE_U64->hash.value()->startCall();
+    RawFunction::CallArgs args = sy::Type::TYPE_U64->hash.value()->startCall();
     const uint64_t* objMem = &obj;
     args.push(&objMem, sy::Type::TYPE_U64->constRef);
     auto err = args.call(&ret);

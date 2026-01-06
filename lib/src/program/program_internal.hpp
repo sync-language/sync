@@ -5,7 +5,6 @@
 #include "../mem/protected_allocator.hpp"
 #include "../types/array/dynamic_array.hpp"
 #include "../types/array/slice.hpp"
-#include "../types/function/function.hpp"
 #include "../types/hash/map.hpp"
 #include "../types/string/string.hpp"
 #include "../types/type_info.hpp"
@@ -13,6 +12,7 @@
 
 namespace sy {
 struct Bytecode;
+class RawFunction;
 
 /// Extra metadata for script functions.
 /// Corresponds with `SyFunction::fptr` if `SyFunction::tag == SyFunctionTypeScript`.
@@ -32,7 +32,7 @@ struct InterpreterFunctionScriptInfo {
 struct ProgramModuleInternal {
     StringUnmanaged name{};
     SemVer version{};
-    Function* allFunctions = nullptr;
+    RawFunction* allFunctions = nullptr;
     StringUnmanaged* allFunctionNames = nullptr;
     StringUnmanaged* allFunctionQualifiedNames = nullptr;
     InterpreterFunctionScriptInfo* allFunctionScriptInfo = nullptr;
@@ -47,7 +47,7 @@ struct ProgramModuleInternal {
     static Result<ProgramModuleInternal*, AllocErr> init(Allocator protAlloc, StringSlice name, SemVer version,
                                                          size_t functionCount, size_t structCount);
 
-    Option<const Function*> getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept;
+    Option<const RawFunction*> getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept;
 };
 
 struct ProgramInternal {

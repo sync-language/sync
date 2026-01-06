@@ -24,7 +24,6 @@ typedef enum SyTypeTag {
     /// Maps to a singular `SyType` instance.
     SyTypeTagStringSlice = 5,
     /// Maps to a singular `SyType` instance.
-    /// TODO figure out how to handle unordered data, such as float NaN.
     SyTypeTagOrdering = 6,
     /// Maps to effectively infinite `SyType` instances, depending on the references type and mutability.
     SyTypeTagReference = 7,
@@ -128,6 +127,8 @@ typedef struct SyType {
     const SyFunction* equality;
     /// Can be NULL.
     const SyFunction* hash;
+    /// Can be NULL.
+    const SyFunction* compare;
     /// Used as a tagged union with the payload being `extra`.
     SyTypeTag tag;
     /// Used as a tagged union, with the tags being `tag`.

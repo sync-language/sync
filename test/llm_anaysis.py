@@ -12,6 +12,8 @@ os.chdir(filePath.parent.parent) # project root, no matter where this was called
 
 DEFAULT_MODEL = "freehuntx/qwen3-coder:14b"
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
+DEFAULT_PROMPT = "Analyze this code for bugs, security issues, and improvements. Include file names and line numbers for referenced content. List anything that could be a false positive as such. For C/C++ files, ignore header guards, relative path includes, forward declarations, and clear use of type-erased void* pointers."
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="LLM-based code analysis using Ollama")
@@ -19,7 +21,7 @@ def parse_args():
     parser.add_argument("--files", nargs="+", help="Files to analyze")
     parser.add_argument("--diff", action="store_true", help="Analyze git diff (staged changes)")
     parser.add_argument("--pr", type=str, help="Analyze PR diff against base branch (e.g., 'main')")
-    parser.add_argument("--prompt", type=str, default="Analyze this code for bugs, security issues, and improvements:",
+    parser.add_argument("--prompt", type=str, default=DEFAULT_PROMPT,
                         help="Custom analysis prompt")
     return parser.parse_args()
 

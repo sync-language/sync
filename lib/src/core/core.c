@@ -38,22 +38,22 @@ static void sy_default_fatal_error_handler(const char* message) {
 extern void sy_default_fatal_error_handler(const char* message);
 #endif
 
-void (*defaultFatalErrorHandlerFn)(const char* message) = sy_default_fatal_error_handler;
+void (*syncFatalErrorHandlerFn)(const char* message) = sy_default_fatal_error_handler;
 
 SY_API void sy_set_fatal_error_handler(void (*errHandler)(const char* message)) {
     if (errHandler == NULL) {
-        defaultFatalErrorHandlerFn("[sy_set_fatal_error_handler] expected non-null function pointer");
+        syncFatalErrorHandlerFn("[sy_set_fatal_error_handler] expected non-null function pointer");
     }
-    defaultFatalErrorHandlerFn = errHandler;
+    syncFatalErrorHandlerFn = errHandler;
 }
 
 #ifndef SYNC_CUSTOM_ALIGNED_MALLOC_FREE
 void* sy_aligned_malloc(size_t len, size_t align) {
     if ((align & (align - 1)) != 0) {
-        defaultFatalErrorHandlerFn("[sy_aligned_malloc] align is not a power of 2");
+        syncFatalErrorHandlerFn("[sy_aligned_malloc] align is not a power of 2");
     }
     if ((len % align) != 0) {
-        defaultFatalErrorHandlerFn("[sy_aligned_malloc] len must be multiple of align");
+        syncFatalErrorHandlerFn("[sy_aligned_malloc] len must be multiple of align");
     }
 #if defined(_WIN32)
     return _aligned_malloc(len, align);
@@ -64,10 +64,10 @@ void* sy_aligned_malloc(size_t len, size_t align) {
 
 void sy_aligned_free(void* mem, size_t len, size_t align) {
     if ((align & (align - 1)) != 0) {
-        defaultFatalErrorHandlerFn("[sy_aligned_free] align is not a power of 2");
+        syncFatalErrorHandlerFn("[sy_aligned_free] align is not a power of 2");
     }
     if ((len % align) != 0) {
-        defaultFatalErrorHandlerFn("[sy_aligned_free] len must be multiple of align");
+        syncFatalErrorHandlerFn("[sy_aligned_free] len must be multiple of align");
     }
 #if defined(_WIN32)
     _aligned_free(mem);
@@ -103,7 +103,7 @@ void sy_aligned_free(void* mem, size_t len, size_t align) {
 void* sy_page_malloc(size_t len) {
     const size_t pageSize = sy_page_size();
     if ((len % pageSize) != 0) {
-        defaultFatalErrorHandlerFn("[sy_page_malloc] len must be multiple of sy_page_size");
+        syncFatalErrorHandlerFn("[sy_page_malloc] len must be multiple of sy_page_size");
     }
 #if defined(SYNC_NO_PAGES)
     return sy_aligned_malloc(len, pageSize);
@@ -119,7 +119,7 @@ void* sy_page_malloc(size_t len) {
 void sy_page_free(void* pagesStart, size_t len) {
     const size_t pageSize = sy_page_size();
     if ((len % pageSize) != 0) {
-        defaultFatalErrorHandlerFn("[sy_page_malloc] len must be multiple of sy_page_size");
+        syncFatalErrorHandlerFn("[sy_page_malloc] len must be multiple of sy_page_size");
     }
 #if defined(SYNC_NO_PAGES)
     sy_aligned_free(pagesStart, len, pageSize);
@@ -131,7 +131,7 @@ void sy_page_free(void* pagesStart, size_t len) {
 #elif defined(__GNUC__)
     int result = munmap(pagesStart, len);
     if (result == -1) {
-        defaultFatalErrorHandlerFn("[sy_page_free] failed to free pages");
+        syncFatalErrorHandlerFn("[sy_page_free] failed to free pages");
     }
 #else
 #error "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
@@ -156,7 +156,7 @@ size_t sy_page_size(void) {
 void sy_make_pages_read_only(void* pagesStart, size_t len) {
     const size_t pageSize = sy_page_size();
     if ((len % pageSize) != 0) {
-        defaultFatalErrorHandlerFn("[sy_make_pages_read_only] len must be multiple of sy_page_size");
+        syncFatalErrorHandlerFn("[sy_make_pages_read_only] len must be multiple of sy_page_size");
     }
 #if defined(SYNC_NO_PAGES)
     (void)pagesStart;
@@ -171,7 +171,7 @@ void sy_make_pages_read_only(void* pagesStart, size_t len) {
 #elif defined(__APPLE__) || defined(__GNUC__)
     const int success = mprotect(pagesStart, len, PROT_READ);
     if (success != 0) {
-        defaultFatalErrorHandlerFn("[sy_make_pages_read_only] failed to make pages read only");
+        syncFatalErrorHandlerFn("[sy_make_pages_read_only] failed to make pages read only");
     }
 #else
 #error "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
@@ -181,7 +181,7 @@ void sy_make_pages_read_only(void* pagesStart, size_t len) {
 void sy_make_pages_read_write(void* pagesStart, size_t len) {
     const size_t pageSize = sy_page_size();
     if ((len % pageSize) != 0) {
-        defaultFatalErrorHandlerFn("[sy_make_pages_read_write] len must be multiple of sy_page_size");
+        syncFatalErrorHandlerFn("[sy_make_pages_read_write] len must be multiple of sy_page_size");
     }
 #if defined(SYNC_NO_PAGES)
     (void)pagesStart;
@@ -196,7 +196,7 @@ void sy_make_pages_read_write(void* pagesStart, size_t len) {
 #elif defined(__APPLE__) || defined(__GNUC__)
     const int success = mprotect(pagesStart, len, PROT_READ | PROT_WRITE);
     if (success != 0) {
-        defaultFatalErrorHandlerFn("[sy_make_pages_read_only] failed to make pages read / write");
+        syncFatalErrorHandlerFn("[sy_make_pages_read_only] failed to make pages read / write");
     }
 #else
 #error "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
@@ -389,7 +389,7 @@ static void initializeThisThreadId(void) {
 
     size_t fetched = sy_atomic_size_t_fetch_add(&globalThreadIdGenerator, 1, SY_MEMORY_ORDER_SEQ_CST);
     if (fetched >= (SIZE_MAX - 1)) {
-        defaultFatalErrorHandlerFn("[initializeThisThreadId] reached max value for thread id generator (how?)");
+        syncFatalErrorHandlerFn("[initializeThisThreadId] reached max value for thread id generator (how?)");
     }
 
     threadLocalThreadId = fetched + 1; // don't start at 0
@@ -405,7 +405,7 @@ static bool addThisThreadToReaders(SyRawRwLock* self) {
 
     if (currentLen == currentCapacity) { // reallocate if necessary
         if (currentCapacity > ((INT32_MAX / 2) - 1)) {
-            defaultFatalErrorHandlerFn("[addThisThreadToReaders] reached max value for reader capacity (how?)");
+            syncFatalErrorHandlerFn("[addThisThreadToReaders] reached max value for reader capacity (how?)");
         }
         int32_t newCapacity = currentCapacity * 2;
         if (newCapacity == 0) {
@@ -539,14 +539,13 @@ void sy_raw_rwlock_destroy(SyRawRwLock* self) {
     const int32_t currentReadersLen = self->readerLen;
     const int32_t currentWantElevateLen = self->threadsWantElevateLen;
     if (currentExclusiveId != 0) {
-        defaultFatalErrorHandlerFn("[sy_raw_rwlock_destroy] cannot destroy rwlock when a thread has exclusive access");
+        syncFatalErrorHandlerFn("[sy_raw_rwlock_destroy] cannot destroy rwlock when a thread has exclusive access");
     }
     if (currentReadersLen > 0) {
-        defaultFatalErrorHandlerFn("[sy_raw_rwlock_destroy] cannot destroy rwlock that was locked by another thread");
+        syncFatalErrorHandlerFn("[sy_raw_rwlock_destroy] cannot destroy rwlock that was locked by another thread");
     }
     if (currentWantElevateLen > 0) {
-        defaultFatalErrorHandlerFn(
-            "[sy_raw_rwlock_destroy] cannot destroy rwlock that other threads wanting to elevate");
+        syncFatalErrorHandlerFn("[sy_raw_rwlock_destroy] cannot destroy rwlock that other threads wanting to elevate");
     }
 
     if (self->readers != NULL) {
@@ -614,11 +613,11 @@ void sy_raw_rwlock_release_shared(SyRawRwLock* self) {
     const size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
     // releasing shared lock on a thread that ALSO has exclusive lock (re-entrant)
     if (currentExclusiveId != 0 && currentExclusiveId != threadId) {
-        defaultFatalErrorHandlerFn(
+        syncFatalErrorHandlerFn(
             "[sy_raw_rwlock_release_exclusive] cannot release shared lock when another thread has an exclusive lock");
     }
     if (self->readerLen == 0) {
-        defaultFatalErrorHandlerFn(
+        syncFatalErrorHandlerFn(
             "[sy_raw_rwlock_release_exclusive] cannot release shared lock if no thread has a shared lock");
     }
 
@@ -655,7 +654,7 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
 
             if (currentElevateLen == currentElevateCapacity) {
                 if (currentElevateCapacity > ((INT32_MAX / 2) - 1)) {
-                    defaultFatalErrorHandlerFn(
+                    syncFatalErrorHandlerFn(
                         "[sy_raw_rwlock_try_acquire_exclusive] reached max value for elevate capacity (how?)");
                 }
                 int32_t newCapacity = currentElevateCapacity * 2;
@@ -714,7 +713,7 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
         removeThisThreadFromWantToElevate(self); // remove no matter what
         if (foundOther) {
             if (oldDeadlockGeneration >= (SIZE_MAX - 1)) {
-                defaultFatalErrorHandlerFn(
+                syncFatalErrorHandlerFn(
                     "[sy_raw_rwlock_try_acquire_exclusive] too many deadlocks have occurred on this rwlock");
             }
 
@@ -764,11 +763,11 @@ void sy_raw_rwlock_release_exclusive(SyRawRwLock* self) {
 
     const size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
     if (currentExclusiveId == 0) {
-        defaultFatalErrorHandlerFn(
+        syncFatalErrorHandlerFn(
             "[sy_raw_rwlock_release_exclusive] cannot release exclusive lock when no thread has acquired");
     }
     if (currentExclusiveId != threadId) {
-        defaultFatalErrorHandlerFn(
+        syncFatalErrorHandlerFn(
             "[sy_raw_rwlock_release_exclusive] cannot release exclusive lock that was locked by another thread");
     }
 

@@ -269,7 +269,7 @@ static Result<ProgramModuleInternal*, ProgramError> compileModule(const ModuleIm
                 new (&moduleInternal->allFunctionQualifiedNames[iter])
                     StringUnmanaged(std::move(qualifiedRes.takeValue()));
 
-                Function _emptyFunc{};
+                RawFunction _emptyFunc{};
                 moduleInternal->allFunctions[iter] = _emptyFunc;
                 moduleInternal->allFunctions[iter].name = moduleInternal->allFunctionNames[iter].asSlice();
                 moduleInternal->allFunctions[iter].qualifiedName =

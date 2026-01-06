@@ -11,7 +11,7 @@
 
 namespace sy {
 class Type;
-class Function;
+class RawFunction;
 class CallStack;
 
 struct Bytecode;
@@ -40,7 +40,7 @@ class Stack final {
     /// meaning no return value destination.
     void pushFrame(uint16_t frameLength, uint16_t alignment, void* retValDst);
 
-    void pushFunctionFrame(const sy::Function* function, void* retValDst);
+    void pushFunctionFrame(const sy::RawFunction* function, void* retValDst);
 
     [[nodiscard]] sy::CallStack callStack() const;
 
@@ -74,7 +74,7 @@ class Stack final {
 
     [[nodiscard]] std::optional<Frame> getCurrentFrame() const noexcept;
 
-    [[nodiscard]] std::optional<const sy::Function*> getCurrentFunction() const noexcept;
+    [[nodiscard]] std::optional<const sy::RawFunction*> getCurrentFunction() const noexcept;
 
     /// Pops the current frame from the stack, and restores the old one. Does not unwind the stack.
     /// # Debug Asserts
@@ -93,7 +93,7 @@ class Stack final {
     size_t nodesLen = 0;
     size_t nodesCapacity = 0;
     size_t currentNode = 0;
-    const sy::Function** callstackFunctions = nullptr;
+    const sy::RawFunction** callstackFunctions = nullptr;
     uint16_t callstackLen = 0;
     uint16_t callstackCapacity = 0;
 };

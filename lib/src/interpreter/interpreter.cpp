@@ -17,8 +17,8 @@ static Result<OkExecStatus, ProgramError> interpreterExecuteContinuous(const Pro
 static Result<OkExecStatus, ProgramError> interpreterExecuteOperation(const Program* program);
 static void unwindStackFrame(const int16_t* unwindSlots, const uint16_t len);
 
-static void setupFunctionStackFrame(const Function* scriptFunction, void* outReturnValue) {
-    sy_assert(scriptFunction->tag == Function::CallType::Script,
+static void setupFunctionStackFrame(const RawFunction* scriptFunction, void* outReturnValue) {
+    sy_assert(scriptFunction->tag == FunctionType::Script,
               "Interpreter can only start executing from script functions");
     if (scriptFunction->returnType != nullptr) {
         sy_assert(outReturnValue != nullptr, "Function returns a value, which cannot be safely ignored");
@@ -35,14 +35,15 @@ static void setupFunctionStackFrame(const Function* scriptFunction, void* outRet
     activeStack.setInstructionPointer(scriptInfo->bytecode);
 }
 
-Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const Function* scriptFunction, void* outReturnValue) {
+Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const RawFunction* scriptFunction,
+                                                                void* outReturnValue) {
     // Just setup the initial function call stack
     setupFunctionStackFrame(scriptFunction, outReturnValue);
 
     size_t depth = 1;
     while (depth > 0) {
         Stack& activeStack = Stack::getActiveStack();
-        const sy::Function* currentFunction = activeStack.getCurrentFunction().value();
+        const sy::RawFunction* currentFunction = activeStack.getCurrentFunction().value();
         const sy::InterpreterFunctionScriptInfo* currentScriptInfo =
             reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(currentFunction->fptr);
 
@@ -224,12 +225,11 @@ static void executeReturnValue(const Bytecode b) {
     // Frame is automatically unwinded
 }
 
-static bool pushScriptFunctionArgs(const Function* function, const uint16_t argsCount, const uint16_t* argsSrc) {
+static bool pushScriptFunctionArgs(const RawFunction* function, const uint16_t argsCount, const uint16_t* argsSrc) {
     sy_assert(function->argsLen == argsCount, "Mismatched number of arguments passed to function");
-    sy_assert(function->tag == Function::CallType::Script,
-              "Cannot push script function arguments to non scirpt function");
+    sy_assert(function->tag == FunctionType::Script, "Cannot push script function arguments to non scirpt function");
 
-    Function::CallArgs callArgs = function->startCall();
+    RawFunction::CallArgs callArgs = function->startCall();
     Stack& activeStack = Stack::getActiveStack();
 
     for (uint16_t i = 0; i < argsCount; i++) {
@@ -243,9 +243,9 @@ static bool pushScriptFunctionArgs(const Function* function, const uint16_t args
     return true;
 }
 
-static Result<void, ProgramError> setupInterpreterNestedCall(const Function* function, void* retDst,
+static Result<void, ProgramError> setupInterpreterNestedCall(const RawFunction* function, void* retDst,
                                                              const uint16_t argsCount, const uint16_t* argsSrc) {
-    if (function->tag == Function::CallType::Script) {
+    if (function->tag == FunctionType::Script) {
         (void)pushScriptFunctionArgs(function, argsCount, argsSrc);
         setupFunctionStackFrame(function, retDst);
     } else {
@@ -260,7 +260,7 @@ static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChan
 
     Stack& activeStack = Stack::getActiveStack();
 
-    const Function* function = *reinterpret_cast<const Function* const*>(&bytecodes[1]);
+    const RawFunction* function = *reinterpret_cast<const RawFunction* const*>(&bytecodes[1]);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[2]);
 
     ipChange = static_cast<ptrdiff_t>(operators::CallImmediateNoReturn::bytecodeUsed(operands.argCount));
@@ -276,7 +276,7 @@ static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange, co
     Stack& activeStack = Stack::getActiveStack();
 
     sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function, "Expected function to call");
-    const Function* function = activeStack.frameValueAt<const Function>(operands.src);
+    const RawFunction* function = activeStack.frameValueAt<const RawFunction>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
 
     ipChange = static_cast<ptrdiff_t>(operators::CallSrcNoReturn::bytecodeUsed(operands.argCount));
@@ -289,7 +289,7 @@ static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange, co
 static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::CallImmediateWithReturn operands = bytecodes[0].toOperands<operators::CallImmediateWithReturn>();
 
-    const Function* function = *reinterpret_cast<const Function* const*>(&bytecodes[1]);
+    const RawFunction* function = *reinterpret_cast<const RawFunction* const*>(&bytecodes[1]);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[2]);
 
     ipChange = static_cast<ptrdiff_t>(operators::CallImmediateWithReturn::bytecodeUsed(operands.argCount));
@@ -308,7 +308,7 @@ static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange, 
     Stack& activeStack = Stack::getActiveStack();
 
     sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function, "Expected function to call");
-    const Function* function = activeStack.frameValueAt<const Function>(operands.src);
+    const RawFunction* function = activeStack.frameValueAt<const RawFunction>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
 
     ipChange = static_cast<ptrdiff_t>(operators::CallSrcWithReturn::bytecodeUsed(operands.argCount));
