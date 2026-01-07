@@ -273,6 +273,8 @@ The python script [test/run_tests.py](test/run_tests.py) will run a configured s
 
 ## LLM Analysis Setup
 
+Firstly, we do not have the budget or resources for our own data-center. Secondly, we as a team believe in not being wasteful, which unfortunately massive data centers can be. Lastly, we do not have big enough egos to assume all of our code is perfect. Therefore, using smaller on-device LLMs for basic static analysis of PRs is acceptable. In this case, the false-positives / hallucinations by the models (even if mildly annoying) is fine, as ensuring we actively audit our code is a top priority.
+
 ### 1. Install ollama
 
 Download [Ollama](https://ollama.com/download)
@@ -280,8 +282,8 @@ Download [Ollama](https://ollama.com/download)
 ### 2. Install your Model of Choice
 
 ```sh
-# for instance, qwen3-coder:14b
-ollama pull freehuntx/qwen3-coder:14b
+# for instance, deepseek-r1:14b, which gives acceptable results
+ollama pull deepseek-r1:14b
 ```
 
 ### 3. Start ollama
@@ -290,7 +292,7 @@ ollama pull freehuntx/qwen3-coder:14b
 ollama serve
 ```
 
-### 4. Run [llm_analysis.py](test/llm_anaysis.py) Script
+### 4. Run [llm_analysis.py](test/llm_analysis.py) Script
 
 | Argument | Options | Description |
 |----------|---------|-------------|
@@ -299,20 +301,21 @@ ollama serve
 | `--diff` | N/A | Analyze git diff (incompatible with `--files` or `--pr`) |
 | `--pr` | BASE_BRANCH | Analyze pull request diff against another branch (incompatible with `--files` or `--diff`) |
 | `--prompt` | "PROMPT" | The actual prompt, with the other args adding context |
+| `--no-include` | N/A | Disable recursively including non-system headers and add it to model context |
 
 ```sh
 # specific files
-python test/llm_anaysis.py --files src/main.c src/utils.c
+python test/llm_analysis.py --files lib/src/interpreter/interpreter.cpp
 
 # analyze staged changes
-python test/llm_anaysis.py --diff
+python test/llm_analysis.py --diff
 
 # analyze against other branch
-python test/llm_anaysis.py --pr main
+python test/llm_analysis.py --pr main
 
 # custom prompt
-python test/llm_anaysis.py --files src/main.c --prompt "Review this code for memory safety issues:"
+python test/llm_analysis.py --files src/main.c --prompt "Review this code for memory safety issues:"
 
 # specific model
-python test/llm_anaysis.py --model codellama:13b --diff
+python test/llm_analysis.py --model qwen2.5-coder:14b --diff
 ```
