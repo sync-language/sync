@@ -1,12 +1,13 @@
 #include "dynamic_array.h"
+#include "../../core/core_internal.h"
 #include "../../mem/allocator.hpp"
 #include "../../program/program.hpp"
-#include "../../util/assert.hpp"
 #include "../../util/pow_of_2.hpp"
 #include "../function/function.hpp"
 #include "../type_info.hpp"
 #include "dynamic_array.hpp"
 #include <cstring>
+#include <iostream>
 #include <tuple>
 
 static constexpr size_t initialArrayCapacity = 4;

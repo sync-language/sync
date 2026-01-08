@@ -87,6 +87,7 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
     endif()
 
     if(SYNC_LIB_CODE_COVERAGE)
+        target_compile_definitions(${TEST_NAME} PRIVATE SYNC_LIB_CODE_COVERAGE=1)
         if(MSVC)
             # OpenCppCoverage?
         elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -263,7 +264,6 @@ set(SYNC_LIB_TESTS_SOURCES
     "../lib/src/core/core.c"
     "../lib/src/core/builtin_functions/sort.cpp"
     "../lib/src/core/builtin_traits/iterator.cpp"
-    "../lib/src/util/panic.cpp"
     "../lib/src/util/os_callstack.cpp"
     "../lib/src/util/simd.cpp"
     "../lib/src/mem/allocator.cpp"

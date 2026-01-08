@@ -1,5 +1,5 @@
 #include "allocator.h"
-#include "../util/assert.hpp"
+#include "../core/core_internal.h"
 #include "allocator.hpp"
 #include "os_mem.hpp"
 #include <cstdlib>

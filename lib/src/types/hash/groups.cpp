@@ -1,6 +1,6 @@
 #include "groups.hpp"
+#include "../../core/core_internal.h"
 #include "../../util/align.hpp"
-#include "../../util/assert.hpp"
 #include <cstring>
 
 constexpr static uint32_t groupAllocationSize(uint32_t requiredCapacity) {

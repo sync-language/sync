@@ -1,7 +1,6 @@
 #include "sync_queue.h"
+#include "../core/core_internal.h"
 #include "../mem/allocator.hpp"
-#include "../util/assert.hpp"
-#include "../util/unreachable.hpp"
 #include "alloc_cache_align.hpp"
 #include "sync_queue.hpp"
 #include <new>

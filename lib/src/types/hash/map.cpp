@@ -1,5 +1,5 @@
 #include "map.hpp"
-#include "../../util/assert.hpp"
+#include "../../core/core_internal.h"
 #include "../../util/os_callstack.hpp"
 #include "groups.hpp"
 #include <cstdlib>

@@ -1,6 +1,6 @@
 #include "protected_allocator.hpp"
+#include "../core/core_internal.h"
 #include "../types/result/result.hpp"
-#include "../util/assert.hpp"
 #include "os_mem.hpp"
 
 using namespace sy;

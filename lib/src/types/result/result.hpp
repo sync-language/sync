@@ -15,8 +15,8 @@
 
 namespace sy {
 namespace detail {
-void SY_API debugAssertResultIsOk(bool isOk, const char* errMsg);
-void SY_API debugAssertResultIsErr(bool isErr, const char* errMsg);
+void SY_API debugAssertResultIsOk(bool isOk);
+void SY_API debugAssertResultIsErr(bool isErr);
 } // namespace detail
 template <typename T, typename E, typename Enable = void> class Result final {};
 
@@ -85,17 +85,17 @@ template <typename T, typename E> class Result<T, E, std::enable_if_t<std::is_sa
     [[nodiscard]] bool operator!() const { return hasErr_; }
 
     [[nodiscard]] E& err() {
-        detail::debugAssertResultIsErr(hasErr_, "Bad sy::Result access: Result is not an error");
+        detail::debugAssertResultIsErr(hasErr_);
         return val_.err;
     }
 
     [[nodiscard]] const E& err() const {
-        detail::debugAssertResultIsErr(hasErr_, "Bad sy::Result access: Result is not an error");
+        detail::debugAssertResultIsErr(hasErr_);
         return val_.err;
     }
 
     [[nodiscard]] E&& takeErr() {
-        detail::debugAssertResultIsErr(hasErr_, "Bad sy::Result access: Result is not an error");
+        detail::debugAssertResultIsErr(hasErr_);
         this->hasErr_ = false;
         return std::move(val_.err);
     }
@@ -171,32 +171,32 @@ template <typename T, typename E> class Result<T, E, std::enable_if_t<!std::is_s
     [[nodiscard]] bool operator!() const { return hasErr_; }
 
     [[nodiscard]] T& value() {
-        detail::debugAssertResultIsOk(!hasErr_, "Bad sy::Result access: Result is an error");
+        detail::debugAssertResultIsOk(!hasErr_);
         return val_.ok;
     }
 
     [[nodiscard]] const T& value() const {
-        detail::debugAssertResultIsOk(!hasErr_, "Bad sy::Result access: Result is an error");
+        detail::debugAssertResultIsOk(!hasErr_);
         return val_.ok;
     }
 
     [[nodiscard]] T&& takeValue() {
-        detail::debugAssertResultIsOk(!hasErr_, "Bad sy::Result access: Result is an error");
+        detail::debugAssertResultIsOk(!hasErr_);
         return std::move(val_.ok);
     }
 
     [[nodiscard]] E& err() {
-        detail::debugAssertResultIsErr(hasErr_, "Bad sy::Result access: Result is not an error");
+        detail::debugAssertResultIsErr(hasErr_);
         return val_.err;
     }
 
     [[nodiscard]] const E& err() const {
-        detail::debugAssertResultIsErr(hasErr_, "Bad sy::Result access: Result is not an error");
+        detail::debugAssertResultIsErr(hasErr_);
         return val_.err;
     }
 
     [[nodiscard]] E&& takeErr() {
-        detail::debugAssertResultIsErr(hasErr_, "Bad sy::Result access: Result is not an error");
+        detail::debugAssertResultIsErr(hasErr_);
         return std::move(val_.err);
     }
 

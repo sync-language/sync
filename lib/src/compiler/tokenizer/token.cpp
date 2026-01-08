@@ -1,6 +1,5 @@
 #include "token.hpp"
-#include "../../util/assert.hpp"
-#include "../../util/unreachable.hpp"
+#include "../../core/core_internal.h"
 
 using namespace sy;
 

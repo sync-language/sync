@@ -1,7 +1,6 @@
 #include "task.hpp"
 #include "../../core/core_internal.h"
 #include "../../interpreter/stack/stack.hpp"
-#include "../../util/assert.hpp"
 #include "../function/function.hpp"
 #include "../option/option.hpp"
 #include "../type_info.hpp"

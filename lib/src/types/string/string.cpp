@@ -1,6 +1,6 @@
 #include "string.h"
+#include "../../core/core_internal.h"
 #include "../../mem/allocator.hpp"
-#include "../../util/assert.hpp"
 #include "../../util/os_callstack.hpp"
 #include "string.hpp"
 #include <cstdlib>

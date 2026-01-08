@@ -1,5 +1,5 @@
 #include "simd.hpp"
-#include "assert.hpp"
+#include "../core/core_internal.h"
 
 #if defined(_WIN32) || defined(WIN32)
 

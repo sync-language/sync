@@ -1,9 +1,9 @@
 #include "sync_obj_val.hpp"
+#include "../core/core_internal.h"
 #include "../mem/allocator.hpp"
 #include "../program/program.hpp"
 #include "../types/function/function.hpp"
 #include "../types/type_info.hpp"
-#include "../util/assert.hpp"
 #include <cstring>
 #include <new>
 
@@ -11,21 +11,12 @@ using sy::SyncObjVal;
 
 static_assert(alignof(SyncObjVal) == ALLOC_CACHE_ALIGN);
 
-static size_t paddingForType(const size_t alignType) {
-    if (alignType <= ALLOC_CACHE_ALIGN) {
-        return 0;
-    }
-
-    const size_t remainder = sizeof(SyncObjVal) % alignType;
-    return alignType - remainder;
-}
-
 sy::Result<SyncObjVal*, sy::AllocErr> SyncObjVal::create(Allocator alloc, const size_t inSizeType,
                                                          const uint16_t inAlignType) {
     sy_assert(inAlignType <= UINT16_MAX, "Type alignment too big");
 
     const size_t allocAlign = inAlignType < ALLOC_CACHE_ALIGN ? ALLOC_CACHE_ALIGN : inAlignType;
-    const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType(inAlignType) + inSizeType;
+    const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType<SyncObjVal>(inAlignType) + inSizeType;
 
     auto res = alloc.allocAlignedArray<uint8_t>(fullAllocSize, allocAlign);
     if (res.hasErr()) {
@@ -43,7 +34,7 @@ void SyncObjVal::destroy() {
     // assumes the held object's destructor has already been called
 
     const size_t allocAlign = alignType < ALLOC_CACHE_ALIGN ? ALLOC_CACHE_ALIGN : alignType;
-    const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType(alignType) + this->sizeType;
+    const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType<SyncObjVal>(alignType) + this->sizeType;
 
     sy::Allocator alloc = this->allocator;
     uint8_t* mem = reinterpret_cast<uint8_t*>(this);
@@ -53,7 +44,7 @@ void SyncObjVal::destroy() {
 }
 
 uintptr_t SyncObjVal::valueMemLocation() const {
-    const size_t memOffset = sizeof(SyncObjVal) + paddingForType(alignType);
+    const size_t memOffset = sizeof(SyncObjVal) + paddingForType<SyncObjVal>(alignType);
     const uint8_t* asBytes = reinterpret_cast<const uint8_t*>(this);
     return reinterpret_cast<uintptr_t>(&asBytes[memOffset]);
 }

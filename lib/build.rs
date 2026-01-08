@@ -7,7 +7,6 @@ fn main() {
         .file("src/core/core.c")
         .file("src/core/builtin_functions/sort.cpp")
         .file("src/core/builtin_traits/iterator.cpp")
-        .file("src/util/panic.cpp")
         .file("src/util/os_callstack.cpp")
         .file("src/util/simd.cpp")
         .file("src/mem/allocator.cpp")

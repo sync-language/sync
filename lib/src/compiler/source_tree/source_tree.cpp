@@ -1,5 +1,5 @@
 #include "source_tree.hpp"
-#include "../../util/unreachable.hpp"
+#include "../../core/core_internal.h"
 #include <cstring>
 #include <filesystem>
 #include <iostream>

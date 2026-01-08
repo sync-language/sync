@@ -1,10 +1,9 @@
 #include "interpreter.hpp"
+#include "../core/core_internal.h"
 #include "../program/program.hpp"
 #include "../program/program_internal.hpp"
 #include "../types/function/function.hpp"
 #include "../types/type_info.hpp"
-#include "../util/assert.hpp"
-#include "../util/unreachable.hpp"
 #include "bytecode.hpp"
 #include "stack/stack.hpp"
 #include <cstring>

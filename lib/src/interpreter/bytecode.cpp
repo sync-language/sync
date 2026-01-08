@@ -1,7 +1,6 @@
 #include "bytecode.hpp"
+#include "../core/core_internal.h"
 #include "../types/type_info.hpp"
-#include "../util/assert.hpp"
-#include "../util/unreachable.hpp"
 
 using namespace sy;
 

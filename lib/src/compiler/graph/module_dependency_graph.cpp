@@ -1,6 +1,6 @@
 #include "module_dependency_graph.hpp"
+#include "../../core/core_internal.h"
 #include "../../types/hash/map.hpp"
-#include "../../util/assert.hpp"
 #include "../compiler.hpp"
 #include <iostream>
 

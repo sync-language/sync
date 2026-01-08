@@ -1,7 +1,7 @@
 #include "tokenizer.hpp"
+#include "../../core/core_internal.h"
 #include "../../program/program_error.hpp"
 #include "../../threading/alloc_cache_align.hpp"
-#include "../../util/assert.hpp"
 
 using namespace sy;
 

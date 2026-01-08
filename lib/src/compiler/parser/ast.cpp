@@ -1,5 +1,5 @@
 #include "ast.hpp"
-#include "../../util/assert.hpp"
+#include "../../core/core_internal.h"
 #include <new>
 
 using namespace sy;

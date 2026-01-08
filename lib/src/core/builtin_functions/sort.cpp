@@ -4,10 +4,13 @@
 using namespace sy;
 
 Result<void, ProgramError> sy::sortIntoSlice(IteratorObj* iter, void* outBuf, size_t outBufElemSize) noexcept {
+    (void)outBuf;
+    (void)outBufElemSize;
     const Type* valueType = iter->traitImpl->valueType;
     const Type* itemType = iter->traitImpl->item;
     // The iterator is yielding pointers but we want the underlying value
     const bool needsDeref = itemType != valueType;
+    (void)needsDeref;
 
     //! DO NOT copy the iterator
     //! DO NOT allocate unnecessary memory

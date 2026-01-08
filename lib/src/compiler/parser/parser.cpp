@@ -1,5 +1,5 @@
 #include "parser.hpp"
-#include "../../util/assert.hpp"
+#include "../../core/core_internal.h"
 #include "../source_tree/source_tree.hpp"
 #include "ast/function_definition.hpp"
 #include "ast/return.hpp"

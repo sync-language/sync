@@ -1,12 +1,12 @@
 
 #include "stack.hpp"
+#include "../../core/core_internal.h"
 #include "../../mem/allocator.hpp"
 #include "../../mem/os_mem.hpp"
 #include "../../program/program_internal.hpp"
 #include "../../threading/alloc_cache_align.hpp"
 #include "../../types/function/function.hpp"
 #include "../../types/type_info.hpp"
-#include "../../util/assert.hpp"
 #include "../bytecode.hpp"
 #include <cstring>
 #include <iostream>

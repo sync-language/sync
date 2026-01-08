@@ -1,6 +1,6 @@
 #include "sync_obj.h"
+#include "../../core/core_internal.h"
 #include "../../threading/sync_obj_val.hpp"
-#include "../../util/assert.hpp"
 #include "../type_info.h"
 #include "../type_info.hpp"
 #include "sync_obj.hpp"

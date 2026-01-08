@@ -3,29 +3,6 @@
 
 #include "core.h"
 
-// https://en.cppreference.com/w/c/program/unreachable
-
-// Uses compiler specific extensions if possible.
-#ifdef __GNUC__ // GCC, Clang, ICC
-
-#define unreachable() (__builtin_unreachable())
-
-#elif _MSC_VER // MSVC
-
-#define unreachable() (__assume(false))
-
-#else
-// Even if no extension is used, undefined behavior is still raised by
-// the empty function body and the noreturn attribute.
-
-// The external definition of unreachable_impl must be emitted in a separated TU
-// due to the rule for inline functions in C.
-
-[[noreturn]] inline void unreachable_impl() {}
-#define unreachable() (unreachable_impl())
-
-#endif // Compiler specific
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -289,6 +266,107 @@ template <typename ContainerT> static inline size_t paddingForType(const size_t 
     return alignType - remainder;
 }
 } // namespace sy
+#endif
+
+// https://en.cppreference.com/w/c/program/unreachable
+
+// Uses compiler specific extensions if possible.
+#ifdef SYNC_NO_SAFETY_CHECKS
+#define unreachable() ((void)0)
+#else
+#ifdef __GNUC__ // GCC, Clang, ICC
+
+#define unreachable() (__builtin_unreachable())
+
+#elif _MSC_VER // MSVC
+
+#define unreachable() (__assume(false))
+
+#else
+// Even if no extension is used, undefined behavior is still raised by
+// the empty function body and the noreturn attribute.
+
+// The external definition of unreachable_impl must be emitted in a separated TU
+// due to the rule for inline functions in C.
+
+#ifdef __cplusplus || (__STDC_VERSION__ >= 202311L) // C23
+[[noreturn]] inline void _sy_unreachable_impl() {}
+#else
+#if (__STDC_VERSION__ >= 201112L) // C11
+_Noreturn inline void _sy_unreachable_impl() {
+#else
+inline void _sy_unreachable_impl() {
+#endif
+    syncFatalErrorHandlerFn("Reached unreachable code");
+    for (;;) {
+    }
+}
+#endif
+#define unreachable() (_sy_unreachable_impl())
+
+#endif // Compiler specific
+#endif // SYNC_NO_SAFETY_CHECKS
+
+#define SY_STRINGIFY_(x) #x
+#define SY_STRINGIFY(x) SY_STRINGIFY_(x)
+
+#ifdef SYNC_NO_SAFETY_CHECKS
+#define sy_assert_release(expression, message) ((void)0)
+#define sy_assert(expression, message) ((void)0)
+#else
+#define sy_assert_release(expression, message)                                                                         \
+    do {                                                                                                               \
+        if (!(expression)) {                                                                                           \
+            syncFatalErrorHandlerFn("Assertion Failed " #expression __FILE__ ":" SY_STRINGIFY(__LINE__) message);      \
+        }                                                                                                              \
+    } while (0)
+
+#if defined(NDEBUG)
+#define sy_assert(expression, message) ((void)0)
+#else
+#define sy_assert(expression, message) sy_assert_release(expression, message)
+#endif
+#endif // SYNC_NO_SAFETY_CHECKS
+
+// SQLite devs are next level
+
+#ifdef SYNC_NO_SAFETY_CHECKS
+#define always(expression) (1)
+#define never(expression) (0)
+#elif defined(SYNC_LIB_CODE_COVERAGE) || !defined(NDEBUG)
+
+/// The expression is assumed to always happen.
+/// @param expression The boolean expression
+#define always(expression)                                                                                             \
+    (!!(expression)                                                                                                    \
+         ? 1                                                                                                           \
+         : (syncFatalErrorHandlerFn("always(" #expression ") failed" __FILE__ ":" SY_STRINGIFY(__LINE__)), 0))
+
+/// The expression is assumed to never happen.
+/// @param expression The boolean expression
+#define never(expression)                                                                                              \
+    (!!(expression)                                                                                                    \
+         ? (syncFatalErrorHandlerFn("never(" #expression ") triggered" __FILE__ ":" SY_STRINGIFY(__LINE__)), 1)        \
+         : 0)
+#else
+/// Fallthrough
+#define always(expression) (expression)
+/// Fallthrough
+#define never(expression) (expression)
+#endif
+
+#if !defined(SYNC_LIB_CODE_COVERAGE) || defined(SYNC_NO_SAFETY_CHECKS)
+/// If `SYNC_LIB_CODE_COVERAGE` is defined, will forcefully create a branch. Then, when code coverage is done, should
+/// that branch not have been executed,
+#define testcase(X) ((void)0)
+#else
+extern volatile int _sy_coverage_no_optimize;
+#define testcase(X)                                                                                                    \
+    do {                                                                                                               \
+        if (X) {                                                                                                       \
+            _sy_coverage_no_optimize = __LINE__;                                                                       \
+        }                                                                                                              \
+    } while (0)
 #endif
 
 #endif

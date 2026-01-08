@@ -1,5 +1,5 @@
 #include "scope.hpp"
-#include "../../util/assert.hpp"
+#include "../../core/core_internal.h"
 
 using sy::Option;
 using sy::Scope;

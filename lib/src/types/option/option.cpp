@@ -1,15 +1,17 @@
 #include "option.hpp"
-#include "../../util/assert.hpp"
+#include "../../core/core_internal.h"
 
 static_assert(sizeof(sy::Option<void*>) == sizeof(void*), "Optional pointer is same size as pointer always");
 static_assert(sizeof(sy::Option<int*>) == sizeof(int*), "Optional pointer is same size as pointer always");
 static_assert(sizeof(sy::Option<sy::Option<int>*>) == sizeof(void*), "Optional pointer is same size as pointer always");
 
-void SY_API sy::detail::debugAssertPtrNotNull(const void* ptr, const char* errMsg) {
-    sy_assert(ptr != nullptr, errMsg);
+void SY_API sy::detail::debugAssertPtrNotNull(const void* ptr) {
+    sy_assert(ptr != nullptr, "Bad Option Access: Optional pointer was null");
 }
 
-void SY_API sy::detail::debugAssertOptionHasValue(bool hasVal, const char* errMsg) { sy_assert(hasVal, errMsg); }
+void SY_API sy::detail::debugAssertOptionHasValue(bool hasVal) {
+    sy_assert(hasVal, "Bad Option Access: Optional has no value");
+}
 
 #if SYNC_LIB_WITH_TESTS
 

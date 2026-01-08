@@ -1,9 +1,13 @@
 #include "result.hpp"
-#include "../../util/assert.hpp"
+#include "../../core/core_internal.h"
 
-void SY_API sy::detail::debugAssertResultIsOk(bool isOk, const char* errMsg) { sy_assert(isOk, errMsg); }
+void SY_API sy::detail::debugAssertResultIsOk(bool isOk) {
+    sy_assert(isOk, "Bad Result access: Result is not an error");
+}
 
-void SY_API sy::detail::debugAssertResultIsErr(bool isErr, const char* errMsg) { sy_assert(isErr, errMsg); }
+void SY_API sy::detail::debugAssertResultIsErr(bool isErr) {
+    sy_assert(isErr, "Bad Result access: Result is an error");
+}
 
 #if SYNC_LIB_WITH_TESTS
 

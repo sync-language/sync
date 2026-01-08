@@ -25,8 +25,8 @@ an object or an array of such objects in the space allocated (until the space is
 ISO/IEC 9899:201x (aka ISO C11)
 */
 
+#include "../core/core_internal.h"
 #include "os_mem.hpp"
-#include "../util/assert.hpp"
 #include <cstdlib>
 #include <iostream>
 

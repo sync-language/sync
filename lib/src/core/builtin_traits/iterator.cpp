@@ -1,7 +1,7 @@
 #include "iterator.hpp"
+#include "../../core/core_internal.h"
 #include "../../types/function/function.hpp"
 #include "../../types/type_info.hpp"
-#include "../../util/assert.hpp"
 
 using namespace sy;
 

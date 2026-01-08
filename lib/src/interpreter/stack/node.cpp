@@ -1,9 +1,9 @@
 #include "node.hpp"
+#include "../../core/core_internal.h"
 #include "../../mem/allocator.hpp"
 #include "../../mem/os_mem.hpp"
 #include "../../threading/alloc_cache_align.hpp"
 #include "../../types/type_info.hpp"
-#include "../../util/assert.hpp"
 #include "../bytecode.hpp"
 #include "stack.hpp"
 
@@ -520,7 +520,7 @@ const sy::Type* sy::Node::TypeOfValue::get() const {
     return reinterpret_cast<const sy::Type*>(maskedAwayFlag);
 }
 
-sy::Node::TypeOfValue::operator const sy::Type *() const { return this->get(); }
+sy::Node::TypeOfValue::operator const sy::Type*() const { return this->get(); }
 
 void sy::Node::TypeOfValue::set(const sy::Type* type, bool owned) {
     sy_assert(type != nullptr, "Use operator=(nullptr) to explicitly set this type to null");

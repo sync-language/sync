@@ -1,7 +1,7 @@
 #include "function_builder.hpp"
+#include "../core/core_internal.h"
 #include "../program/program_internal.hpp"
 #include "../types/type_info.hpp"
-#include "../util/assert.hpp"
 
 using namespace sy;
 

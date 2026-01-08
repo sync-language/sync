@@ -1,5 +1,5 @@
 #include "program_error.hpp"
-#include "../util/assert.hpp"
+#include "../core/core_internal.h"
 #include <iostream>
 
 using namespace sy;
@@ -44,7 +44,7 @@ ProgramErrorReporter defaultErrReporter = [](ProgramError errKind, const SourceF
         (void)e;
     }
 };
-}
+} // namespace sy
 
 // ProgramError::ProgramError(Option<SourceFileLocation> inWhere, Kind inKind) noexcept : where_(inWhere), kind_(inKind)
 // {}

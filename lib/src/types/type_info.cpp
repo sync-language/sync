@@ -1,6 +1,6 @@
 #include "type_info.h"
+#include "../core/core_internal.h"
 #include "../program/program.hpp"
-#include "../util/assert.hpp"
 #include "function/function.h"
 #include "function/function.hpp"
 #include "string/string.hpp"

@@ -1,7 +1,7 @@
 #include "function_definition.hpp"
+#include "../../../core/core_internal.h"
 #include "../../../interpreter/function_builder.hpp"
 #include "../../../types/type_info.hpp"
-#include "../../../util/assert.hpp"
 #include "../../source_tree/source_tree.hpp"
 #include "../parser.hpp"
 

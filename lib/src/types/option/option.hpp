@@ -16,8 +16,8 @@
 
 namespace sy {
 namespace detail {
-void SY_API debugAssertPtrNotNull(const void* ptr, const char* errMsg);
-void SY_API debugAssertOptionHasValue(bool hasVal, const char* errMsg);
+void SY_API debugAssertPtrNotNull(const void* ptr);
+void SY_API debugAssertOptionHasValue(bool hasVal);
 } // namespace detail
 
 template <typename T, typename Enable = void> class SY_API Option final {};
@@ -32,11 +32,11 @@ template <typename T> class SY_API Option<T, std::enable_if_t<std::is_pointer_v<
     [[nodiscard]] operator bool() const { return this->hasValue(); }
     [[nodiscard]] bool operator!() const { return ptr_ == nullptr; }
     [[nodiscard]] T value() {
-        detail::debugAssertPtrNotNull(ptr_, "Bad sy::Option access: Optional pointer is nullptr");
+        detail::debugAssertPtrNotNull(ptr_);
         return ptr_;
     }
     [[nodiscard]] const T value() const {
-        detail::debugAssertPtrNotNull(ptr_, "Bad sy::Option access: Optional pointer is nullptr");
+        detail::debugAssertPtrNotNull(ptr_);
         return ptr_;
     }
 
@@ -58,11 +58,11 @@ template <typename T> class SY_API Option<T, std::enable_if_t<std::is_reference_
     [[nodiscard]] operator bool() const { return this->hasValue(); }
     [[nodiscard]] bool operator!() const { return ptr_ == nullptr; }
     [[nodiscard]] T value() {
-        detail::debugAssertPtrNotNull(ptr_, "Bad sy::Option access: Optional reference is empty");
+        detail::debugAssertPtrNotNull(ptr_);
         return *ptr_;
     }
     [[nodiscard]] const T value() const {
-        detail::debugAssertPtrNotNull(ptr_, "Bad sy::Option access: Optional reference is empty");
+        detail::debugAssertPtrNotNull(ptr_);
         return *ptr_;
     }
 
@@ -124,15 +124,15 @@ template <typename T> class SY_API Option<T, std::enable_if_t<!std::is_reference
     [[nodiscard]] operator bool() const { return this->hasValue(); }
     [[nodiscard]] bool operator!() const { return !hasVal_; }
     [[nodiscard]] T& value() {
-        detail::debugAssertOptionHasValue(hasVal_, "Bad sy::Option access: Optional value is empty");
+        detail::debugAssertOptionHasValue(hasVal_);
         return val_.val;
     }
     [[nodiscard]] const T& value() const {
-        detail::debugAssertOptionHasValue(hasVal_, "Bad sy::Option access: Optional value is empty");
+        detail::debugAssertOptionHasValue(hasVal_);
         return val_.val;
     }
     [[nodiscard]] T&& take() {
-        detail::debugAssertOptionHasValue(hasVal_, "Bad sy::Option access: Optional value is empty");
+        detail::debugAssertOptionHasValue(hasVal_);
         this->hasVal_ = false;
         return std::move(val_.val);
     }

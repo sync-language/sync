@@ -1,6 +1,5 @@
 #include "file_literals.hpp"
-#include "../../util/assert.hpp"
-#include "../../util/unreachable.hpp"
+#include "../../core/core_internal.h"
 #include "token.hpp"
 #include <cstring>
 #include <new>

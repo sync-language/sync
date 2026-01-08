@@ -1,7 +1,7 @@
 #include "return.hpp"
+#include "../../../core/core_internal.h"
 #include "../../../interpreter/bytecode.hpp"
 #include "../../../interpreter/function_builder.hpp"
-#include "../../../util/assert.hpp"
 #include "../parser.hpp"
 
 using namespace sy;

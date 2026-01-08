@@ -1,5 +1,5 @@
 #include "child_process.hpp"
-#include "../util/assert.hpp"
+#include "../core/core_internal.h"
 #if defined(_WIN32) || defined(WIN32)
 #define WIN32_LEAN_AND_MEAN
 // clang-format off
