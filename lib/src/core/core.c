@@ -915,7 +915,7 @@ void print_windows_callstack(void) {
     symbol->MaxNameLen = 255;
 
     IMAGEHLP_LINE64 line;
-    line.SizeOfStructy = sizeof(IMAGEHLP_LINE64);
+    line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
 
     char moduleName[MAX_PATH] = {0};
 
