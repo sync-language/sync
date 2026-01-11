@@ -1,3 +1,9 @@
+#if defined(__linux__) || (defined(__GNUC__) && !defined(__APPLE__) && !defined(_WIN32) && !defined(__EMSCRIPTEN__))
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#endif
+
 #include "core.h"
 #include "core_internal.h"
 #include <limits.h>
@@ -881,7 +887,7 @@ static void print_emscripten_callstack(void) {
 
 #define DEFAULT_BACKTRACE_DEPTH 64
 
-__forceinline void print_windows_callstack(void) {
+void print_windows_callstack(void) {
     syncWriteStringError("Stack trace (most recent call first):");
 
     HANDLE process = GetCurrentProcess();
@@ -913,7 +919,7 @@ __forceinline void print_windows_callstack(void) {
 
     char moduleName[MAX_PATH] = {0};
 
-    for (WORD i = 1; i < frames; i++) {
+    for (WORD i = 2; i < frames; i++) {
         DWORD64 address = (DWORD64)(uintptr_t)(stack[i]);
         char lineBuf[1024] = {0};
         const char* funcName = "???";
@@ -1005,13 +1011,13 @@ static void fallback_dladdr_print(const Dl_info* info, int i, void** addresses) 
     }
 }
 
-__attribute__((always_inline)) static void print_posix_callstack(void) {
+static void print_posix_callstack(void) {
     syncWriteStringError("Stack trace (most recent call first):");
     void* addresses[DEFAULT_BACKTRACE_DEPTH];
     int traceSize = backtrace(addresses, DEFAULT_BACKTRACE_DEPTH);
 
     // don't care about this function being called
-    for (int i = 1; i < traceSize; i++) {
+    for (int i = 2; i < traceSize; i++) {
         Dl_info info = {0};
         char lineBuf[512] = {0};
 
@@ -1171,8 +1177,11 @@ __attribute__((always_inline)) static void print_posix_callstack(void) {
             (totalRead == 0) || (addr2lineBuf[0] == '\0') || (addr2lineBuf[0] == '?' && addr2lineBuf[1] == '?');
 
         if (!isUnknown) {
-            (void)snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s", i - 1, addr2lineBuf);
-            syncWriteStringError(lineBuf);
+            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s", i - 1, addr2lineBuf) < (int)sizeof(addr2lineBuf)) {
+                syncWriteStringError(lineBuf);
+            } else {
+                fallback_dladdr_print(&info, i, addresses);
+            }
         } else {
             fallback_dladdr_print(&info, i, addresses);
         }
