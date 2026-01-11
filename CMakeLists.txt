@@ -30,12 +30,13 @@ option(SYNC_CUSTOM_ALIGNED_MALLOC_FREE "Provide and link your own custom impleme
 option(SYNC_CUSTOM_PAGE_MEMORY "Provide and link your own custom implementation of virtual page memory operations" OFF)
 option(SYNC_DEFAULT_PAGE_ALIGNMENT "Provide a custom default page size / alignment" OFF)
 option(SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER "Provide and link your default fatal error handler for special requirements" OFF)
+option(SYNC_CUSTOM_DEFAULT_WRITE_STRING_ERROR "Provide and link your default string error writer for special requirements" OFF)
+option(SYNC_CUSTOM_BACKTRACE "Provide and link your own custom implementation of printing backtraces" OFF)
 
 set(SYNC_LIB_SOURCES
     "lib/src/core/core.c"
     "lib/src/core/builtin_functions/sort.cpp"
     "lib/src/core/builtin_traits/iterator.cpp"
-    "lib/src/util/os_callstack.cpp"
     "lib/src/util/simd.cpp"
     "lib/src/mem/allocator.cpp"
     "lib/src/mem/os_mem.cpp"
@@ -132,6 +133,9 @@ if(SYNC_NO_FILESYSTEM)
 endif()
 if(SYNC_NO_SAFETY_CHECKS)
     target_compile_definitions(SyncLib PRIVATE SYNC_NO_SAFETY_CHECKS=1)
+endif()
+if(SYNC_CUSTOM_BACKTRACE)
+    target_compile_definitions(SyncLib PRIVATE SYNC_CUSTOM_BACKTRACE=1)
 endif()
 
 

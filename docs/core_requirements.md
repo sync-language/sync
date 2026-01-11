@@ -12,7 +12,7 @@ All build requirements are for C and C++. The Rust bindings are currently for no
 | `<stddef.h>` | <ul><li>`size_t`</li><li>`NULL`</li><li>`ptrdiff_t`</li></ul> |
 | `<stdint.h>` | <ul><li>`int8_t`</li><li>`int16_t`</li><li>`int32_t`</li><li>`int64_t`</li><li>`uint8_t`</li><li>`uint16_t`</li><li>`uint32_t`</li><li>`uint64_t`</li><li>`uintptr_t`</li></ul> |
 | `<stdlib.h>` | <ul><li>`aligned_alloc` and `free` (not MSVC) if not defined `SY_CUSTOM_ALIGNED_MALLOC_FREE` </li><li>`abort` if `SY_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER` is not defined</li></ul> |
-| `<stdio.h>` | <ul><li>`fprintf` and `stderr` if `SY_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER` is not defined</li></ul> |
+| `<stdio.h>` | <ul><li>`fprintf`, `fflush`, and `stderr` if `SYNC_CUSTOM_DEFAULT_WRITE_STRING_ERROR` is not defined</li></ul> |
 | `<stdatomic.h>`| <ul><li>`memory_order_relaxed`</li><li>`memory_order_consume`</li><li>`memory_order_acquire`</li><li>`memory_order_release`</li><li>`memory_order_acq_rel`</li><li>`memory_order_seq_cst`</li><li>`atomic_load_explicit`</li><li>`atomic_store_explicit`</li><li>`atomic_fetch_add_explicit`</li><li>`atomic_fetch_sub_explicit`</li><li>`atomic_exchange_explicit`</li><li>`atomic_compare_exchange_weak_explicit`</li></ul> |
 
 | C++ Standard Header | Why |
@@ -38,7 +38,8 @@ There are many macros available to disable certain default functionality dependi
 | SYNC_CUSTOM_ALIGNED_MALLOC_FREE | <ul><li>`void* sy_aligned_malloc(size_t len, size_t align)`</li><li>`void sy_aligned_free(void* mem, size_t len, size_t align)`</li></ul> |
 | SYNC_CUSTOM_PAGE_MEMORY | <ul><li>`void* sy_page_malloc(size_t len)`</li><li>`void sy_page_free(void* pagesStart, size_t len)`</li><li>`size_t sy_page_size()`</li><li>`void sy_make_pages_read_only(void* pagesStart, size_t len)`</li><li>`void sy_make_pages_read_write(void* pagesStart, size_t len)`</li></ul> |
 | SYNC_DEFAULT_PAGE_ALIGNMENT | <ul><li>`SYNC_DEFAULT_PAGE_ALIGNMENT` default to `4096`</li></ul> |
-| SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER | <ul><li>`void sy_default_fatal_error_handler(const char* message)` defaults printing to stderr, then debug breaking / aborting</li></ul> |
+| SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER | <ul><li>`void sy_default_fatal_error_handler(const char* message)` defaults to calling the string error writer (default `sy_default_write_string_error`), then debug breaking / aborting</li></ul> |
+| SYNC_CUSTOM_DEFAULT_WRITE_STRING_ERROR | <ul><li>`void sy_default_write_string_error(const char* message)` defaults printing to stderr and flushing, then debug breaking / aborting</li></ul> |
 | SYNC_CUSTOM_THREAD_YIELD | <ul><li>`void sy_thread_yield(void)` yield the thread for spin locks</li></ul> |
 | SYNC_CACHE_LINE_SIZE | <ul><li>`SYNC_CACHE_LINE_SIZE` default to 64</li></ul> |
 | SYNC_CUSTOM_GET_FILE_INFO | <ul><li>`bool sy_get_file_info(const char* path, size_t pathLen, size_t* outFileSize)`</li></ul> |

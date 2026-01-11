@@ -304,8 +304,11 @@ if __name__ == "__main__":
 
     if not args.no_vm:
         if OPERATING_SYSTEM == "Darwin":
-            for vm in args.utm:
-                print(f" - {vm[0]} with UTM Virtual Machine (WILL RESTART UTM IF OPEN)")
+            try:
+                for vm in args.utm:
+                    print(f" - {vm[0]} with UTM Virtual Machine (WILL RESTART UTM IF OPEN)")
+            except:
+                pass
 
     run_host_test(args.sandbox)
 
@@ -314,8 +317,11 @@ if __name__ == "__main__":
 
     if not args.no_vm:
         if OPERATING_SYSTEM == "Darwin":
-            for vm in args.utm:
-                run_utm_test(vm[0], vm[1], vm[2], args)
+            try:
+                for vm in args.utm:
+                    run_utm_test(vm[0], vm[1], vm[2], args)
+            except:
+                pass
 
 # utmctl stop "Windows 11 arm64"
 # utmctl delete "test - Windows 11 arm64"

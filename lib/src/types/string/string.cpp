@@ -1,7 +1,6 @@
 #include "string.h"
 #include "../../core/core_internal.h"
 #include "../../mem/allocator.hpp"
-#include "../../util/os_callstack.hpp"
 #include "string.hpp"
 #include <cstdlib>
 #include <cstring>
@@ -106,22 +105,7 @@ sy::StringUnmanaged sy::detail::StringUtils::makeRaw(char*& buf, size_t length, 
     return self;
 }
 
-sy::StringUnmanaged::~StringUnmanaged() noexcept {
-// Ensure no leaks
-#ifndef NDEBUG
-    if (this->isSso() == false) {
-        try {
-            std::cerr << "StringUnmanaged not properly destroyed." << std::endl;
-#ifdef SYNC_BACKTRACE_SUPPORTED
-            sy::Backtrace bt = sy::Backtrace::generate();
-            bt.print();
-#endif
-        } catch (...) {
-        }
-        std::abort();
-    }
-#endif
-}
+sy::StringUnmanaged::~StringUnmanaged() noexcept { sy_assert_release(this->isSso(), "StringUnmanaged leaked memory"); }
 
 void sy::StringUnmanaged::destroy(Allocator& alloc) noexcept {
     if (this->isSso())

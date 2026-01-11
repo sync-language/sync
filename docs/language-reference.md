@@ -63,15 +63,15 @@ struct Person {
 | Type | SyType / sy::Type | compile time type information |
 | str | SyStringSlice / sy::StringSlice | pointer to the start of a utf8 string with a length |
 | String | SyString / sy::String | memory managed utf8 string container |
-| List(T) | sy::List<T> | memory managed dynamically resizeable contiguous array |
-| Set(K) | sy::Set<K> | memory mananaged hash set |
-| Map(K, V) | sy::Map<K, V> | memory mananaged hash map |
-| Vec(N, T) | sy::Vec<N, T> | math vector N long containing T type |
-| Mat(N, M, T) | sy::Mat<N, M, T> | math matrix of dimensions N*M of T type |
-| Unique(T) | SyUnique / sy::Unique<T> | thread-safe single owned object |
-| Shared(T) | SyShared / sy::Shared<T> | thread-safe multiple owned object |
-| Weak(T) | SyWeak / sy::Weak<T> | thread-safe weak reference to Unique or Shared |
-| Task(?T) | SyTask / sy::Task<T> | Parallel execution unit or result from it. See [Task](#task) |
+| List[T] | sy::List<T> | memory managed dynamically resizeable contiguous array |
+| Set[K] | sy::Set<K> | memory mananaged hash set |
+| Map[K, V] | sy::Map<K, V> | memory mananaged hash map |
+| Vec[N, T] | sy::Vec<N, T> | math vector N long containing T type |
+| Mat[N, M, T] | sy::Mat<N, M, T> | math matrix of dimensions N*M of T type |
+| Unique[T] | SyUnique / sy::Unique<T> | thread-safe single owned object |
+| Shared[T] | SyShared / sy::Shared<T> | thread-safe multiple owned object |
+| Weak[T] | SyWeak / sy::Weak<T> | thread-safe weak reference to Unique or Shared |
+| Task[?T] | SyTask / sy::Task<T> | Parallel execution unit or result from it. See [Task](#task) |
 | Ordering | SyOrdering / sy::Ordering | order of two elements |
 
 ### Primitive Values
@@ -162,7 +162,6 @@ Struct literals follow the format of `StructName{.member1 = value1, .member2 = v
 | pub | Allow access of the symbol outside of the file it is declared in |
 | return | Return a non-error value from a function to the caller |
 | Self | The primary type in an `impl` block |
-| specific | Provide an explicit generic specialization |
 | struct | Defines a structure in the C structure layout |
 | switch | Match on values or enum variants |
 | sync | Lock one or more thread-safe objects shared across thread boundaries |
@@ -218,7 +217,7 @@ struct Person {
 }
 
 const person1 = Person{.name = "hannah"};
-mut person2: Unique(Person) = Person{.name = "jerome"}
+mut person2: Unique[Person] = Person{.name = "jerome"}
 
 fn main() {
     // COMPILER ERROR! person1 is const
@@ -1018,7 +1017,7 @@ The core feature of Sync is the `sync` block, in which one or more locks are acq
 
 ```sync
 fn main() {
-    const val: Unique(i32) = 5;
+    const val: Unique[i32] = 5;
 
     sync val { // acquire a shared, read-only lock to val
         print(val); // prints 5
@@ -1032,7 +1031,7 @@ These `sync` blocks can be read-write as well, having exclusive access.
 
 ```sync
 fn main() {
-    mut val: Unique(i32) = 5;
+    mut val: Unique[i32] = 5;
 
     sync mut val { // acquire an exclusive, read-write lock to val
         // any thread that tries to lock the same object will have to 
@@ -1051,7 +1050,7 @@ fn main() {
 Given that Sync can cross FFI boundaries, it is not possible to analyze if any locks are locked on the same thread before the sync code gets to use objects. As such, Sync uses re-entrant RwLocks with deadlock protection. Should a deadlock be detected, the sync block will fail. This can only ever happen with `mut` acquisition.
 
 ```sync
-fn externCallableFunction(mut sharedVal: Shared(i32)) {
+fn externCallableFunction(mut sharedVal: Shared[i32]) {
     sync mut sharedVal {
         
     } catch {
@@ -1061,7 +1060,7 @@ fn externCallableFunction(mut sharedVal: Shared(i32)) {
 }
 
 fn main() {
-    const sharedVal: Shared(i32) = 8;
+    const sharedVal: Shared[i32] = 8;
     externCallableFunction(sharedVal);
 }
 ```
@@ -1070,9 +1069,9 @@ fn main() {
 
 ```sync
 fn main() {
-    mut val1: Unique(i32) = 1;
-    mut val2: Unique(i32) = 2;
-    mut val3: Unique(i32) = 3;
+    mut val1: Unique[i32] = 1;
+    mut val2: Unique[i32] = 2;
+    mut val3: Unique[i32] = 3;
 
     sync val1, mut val2, mut val3 {
         print(f"Val 1 before {val1}") // 1
@@ -1100,10 +1099,10 @@ Any type can be prefixed with `Unique`, `Shared`, or `Weak` to mark it as a thre
 The `Unique` type modifier gives single ownership. When the object goes out of scope or is generally destroyed, all references become invalidated.
 
 ```sync
-Unique(i32) // Single ownership to shared memory of a signed 32 bit integer
+Unique[i32] // Single ownership to shared memory of a signed 32 bit integer
 
 fn main() {
-    mut num: Unique(i32) = 0;
+    mut num: Unique[i32] = 0;
     sync mut num {
         num += 1;
     }
@@ -1115,11 +1114,11 @@ fn main() {
 The `Shared` type modifier provides shared ownership. If the refcount is greater than 1, going out of scope or a destructor call does not invalidate the object, just decrements the refcount. It is only destroyed when the refcount reaches zero.
 
 ```sync
-Shared(i32) // Shared ownership to shared memory of a signed 32 bit integer
+Shared[i32] // Shared ownership to shared memory of a signed 32 bit integer
 
 fn main() {
-    mut num1: Shared(i32) = 0;
-    mut num2: Shared(i32) = num1;
+    mut num1: Shared[i32] = 0;
+    mut num2: Shared[i32] = num1;
     sync mut num1 {
         num1 += 1;
     }
@@ -1135,11 +1134,11 @@ fn main() {
 The `Weak` type modifier provides a weak reference that auto invalidates if the unique or shared object it references is destroyed.
 
 ```sync
-Weak(i32) // Weak reference to another Unique or Shared which owns the i32
+Weak[i32] // Weak reference to another Unique or Shared which owns the i32
 
 fn main() {
-    mut num1: Unique(i32) = 0;
-    mut num2: Weak(i32) = num1;
+    mut num1: Unique[i32] = 0;
+    mut num2: Weak[i32] = num1;
     sync mut num1 {
         num1 += 1;
     }
@@ -1154,8 +1153,8 @@ And if the object gets destroyed, the weak reference is invalidated.
 
 ```sync
 fn main() {
-    mut num1: Shared(i32) = 0;
-    mut num2: Weak(i32) = num1;
+    mut num1: Shared[i32] = 0;
+    mut num2: Weak[i32] = num1;
     someFunctionThatDestroys(num1);
 
     sync num2 {
@@ -1200,7 +1199,7 @@ The above snippet of code when ignoring the Task is the same as the following.
 ```sync
 fn main() {
     const data = Data.default();
-    const task: Task(null) = parallel computeHeavyTask(&data);
+    const task: Task[null] = parallel computeHeavyTask(&data);
     // waits until task is resolved, as it was not ignored.
     // this gets special handling by the compiler
 }
@@ -1212,14 +1211,14 @@ See [Task](#task) for a deeper explanation.
 
 The Task type represents a unit of execution that runs concurrently to the current one.
 
-The task type definition is `Task(?T)` which looks confusing, but means either null, or the return type of the function.
+The task type definition is `Task[?T]` which looks confusing, but means either null, or the return type of the function.
 
 ```sync
 // The type of a task that has no result value, only queryable for if it is complete
-Task(null)
+Task[null]
 
 /// The type of a task that results in a signed 32 bit integer
-Task(i32)
+Task[i32]
 ```
 
 If a parallel function returns a value, you can get the value by waiting on the task
@@ -1243,7 +1242,7 @@ Alternatively, you can store the task and wait on the value later.
 ```sync
 fn main() {
     const data = Data.default();
-    const task: Task(i32) = parallel computeHeavyWork(&data);
+    const task: Task[i32] = parallel computeHeavyWork(&data);
 
     // do some more work
 
@@ -1258,7 +1257,7 @@ You can test if a Task contains a value by comparing it to null.
 fn main() {
     const data = Data.default();
     // Use the .? operator to wait on the task result
-    const task: Task(i32) = parallel computeHeavyWork(&data);
+    const task: Task[i32] = parallel computeHeavyWork(&data);
     if task == null {
         print("no value");
     } else {
@@ -1272,7 +1271,7 @@ Alternatively, you may use the short hand syntax.
 ```sync
 fn main() {
     const data = Data.default();
-    const task: Task(i32) = parallel computeHeavyWork(&data);
+    const task: Task[i32] = parallel computeHeavyWork(&data);
     if task as result {
         print(result);
     } else {
@@ -1320,47 +1319,47 @@ const slice: str = s; // Coerce to string slice.
 
 #### Dynamic Array / Array List
 
-The first and arguably most important is a dynamic array. It is similar to C++ std::vector, Rust std::vec, Zig std.ArrayList.Managed, and Python List[T]. It is written as `List(T)` where T is a generic type.
+The first and arguably most important is a dynamic array. It is similar to C++ std::vector, Rust std::vec, Zig std.ArrayList.Managed, and Python List[T]. It is written as `List[T]` where T is a generic type.
 
 ```sync
-List(i32) // Resizeable array of signed 32 bit integers.
+List[i32] // Resizeable array of signed 32 bit integers.
 
-const arr: List(u8);
+const arr: List[u8];
 const slice: []u8 = arr; // Coerce to slice
 ```
 
 #### Hash Map
 
-The second, and extremely important is a hash map. It is similar to C++ std::map, Rust std::collections::HashMap, Zig std.HashMap, and Python dict[T]. It is written as `Map(K, V)` where K is a generic type for the map key, and V is a generic type for the map value. K must be hashable and be able to be equality compared.
+The second, and extremely important is a hash map. It is similar to C++ std::map, Rust std::collections::HashMap, Zig std.HashMap, and Python dict. It is written as `Map[K, V]` where K is a generic type for the map key, and V is a generic type for the map value. K must be hashable and be able to be equality compared.
 
 ```sync
-Map(i32, f32) // Hash map of signed 32 bit integer keys and 32 bit float values.
+Map[i32, f32] // Hash map of signed 32 bit integer keys and 32 bit float values.
 ```
 
 #### Hash Set
 
-The third, and fairly important is a hash set. It is similar to C++ std::set, Rust std::collections::HashSet, and Python set[T]. It is written as `Set(K)` where K is a generic type for the map key. K must be hashable and be able to be equality compared.
+The third, and fairly important is a hash set. It is similar to C++ std::set, Rust std::collections::HashSet, and Python set. It is written as `Set[K]` where K is a generic type for the map key. K must be hashable and be able to be equality compared.
 
 ```sync
-Set(i32) // Hash set of signed 32 bit integer keys.
+Set[i32] // Hash set of signed 32 bit integer keys.
 ```
 
 #### Vectors
 
-Sync supports vectors as their intended numerical types. The syntax is `Vec(N, T)` where N is the number of elements, and T is the type.
+Sync supports vectors as their intended numerical types. The syntax is `Vec[N, T]` where N is the number of elements, and T is the type.
 
 ```sync
-Vec(3, f32) // Equivalent to glsl vec3.
+Vec[3, f32] // Equivalent to glsl vec3.
 ```
 
 #### Matrices
 
-Sync supports matrices. The syntax is `Mat(N, M, T)` where N is the number of elements in one direction, M is the elements in another direction, and T is the type.
+Sync supports matrices. The syntax is `Mat[N, M, T]` where N is the number of elements in one direction, M is the elements in another direction, and T is the type.
 
 GLSL uses column major ordering, but 2d arrays in most languages use row major ordering. **TODO** determine which is best.
 
 ```sync
-Mat(4, 3, f32) // Matrix of 4x3 containing all 32 bit floats.
+Mat[4, 3, f32] // Matrix of 4x3 containing all 32 bit floats.
 ```
 
 ## Lifetimes
@@ -1905,15 +1904,15 @@ By default, many types have built-in support for iterators without requiring an 
 | `[]T` (slice) | `*T` | `*mut T` |
 | `str` | `char` | N/A |
 | `String` | `char` | N/A |
-| `List(T)` | `*T` | `*mut T` |
-| `Set(K)` | `*K` | N/A |
-| `Map(K, V)` | `(*K, *V)` | `(*K, *mut V)` |
+| `List[T]` | `*T` | `*mut T` |
+| `Set[K]` | `*K` | N/A |
+| `Map[K, V]` | `(*K, *V)` | `(*K, *mut V)` |
 | `a..b` / `a..=b` | `T` | N/A |
 
 #### Cast
 
 ```sync
-pub trait Cast(T: Type) {
+pub trait Cast[T] {
     fn cast(self: *Self) T
 }
 ```
@@ -1925,7 +1924,7 @@ struct Player {
     name: str
 }
 
-impl Cast(str) for Player {
+impl Cast[str] for Player {
     fn cast(self: *Self) str {
         return self.name;
     }
@@ -1940,7 +1939,7 @@ fn main() {
 #### TryCast
 
 ```sync
-pub trait TryCast(T: Type) {
+pub trait TryCast[T] {
     // Required at compile time
     const Err: Type;
 
@@ -1957,7 +1956,7 @@ enum NameErr {
     InvalidName
 };
 
-impl TryCast(str) for Player {
+impl TryCast[str] for Player {
     const Err: Type = NameErr;
 
     fn cast(self: *Self) Err!str {
@@ -2118,54 +2117,59 @@ impl i32 {
 
 ## Generics
 
-Generics in Sync work similar to Zig generics, but with specific / specialization support. Generics are considered compile time arguments, meaning all generic parameters excluding `Type` must be marked `comptime`. The `Type` type is only known at compile time, so it is considered implicitly generic.
+In Sync, types are values. Generics in Sync are not limited to just types, but can take any value. Any generic argument that is not annotated with any type (including `Type`) will be implicitly considered to be of type `Type` for simplicity.
+
+Specializing a generic is as simple as supplying an explicit value. Multiple specializations can be made, and suplicate specializations are supported as long as they do not namespace clash.
 
 ### Function Generics
 
 ```sync
 // T must be known at compile time
-fn add(T: Type, num1: T, num2: T) T {
+fn add[T](num1: T, num2: T) T {
     // generic implementation
 }
 
-specific fn add(i8, num1: i8, num2: i8) i8 {
+fn add[i8](um1: i8, num2: i8) i8 {
     // specialized for signed 8 bit integers
-    // must have similar substituted signature (number of args and return type)
 }
 
 fn main() {
-    add(u64, 1, 2); // 3
-    add(1 as i32, 2 as i32); // automatically infer types, 3
+    add[u64](1, 2); // 3
+    add(1 as i32, 2 as i32); // automatically infer types
     const n1: i8 = 1;
     const n2: i8 = 2;
     add(n1, n2); // the types match the specialized version of `add()`, so call that one
+    add[i8](1, 2); // explicitly call specialized `add()`
+}
+
+// T is explicitly type annotated to `Type`, and U is implicitly `Type`
+fn explicitType[T: Type, U](a: T, b: U) {
+    // ...
 }
 ```
 
 ```sync
-fn addBy(comptime N: i32, num: i32) i32 {
+fn addBy[N: i32](num: i32) i32 {
     return num + N;
 }
 
 extern fn getSomeUserInput() i32;
 
 fn main() {
-    add(1, 2); // 3
-    add(1, 3); // 4, and calls the same function as above due to both using same generic value
-    add(2, 2); // 4, but uses a different generated function
+    addBy[1](2); // 3
+    addBy[1](3); // 4, and calls the same function as above due to both using same generic value
+    addBy[2](2); // 4, but uses a different generated function
 
     const n1: i32 = getSomeUserInput();
     const n2: i32 = 2;
-    add(n1, n2); // COMPILE ERROR! n1 is not known at compile time. 
+    addBy[n1](n2); // COMPILE ERROR! n1 is not known at compile time.
 }
 ```
-
-All generic function arguments must appear as the first arguments, so that they can be omitted using generic parameter inferrence.
 
 #### Constrain Function Generics
 
 ```sync
-fn add(T: Type, num1: T, num2: T) T 
+fn add[T](num1: T, num2: T) T 
 where @isInteger(T)
 {
     return num1 + num2;
@@ -2181,8 +2185,13 @@ trait Adder {
     }
 }
 
-fn add(T: Type, num1: T, num2: T) T 
+fn add[T](num1: T, num2: T) T 
 where @implements(T, Adder)
+{
+    return num1.performAdd(num2);
+}
+
+fn simpleAdd[T: Adder](num1: T, num2: T) T 
 {
     return num1.performAdd(num2);
 }
@@ -2191,22 +2200,23 @@ where @implements(T, Adder)
 ### Struct Generics
 
 ```sync
-struct Example(T: Type) {
+struct Example[T] {
     obj: T
 }
 
-specific struct Example(i32) {
-    obj: i32
+struct Example[i32] {
+    id: i32
 }
 
 const example1 = Example{ .obj = 23 as u64 } // use generic
-const example2 = Example{ .obj = 23 as i32 } // use specialized
+const example2 = Example[u64]{ .obj = 23 as u64 } // use generic explicitly
+const example3 = Example[i32]{ .id = 23 as i32 } // use specialized
 ```
 
 #### Constrain Struct Generics
 
 ```sync
-struct Example(T: Type)
+struct Example[T]
 where @sizeOf(T) == 16 // maybe this is required for padding reasons
 {
     obj: T
@@ -2426,7 +2436,7 @@ Get the align in bytes of a type `T` at compile time.
 ### @sort
 
 ```sync
-@sort(iter: Iterate) List(T)
+@sort(iter: Iterate) List[T]
 where @implements(T, Order) and @implements(T, Clone)
 
 @sort(iter: Iterate, []mut T) ![]mut T
