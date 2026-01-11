@@ -3,6 +3,10 @@
 #include <limits.h>
 #include <stdlib.h>
 
+#if __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 // WHAT
 #if defined(__SANITIZE_THREAD__)
 #define SYNC_TSAN_ENABLED 1
@@ -26,11 +30,13 @@ volatile int _sy_coverage_no_optimize = 0;
 #endif
 
 #ifndef SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER
-#include <stdio.h>
 static void sy_default_fatal_error_handler(const char* message) {
-    fprintf(stderr, "%s", message);
+    sy_print_callstack();
+    syncWriteStringError(message);
 #ifndef NDEBUG
-#if defined(_WIN32)
+#if defined(__EMSCRIPTEN__)
+    emscripten_debugger();
+#elif defined(_WIN32)
     __debugbreak();
 #elif defined(__APPLE__) || defined(__GNUC__)
     __builtin_trap();
@@ -44,9 +50,26 @@ extern void sy_default_fatal_error_handler(const char* message);
 
 void (*syncFatalErrorHandlerFn)(const char* message) = sy_default_fatal_error_handler;
 
+#ifndef SYNC_CUSTOM_DEFAULT_WRITE_STRING_ERROR
+#include <stdio.h>
+static void sy_default_write_string_error(const char* message) {
+    (void)fprintf(stderr, "%s\n", message);
+    (void)fflush(stderr);
+}
+#else
+extern void sy_default_write_string_error(const char* message);
+#endif
+
+void (*syncWriteStringError)(const char* message) = sy_default_write_string_error;
+
 SY_API void sy_set_fatal_error_handler(void (*errHandler)(const char* message)) {
     sy_assert_release(errHandler != NULL, "[sy_set_fatal_error_handler] expected non-null function pointer");
     syncFatalErrorHandlerFn = errHandler;
+}
+
+SY_API void sy_set_write_string_error(void (*writeStrErr)(const char* message)) {
+    sy_assert_release(writeStrErr != NULL, "[sy_set_write_string_error] expected non-null function pointer");
+    syncWriteStringError = writeStrErr;
 }
 
 #ifndef SYNC_CUSTOM_ALIGNED_MALLOC_FREE
@@ -767,8 +790,6 @@ bool sy_get_file_info(const char* path, size_t pathLen, size_t* outFileSize) {
 #else
     struct stat s;
     if (stat(nullTermPath, &s) != 0) {
-        fprintf(stderr, "stat failed %s\n", strerror(errno));
-        fprintf(stderr, "THE FILE: %s\n", nullTermPath);
         return false;
     }
 #endif
@@ -819,6 +840,384 @@ bool sy_relative_to_absolute_path(const char* relativePath, size_t relativePathL
 
     return true;
 }
+
 #endif // SYNC_CUSTOM_RELATIVE_TO_ABSOLUTE_PATH
 
 #endif // SYNC_NO_FILESYSTEM
+
+#ifndef SYNC_CUSTOM_BACKTRACE
+
+#ifndef NDEBUG
+#if defined(_GAMING_XBOX) || defined(__ORBIS__) || defined(__PROSPERO__) || defined(__NX__) || defined(NN_NINTENDO_SDK)
+void sy_print_callstack(void) {}
+#else
+
+#ifdef __EMSCRIPTEN__
+static void print_emscripten_callstack(void) {
+    syncWriteStringError("Stack trace (most recent call first):");
+    char buf[4096];
+    // EM_LOG_C_STACK no longer does anything?
+    int bytesWritten = emscripten_get_callstack(EM_LOG_JS_STACK, buf, sizeof(buf));
+    syncWriteStringError(buf);
+    (void)bytesWritten;
+}
+#elif defined(_WIN32) // and mingw
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+// clang-format off
+#include <windows.h>
+#include <dbghelp.h>
+#include <process.h>
+#include <stdio.h>
+#include <string.h>
+#if __STDC_VERSION__ < 202311L
+#include <stdalign.h>
+#endif
+// clang-format on
+
+#if defined(_MSC_VER)
+#pragma comment(lib, "Dbghelp.lib")
+#endif
+
+#define DEFAULT_BACKTRACE_DEPTH 64
+
+__forceinline void print_windows_callstack(void) {
+    syncWriteStringError("Stack trace (most recent call first):");
+
+    HANDLE process = GetCurrentProcess();
+    bool loadedSymbols = true;
+
+    // SymInitialize is intended to be called once.
+    // TODO is this fine in this context?
+    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
+    if (!SymInitialize(process, NULL, TRUE)) {
+        syncWriteStringError("failed to initialize symbol handler");
+        loadedSymbols = false;
+    }
+
+    void* stack[DEFAULT_BACKTRACE_DEPTH];
+    WORD frames = CaptureStackBackTrace(1, DEFAULT_BACKTRACE_DEPTH, stack, NULL);
+
+    if (frames == 0) {
+        syncWriteStringError("failed to capture stack frames");
+        return;
+    }
+
+    alignas(alignof(SYMBOL_INFO)) char symbolBuf[sizeof(SYMBOL_INFO) + (256 * sizeof(char))];
+    SYMBOL_INFO* symbol = (SYMBOL_INFO*)symbolBuf;
+    symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+    symbol->MaxNameLen = 255;
+
+    IMAGEHLP_LINE64 line;
+    line.SizeOfStructy = sizeof(IMAGEHLP_LINE64);
+
+    char moduleName[MAX_PATH] = {0};
+
+    for (WORD i = 1; i < frames; i++) {
+        DWORD64 address = (DWORD64)(uintptr_t)(stack[i]);
+        char lineBuf[1024] = {0};
+        const char* funcName = "???";
+        const char* fileName = NULL;
+        DWORD lineNumber = 0;
+        const char* modName = NULL;
+
+        DWORD64 symDisplacement = 0;
+        if (SymFromAddr(process, address, &symDisplacement, symbol)) {
+            if (symbol->Name[0] != '\0') {
+                funcName = symbol->Name;
+            }
+        }
+
+        DWORD lineDisplacement = 0;
+        if (SymGetLineFromAddr64(process, address, &lineDisplacement, &line)) {
+            fileName = line.FileName;
+            lineNumber = line.LineNumber;
+        }
+
+        HMODULE hModule = NULL;
+        if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                               (LPCSTR)(uintptr_t)(stack[i]), &hModule)) {
+            if (GetModuleFileNameA(hModule, moduleName, MAX_PATH) != 0) {
+                modName = moduleName;
+            }
+        }
+
+        bool success = true;
+        if (fileName != NULL && lineNumber != 0) {
+            if (modName != NULL) {
+                if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s at %s:%lu (in %s)", (int)i, funcName, fileName,
+                             (unsigned long)lineNumber, modName) > (int)sizeof(lineBuf)) {
+                    success = false;
+                }
+            } else {
+                if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s at %s:%lu", (int)i, funcName, fileName,
+                             (unsigned long)lineNumber) > (int)sizeof(lineBuf)) {
+                    success = false;
+                }
+            }
+        } else if (modName != NULL) {
+            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d 0x%llx %s (in %s)", (int)i, (unsigned long long)address,
+                         funcName, modName) > (int)sizeof(lineBuf)) {
+                success = false;
+            }
+        } else {
+            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d 0x%llx %s", (int)i, (unsigned long long)address, funcName) >
+                (int)sizeof(lineBuf)) {
+                success = false;
+            }
+        }
+
+        if (success) {
+            syncWriteStringError(lineBuf);
+        } else {
+            syncWriteStringError("???");
+        }
+    }
+
+    // TODO need to call SymCleanup?
+}
+
+#elif defined(__MACH__) || defined(__GNUC__)
+#include <dlfcn.h>
+#include <execinfo.h>
+#include <spawn.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#define DEFAULT_BACKTRACE_DEPTH 64
+
+extern char** environ; // what the heck
+
+static void fallback_dladdr_print(const Dl_info* info, int i, void** addresses) {
+    char lineBuf[512] = {0};
+    const char* fname = info->dli_fname;
+    const char* lastSlash = strrchr(info->dli_fname, '/');
+    if (lastSlash != NULL) {
+        fname = lastSlash + 1;
+    }
+    if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %p %s in %s", i - 1, addresses[i],
+                 info->dli_sname ? info->dli_sname : "???", fname) < (int)sizeof(lineBuf)) {
+        syncWriteStringError(lineBuf);
+    } else {
+        syncWriteStringError("???");
+    }
+}
+
+__attribute__((always_inline)) static void print_posix_callstack(void) {
+    syncWriteStringError("Stack trace (most recent call first):");
+    void* addresses[DEFAULT_BACKTRACE_DEPTH];
+    int traceSize = backtrace(addresses, DEFAULT_BACKTRACE_DEPTH);
+
+    // don't care about this function being called
+    for (int i = 1; i < traceSize; i++) {
+        Dl_info info = {0};
+        char lineBuf[512] = {0};
+
+        if (dladdr(addresses[i], &info) == 0 || info.dli_fname == NULL) {
+            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %p", i - 1, addresses[i]) < (int)sizeof(lineBuf)) {
+                syncWriteStringError(lineBuf);
+            } else {
+                syncWriteStringError("???");
+            }
+            continue;
+        }
+
+#if defined(__MACH__)
+
+        char loadAddrStr[64] = {0};
+        char addrStr[64] = {0};
+        if (snprintf(loadAddrStr, sizeof(loadAddrStr), "0x%llx", (unsigned long long)(uintptr_t)(info.dli_fbase)) >=
+            (int)sizeof(loadAddrStr)) {
+            fallback_dladdr_print(&info, i, addresses);
+            continue;
+        }
+        if (snprintf(addrStr, sizeof(addrStr), "0x%llx", (unsigned long long)(uintptr_t)(addresses[i])) >=
+            (int)sizeof(addrStr)) {
+            fallback_dladdr_print(&info, i, addresses);
+            continue;
+        }
+
+        const char* argv[] = {"/usr/bin/atos", "-o", info.dli_fname, "-l", loadAddrStr, "-fullPath", addrStr, NULL};
+        int pipefd[2] = {0};
+        if (pipe(pipefd) == -1) {
+            fallback_dladdr_print(&info, i, addresses);
+            continue;
+        }
+
+        posix_spawn_file_actions_t actions = {0};
+        if (posix_spawn_file_actions_init(&actions) != 0) {
+            fallback_dladdr_print(&info, i, addresses);
+            (void)close(pipefd[0]);
+            (void)close(pipefd[1]);
+            continue;
+        }
+
+        if (posix_spawn_file_actions_addclose(&actions, pipefd[0]) != 0 ||
+            posix_spawn_file_actions_adddup2(&actions, pipefd[1], STDOUT_FILENO) != 0 ||
+            posix_spawn_file_actions_addclose(&actions, pipefd[1]) != 0) {
+            fallback_dladdr_print(&info, i, addresses);
+            (void)posix_spawn_file_actions_destroy(&actions);
+            (void)close(pipefd[0]);
+            (void)close(pipefd[1]);
+            continue;
+        }
+
+        pid_t pid;
+        int spawnResult = posix_spawn(&pid, "/usr/bin/atos", &actions, NULL, (char* const*)argv, environ);
+        (void)posix_spawn_file_actions_destroy(&actions);
+        if (spawnResult != 0) {
+            fallback_dladdr_print(&info, i, addresses);
+            (void)close(pipefd[0]);
+            (void)close(pipefd[1]);
+            continue;
+        }
+
+        (void)close(pipefd[1]); // write end
+
+        char atosBuf[1024];
+        ssize_t totalRead = 0;
+        ssize_t bytesRead = 0;
+        while (totalRead < (ssize_t)(sizeof(atosBuf) - 1) &&
+               (bytesRead = read(pipefd[0], atosBuf + totalRead, sizeof(atosBuf) - 1 - (size_t)totalRead)) > 0) {
+            totalRead += bytesRead;
+        }
+        atosBuf[totalRead] = '\0';
+        (void)close(pipefd[0]);
+
+        int status;
+        (void)waitpid(pid, &status, 0);
+        (void)status;
+
+        if (totalRead > 0 && atosBuf[totalRead - 1] == '\n') {
+            atosBuf[totalRead - 1] = '\0';
+        }
+
+        if (totalRead > 0 && atosBuf[0] != '\0') {
+            (void)snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s", i - 1, atosBuf);
+            syncWriteStringError(lineBuf);
+        } else {
+            fallback_dladdr_print(&info, i, addresses);
+        }
+
+#elif defined(__GNUC__) && !defined(__APPLE__)
+
+        uintptr_t offset = (uintptr_t)addresses[i] - (uintptr_t)info.dli_fbase;
+        char offsetStr[64] = {0};
+        if (snprintf(offsetStr, sizeof(offsetStr), "0x%llx", (unsigned long long)offset) >= (int)sizeof(offsetStr)) {
+            fallback_dladdr_print(&info, i, addresses);
+            continue;
+        }
+
+        const char* argv[] = {"/usr/bin/addr2line", "-e", info.dli_fname, "-f", "-C", "-p", offsetStr, NULL};
+
+        int pipefd[2] = {0};
+        if (pipe(pipefd) == -1) {
+            fallback_dladdr_print(&info, i, addresses);
+            continue;
+        }
+
+        posix_spawn_file_actions_t actions = {0};
+        if (posix_spawn_file_actions_init(&actions) != 0) {
+            fallback_dladdr_print(&info, i, addresses);
+            (void)close(pipefd[0]);
+            (void)close(pipefd[1]);
+            continue;
+        }
+
+        if (posix_spawn_file_actions_addclose(&actions, pipefd[0]) != 0 ||
+            posix_spawn_file_actions_adddup2(&actions, pipefd[1], STDOUT_FILENO) != 0 ||
+            posix_spawn_file_actions_addclose(&actions, pipefd[1]) != 0) {
+            (void)posix_spawn_file_actions_destroy(&actions);
+            fallback_dladdr_print(&info, i, addresses);
+            (void)close(pipefd[0]);
+            (void)close(pipefd[1]);
+            continue;
+        }
+
+        pid_t pid;
+        int spawnResult = posix_spawn(&pid, "/usr/bin/addr2line", &actions, NULL, (char* const*)argv, environ);
+        (void)posix_spawn_file_actions_destroy(&actions);
+        if (spawnResult != 0) {
+            fallback_dladdr_print(&info, i, addresses);
+            (void)close(pipefd[0]);
+            (void)close(pipefd[1]);
+            continue;
+        }
+
+        (void)close(pipefd[1]); // write end
+
+        char addr2lineBuf[1024];
+        ssize_t totalRead = 0;
+        ssize_t bytesRead = 0;
+        while (totalRead < (ssize_t)(sizeof(addr2lineBuf) - 1) &&
+               (bytesRead = read(pipefd[0], addr2lineBuf + totalRead, sizeof(addr2lineBuf) - 1 - (size_t)totalRead)) >
+                   0) {
+            totalRead += bytesRead;
+        }
+        addr2lineBuf[totalRead] = '\0';
+        (void)close(pipefd[0]);
+
+        int status;
+        (void)waitpid(pid, &status, 0);
+        (void)status;
+
+        if (totalRead > 0 && addr2lineBuf[totalRead - 1] == '\n') {
+            addr2lineBuf[totalRead - 1] = '\0';
+        }
+
+        bool isUnknown =
+            (totalRead == 0) || (addr2lineBuf[0] == '\0') || (addr2lineBuf[0] == '?' && addr2lineBuf[1] == '?');
+
+        if (!isUnknown) {
+            (void)snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s", i - 1, addr2lineBuf);
+            syncWriteStringError(lineBuf);
+        } else {
+            fallback_dladdr_print(&info, i, addresses);
+        }
+
+#endif
+    }
+}
+
+#endif
+
+SyAtomicBool callstackMutex = {0};
+
+void sy_print_callstack(void) {
+    { // lock callstack mutex
+#ifdef SYNC_TSAN_ENABLED
+        __tsan_mutex_pre_lock(&callstackMutex, 0);
+#endif
+        bool expected = false;
+        while (!(sy_atomic_bool_compare_exchange_weak(&callstackMutex, &expected, true, SY_MEMORY_ORDER_SEQ_CST))) {
+            expected = false;
+            sy_thread_yield();
+        }
+#ifdef SYNC_TSAN_ENABLED
+        __tsan_mutex_post_lock(&callstackMutex, 0);
+#endif
+    }
+
+#ifdef __EMSCRIPTEN__
+    print_emscripten_callstack();
+#elif defined(_WIN32) // also MinGW
+    print_windows_callstack();
+#elif defined(__MACH__) || defined(__GNUC__)
+    print_posix_callstack();
+#endif
+
+    { // release callstack mutex
+#ifdef SYNC_TSAN_ENABLED
+        __tsan_mutex_pre_unlock(&callstackMutex, 0);
+#endif
+        sy_atomic_bool_store(&callstackMutex, false, SY_MEMORY_ORDER_SEQ_CST);
+#ifdef SYNC_TSAN_ENABLED
+        __tsan_mutex_post_unlock(&callstackMutex, 0);
+#endif
+    }
+}
+#endif
+#endif // NDEBUG
+#endif // SYNC_CUSTOM_BACKTRACE

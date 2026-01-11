@@ -21,19 +21,7 @@ static size_t capacityIncrease(const size_t inCapacity) {
     // simplified, it is (n * 3) >> 1;
     constexpr size_t superHighAmount = SIZE_MAX / 3;
 
-#ifndef NDEBUG
-    if (inCapacity > superHighAmount) {
-        try {
-            std::cerr << "DynArrayUnmanaged too big" << std::endl;
-#ifdef SYNC_BACKTRACE_SUPPORTED
-            sy::Backtrace bt = sy::Backtrace::generate();
-            bt.print();
-#endif
-        } catch (...) {
-        }
-        std::abort();
-    }
-#endif
+    sy_assert(inCapacity <= superHighAmount, "DynArrayUnmanaged too big");
 
     if (inCapacity < lowAmount) {
         return inCapacity << 1;
@@ -60,20 +48,7 @@ static size_t remainingBackCapacity(const size_t len, const size_t fullCapacity,
 }
 
 sy::RawDynArrayUnmanaged::~RawDynArrayUnmanaged() noexcept {
-// Ensure no leaks
-#ifndef NDEBUG
-    if (capacity_ > 0) {
-        try {
-            std::cerr << "DynArrayUnmanaged not properly destroyed." << std::endl;
-#ifdef SYNC_BACKTRACE_SUPPORTED
-            Backtrace bt = Backtrace::generate();
-            bt.print();
-#endif
-        } catch (...) {
-        }
-        std::abort();
-    }
-#endif
+    sy_assert_release(this->capacity_ == 0, "RawDynArrayUnmanaged memory leak detected");
 }
 
 void sy::RawDynArrayUnmanaged::destroy(Allocator& alloc, void (*destruct)(void* ptr), size_t size,

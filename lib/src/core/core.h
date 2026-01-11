@@ -76,6 +76,16 @@ using std::uint8_t;
 #endif
 #endif // SYNC_NO_PAGES
 
+#ifndef SYNC_BACKTRACE_SUPPORTED
+#ifndef NDEBUG
+#if defined(_GAMING_XBOX) || defined(__ORBIS__) || defined(__PROSPERO__) || defined(__NX__) || defined(NN_NINTENDO_SDK)
+// Don't support backtraces (at least in public code)
+#else
+#define SYNC_BACKTRACE_SUPPORTED 1
+#endif
+#endif // NDEBUG
+#endif // SYNC_BACKTRACE_SUPPORTED
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -85,6 +95,12 @@ extern "C" {
 /// @param errHandler Non-null function pointer. Is expected to eventually terminate the program.
 /// @warning If `errHandler` is `NULL` the current fatal error handler is invoked.
 SY_API void sy_set_fatal_error_handler(void (*errHandler)(const char* message));
+
+/// Sets the callback to write error messages to. Thread-safety is not guaranteed. The default string error message
+/// writer can be overridden at compile time if `SYNC_CUSTOM_DEFAULT_WRITE_STRING_ERROR` is defined.
+/// @param writeStrErr Non-null function pointer.
+/// @warning If `writeStrErr` is `NULL` the current fatal error handler is invoked.
+SY_API void sy_set_write_string_error(void (*writeStrErr)(const char* message));
 
 #ifdef __cplusplus
 }

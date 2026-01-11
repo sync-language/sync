@@ -1,6 +1,5 @@
 #include "map.hpp"
 #include "../../core/core_internal.h"
-#include "../../util/os_callstack.hpp"
 #include "groups.hpp"
 #include <cstdlib>
 #include <cstring>
@@ -12,20 +11,7 @@ const Group* asGroups(const void* groups_) { return reinterpret_cast<const Group
 Group* asGroupsMut(void* groups_) { return reinterpret_cast<Group*>(groups_); }
 
 sy::RawMapUnmanaged::~RawMapUnmanaged() noexcept {
-// Ensure no leaks
-#ifndef NDEBUG
-    if (groupCount_ > 0) {
-        try {
-            std::cerr << "HashMap not properly destroyed." << std::endl;
-#ifdef SYNC_BACKTRACE_SUPPORTED
-            Backtrace bt = Backtrace::generate();
-            bt.print();
-#endif
-        } catch (...) {
-        }
-        std::abort();
-    }
-#endif
+    sy_assert_release(this->groupCount_ == 0, "RawMapUnmanaged memory leak detected");
 }
 
 void sy::RawMapUnmanaged::destroy(Allocator& alloc, void (*destructKey)(void* ptr), void (*destructValue)(void* ptr),

@@ -12,6 +12,7 @@ extern "C" {
 #endif
 
 extern void (*syncFatalErrorHandlerFn)(const char* message);
+extern void (*syncWriteStringError)(const char* message);
 
 /// Aligned memory allocation function required by sync. Can be overridden by defining
 /// `SYNC_CUSTOM_ALIGNED_MALLOC_FREE`, in which you must supply a definition of the function at final link time.
@@ -252,6 +253,12 @@ extern bool sy_relative_to_absolute_path(const char* relativePath, size_t relati
 
 #endif // SYNC_NO_FILESYSTEM
 
+#ifndef SYNC_CUSTOM_BACKTRACE
+#ifndef NDEBUG
+extern void sy_print_callstack(void);
+#endif
+#endif
+
 #ifdef __cplusplus
 }
 #endif
@@ -317,7 +324,8 @@ inline void _sy_unreachable_impl() {
 #define sy_assert_release(expression, message)                                                                         \
     do {                                                                                                               \
         if (!(expression)) {                                                                                           \
-            syncFatalErrorHandlerFn("Assertion Failed " #expression __FILE__ ":" SY_STRINGIFY(__LINE__) message);      \
+            syncFatalErrorHandlerFn("Assertion Failed \'" #expression "\' " __FILE__ ":" SY_STRINGIFY(__LINE__)        \
+                                        message);                                                                      \
         }                                                                                                              \
     } while (0)
 
@@ -357,11 +365,11 @@ inline void _sy_unreachable_impl() {
 
 #if !defined(SYNC_LIB_CODE_COVERAGE) || defined(SYNC_NO_SAFETY_CHECKS)
 /// If `SYNC_LIB_CODE_COVERAGE` is defined, will forcefully create a branch. Then, when code coverage is done, should
-/// that branch not have been executed,
-#define testcase(X) ((void)0)
+/// that branch not have been executed.
+#define testbranch(X) ((void)0)
 #else
 extern volatile int _sy_coverage_no_optimize;
-#define testcase(X)                                                                                                    \
+#define testbranch(X)                                                                                                  \
     do {                                                                                                               \
         if (X) {                                                                                                       \
             _sy_coverage_no_optimize = __LINE__;                                                                       \

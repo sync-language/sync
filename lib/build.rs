@@ -1,13 +1,16 @@
 extern crate cc;
 
 fn main() {
+    if cfg!(target_os = "windows") {
+        println!("cargo:rustc-link-lib=dbghelp");
+    }
+
     cc::Build::new()
         .cpp(true)
         .std("c++17")
         .file("src/core/core.c")
         .file("src/core/builtin_functions/sort.cpp")
         .file("src/core/builtin_traits/iterator.cpp")
-        .file("src/util/os_callstack.cpp")
         .file("src/util/simd.cpp")
         .file("src/mem/allocator.cpp")
         .file("src/mem/os_mem.cpp")

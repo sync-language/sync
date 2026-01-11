@@ -1,5 +1,5 @@
 #include "box.hpp"
-#include "../../util/os_callstack.hpp"
+#include "../../core/core_internal.h"
 #include "../type_info.hpp"
 #include <cstring>
 #include <iostream>
@@ -37,22 +37,7 @@ Result<RawBox, AllocErr> sy::RawBox::initScript(Allocator alloc, void* obj, cons
     return RawBox::init(alloc, obj, typeInfo->sizeType, typeInfo->alignType);
 }
 
-sy::RawBox::~RawBox() noexcept {
-    // Ensure no leaks
-#ifndef NDEBUG
-    if (this->obj_ != nullptr) {
-        try {
-            std::cerr << "Box not properly destroyed." << std::endl;
-#ifdef SYNC_BACKTRACE_SUPPORTED
-            Backtrace bt = Backtrace::generate();
-            bt.print();
-#endif
-        } catch (...) {
-        }
-        std::abort();
-    }
-#endif
-}
+sy::RawBox::~RawBox() noexcept { sy_assert_release(this->obj_ == nullptr, "RawBox leaked memory"); }
 
 void sy::RawBox::destroy(void (*destruct)(void* ptr), size_t size, size_t align) noexcept {
     destruct(this->obj_);

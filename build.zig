@@ -77,7 +77,6 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/core/core.c",
     "lib/src/core/builtin_functions/sort.cpp",
     "lib/src/core/builtin_traits/iterator.cpp",
-    "lib/src/util/os_callstack.cpp",
     "lib/src/util/simd.cpp",
     "lib/src/mem/os_mem.cpp",
     "lib/src/mem/allocator.cpp",

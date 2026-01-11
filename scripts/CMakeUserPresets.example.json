@@ -116,6 +116,22 @@
                 "SYNC_LIB_WITH_TESTS": "ON",
                 "SYNC_LIB_ASAN": "ON"
             }
+        },
+        {
+            "name": "emscripten-wasm",
+            "displayName": "WASM",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/wasm",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SYNC_LIB_WITH_TESTS": "ON"
+            },
+            "condition": {
+                "type": "notEquals",
+                "lhs": "$env{EMSDK}",
+                "rhs": ""
+            }
         }
     ]
 }
