@@ -1,0 +1,19 @@
+windows-x64:
+    image: ~/vm/windows-server.qcow2
+    arch: amd64
+    cpus: 2
+    memory: 8G
+    user: Adminstrator
+    pass: DevWin2022
+    steps:
+        - name: Copy Files
+          copy:
+            from: ./
+            to: vm:/
+
+        - name: Run Subsequent Steps Offline
+          offline: true
+
+        - name: Run Test Script on VM
+          run: echo "vm hi"
+        - run: ls
