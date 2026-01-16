@@ -1,0 +1,10 @@
+name: "CI"
+
+on:
+    workflow_dispatch:
+
+jobs:
+    x64:
+        runs-on: ubuntu-x64
+        steps:
+            - run: echo "hello"
