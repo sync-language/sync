@@ -4,10 +4,11 @@ on:
     workflow_dispatch:
 
 jobs:
-    x64:
+    sync-x64:
         runs-on:
             - self-hosted
             - Linux
             - X64
         steps:
-            - run: echo "hello"
+            - run: pwd
+            - run: vci help
