@@ -5,6 +5,9 @@ on:
 
 jobs:
     x64:
-        runs-on: ubuntu-x64
+        runs-on:
+            - self-hosted
+            - Linux
+            - X64
         steps:
             - run: echo "hello"
