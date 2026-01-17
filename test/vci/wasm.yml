@@ -1,0 +1,42 @@
+ubuntu-x64:
+    image: ~/vm/ubuntu-24.04-server.qcow2
+    arch: amd64
+    cpus: 2
+    memory: 6G
+    user: dev
+    pass: dev
+    steps:
+        - name: Copy Files
+          copy:
+            from: ./
+            to: vm:~/
+            exclude:
+              - .git
+              - .github
+              - docs
+
+        - name: Get Python and Node
+          run: apt-get update && apt-get install -y build-essential git-all python3 nodejs
+    
+        - name: Get Emscripten
+          run: |
+            git clone https://github.com/emscripten-core/emsdk.git
+
+        - name: Run Subsequent Steps Offline
+          offline: true
+
+        - name: Activate Emscripten
+          run: |
+            cd emsdk
+            ./emsdk install latest
+            ./emsdk activate latest
+
+        - name: Configure CMake
+          run: emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
+
+        - name: Build CMake
+          run: cmake --build build
+
+        - name: Run CTest
+          run: ctest --test-dir build --output-on-failure --verbose
+          

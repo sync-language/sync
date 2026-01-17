@@ -59,6 +59,10 @@ jobs:
             - name: Run Windows VCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
               run: vci run test/vci/windows_x64.yml
+
+            - name: Run WASM VCI tests
+              working-directory: ${{ env.WORK_DIR }}/repo
+              run: vci run test/vci/wasm.yml
                 
     sync-static-analysis:
         runs-on:
