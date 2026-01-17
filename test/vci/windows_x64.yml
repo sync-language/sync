@@ -38,15 +38,31 @@ windows-x64:
 
         - name: Fix line endings and encoding for Windows
           run: |
+            Write-Host "Converting files to UTF-8 with BOM and CRLF..."
             $utf8Bom = New-Object System.Text.UTF8Encoding $true
             $extensions = '*.c','*.cpp','*.h','*.hpp','*.cc','*.cxx','*.hxx','*.rs','*.zig'
-            Get-ChildItem -Recurse -Include $extensions | ForEach-Object {
+            $files = Get-ChildItem -Recurse -Include $extensions
+            Write-Host "Found $($files.Count) files to convert"
+            $files | ForEach-Object {
+              Write-Host "Converting: $($_.FullName)"
               $content = [IO.File]::ReadAllText($_.FullName) -replace "`n","`r`n"
               [IO.File]::WriteAllText($_.FullName, $content, $utf8Bom)
             }
+            Write-Host "Conversion complete"
 
         - name: Valid file check
           run: Get-Item C:\Users\Administrator\lib\src\core\core.c | Select-Object Length
+
+        - name: Check BOM presence
+          run: |
+            $bytes = Get-Content C:\Users\Administrator\lib\src\core\core.c -Encoding Byte -TotalCount 3
+            $bom = $bytes -join ','
+            Write-Host "First 3 bytes: $bom"
+            if ($bom -eq '239,187,191') {
+              Write-Host "UTF-8 BOM detected!"
+            } else {
+              Write-Host "No UTF-8 BOM found"
+            }
 
         - name: Contents
           run: Get-Content C:\Users\Administrator\lib\src\core\core.c -TotalCount 5
