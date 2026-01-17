@@ -20,7 +20,7 @@ windows-x64:
           offline: true
 
         - name: Configure CMake Visual Studio
-          run: cmake -S . -B build-vs -G "Visual Studio -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8"
+          run: cmake -S . -B build-vs -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8"
 
         - name: Build CMake Visual Studio
           run: cmake --build build-vs
