@@ -19,11 +19,20 @@ windows-x64:
         - name: Run Subsequent Steps Offline
           offline: true
 
-        - name: Configure CMake
-          run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8"
+        - name: Configure CMake Visual Studio
+          run: cmake -S . -B build-vs -G "Visual Studio -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8"
 
-        - name: Build CMake
-          run: cmake --build build
+        - name: Build CMake Visual Studio
+          run: cmake --build build-vs
 
-        - name: Run CTest
-          run: ctest --test-dir build --output-on-failure -C Debug
+        - name: Run CTest Visual Studio
+          run: ctest --test-dir build-vs --output-on-failure -C Debug
+
+        - name: Configure CMake MinGW
+          run: cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8"
+
+        - name: Build CMake MinGW
+          run: cmake --build build-mingw
+
+        - name: Run CTest MinGW
+          run: ctest --test-dir build-mingw --output-on-failure -C Debug
