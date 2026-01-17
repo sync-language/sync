@@ -7,26 +7,6 @@ windows-x64:
     pass: DevWin2022
     uefi: true
     steps:
-        # - name: TEST 0 Copy to current directory
-        #   copy:
-        #     from: ./lib/src/doctest.h
-        #     to: vm:./
-
-        # - name: TEST 1 Test relative path
-        #   copy:
-        #     from: ./lib/src/doctest.h
-        #     to: vm:C:/Users/Administrator/test.h
-
-        # - name: TEST 2 Create directory structure
-        #   run: |
-        #     if not exist C:\Users\Administrator\lib mkdir C:\Users\Administrator\lib
-        #     if not exist C:\Users\Administrator\lib\src mkdir C:\Users\Administrator\lib\src
-
-        # - name: TEST 3 Copy to pre-created directory
-        #   copy:
-        #     from: ./lib/src/doctest.h
-        #     to: vm:C:/Users/Administrator/lib/src/doctest.h
-
         - name: Copy Files
           copy:
             from: ./
@@ -36,25 +16,25 @@ windows-x64:
               - .github
               - docs
 
-        - name: Fix line endings and encoding for Windows
-          run: |
-            Write-Host "Converting files to UTF-8 with BOM and CRLF..."
-            $utf8Bom = New-Object System.Text.UTF8Encoding $true
-            $extensions = '*.c','*.cpp','*.h','*.hpp','*.cc','*.cxx','*.hxx','*.rs','*.zig'
-            $files = Get-ChildItem -Recurse -Include $extensions
-            Write-Host "Found $($files.Count) files to convert"
-            $files | ForEach-Object {
-              try {
-                $path = $_.FullName
-                $bytes = [IO.File]::ReadAllBytes($path)
-                $content = [System.Text.Encoding]::UTF8.GetString($bytes)
-                $content = $content -replace "`r`n","`n" -replace "`r","`n" -replace "`n","`r`n"
-                [IO.File]::WriteAllText($path, $content, $utf8Bom)
-              } catch {
-                Write-Host "ERROR converting ${path}: $_"
-              }
-            }
-            Write-Host "Conversion complete"
+        # - name: Fix line endings and encoding for Windows
+        #   run: |
+        #     Write-Host "Converting files to UTF-8 with BOM and CRLF..."
+        #     $utf8Bom = New-Object System.Text.UTF8Encoding $true
+        #     $extensions = '*.c','*.cpp','*.h','*.hpp','*.cc','*.cxx','*.hxx','*.rs','*.zig'
+        #     $files = Get-ChildItem -Recurse -Include $extensions
+        #     Write-Host "Found $($files.Count) files to convert"
+        #     $files | ForEach-Object {
+        #       try {
+        #         $path = $_.FullName
+        #         $bytes = [IO.File]::ReadAllBytes($path)
+        #         $content = [System.Text.Encoding]::UTF8.GetString($bytes)
+        #         $content = $content -replace "`r`n","`n" -replace "`r","`n" -replace "`n","`r`n"
+        #         [IO.File]::WriteAllText($path, $content, $utf8Bom)
+        #       } catch {
+        #         Write-Host "ERROR converting ${path}: $_"
+        #       }
+        #     }
+        #     Write-Host "Conversion complete"
 
         - name: Valid file check
           run: Get-Item C:\Users\Administrator\lib\src\core\core.c | Select-Object Length
