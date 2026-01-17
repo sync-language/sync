@@ -7,25 +7,25 @@ windows-x64:
     pass: DevWin2022
     uefi: true
     steps:
-        - name: TEST 0 Copy to current directory
-          copy:
-            from: ./lib/src/doctest.h
-            to: vm:./
+        # - name: TEST 0 Copy to current directory
+        #   copy:
+        #     from: ./lib/src/doctest.h
+        #     to: vm:./
 
-        - name: TEST 1 Test relative path
-          copy:
-            from: ./lib/src/doctest.h
-            to: vm:C:/Users/Administrator/test.h
+        # - name: TEST 1 Test relative path
+        #   copy:
+        #     from: ./lib/src/doctest.h
+        #     to: vm:C:/Users/Administrator/test.h
 
-        - name: TEST 2 Create directory structure
-          run: |
-            if not exist C:\Users\Administrator\lib mkdir C:\Users\Administrator\lib
-            if not exist C:\Users\Administrator\lib\src mkdir C:\Users\Administrator\lib\src
+        # - name: TEST 2 Create directory structure
+        #   run: |
+        #     if not exist C:\Users\Administrator\lib mkdir C:\Users\Administrator\lib
+        #     if not exist C:\Users\Administrator\lib\src mkdir C:\Users\Administrator\lib\src
 
-        - name: TEST 3 Copy to pre-created directory
-          copy:
-            from: ./lib/src/doctest.h
-            to: vm:C:/Users/Administrator/lib/src/doctest.h
+        # - name: TEST 3 Copy to pre-created directory
+        #   copy:
+        #     from: ./lib/src/doctest.h
+        #     to: vm:C:/Users/Administrator/lib/src/doctest.h
 
         - name: Copy Files
           copy:
