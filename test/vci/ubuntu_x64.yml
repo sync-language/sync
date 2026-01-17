@@ -14,7 +14,11 @@ ubuntu-x64:
         - name: Run Subsequent Steps Offline
           offline: true
 
-        - run: ls
+        - name: "what"
+          run: pwd
+
+        - name: "uh"
+          run: ls
 
         - name: Configure CMake
           run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
