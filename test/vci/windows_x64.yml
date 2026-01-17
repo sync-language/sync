@@ -10,7 +10,7 @@ windows-x64:
         - name: TEST 0 Copy to current directory
           copy:
             from: ./lib/src/doctest.h
-            to: vm:./test.h
+            to: vm:./
 
         - name: TEST 1 Test relative path
           copy:
