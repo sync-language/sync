@@ -6,17 +6,15 @@ on:
         branches:
             - main
         paths-ignore:
-            - '**/*.yml'
-            - '**/*.yaml'
+            - '**/*.md'
     push:
         branches:
             - main
         paths-ignore:
-            - '**/*.yml'
-            - '**/*.yaml'
+            - '**/*.md'
 
 jobs:
-    sync-x64:
+    test-sync-x64:
         runs-on:
             - self-hosted
             - Linux
@@ -24,6 +22,21 @@ jobs:
         env:
             WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
         steps:
+            - name: Security check for YAML changes
+              if: github.event_name == 'pull_request'
+              run: |
+                CHANGED_FILES=$(gh pr view ${{ github.event.pull_request.number }} --json files --jq '.files[].path')
+
+                if echo "$CHANGED_FILES" | grep -E '\.(yml|yaml)$'; then
+                  echo "::error::YAML files detected in PR. CI blocked for security reasons."
+                  echo "::error::YAML changes require manual administrator review before CI execution."
+                  echo "Changed YAML files:"
+                  echo "$CHANGED_FILES" | grep -E '\.(yml|yaml)$'
+                  exit 1
+                fi
+              env:
+                GH_TOKEN: ${{ github.token }}
+
             - name: Cleanup runs older than 24 hours
               run: |
                 find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
@@ -42,5 +55,98 @@ jobs:
             - name: Run VCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
               run: |
-                ls
                 vci run test/vci/ubuntu_x64.yml
+
+    sync-static-analysis:
+        runs-on:
+            - self-hosted
+            - Linux
+            - X64
+        env:
+            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
+        steps:
+            - name: Security check for YAML changes
+              if: github.event_name == 'pull_request'
+              run: |
+                CHANGED_FILES=$(gh pr view ${{ github.event.pull_request.number }} --json files --jq '.files[].path')
+                if echo "$CHANGED_FILES" | grep -E '\.(yml|yaml)$'; then
+                  echo "::error::YAML files detected in PR. CI blocked for security reasons."
+                  exit 1
+                fi
+              env:
+                GH_TOKEN: ${{ github.token }}
+
+            - name: Cleanup runs older than 24 hours
+              run: |
+                find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
+
+            - name: Setup workspace
+              run: |
+                mkdir -p ${{ env.WORK_DIR }}
+
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                path: ${{ env.WORK_DIR }}/repo
+                clean: true
+
+            - name: Run static analysis (sandboxed in VMs)
+              working-directory: ${{ env.WORK_DIR }}/repo
+              run: |
+                vci run test/vci/static_analysis.yml
+
+            - name: Clang-Tidy Results
+              if: always()
+              working-directory: ${{ env.WORK_DIR }}/repo
+              run: |
+                if [ -f build/clang-tidy-report.txt ]; then
+                  grep -E "warning:|error:" build/clang-tidy-report.txt | head -20 | while IFS= read -r line; do
+                    echo "::warning::clang-tidy: $line"
+                  done
+
+                  WARNING_COUNT=$(grep -c "warning:" build/clang-tidy-report.txt || echo "0")
+                  ERROR_COUNT=$(grep -c "error:" build/clang-tidy-report.txt || echo "0")
+
+                  echo "CLANG_TIDY_WARNINGS=$WARNING_COUNT" >> $GITHUB_ENV
+                  echo "CLANG_TIDY_ERRORS=$ERROR_COUNT" >> $GITHUB_ENV
+                fi
+
+            - name: Cppcheck Results
+              if: always()
+              working-directory: ${{ env.WORK_DIR }}/repo
+              run: |
+                if [ -f build/cppcheck-report.txt ]; then
+                  grep -E "error|warning|style|performance|portability" build/cppcheck-report.txt | head -20 | while IFS= read -r line; do
+                    echo "::warning::cppcheck: $line"
+                  done
+
+                  if [ -f build/cppcheck-report.xml ]; then
+                    ISSUE_COUNT=$(grep -c "<error " build/cppcheck-report.xml || echo "0")
+                    echo "CPPCHECK_ISSUES=$ISSUE_COUNT" >> $GITHUB_ENV
+                  fi
+                fi
+
+            - name: Post Summary
+              if: always() && github.event_name == 'pull_request'
+              run: |
+                SUMMARY="## Static Analysis Results\n\n"
+                SUMMARY+="### Clang-Tidy\n"
+                SUMMARY+="- Errors: ${CLANG_TIDY_ERRORS:-0}\n"
+                SUMMARY+="- Warnings: ${CLANG_TIDY_WARNINGS:-0}\n\n"
+                SUMMARY+="### Cppcheck\n"
+                SUMMARY+="- Issues: ${CPPCHECK_ISSUES:-0}\n\n"
+                SUMMARY+="For the full reports, see the artifacts"
+
+                echo -e "$SUMMARY" | gh pr comment ${{ github.event.pull_request.number }} --body-file -
+              env:
+                GH_TOKEN: ${{ github.token }}
+
+            - name: Upload analysis reports
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                name: static-analysis-reports-${{ github.run_id }}
+                path: |
+                  ${{ env.WORK_DIR }}/repo/build/clang-tidy-report.txt
+                  ${{ env.WORK_DIR }}/repo/build/cppcheck-report.xml
+                  ${{ env.WORK_DIR }}/repo/build/cppcheck-report.txt

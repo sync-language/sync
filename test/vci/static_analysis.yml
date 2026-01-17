@@ -1,0 +1,92 @@
+clang-tidy-x64:
+    image: ~/vm/ubuntu-24.04-server.qcow2
+    arch: amd64
+    cpus: 2
+    memory: 6G
+    user: dev
+    pass: dev
+    steps:
+        - name: Copy source code to VM
+          copy:
+            from: ./
+            to: vm:~/
+
+        - name: Install clang-tidy and dependencies
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y clang-tidy cmake build-essential
+
+        - name: Sandbox CMake
+          offline: true
+
+        - name: Configure CMake
+          run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+        - name: Run clang-tidy analysis
+          run: |
+            find -name '*.cpp' -o -name '*.c' | xargs clang-tidy -p ~/sync/build > ~/clang-tidy-report.txt 2>&1 || true
+          continue_on_error: true
+
+        - name: Copy results back to host
+          copy:
+            from: vm:~/clang-tidy-report.txt
+            to: ./build/clang-tidy-report.txt
+
+        - name: Display results summary
+          run: |
+            echo "=== Clang-Tidy Analysis Summary ==="
+            grep -E "warning:|error:" ~/clang-tidy-report.txt | wc -l
+            echo "issues found. Full report copied to host."
+          continue_on_error: true
+
+cppcheck-x64:
+    image: ~/vm/ubuntu-24.04-server.qcow2
+    arch: amd64
+    cpus: 2
+    memory: 6G
+    user: dev
+    pass: dev
+    steps:
+        - name: Copy source code to VM
+          copy:
+            from: ./
+            to: vm:~/
+
+        - name: Install cppcheck
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y cppcheck
+
+        - name: Go offline for security
+          offline: true
+
+        - name: Run cppcheck analysis
+          run: |
+            cppcheck --enable=all --inconclusive --xml --xml-version=2 \
+              --suppress=missingIncludeSystem \
+              ~/ 2> ~/cppcheck-report.xml || true
+          continue_on_error: true
+
+        - name: Generate text report
+          run: |
+            cppcheck --enable=all --inconclusive \
+              --suppress=missingIncludeSystem \
+              ~/ 2> ~/cppcheck-report.txt || true
+          continue_on_error: true
+
+        - name: Copy XML report to host
+          copy:
+            from: vm:~/cppcheck-report.xml
+            to: ./build/cppcheck-report.xml
+
+        - name: Copy text report to host
+          copy:
+            from: vm:~/cppcheck-report.txt
+            to: ./build/cppcheck-report.txt
+
+        - name: Display results summary
+          run: |
+            echo "=== Cppcheck Analysis Summary ==="
+            grep -E "<error " ~/cppcheck-report.xml | wc -l
+            echo "issues found. Reports copied to host."
+          continue_on_error: true
