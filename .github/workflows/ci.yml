@@ -14,13 +14,11 @@ on:
             - '**/*.md'
 
 jobs:
-    test-sync-x64:
+    security-check:
         runs-on:
             - self-hosted
             - Linux
-            - X64
-        env:
-            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
+            - X64 
         steps:
             - name: Security check for YAML changes
               if: github.event_name == 'pull_request'
@@ -36,7 +34,16 @@ jobs:
                 fi
               env:
                 GH_TOKEN: ${{ github.token }}
-
+    
+    test-sync-x64:
+        needs: security-check
+        runs-on:
+            - self-hosted
+            - Linux
+            - X64
+        env:
+            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
+        steps:
             - name: Cleanup runs older than 24 hours
               run: |
                 find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
@@ -64,7 +71,8 @@ jobs:
               working-directory: ${{ env.WORK_DIR }}/repo
               run: vci run test/vci/wasm.yml
                 
-    # sync-static-analysis:
+    # sync-static-analysis:   
+    #     needs: security-check
     #     runs-on:
     #         - self-hosted
     #         - Linux
