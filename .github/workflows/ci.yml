@@ -102,10 +102,12 @@ jobs:
                 if [ -f build/clang-tidy-report.txt ]; then
                   grep -E "warning:|error:" build/clang-tidy-report.txt | head -20 | while IFS= read -r line; do
                     echo "::warning::clang-tidy: $line"
-                  done
+                  done || true
 
-                  WARNING_COUNT=$(grep -c "warning:" build/clang-tidy-report.txt || echo "0")
-                  ERROR_COUNT=$(grep -c "error:" build/clang-tidy-report.txt || echo "0")
+                  WARNING_COUNT=$(grep -c "warning:" build/clang-tidy-report.txt || true)
+                  ERROR_COUNT=$(grep -c "error:" build/clang-tidy-report.txt || true)
+                  WARNING_COUNT=${WARNING_COUNT:-0}
+                  ERROR_COUNT=${ERROR_COUNT:-0}
 
                   echo "CLANG_TIDY_WARNINGS=$WARNING_COUNT" >> $GITHUB_ENV
                   echo "CLANG_TIDY_ERRORS=$ERROR_COUNT" >> $GITHUB_ENV
@@ -118,10 +120,11 @@ jobs:
                 if [ -f build/cppcheck-report.txt ]; then
                   grep -E "error|warning|style|performance|portability" build/cppcheck-report.txt | head -20 | while IFS= read -r line; do
                     echo "::warning::cppcheck: $line"
-                  done
+                  done || true
 
                   if [ -f build/cppcheck-report.xml ]; then
-                    ISSUE_COUNT=$(grep -c "<error " build/cppcheck-report.xml || echo "0")
+                    ISSUE_COUNT=$(grep -c "<error " build/cppcheck-report.xml || true)
+                    ISSUE_COUNT=${ISSUE_COUNT:-0}
                     echo "CPPCHECK_ISSUES=$ISSUE_COUNT" >> $GITHUB_ENV
                   fi
                 fi
