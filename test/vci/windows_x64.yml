@@ -36,12 +36,13 @@ windows-x64:
               - .github
               - docs
 
-        - name: Fix line endings for Windows
+        - name: Fix line endings and encoding for Windows
           run: |
+            $utf8Bom = New-Object System.Text.UTF8Encoding $true
             $extensions = '*.c','*.cpp','*.h','*.hpp','*.cc','*.cxx','*.hxx','*.rs','*.zig'
             Get-ChildItem -Recurse -Include $extensions | ForEach-Object {
               $content = [IO.File]::ReadAllText($_.FullName) -replace "`n","`r`n"
-              [IO.File]::WriteAllText($_.FullName, $content)
+              [IO.File]::WriteAllText($_.FullName, $content, $utf8Bom)
             }
 
         - name: Valid file check
