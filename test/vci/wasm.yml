@@ -37,7 +37,11 @@ ubuntu-x64:
             ./emsdk activate latest
 
         - name: Configure CMake
-          run: emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
+          run: |
+            EMSDK="emsdk"
+            PATH="emsdk:emsdk/upstream/emscripten:${PATH}"
+            EM_CONFIG="emsdk/.emscripten"
+            emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
 
         - name: Build CMake
           run: cmake --build build
