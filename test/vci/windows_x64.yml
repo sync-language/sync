@@ -7,6 +7,11 @@ windows-x64:
     pass: DevWin2022
     uefi: true
     steps:
+        - name: TEST 0 Copy to current directory
+          copy:
+            from: ./lib/src/doctest.h
+            to: vm:./test.h
+
         - name: TEST 1 Test relative path
           copy:
             from: ./lib/src/doctest.h
