@@ -3,14 +3,14 @@ windows-x64:
     arch: amd64
     cpus: 2
     memory: 8G
-    user: Adminstrator
+    user: Administrator
     pass: DevWin2022
     uefi: true
     steps:
         - name: Copy Files
           copy:
             from: ./
-            to: vm:C:\Users\Adminstrator
+            to: vm:C:\Users\Administrator
 
         - name: Run Subsequent Steps Offline
           offline: true
