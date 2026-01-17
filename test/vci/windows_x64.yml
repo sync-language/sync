@@ -11,6 +11,10 @@ windows-x64:
           copy:
             from: ./
             to: vm:C:\Users\Administrator
+            exclude:
+              - .git
+              - .github
+              - docs
 
         - name: Run Subsequent Steps Offline
           offline: true

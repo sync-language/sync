@@ -10,6 +10,10 @@ ubuntu-x64:
           copy:
             from: ./
             to: vm:~/
+            exclude:
+              - .git
+              - .github
+              - docs
 
         - name: Run Subsequent Steps Offline
           offline: true
