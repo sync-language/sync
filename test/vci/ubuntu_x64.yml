@@ -9,12 +9,11 @@ ubuntu-x64:
         - name: Copy Files
           copy:
             from: ./
-            to: vm:/
+            to: vm:~/
 
         - name: Run Subsequent Steps Offline
           offline: true
 
-        - name: Run Test Script on VM
-          run: echo "vm hi"
-        - run: ls
+        - name: Configure CMake
+          run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
           
