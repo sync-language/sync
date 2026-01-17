@@ -22,7 +22,7 @@ ubuntu-x64:
           run: |
             git clone https://github.com/emscripten-core/emsdk.git
 
-        - name: Activate Emscripten
+        - name: Install Emscripten
           run: |
             cd emsdk
             ./emsdk install latest
@@ -30,6 +30,11 @@ ubuntu-x64:
 
         - name: Run Subsequent Steps Offline
           offline: true
+
+        - name: Activate Emscripten
+          run: |
+            cd emsdk
+            ./emsdk activate latest
 
         - name: Configure CMake
           run: emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
