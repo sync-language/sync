@@ -36,6 +36,14 @@ windows-x64:
               - .github
               - docs
 
+        - name: Fix line endings for Windows
+          run: |
+            $extensions = '*.c','*.cpp','*.h','*.hpp','*.cc','*.cxx','*.hxx','*.rs','*.zig'
+            Get-ChildItem -Recurse -Include $extensions | ForEach-Object {
+              $content = [IO.File]::ReadAllText($_.FullName) -replace "`n","`r`n"
+              [IO.File]::WriteAllText($_.FullName, $content)
+            }
+
         - name: Valid file check
           run: Get-Item C:\Users\Administrator\lib\src\core\core.c | Select-Object Length
 
