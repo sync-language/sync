@@ -44,9 +44,15 @@ windows-x64:
             $files = Get-ChildItem -Recurse -Include $extensions
             Write-Host "Found $($files.Count) files to convert"
             $files | ForEach-Object {
-              Write-Host "Converting: $($_.FullName)"
-              $content = [IO.File]::ReadAllText($_.FullName) -replace "`n","`r`n"
-              [IO.File]::WriteAllText($_.FullName, $content, $utf8Bom)
+              try {
+                $path = $_.FullName
+                $bytes = [IO.File]::ReadAllBytes($path)
+                $content = [System.Text.Encoding]::UTF8.GetString($bytes)
+                $content = $content -replace "`r`n","`n" -replace "`r","`n" -replace "`n","`r`n"
+                [IO.File]::WriteAllText($path, $content, $utf8Bom)
+              } catch {
+                Write-Host "ERROR converting ${path}: $_"
+              }
             }
             Write-Host "Conversion complete"
 
