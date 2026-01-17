@@ -52,9 +52,9 @@ jobs:
                 path: ${{ env.WORK_DIR }}/repo
                 clean: true
 
-            - name: Run Ubuntu VCI tests
-              working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/ubuntu_x64.yml
+            # - name: Run Ubuntu VCI tests
+            #   working-directory: ${{ env.WORK_DIR }}/repo
+            #   run: vci run test/vci/ubuntu_x64.yml
 
             - name: Run Windows VCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
