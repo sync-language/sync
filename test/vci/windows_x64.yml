@@ -5,15 +5,21 @@ windows-x64:
     memory: 8G
     user: Adminstrator
     pass: DevWin2022
+    uefi: true
     steps:
         - name: Copy Files
           copy:
             from: ./
-            to: vm:/
+            to: vm:C:\Users\Adminstrator
 
         - name: Run Subsequent Steps Offline
           offline: true
 
-        - name: Run Test Script on VM
-          run: echo "vm hi"
-        - run: ls
+        - name: Configure CMake
+          run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
+
+        - name: Build CMake
+          run: cmake --build build
+
+        - name: Run CTest
+          run: ctest --test-dir build --output-on-failure

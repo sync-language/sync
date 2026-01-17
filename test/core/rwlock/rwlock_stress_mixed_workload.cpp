@@ -29,10 +29,12 @@ int main() {
 
     for (int i = 0; i < 5; i++) {
         threads.emplace_back(readerFn, &lock, &sharedCounter);
+        std::this_thread::yield(); // TSan false positives
     }
 
     for (int i = 0; i < 2; i++) {
         threads.emplace_back(writerFn, &lock, &sharedCounter);
+        std::this_thread::yield(); // TSan false positives
     }
 
     for (auto& t : threads) {

@@ -56,6 +56,7 @@ jobs:
               working-directory: ${{ env.WORK_DIR }}/repo
               run: |
                 vci run test/vci/ubuntu_x64.yml
+                vci run test/vci/windows_x64.yml
 
     sync-static-analysis:
         runs-on:
