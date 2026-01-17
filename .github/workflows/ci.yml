@@ -52,12 +52,14 @@ jobs:
                 path: ${{ env.WORK_DIR }}/repo
                 clean: true
 
-            - name: Run VCI tests
+            - name: Run Ubuntu VCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
-              run: |
-                vci run test/vci/ubuntu_x64.yml
-                vci run test/vci/windows_x64.yml
+              run: vci run test/vci/ubuntu_x64.yml
 
+            - name: Run Windows VCI tests
+              working-directory: ${{ env.WORK_DIR }}/repo
+              run: vci run test/vci/windows_x64.yml
+                
     sync-static-analysis:
         runs-on:
             - self-hosted
