@@ -1,5 +1,5 @@
 ubuntu-x64:
-    image: ~/vm/ubuntu-24.04-server.qcow2  windows-server.qcow2
+    image: ~/vm/ubuntu-24.04-server.qcow2
     arch: amd64
     cpus: 2
     memory: 6G
