@@ -71,7 +71,19 @@ windows-x64:
           offline: true
 
         - name: Configure CMake
-          run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
+          run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8"
+
+        - name: Check BOM before build
+          run: |
+            $testFiles = @(
+              'C:\Users\Administrator\test\core\filesystem\filesystem_get_file_size_this_file_small.cpp',
+              'C:\Users\Administrator\test\core\rwlock\rwlock_array_reallocation.cpp'
+            )
+            foreach ($file in $testFiles) {
+              $bytes = Get-Content $file -Encoding Byte -TotalCount 3
+              $bom = $bytes -join ','
+              Write-Host "${file}: $bom"
+            }
 
         - name: Build CMake
           run: cmake --build build
