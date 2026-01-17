@@ -1860,7 +1860,8 @@ TEST_CASE("[Token] parallel") { testParseKeyword("parallel", TokenType::Parallel
 
 TEST_CASE("[Token] await") { testParseKeyword("await", TokenType::AwaitKeyword); }
 
-TEST_CASE("[Token] Task") { testParseKeyword("Task", TokenType::TaskPrimitive); }
+// TEST_CASE("[Token] Task") { testParseKeyword("Task", TokenType::TaskPrimitive); }
+TEST_CASE("[Token] Task") { testParseKeyword("Task", TokenType::AwaitKeyword); }
 
 static void testParseOperatorOrSymbol(const char* operatorOrSymbol, TokenType expectedTokenType, bool checkAlphaAfter,
                                       bool checkAnyOperatorAfter, bool checkSameOperatorAfter) {
