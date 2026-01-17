@@ -11,22 +11,15 @@ ubuntu-x64:
             from: ./
             to: vm:~/
 
-        - name: "what before"
-          run: pwd
-
-        - name: "uh before"
-          run: ls
-
-
         - name: Run Subsequent Steps Offline
           offline: true
 
-        - name: "what after"
-          run: pwd
-
-        - name: "uh after"
-          run: ls
-
         - name: Configure CMake
           run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
+
+        - name: Build CMake
+          run: cmake --build build
+
+        - name: Run CTest
+          run: ctest --test-dir build --output-on-failure
           
