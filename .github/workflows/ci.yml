@@ -256,7 +256,9 @@ jobs:
               continue-on-error: true
               shell: pwsh
               working-directory: ${{ env.WORK_DIR }}/repo
-              run: | # https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
+              # https://qodo-merge-docs.qodo.ai/installation/locally/
+              # https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
+              run: | 
                 $token = "${{ github.token }}"
                 $config = @"
                 [config]
@@ -283,10 +285,12 @@ jobs:
               continue-on-error: true
               shell: pwsh
               working-directory: ${{ env.WORK_DIR }}/repo
-              run: | # https://qodo-merge-docs.qodo.ai/installation/locally/
+              run: | # https://qodo-merge-docs.qodo.ai/usage-guide/changing_a_model/
                 $env:GITHUB__USER_TOKEN = "${{ github.token }}"
                 $env:config__model = "ollama/qwen3-coder:30b"
+                $env:config__custom_model_max_tokens = "256000"
                 $env:ollama__api_base = "http://localhost:11434"
+                $env:LITELLM_LOG = "DEBUG"
 
                 pr-agent --pr_url="${{ github.event.pull_request.html_url }}" review
               env:
