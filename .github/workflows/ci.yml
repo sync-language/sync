@@ -216,3 +216,92 @@ jobs:
                   ${{ env.WORK_DIR }}/repo/build/clang-tidy-report.txt
                   ${{ env.WORK_DIR }}/repo/build/cppcheck-report.xml
                   ${{ env.WORK_DIR }}/repo/build/cppcheck-report.txt
+
+    sync-llm-analysis:
+        needs: security-check
+        runs-on:
+            - self-hosted
+            - Windows
+            - LLM
+        timeout-minutes: 2
+        continue-on-error: true
+        if: github.event_name == 'pull_request'
+        concurrency:
+            group: ollama-llm-${{ github.repository }}
+            cancel-in-progress: false
+        env:
+            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
+        steps:
+            - name: Cleanup runs older than 24 hours
+              continue-on-error: true
+              shell: pwsh
+              run: |
+                $cutoffDate = (Get-Date).AddHours(-24)
+                $runsPath = "${{ github.workspace }}/runs"
+                if (Test-Path $runsPath) {
+                  Get-ChildItem -Path $runsPath -Directory | Where-Object { $_.LastWriteTime -lt $cutoffDate } | ForEach-Object {
+                    Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue
+                  }
+                }
+
+            - name: Setup workspace
+              shell: pwsh
+              run: New-Item -ItemType Directory -Force -Path "${{ env.WORK_DIR }}"
+                
+
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                path: ${{ env.WORK_DIR }}/repo
+
+            - name: Install PR-Agent
+              continue-on-error: true
+              shell: pwsh
+              run: |
+                pip install pr-agent --quiet
+
+            - name: Configure PR-Agent for Ollama
+              continue-on-error: true
+              shell: pwsh
+              working-directory: ${{ env.WORK_DIR }}/repo
+              run: | # https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
+                $config = @"
+                [config]
+                model = "ollama/qwen3-coder:30b"
+
+                [ollama]
+                api_base = "http://localhost:11434"
+
+                [pr_reviewer]
+                num_code_suggestions = 5
+                inline_code_comments = true
+
+                [pr_description]
+                publish_description = true
+                "@
+
+                New-Item -ItemType Directory -Force -Path ".pr_agent" | Out-Null
+                $config | Out-File -FilePath ".pr_agent/configuration.toml" -Encoding UTF8
+
+            - name: Run Review
+              continue-on-error: true
+              shell: pwsh
+              working-directory: ${{ env.WORK_DIR }}/repo
+              run: |
+                $env:GITHUB_TOKEN = "${{ github.token }}"
+                $env:OLLAMA_API_BASE = "http://localhost:11434"
+
+                pr-agent review --pr_url="${{ github.event.pull_request.html_url }}"
+              env:
+                GH_TOKEN: ${{ github.token }}
+
+            - name: Post Warning if Error
+              if: failure() || cancelled()
+              continue-on-error: true
+              shell: pwsh
+              run: |
+                $message = "**LLM Analysis Warning**`n`nThe LLM-based code analysis workflow did not complete. This may be due to:`n- Timeout (>2 minutes)`n- Hosted machine not reachable`n- Other configuration issues`n`nThis is non-blocking and does not affect PR approval."
+
+                gh pr comment ${{ github.event.pull_request.number }} --body $message
+              env:
+                GH_TOKEN: ${{ github.token }}
