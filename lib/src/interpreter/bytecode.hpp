@@ -79,6 +79,7 @@ enum class OpCode : uint8_t {
     GreaterEqual,
     Add,
     Subtract,
+    Multiply,
 };
 
 constexpr size_t OPCODE_USED_BITS = 8;
