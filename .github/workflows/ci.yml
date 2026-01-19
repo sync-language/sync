@@ -280,7 +280,7 @@ jobs:
                 $env:GITHUB_TOKEN = "${{ github.token }}"
                 $env:OLLAMA_API_BASE = "http://localhost:11434"
 
-                pr-agent review --pr_url="${{ github.event.pull_request.html_url }}"
+                pr-agent --pr_url="${{ github.event.pull_request.html_url }}" review
               env:
                 GH_TOKEN: ${{ github.token }}
 
