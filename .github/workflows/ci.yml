@@ -254,9 +254,13 @@ jobs:
               shell: pwsh
               working-directory: ${{ env.WORK_DIR }}/repo
               run: | # https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
+                $token = "${{ github.token }}"
                 $config = @"
                 [config]
                 model = "ollama/qwen3-coder:30b"
+
+                [github]
+                user_token = "$token"
 
                 [ollama]
                 api_base = "http://localhost:11434"
