@@ -1,0 +1,41 @@
+macos-monterey:
+    image: ~/vm/macos/macos-monterey.qcow2
+    uefi:
+    code: ~/vm/macos/OVMF_CODE.fd
+    vars: ~/vm/macos/OVMF_VARS-1920x1080.fd
+    cpu_model: "Haswell-v2,vendor=GenuineIntel,vmware-cpuid-freq=on"
+    additional_drives:
+    - "id=BootLoader,if=none,format=qcow2,file=~/vm/macos/OpenCore.qcow2"
+    additional_devices:
+    - "isa-applesmc,osk=ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
+    - "ahci,id=ahci"
+    - "ide-hd,bus=ahci.0,drive=BootLoader,bootindex=0"
+    - "virtio-blk-pci,drive=SystemDisk"
+    cpus: 4
+    memory: 16G
+    user: dev
+    pass: devmac
+    steps:
+    - name: Copy Files
+      copy:
+        from: ./
+        to: vm:~/
+        exclude:
+            - .git
+            - .github
+            - docs
+
+    - name: Install CMake
+      run: brew install cmake
+
+    - name: Run Subsequent Steps Offline
+      offline: true
+
+    - name: Configure CMake
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF
+
+    - name: Build CMake
+      run: cmake --build build
+
+    - name: Run CTest
+      run: ctest --test-dir build --output-on-failure
