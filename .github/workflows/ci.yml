@@ -215,6 +215,9 @@ jobs:
         timeout-minutes: 2
         continue-on-error: true
         if: github.event_name == 'pull_request'
+        permissions: # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
+            contents: read           # read repo
+            pull-requests: write     # post comments
         concurrency:
             group: ollama-llm-${{ github.repository }}
             cancel-in-progress: false
