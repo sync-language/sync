@@ -23,7 +23,7 @@ jobs:
             - name: Security check for YAML changes
               if: github.event_name == 'pull_request'
               run: |
-                CHANGED_FILES=$(gh pr view ${{ github.event.pull_request.number }} --json files --jq '.files[].path')
+                CHANGED_FILES=$(gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json files --jq '.files[].path')
 
                 if echo "$CHANGED_FILES" | grep -E '\.(yml|yaml)$'; then
                   echo "::error::YAML files detected in PR. CI blocked for security reasons."
@@ -128,17 +128,6 @@ jobs:
         env:
             WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
         steps:
-            - name: Security check for YAML changes
-              if: github.event_name == 'pull_request'
-              run: |
-                CHANGED_FILES=$(gh pr view ${{ github.event.pull_request.number }} --json files --jq '.files[].path')
-                if echo "$CHANGED_FILES" | grep -E '\.(yml|yaml)$'; then
-                  echo "::error::YAML files detected in PR. CI blocked for security reasons."
-                  exit 1
-                fi
-              env:
-                GH_TOKEN: ${{ github.token }}
-
             - name: Cleanup runs older than 24 hours
               run: |
                 find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
