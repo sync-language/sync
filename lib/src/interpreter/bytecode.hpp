@@ -80,6 +80,7 @@ enum class OpCode : uint8_t {
     Add,
     Subtract,
     Multiply,
+    Divide,
 };
 
 constexpr size_t OPCODE_USED_BITS = 8;
