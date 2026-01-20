@@ -3430,7 +3430,18 @@ struct Timer {
     // unsigned int getElapsedMilliseconds() const {
     //    return static_cast<unsigned int>(getElapsedMicroseconds() / 1000);
     //}
-    double getElapsedSeconds() const { return static_cast<double>(getCurrentTicks() - m_ticks) / 1000000.0; }
+    double getElapsedSeconds() const {
+        std::cerr << "[getElapsedSeconds] getCurrentTicks" << std::endl;
+        auto currTicks = getCurrentTicks();
+        std::cerr << "[getElapsedSeconds] subract" << std::endl;
+        auto diff = currTicks - m_ticks;
+        std::cerr << "[getElapsedSeconds] convert to double" << std::endl;
+        double thingy = static_cast<double>(diff);
+        std::cerr << "[getElapsedSeconds] divide" << std::endl;
+        auto div = thingy / 1000000.0;
+        std::cerr << "[getElapsedSeconds] good" << std::endl;
+        return div;
+    }
 
   private:
     ticks_t m_ticks = 0;
@@ -3558,21 +3569,27 @@ struct ContextState : ContextOptions, TestRunStats, CurrentTestCaseStats {
     }
 
     void finalizeTestCaseData() {
+        std::cerr << "getElapsedSeconds() before" << std::endl;
         seconds = timer.getElapsedSeconds();
+        std::cerr << "getElapsedSeconds() after" << std::endl;
 
+        std::cerr << "update counters before" << std::endl;
         // update the non-atomic counters
         numAsserts += numAssertsCurrentTest_atomic;
         numAssertsFailed += numAssertsFailedCurrentTest_atomic;
         numAssertsCurrentTest = numAssertsCurrentTest_atomic;
         numAssertsFailedCurrentTest = numAssertsFailedCurrentTest_atomic;
+        std::cerr << "update counters after" << std::endl;
 
         if (numAssertsFailedCurrentTest)
             failure_flags |= TestCaseFailureReason::AssertFailure;
 
+        std::cerr << "epsilon?" << std::endl;
         if (Approx(currentTest->m_timeout).epsilon(DBL_EPSILON) != 0 &&
             Approx(seconds).epsilon(DBL_EPSILON) > currentTest->m_timeout)
             failure_flags |= TestCaseFailureReason::Timeout;
 
+        std::cerr << "epsilon stuff done" << std::endl;
         if (currentTest->m_should_fail) {
             if (failure_flags) {
                 failure_flags |= TestCaseFailureReason::ShouldHaveFailedAndDid;
