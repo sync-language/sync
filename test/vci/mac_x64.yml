@@ -35,5 +35,5 @@ macos-x64:
       run: cmake --build build
 
     - name: Run CTest
-      run: ./build/test/SyncLibTests --test-case="max sso len 64 bit arch"
+      run: ./build/test/SyncLibTests
       # ctest --test-dir build --output-on-failure
