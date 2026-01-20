@@ -84,6 +84,12 @@ void* sy_aligned_malloc(size_t len, size_t align) {
     sy_assert_release((len % align) == 0, "[sy_aligned_malloc] len must be multiple of align");
 #if defined(_WIN32)
     return _aligned_malloc(len, align);
+#elif defined(__unix__) || defined(__APPLE__)
+    void* ptr = NULL;
+    if (posix_memalign(&ptr, align, len) != 0) {
+        return NULL;
+    }
+    return ptr;
 #else
     return aligned_alloc(align, len);
 #endif
