@@ -23,6 +23,8 @@ struct CompilerImpl {
     Allocator alloc;
     MapUnmanaged<StringSlice, DynArrayUnmanaged<SemVer>> versions;
     MapUnmanaged<ModuleVersion, Module*> modules;
+
+    CompilerImpl() { std::cerr << "huh" << std::endl; }
 };
 
 struct ModuleImpl {
