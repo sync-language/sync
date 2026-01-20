@@ -3416,8 +3416,10 @@ ticks_t getCurrentTicks() {
 }
 #else  // DOCTEST_PLATFORM_WINDOWS
 ticks_t getCurrentTicks() {
+    std::cerr << "getCurrentTicks()" << std::endl;
     timeval t;
     gettimeofday(&t, nullptr);
+    std::cerr << "gettimeofday() success!" << std::endl;
     return static_cast<ticks_t>(t.tv_sec) * 1000000 + static_cast<ticks_t>(t.tv_usec);
 }
 #endif // DOCTEST_PLATFORM_WINDOWS
