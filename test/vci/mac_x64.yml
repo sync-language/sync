@@ -25,9 +25,6 @@ macos-x64:
             - .github
             - docs
 
-    - name: Install CMake
-      run: source ~/.zprofile && brew install cmake
-
     - name: Run Subsequent Steps Offline
       offline: true
 

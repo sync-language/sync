@@ -24,13 +24,15 @@ clang-tidy-x64:
 
         - name: Run clang-tidy analysis
           run: |
-            find -name '*.cpp' -o -name '*.c' | xargs clang-tidy -p ~/sync/build > ~/clang-tidy-report.txt 2>&1 || true
+            find -name '*.cpp' -o -name '*.c' | xargs clang-tidy -p build > ~/clang-tidy-report.txt 2>&1 || true
+          timeout: 15m
           continue_on_error: true
 
         - name: Copy results back to host
           copy:
             from: vm:~/clang-tidy-report.txt
             to: ./build/clang-tidy-report.txt
+          continue_on_error: true
 
         - name: Display results summary
           run: |
