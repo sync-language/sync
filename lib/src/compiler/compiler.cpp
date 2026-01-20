@@ -23,8 +23,6 @@ struct CompilerImpl {
     Allocator alloc;
     MapUnmanaged<StringSlice, DynArrayUnmanaged<SemVer>> versions;
     MapUnmanaged<ModuleVersion, Module*> modules;
-
-    CompilerImpl() { std::cerr << "huh" << std::endl; }
 };
 
 struct ModuleImpl {
@@ -66,28 +64,19 @@ static void deleteImpl(void* impl) noexcept {
 }
 
 Result<Compiler, AllocErr> Compiler::create(Allocator alloc) noexcept {
-    std::cerr << "[TEST DEBUG] INSIDE Compiler::create()" << std::endl;
     CompilerImpl* impl;
     {
-        std::cerr << "[TEST DEBUG] Compiler::create() before alloc" << std::endl;
         auto implAllocResult = alloc.allocObject<CompilerImpl>();
-        std::cerr << "[TEST DEBUG] Compiler::create() after alloc" << std::endl;
         if (implAllocResult.hasErr()) {
-            std::cerr << "[TEST DEBUG] Compiler::create() OOM" << std::endl;
             return Error(AllocErr::OutOfMemory);
         }
-        std::cerr << "[TEST DEBUG] Compiler::create() has mem" << std::endl;
         impl = implAllocResult.value();
-        std::cerr << "[TEST DEBUG] Compiler::create() val" << std::endl;
         new (impl) CompilerImpl();
-        std::cerr << "[TEST DEBUG] Compiler::create() placement new" << std::endl;
         impl->alloc = alloc;
-        std::cerr << "[TEST DEBUG] Compiler::create() assign" << std::endl;
     }
 
     Compiler self{};
     self.inner_ = reinterpret_cast<void*>(impl);
-    std::cerr << "[TEST DEBUG] Compiler::create() done" << std::endl;
     return self;
 }
 
@@ -593,11 +582,8 @@ Result<Module*, AllocErr> Module::create(Allocator& alloc, StringSlice inName, S
 #include "../doctest.h"
 
 TEST_CASE("[Compiler] empty compiler") {
-    std::cerr << "[TEST DEBUG] Before Compiler::create()" << std::endl;
     Compiler c = Compiler::create().takeValue();
-    std::cerr << "[TEST DEBUG] After Compiler::create(), before destructor" << std::endl;
     (void)c;
-    std::cerr << "[TEST DEBUG] Test ending, destructor will run" << std::endl;
 }
 
 TEST_CASE("[Compiler] addOrGetModule empty module") {

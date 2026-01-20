@@ -60,9 +60,7 @@ sy::Allocator::Allocator() {
     static_assert(offsetof(Allocator, ptr_) == offsetof(SyAllocator, ptr));
     static_assert(offsetof(Allocator, vtable_) == offsetof(SyAllocator, vtable));
 
-    std::atomic_thread_fence(std::memory_order_acquire);
     *this = *reinterpret_cast<Allocator*>(sy_defaultAllocator);
-    std::atomic_thread_fence(std::memory_order_release);
 }
 
 void* sy::Allocator::allocImpl(size_t len, size_t align) noexcept {
