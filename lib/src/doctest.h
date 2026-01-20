@@ -3431,16 +3431,17 @@ struct Timer {
     //    return static_cast<unsigned int>(getElapsedMicroseconds() / 1000);
     //}
     double getElapsedSeconds() const {
-        std::cerr << "[getElapsedSeconds] getCurrentTicks" << std::endl;
-        auto currTicks = getCurrentTicks();
-        std::cerr << "[getElapsedSeconds] subract" << std::endl;
-        auto diff = currTicks - m_ticks;
-        std::cerr << "[getElapsedSeconds] convert to double" << std::endl;
-        double thingy = static_cast<double>(diff);
-        std::cerr << "[getElapsedSeconds] divide" << std::endl;
-        auto div = thingy / 1000000.0;
-        std::cerr << "[getElapsedSeconds] good" << std::endl;
-        return div;
+        return 0.0;
+        // std::cerr << "[getElapsedSeconds] getCurrentTicks" << std::endl;
+        // auto currTicks = getCurrentTicks();
+        // std::cerr << "[getElapsedSeconds] subract" << std::endl;
+        // auto diff = currTicks - m_ticks;
+        // std::cerr << "[getElapsedSeconds] convert to double" << std::endl;
+        // double thingy = static_cast<double>(diff);
+        // std::cerr << "[getElapsedSeconds] divide" << std::endl;
+        // auto div = thingy / 1000000.0;
+        // std::cerr << "[getElapsedSeconds] good" << std::endl;
+        // return div;
     }
 
   private:
