@@ -35,5 +35,5 @@ macos-x64:
       run: cmake --build build
 
     - name: Run CTest
-      run: ./build/test/SyncLibTests --version || echo "Binary won't even start"
+      run: ./build/test/SyncLibTests  --list-test-cases
       # ctest --test-dir build --output-on-failure
