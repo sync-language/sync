@@ -358,6 +358,8 @@ bool sy_atomic_bool_compare_exchange_weak(SyAtomicBool* self, bool* expected, bo
 void sy_thread_yield(void) {
 #if defined(_WIN32)
     (void)SwitchToThread();
+#elif defined(__EMSCRIPTEN__)
+    __sync_synchronize();
 #elif defined(__unix__) || defined(__APPLE__)
     (void)sched_yield();
 #elif defined(__x86_64__)
