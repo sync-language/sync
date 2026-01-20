@@ -57,10 +57,16 @@ void sy::IAllocator::freeImpl(IAllocator* self, void* buf, size_t len, size_t al
 }
 
 sy::Allocator::Allocator() {
+    (void)fprintf(stderr, "[ALLOCATOR DEBUG] Allocator() constructor start\n");
+    (void)fflush(stderr);
     static_assert(offsetof(Allocator, ptr_) == offsetof(SyAllocator, ptr));
     static_assert(offsetof(Allocator, vtable_) == offsetof(SyAllocator, vtable));
 
+    (void)fprintf(stderr, "[ALLOCATOR DEBUG] About to dereference sy_defaultAllocator\n");
+    (void)fflush(stderr);
     *this = *reinterpret_cast<Allocator*>(sy_defaultAllocator);
+    (void)fprintf(stderr, "[ALLOCATOR DEBUG] Allocator() constructor done\n");
+    (void)fflush(stderr);
 }
 
 void* sy::Allocator::allocImpl(size_t len, size_t align) noexcept {
