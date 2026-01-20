@@ -64,19 +64,28 @@ static void deleteImpl(void* impl) noexcept {
 }
 
 Result<Compiler, AllocErr> Compiler::create(Allocator alloc) noexcept {
+    std::cerr << "[TEST DEBUG] INSIDE Compiler::create()" << std::endl;
     CompilerImpl* impl;
     {
+        std::cerr << "[TEST DEBUG] Compiler::create() before alloc" << std::endl;
         auto implAllocResult = alloc.allocObject<CompilerImpl>();
+        std::cerr << "[TEST DEBUG] Compiler::create() after alloc" << std::endl;
         if (implAllocResult.hasErr()) {
+            std::cerr << "[TEST DEBUG] Compiler::create() OOM" << std::endl;
             return Error(AllocErr::OutOfMemory);
         }
+        std::cerr << "[TEST DEBUG] Compiler::create() has mem" << std::endl;
         impl = implAllocResult.value();
+        std::cerr << "[TEST DEBUG] Compiler::create() val" << std::endl;
         new (impl) CompilerImpl();
+        std::cerr << "[TEST DEBUG] Compiler::create() placement new" << std::endl;
         impl->alloc = alloc;
+        std::cerr << "[TEST DEBUG] Compiler::create() assign" << std::endl;
     }
 
     Compiler self{};
     self.inner_ = reinterpret_cast<void*>(impl);
+    std::cerr << "[TEST DEBUG] Compiler::create() done" << std::endl;
     return self;
 }
 
