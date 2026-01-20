@@ -1,5 +1,6 @@
 #if SYNC_LIB_WITH_TESTS
 
+#define DOCTEST_CONFIG_NO_POSIX_SIGNALS
 #define DOCTEST_CONFIG_IMPLEMENT
 #include "test_runner.h"
 #include "../src/doctest.h"
