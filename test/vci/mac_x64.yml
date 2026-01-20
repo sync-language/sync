@@ -3,7 +3,7 @@ macos-x64:
     uefi:
         code: ~/vm/macos/OVMF_CODE.fd
         vars: ~/vm/macos/OVMF_VARS-1920x1080.fd
-    cpu_model: "Haswell-v2,vendor=GenuineIntel,vmware-cpuid-freq=on"
+    cpu_model: "Nehalem,vendor=GenuineIntel"
     additional_drives:
     - "id=BootLoader,if=none,format=qcow2,file=~/vm/macos/OpenCore.qcow2"
     additional_devices:
