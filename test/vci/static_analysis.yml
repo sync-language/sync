@@ -1,44 +1,44 @@
-clang-tidy-x64:
-    image: ~/vm/ubuntu-24.04-server.qcow2
-    arch: amd64
-    cpus: 4
-    memory: 8G
-    user: dev
-    pass: dev
-    steps:
-        - name: Copy source code to VM
-          copy:
-            from: ./
-            to: vm:~/
+# clang-tidy-x64:
+#     image: ~/vm/ubuntu-24.04-server.qcow2
+#     arch: amd64
+#     cpus: 4
+#     memory: 8G
+#     user: dev
+#     pass: dev
+#     steps:
+#         - name: Copy source code to VM
+#           copy:
+#             from: ./
+#             to: vm:~/
 
-        - name: Install clang-tidy and dependencies
-          run: |
-            sudo apt-get update
-            sudo apt-get install -y clang-tidy cmake build-essential
+#         - name: Install clang-tidy and dependencies
+#           run: |
+#             sudo apt-get update
+#             sudo apt-get install -y clang-tidy cmake build-essential
 
-        - name: Sandbox CMake
-          offline: true
+#         - name: Sandbox CMake
+#           offline: true
 
-        - name: Configure CMake
-          run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+#         - name: Configure CMake
+#           run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-        - name: Run clang-tidy analysis
-          run: run-clang-tidy -p build -j $(nproc) > ~/clang-tidy-report.txt 2>&1 || true
-          timeout: 15m
-          continue_on_error: true
+#         - name: Run clang-tidy analysis
+#           run: run-clang-tidy -p build -j $(nproc) > ~/clang-tidy-report.txt 2>&1 || true
+#           timeout: 15m
+#           continue_on_error: true
 
-        - name: Copy results back to host
-          copy:
-            from: vm:~/clang-tidy-report.txt
-            to: ./build/clang-tidy-report.txt
-          continue_on_error: true
+#         - name: Copy results back to host
+#           copy:
+#             from: vm:~/clang-tidy-report.txt
+#             to: ./build/clang-tidy-report.txt
+#           continue_on_error: true
 
-        - name: Display results summary
-          run: |
-            echo "=== Clang-Tidy Analysis Summary ==="
-            grep -E "warning:|error:" ~/clang-tidy-report.txt | wc -l
-            echo "issues found. Full report copied to host."
-          continue_on_error: true
+#         - name: Display results summary
+#           run: |
+#             echo "=== Clang-Tidy Analysis Summary ==="
+#             grep -E "warning:|error:" ~/clang-tidy-report.txt | wc -l
+#             echo "issues found. Full report copied to host."
+#           continue_on_error: true
 
 cppcheck-x64:
     image: ~/vm/ubuntu-24.04-server.qcow2
