@@ -6794,6 +6794,8 @@ public:
 int Context::run() {
     using namespace detail;
 
+    std::cerr << "[DEBUG] Context::run() started" << std::endl;
+
     // save the old context state in case such was setup - for using asserts out of a testing context
     auto old_cs = g_cs;
     // this is the current contest
@@ -6802,6 +6804,8 @@ int Context::run() {
 
     g_no_colors = p->no_colors;
     p->resetRunData();
+
+    std::cerr << "[DEBUG] resetRunData() done" << std::endl;
 
     std::fstream fstr;
     if(p->cout == nullptr) {
@@ -6871,10 +6875,12 @@ int Context::run() {
         return cleanup_and_return();
     }
 
+    std::cerr << "[DEBUG] About to get registered tests" << std::endl;
     std::vector<const TestCase*> testArray;
     for(auto& curr : getRegisteredTests())
         testArray.push_back(&curr);
     p->numTestCases = testArray.size();
+    std::cerr << "[DEBUG] Got " << testArray.size() << " tests" << std::endl;
 
     // sort the collected records
     if(!testArray.empty()) {
@@ -6908,8 +6914,11 @@ int Context::run() {
     bool                             query_mode = p->count || p->list_test_cases || p->list_test_suites;
     std::vector<const TestCaseData*> queryResults;
 
-    if(!query_mode)
+    if(!query_mode) {
+        std::cerr << "[DEBUG] About to call test_run_start" << std::endl;
         DOCTEST_ITERATE_THROUGH_REPORTERS(test_run_start, DOCTEST_EMPTY);
+        std::cerr << "[DEBUG] test_run_start completed" << std::endl;
+    }
 
     // invoke the registered functions if they match the filter criteria (or just count them)
     for(auto& curr : testArray) {
