@@ -358,10 +358,8 @@ bool sy_atomic_bool_compare_exchange_weak(SyAtomicBool* self, bool* expected, bo
 void sy_thread_yield(void) {
 #if defined(_WIN32)
     (void)SwitchToThread();
-#elif defined(_POSIX_VERSION)
-#if __has_include(<sched.h>)
+#elif defined(__unix__) || defined(__APPLE__)
     (void)sched_yield();
-#endif
 #elif defined(__x86_64__)
     _mm_pause();
 #elif defined(__aarch64__)
@@ -369,7 +367,9 @@ void sy_thread_yield(void) {
 #elif defined(__riscv)
     __builtin_riscv_pause();
 #else
-// idk man
+#if __has_include(<sched.h>)
+    (void)sched_yield();
+#endif
 #endif
 }
 #endif // SYNC_CUSTOM_THREAD_YIELD
