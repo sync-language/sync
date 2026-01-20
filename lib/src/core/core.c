@@ -80,15 +80,23 @@ SY_API void sy_set_write_string_error(void (*writeStrErr)(const char* message)) 
 
 #ifndef SYNC_CUSTOM_ALIGNED_MALLOC_FREE
 void* sy_aligned_malloc(size_t len, size_t align) {
+    (void)fprintf(stderr, "sy_aligned_malloc\n");
+    (void)fflush(stderr);
     sy_assert_release((align & (align - 1)) == 0, "[sy_aligned_malloc] align is not a power of 2");
     sy_assert_release((len % align) == 0, "[sy_aligned_malloc] len must be multiple of align");
 #if defined(_WIN32)
     return _aligned_malloc(len, align);
 #elif defined(__unix__) || defined(__APPLE__)
     void* ptr = NULL;
+    (void)fprintf(stderr, "about to call posix_memalign\n");
+    (void)fflush(stderr);
     if (posix_memalign(&ptr, align, len) != 0) {
+        (void)fprintf(stderr, "posix_memalign NULL\n");
+        (void)fflush(stderr);
         return NULL;
     }
+    (void)fprintf(stderr, "posix_memalign good\n");
+    (void)fflush(stderr);
     return ptr;
 #else
     return aligned_alloc(align, len);
