@@ -317,10 +317,12 @@ set(SYNC_LIB_TESTS_SOURCES
 
 add_executable(SyncLibTests ${SYNC_LIB_TESTS_SOURCES})
 target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS=1)
+target_compile_definitions(SyncLibTests PRIVATE DOCTEST_CONFIG_NO_POSIX_SIGNALS)
 add_sync_test_flags(SyncLibTests ${SYNC_LIB_ASAN} TRUE FALSE)
 if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
     add_executable(SyncLibTests_ThreadSanitizer ${SYNC_LIB_TESTS_SOURCES})
     target_compile_definitions(SyncLibTests_ThreadSanitizer PRIVATE SYNC_LIB_WITH_TESTS=1)
+    target_compile_definitions(SyncLibTests_ThreadSanitizer PRIVATE DOCTEST_CONFIG_NO_POSIX_SIGNALS)
     add_sync_test_flags(SyncLibTests_ThreadSanitizer TRUE TRUE FALSE) 
 endif()
 
