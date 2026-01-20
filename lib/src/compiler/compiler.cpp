@@ -582,8 +582,11 @@ Result<Module*, AllocErr> Module::create(Allocator& alloc, StringSlice inName, S
 #include "../doctest.h"
 
 TEST_CASE("[Compiler] empty compiler") {
+    std::cerr << "[TEST DEBUG] Before Compiler::create()" << std::endl;
     Compiler c = Compiler::create().takeValue();
+    std::cerr << "[TEST DEBUG] After Compiler::create(), before destructor" << std::endl;
     (void)c;
+    std::cerr << "[TEST DEBUG] Test ending, destructor will run" << std::endl;
 }
 
 TEST_CASE("[Compiler] addOrGetModule empty module") {

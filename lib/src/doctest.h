@@ -6924,10 +6924,10 @@ int Context::run() {
 #ifndef DOCTEST_CONFIG_NO_EXCEPTIONS
                 try {
 #endif // DOCTEST_CONFIG_NO_EXCEPTIONS
-                    // MSVC 2015 diagnoses fatalConditionHandler as unused (because reset() is a static method)
+       // MSVC 2015 diagnoses fatalConditionHandler as unused (because reset() is a static method)
                     DOCTEST_MSVC_SUPPRESS_WARNING_WITH_PUSH(4101) // unreferenced local variable
                     std::cerr << "[DEBUG] Creating FatalConditionHandler" << std::endl;
-                    FatalConditionHandler fatalConditionHandler;  // Handle signals
+                    FatalConditionHandler fatalConditionHandler; // Handle signals
                     std::cerr << "[DEBUG] Calling test function: " << tc.m_name << std::endl;
                     // execute the test
                     tc.m_test();
