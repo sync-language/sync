@@ -94,6 +94,10 @@ else()
 endif()
 target_include_directories(SyncLib INTERFACE "include")
 
+if(SYNC_LIB_WITH_TESTS)
+    target_compile_definitions(SyncLib PRIVATE DOCTEST_CONFIG_NO_POSIX_SIGNALS)
+endif()
+
 if(NOT DEFINED CMAKE_CXX_STANDARD)
     if(EMSCRIPTEN)
         message(STATUS "Using C++23 for Emscripten") # __COUNTER__ for doctest
