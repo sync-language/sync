@@ -6932,7 +6932,9 @@ int Context::run() {
                     // execute the test
                     tc.m_test();
                     std::cerr << "[DEBUG] Test function returned: " << tc.m_name << std::endl;
+                    std::cerr << "[DEBUG] About to reset fatalConditionHandler" << std::endl;
                     fatalConditionHandler.reset();
+                    std::cerr << "[DEBUG] FatalConditionHandler reset done" << std::endl;
                     DOCTEST_MSVC_SUPPRESS_WARNING_POP
 #ifndef DOCTEST_CONFIG_NO_EXCEPTIONS
                 } catch (const TestFailureException&) {
@@ -6956,11 +6958,15 @@ int Context::run() {
                     run_test = false;
             } while (run_test);
 
+            std::cerr << "[DEBUG] About to finalize test case data" << std::endl;
             p->finalizeTestCaseData();
+            std::cerr << "[DEBUG] Finalized, calling test_case_end" << std::endl;
 
             DOCTEST_ITERATE_THROUGH_REPORTERS(test_case_end, *g_cs);
+            std::cerr << "[DEBUG] test_case_end done" << std::endl;
 
             p->currentTest = nullptr;
+            std::cerr << "[DEBUG] Cleared currentTest, moving to next test" << std::endl;
 
             // stop executing tests if enough assertions have failed
             if (p->abort_after > 0 && p->numAssertsFailed >= p->abort_after)
