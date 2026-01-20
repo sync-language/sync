@@ -1,5 +1,9 @@
 #if SYNC_LIB_WITH_TESTS
 
+// gettimeofday() hangs on macOS QEMU x64
+#ifndef DOCTEST_CONFIG_NO_TIME_IN_OUTPUT
+#define DOCTEST_CONFIG_NO_TIME_IN_OUTPUT
+#endif
 // #define DOCTEST_CONFIG_NO_POSIX_SIGNALS redefine issue
 #define DOCTEST_CONFIG_IMPLEMENT
 #include "test_runner.h"
