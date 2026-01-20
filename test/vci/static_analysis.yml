@@ -1,8 +1,8 @@
 clang-tidy-x64:
     image: ~/vm/ubuntu-24.04-server.qcow2
     arch: amd64
-    cpus: 2
-    memory: 6G
+    cpus: 4
+    memory: 8G
     user: dev
     pass: dev
     steps:
@@ -23,8 +23,7 @@ clang-tidy-x64:
           run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
         - name: Run clang-tidy analysis
-          run: |
-            find -name '*.cpp' -o -name '*.c' | xargs clang-tidy -p build > ~/clang-tidy-report.txt 2>&1 || true
+          run: run-clang-tidy -p build -j $(nproc) > ~/clang-tidy-report.txt 2>&1 || true
           timeout: 15m
           continue_on_error: true
 
