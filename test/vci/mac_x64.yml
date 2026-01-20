@@ -35,5 +35,5 @@ macos-x64:
       run: cmake --build build
 
     - name: Run CTest
-      run: ./build/test/SyncLibTests  --list-test-cases
+      run: ./build/test/SyncLibTests --duration=true -s
       # ctest --test-dir build --output-on-failure

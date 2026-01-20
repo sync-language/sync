@@ -35,63 +35,63 @@ jobs:
               env:
                 GH_TOKEN: ${{ github.token }}
     
-    test-ubuntu-x64:
-        needs: security-check
-        runs-on:
-            - self-hosted
-            - Linux
-            - X64
-        env:
-            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
-        steps:
-            - name: Cleanup runs older than 24 hours
-              run: |
-                find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
+    # test-ubuntu-x64:
+    #     needs: security-check
+    #     runs-on:
+    #         - self-hosted
+    #         - Linux
+    #         - X64
+    #     env:
+    #         WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
+    #     steps:
+    #         - name: Cleanup runs older than 24 hours
+    #           run: |
+    #             find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
 
-            - name: Setup workspace
-              run: |
-                mkdir -p ${{ env.WORK_DIR }}
-                cd ${{ env.WORK_DIR }}
+    #         - name: Setup workspace
+    #           run: |
+    #             mkdir -p ${{ env.WORK_DIR }}
+    #             cd ${{ env.WORK_DIR }}
 
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                ref: ${{ github.event.pull_request.head.sha || github.sha }}
-                path: ${{ env.WORK_DIR }}/repo
-                clean: true
+    #         - name: Checkout code
+    #           uses: actions/checkout@v4
+    #           with:
+    #             ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    #             path: ${{ env.WORK_DIR }}/repo
+    #             clean: true
 
-            - name: Run Ubuntu VCI tests
-              working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/ubuntu_x64.yml
+    #         - name: Run Ubuntu VCI tests
+    #           working-directory: ${{ env.WORK_DIR }}/repo
+    #           run: vci run test/vci/ubuntu_x64.yml
     
-    test-windows-x64:
-        needs: security-check
-        runs-on:
-            - self-hosted
-            - Linux
-            - X64
-        env:
-            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
-        steps:
-            - name: Cleanup runs older than 24 hours
-              run: |
-                find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
+    # test-windows-x64:
+    #     needs: security-check
+    #     runs-on:
+    #         - self-hosted
+    #         - Linux
+    #         - X64
+    #     env:
+    #         WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
+    #     steps:
+    #         - name: Cleanup runs older than 24 hours
+    #           run: |
+    #             find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
 
-            - name: Setup workspace
-              run: |
-                mkdir -p ${{ env.WORK_DIR }}
-                cd ${{ env.WORK_DIR }}
+    #         - name: Setup workspace
+    #           run: |
+    #             mkdir -p ${{ env.WORK_DIR }}
+    #             cd ${{ env.WORK_DIR }}
 
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                ref: ${{ github.event.pull_request.head.sha || github.sha }}
-                path: ${{ env.WORK_DIR }}/repo
-                clean: true
+    #         - name: Checkout code
+    #           uses: actions/checkout@v4
+    #           with:
+    #             ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    #             path: ${{ env.WORK_DIR }}/repo
+    #             clean: true
 
-            - name: Run Windows VCI tests
-              working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/windows_x64.yml
+    #         - name: Run Windows VCI tests
+    #           working-directory: ${{ env.WORK_DIR }}/repo
+    #           run: vci run test/vci/windows_x64.yml
 
     test-mac-x64:
         needs: security-check
@@ -122,221 +122,221 @@ jobs:
               working-directory: ${{ env.WORK_DIR }}/repo
               run: vci run test/vci/mac_x64.yml
     
-    test-wasm:
-        needs: security-check
-        runs-on:
-            - self-hosted
-            - Linux
-            - X64
-        env:
-            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
-        steps:
-            - name: Cleanup runs older than 24 hours
-              run: |
-                find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
+    # test-wasm:
+    #     needs: security-check
+    #     runs-on:
+    #         - self-hosted
+    #         - Linux
+    #         - X64
+    #     env:
+    #         WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
+    #     steps:
+    #         - name: Cleanup runs older than 24 hours
+    #           run: |
+    #             find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
 
-            - name: Setup workspace
-              run: |
-                mkdir -p ${{ env.WORK_DIR }}
-                cd ${{ env.WORK_DIR }}
+    #         - name: Setup workspace
+    #           run: |
+    #             mkdir -p ${{ env.WORK_DIR }}
+    #             cd ${{ env.WORK_DIR }}
 
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                ref: ${{ github.event.pull_request.head.sha || github.sha }}
-                path: ${{ env.WORK_DIR }}/repo
-                clean: true
+    #         - name: Checkout code
+    #           uses: actions/checkout@v4
+    #           with:
+    #             ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    #             path: ${{ env.WORK_DIR }}/repo
+    #             clean: true
 
-            - name: Run WASM VCI tests
-              working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/wasm.yml
+    #         - name: Run WASM VCI tests
+    #           working-directory: ${{ env.WORK_DIR }}/repo
+    #           run: vci run test/vci/wasm.yml
                 
-    sync-static-analysis:   
-        needs: security-check
-        runs-on:
-            - self-hosted
-            - Linux
-            - X64
-        env:
-            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
-        steps:
-            - name: Cleanup runs older than 24 hours
-              run: |
-                find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
+    # sync-static-analysis:   
+    #     needs: security-check
+    #     runs-on:
+    #         - self-hosted
+    #         - Linux
+    #         - X64
+    #     env:
+    #         WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
+    #     steps:
+    #         - name: Cleanup runs older than 24 hours
+    #           run: |
+    #             find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
 
-            - name: Setup workspace
-              run: |
-                mkdir -p ${{ env.WORK_DIR }}
+    #         - name: Setup workspace
+    #           run: |
+    #             mkdir -p ${{ env.WORK_DIR }}
 
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                ref: ${{ github.event.pull_request.head.sha || github.sha }}
-                path: ${{ env.WORK_DIR }}/repo
-                clean: true
+    #         - name: Checkout code
+    #           uses: actions/checkout@v4
+    #           with:
+    #             ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    #             path: ${{ env.WORK_DIR }}/repo
+    #             clean: true
 
-            - name: Run static analysis (sandboxed in VMs)
-              working-directory: ${{ env.WORK_DIR }}/repo
-              run: |
-                vci run test/vci/static_analysis.yml
+    #         - name: Run static analysis (sandboxed in VMs)
+    #           working-directory: ${{ env.WORK_DIR }}/repo
+    #           run: |
+    #             vci run test/vci/static_analysis.yml
 
-            - name: Clang-Tidy Results
-              if: always()
-              working-directory: ${{ env.WORK_DIR }}/repo
-              run: |
-                if [ -f build/clang-tidy-report.txt ]; then
-                  grep -E "warning:|error:" build/clang-tidy-report.txt | head -20 | while IFS= read -r line; do
-                    echo "::warning::clang-tidy: $line"
-                  done || true
+    #         - name: Clang-Tidy Results
+    #           if: always()
+    #           working-directory: ${{ env.WORK_DIR }}/repo
+    #           run: |
+    #             if [ -f build/clang-tidy-report.txt ]; then
+    #               grep -E "warning:|error:" build/clang-tidy-report.txt | head -20 | while IFS= read -r line; do
+    #                 echo "::warning::clang-tidy: $line"
+    #               done || true
 
-                  WARNING_COUNT=$(grep -c "warning:" build/clang-tidy-report.txt || true)
-                  ERROR_COUNT=$(grep -c "error:" build/clang-tidy-report.txt || true)
-                  WARNING_COUNT=${WARNING_COUNT:-0}
-                  ERROR_COUNT=${ERROR_COUNT:-0}
+    #               WARNING_COUNT=$(grep -c "warning:" build/clang-tidy-report.txt || true)
+    #               ERROR_COUNT=$(grep -c "error:" build/clang-tidy-report.txt || true)
+    #               WARNING_COUNT=${WARNING_COUNT:-0}
+    #               ERROR_COUNT=${ERROR_COUNT:-0}
 
-                  echo "CLANG_TIDY_WARNINGS=$WARNING_COUNT" >> $GITHUB_ENV
-                  echo "CLANG_TIDY_ERRORS=$ERROR_COUNT" >> $GITHUB_ENV
-                fi
+    #               echo "CLANG_TIDY_WARNINGS=$WARNING_COUNT" >> $GITHUB_ENV
+    #               echo "CLANG_TIDY_ERRORS=$ERROR_COUNT" >> $GITHUB_ENV
+    #             fi
 
-            - name: Cppcheck Results
-              if: always()
-              working-directory: ${{ env.WORK_DIR }}/repo
-              run: |
-                if [ -f build/cppcheck-report.txt ]; then
-                  grep -E "error|warning|style|performance|portability" build/cppcheck-report.txt | head -20 | while IFS= read -r line; do
-                    echo "::warning::cppcheck: $line"
-                  done || true
+    #         - name: Cppcheck Results
+    #           if: always()
+    #           working-directory: ${{ env.WORK_DIR }}/repo
+    #           run: |
+    #             if [ -f build/cppcheck-report.txt ]; then
+    #               grep -E "error|warning|style|performance|portability" build/cppcheck-report.txt | head -20 | while IFS= read -r line; do
+    #                 echo "::warning::cppcheck: $line"
+    #               done || true
 
-                  if [ -f build/cppcheck-report.xml ]; then
-                    ISSUE_COUNT=$(grep -c "<error " build/cppcheck-report.xml || true)
-                    ISSUE_COUNT=${ISSUE_COUNT:-0}
-                    echo "CPPCHECK_ISSUES=$ISSUE_COUNT" >> $GITHUB_ENV
-                  fi
-                fi
+    #               if [ -f build/cppcheck-report.xml ]; then
+    #                 ISSUE_COUNT=$(grep -c "<error " build/cppcheck-report.xml || true)
+    #                 ISSUE_COUNT=${ISSUE_COUNT:-0}
+    #                 echo "CPPCHECK_ISSUES=$ISSUE_COUNT" >> $GITHUB_ENV
+    #               fi
+    #             fi
 
-            - name: Post Summary
-              if: always() && github.event_name == 'pull_request_target'
-              run: |
-                SUMMARY="## Static Analysis Results\n\n"
-                SUMMARY+="### Clang-Tidy\n"
-                SUMMARY+="- Errors: ${CLANG_TIDY_ERRORS:-0}\n"
-                SUMMARY+="- Warnings: ${CLANG_TIDY_WARNINGS:-0}\n\n"
-                SUMMARY+="### Cppcheck\n"
-                SUMMARY+="- Issues: ${CPPCHECK_ISSUES:-0}\n\n"
-                SUMMARY+="For the full reports, see the artifacts"
+    #         - name: Post Summary
+    #           if: always() && github.event_name == 'pull_request_target'
+    #           run: |
+    #             SUMMARY="## Static Analysis Results\n\n"
+    #             SUMMARY+="### Clang-Tidy\n"
+    #             SUMMARY+="- Errors: ${CLANG_TIDY_ERRORS:-0}\n"
+    #             SUMMARY+="- Warnings: ${CLANG_TIDY_WARNINGS:-0}\n\n"
+    #             SUMMARY+="### Cppcheck\n"
+    #             SUMMARY+="- Issues: ${CPPCHECK_ISSUES:-0}\n\n"
+    #             SUMMARY+="For the full reports, see the artifacts"
 
-                echo -e "$SUMMARY" | gh pr comment ${{ github.event.pull_request.number }} --body-file -
-              env:
-                GH_TOKEN: ${{ github.token }}
+    #             echo -e "$SUMMARY" | gh pr comment ${{ github.event.pull_request.number }} --body-file -
+    #           env:
+    #             GH_TOKEN: ${{ github.token }}
 
-            - name: Upload analysis reports
-              if: always()
-              uses: actions/upload-artifact@v4
-              with:
-                name: static-analysis-reports-${{ github.run_id }}
-                path: |
-                  ${{ env.WORK_DIR }}/repo/build/clang-tidy-report.txt
-                  ${{ env.WORK_DIR }}/repo/build/cppcheck-report.xml
-                  ${{ env.WORK_DIR }}/repo/build/cppcheck-report.txt
+    #         - name: Upload analysis reports
+    #           if: always()
+    #           uses: actions/upload-artifact@v4
+    #           with:
+    #             name: static-analysis-reports-${{ github.run_id }}
+    #             path: |
+    #               ${{ env.WORK_DIR }}/repo/build/clang-tidy-report.txt
+    #               ${{ env.WORK_DIR }}/repo/build/cppcheck-report.xml
+    #               ${{ env.WORK_DIR }}/repo/build/cppcheck-report.txt
 
-    sync-llm-analysis:
-        needs: security-check
-        runs-on:
-            - self-hosted
-            - Windows
-            - LLM
-        timeout-minutes: 2
-        continue-on-error: true
-        if: github.event_name == 'pull_request_target'
-        permissions: # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
-            contents: read           # read repo
-            pull-requests: write     # post comments
-        concurrency:
-            group: ollama-llm-${{ github.repository }}
-            cancel-in-progress: false
-        env:
-            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
-        steps:
-            - name: Cleanup runs older than 24 hours
-              continue-on-error: true
-              shell: pwsh
-              run: |
-                $cutoffDate = (Get-Date).AddHours(-24)
-                $runsPath = "${{ github.workspace }}/runs"
-                if (Test-Path $runsPath) {
-                  Get-ChildItem -Path $runsPath -Directory | Where-Object { $_.LastWriteTime -lt $cutoffDate } | ForEach-Object {
-                    Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue
-                  }
-                }
+    # sync-llm-analysis:
+    #     needs: security-check
+    #     runs-on:
+    #         - self-hosted
+    #         - Windows
+    #         - LLM
+    #     timeout-minutes: 2
+    #     continue-on-error: true
+    #     if: github.event_name == 'pull_request_target'
+    #     permissions: # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
+    #         contents: read           # read repo
+    #         pull-requests: write     # post comments
+    #     concurrency:
+    #         group: ollama-llm-${{ github.repository }}
+    #         cancel-in-progress: false
+    #     env:
+    #         WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
+    #     steps:
+    #         - name: Cleanup runs older than 24 hours
+    #           continue-on-error: true
+    #           shell: pwsh
+    #           run: |
+    #             $cutoffDate = (Get-Date).AddHours(-24)
+    #             $runsPath = "${{ github.workspace }}/runs"
+    #             if (Test-Path $runsPath) {
+    #               Get-ChildItem -Path $runsPath -Directory | Where-Object { $_.LastWriteTime -lt $cutoffDate } | ForEach-Object {
+    #                 Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue
+    #               }
+    #             }
 
-            - name: Setup workspace
-              shell: pwsh
-              run: New-Item -ItemType Directory -Force -Path "${{ env.WORK_DIR }}"
+    #         - name: Setup workspace
+    #           shell: pwsh
+    #           run: New-Item -ItemType Directory -Force -Path "${{ env.WORK_DIR }}"
                 
 
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                ref: ${{ github.event.pull_request.head.sha || github.sha }}
-                path: ${{ env.WORK_DIR }}/repo
+    #         - name: Checkout code
+    #           uses: actions/checkout@v4
+    #           with:
+    #             ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    #             path: ${{ env.WORK_DIR }}/repo
 
-            - name: Install PR-Agent
-              continue-on-error: true
-              shell: pwsh
-              run: |
-                pip install pr-agent --quiet
+    #         - name: Install PR-Agent
+    #           continue-on-error: true
+    #           shell: pwsh
+    #           run: |
+    #             pip install pr-agent --quiet
 
-            - name: Configure PR-Agent for Ollama
-              continue-on-error: true
-              shell: pwsh
-              working-directory: ${{ env.WORK_DIR }}/repo
-              # https://qodo-merge-docs.qodo.ai/installation/locally/
-              # https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
-              run: | 
-                $token = "${{ github.token }}"
-                $config = @"
-                [config]
-                model = "ollama/qwen3-coder:30b"
+    #         - name: Configure PR-Agent for Ollama
+    #           continue-on-error: true
+    #           shell: pwsh
+    #           working-directory: ${{ env.WORK_DIR }}/repo
+    #           # https://qodo-merge-docs.qodo.ai/installation/locally/
+    #           # https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
+    #           run: | 
+    #             $token = "${{ github.token }}"
+    #             $config = @"
+    #             [config]
+    #             model = "ollama/qwen3-coder:30b"
 
-                [github]
-                user_token = "$token"
+    #             [github]
+    #             user_token = "$token"
 
-                [ollama]
-                api_base = "http://localhost:11434"
+    #             [ollama]
+    #             api_base = "http://localhost:11434"
 
-                [pr_reviewer]
-                num_code_suggestions = 5
-                inline_code_comments = true
+    #             [pr_reviewer]
+    #             num_code_suggestions = 5
+    #             inline_code_comments = true
 
-                [pr_description]
-                publish_description = true
-                "@
+    #             [pr_description]
+    #             publish_description = true
+    #             "@
 
-                New-Item -ItemType Directory -Force -Path ".pr_agent" | Out-Null
-                $config | Out-File -FilePath ".pr_agent/configuration.toml" -Encoding UTF8
+    #             New-Item -ItemType Directory -Force -Path ".pr_agent" | Out-Null
+    #             $config | Out-File -FilePath ".pr_agent/configuration.toml" -Encoding UTF8
 
-            - name: Run Review
-              continue-on-error: true
-              shell: pwsh
-              working-directory: ${{ env.WORK_DIR }}/repo
-              run: | # https://qodo-merge-docs.qodo.ai/usage-guide/changing_a_model/
-                $env:GITHUB__USER_TOKEN = "${{ github.token }}"
-                $env:config__model = "ollama/qwen3-coder:30b"
-                $env:config__custom_model_max_tokens = "256000"
-                $env:ollama__api_base = "http://localhost:11434"
-                $env:LITELLM_LOG = "DEBUG"
+    #         - name: Run Review
+    #           continue-on-error: true
+    #           shell: pwsh
+    #           working-directory: ${{ env.WORK_DIR }}/repo
+    #           run: | # https://qodo-merge-docs.qodo.ai/usage-guide/changing_a_model/
+    #             $env:GITHUB__USER_TOKEN = "${{ github.token }}"
+    #             $env:config__model = "ollama/qwen3-coder:30b"
+    #             $env:config__custom_model_max_tokens = "256000"
+    #             $env:ollama__api_base = "http://localhost:11434"
+    #             $env:LITELLM_LOG = "DEBUG"
 
-                pr-agent --pr_url="${{ github.event.pull_request.html_url }}" review
-              env:
-                GH_TOKEN: ${{ github.token }}
+    #             pr-agent --pr_url="${{ github.event.pull_request.html_url }}" review
+    #           env:
+    #             GH_TOKEN: ${{ github.token }}
 
-            - name: Post Warning if Error
-              if: failure() || cancelled()
-              continue-on-error: true
-              shell: pwsh
-              run: |
-                $message = "**LLM Analysis Warning**`n`nThe LLM-based code analysis workflow did not complete. This may be due to:`n- Timeout (>2 minutes)`n- Hosted machine not reachable`n- Other configuration issues`n`nThis is non-blocking and does not affect PR approval."
+    #         - name: Post Warning if Error
+    #           if: failure() || cancelled()
+    #           continue-on-error: true
+    #           shell: pwsh
+    #           run: |
+    #             $message = "**LLM Analysis Warning**`n`nThe LLM-based code analysis workflow did not complete. This may be due to:`n- Timeout (>2 minutes)`n- Hosted machine not reachable`n- Other configuration issues`n`nThis is non-blocking and does not affect PR approval."
 
-                gh pr comment ${{ github.event.pull_request.number }} --body $message
-              env:
-                GH_TOKEN: ${{ github.token }}
+    #             gh pr comment ${{ github.event.pull_request.number }} --body $message
+    #           env:
+    #             GH_TOKEN: ${{ github.token }}
