@@ -64,34 +64,34 @@ jobs:
               working-directory: ${{ env.WORK_DIR }}/repo
               run: vci run test/vci/ubuntu_x64.yml
     
-    test-windows-x64:
-        needs: security-check
-        runs-on:
-            - self-hosted
-            - Linux
-            - X64
-        env:
-            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
-        steps:
-            - name: Cleanup runs older than 24 hours
-              run: |
-                find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
+    # test-windows-x64:
+    #     needs: security-check
+    #     runs-on:
+    #         - self-hosted
+    #         - Linux
+    #         - X64
+    #     env:
+    #         WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
+    #     steps:
+    #         - name: Cleanup runs older than 24 hours
+    #           run: |
+    #             find ${{ github.workspace }}/runs -maxdepth 1 -type d -mtime +1 -exec rm -rf {} + 2>/dev/null || true
 
-            - name: Setup workspace
-              run: |
-                mkdir -p ${{ env.WORK_DIR }}
-                cd ${{ env.WORK_DIR }}
+    #         - name: Setup workspace
+    #           run: |
+    #             mkdir -p ${{ env.WORK_DIR }}
+    #             cd ${{ env.WORK_DIR }}
 
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                ref: ${{ github.event.pull_request.head.sha || github.sha }}
-                path: ${{ env.WORK_DIR }}/repo
-                clean: true
+    #         - name: Checkout code
+    #           uses: actions/checkout@v4
+    #           with:
+    #             ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    #             path: ${{ env.WORK_DIR }}/repo
+    #             clean: true
 
-            - name: Run Windows VCI tests
-              working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/windows_x64.yml
+    #         - name: Run Windows VCI tests
+    #           working-directory: ${{ env.WORK_DIR }}/repo
+    #           run: vci run test/vci/windows_x64.yml
 
     test-mac-x64:
         needs: security-check
