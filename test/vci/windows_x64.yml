@@ -13,7 +13,7 @@ windows-x64:
         - name: Copy Files
           copy:
             from: ./
-            to: vm:C:\Users\Administrator
+            to: vm:C:\Users\dev
             exclude:
               - .git
               - .github
