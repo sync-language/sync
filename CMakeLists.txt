@@ -18,6 +18,7 @@ option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON
 option(SYNC_LIB_CODE_COVERAGE "Enable code coverage" OFF)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" OFF)
 option(SYNC_LIB_TSAN "Use compiler specific thread sanitizing" OFF)
+option(SYNC_LIB_UBSAN "Use compiler specific undefined sanitizing" OFF)
 option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
 option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" OFF)
 option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" OFF)
