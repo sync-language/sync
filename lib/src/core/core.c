@@ -115,12 +115,13 @@ void sy_aligned_free(void* mem, size_t len, size_t align) {
 #include <malloc.h>
 #include <memoryapi.h>
 // clang-format on
-#elif __GNUC__
+#endif // WIN32
+#if __GNUC__
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#endif // WIN32 / GNUC
+#endif // GNUC
 #endif // SYNC_NO_PAGES
 
 void* sy_page_malloc(size_t len) {
@@ -893,14 +894,12 @@ void print_windows_callstack(void) {
     syncWriteStringError("Stack trace (most recent call first):");
 
     HANDLE process = GetCurrentProcess();
-    bool loadedSymbols = true;
 
     // SymInitialize is intended to be called once.
     // TODO is this fine in this context?
     SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
     if (!SymInitialize(process, NULL, TRUE)) {
         syncWriteStringError("failed to initialize symbol handler");
-        loadedSymbols = false;
     }
 
     void* stack[DEFAULT_BACKTRACE_DEPTH];
