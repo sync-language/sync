@@ -823,7 +823,7 @@ bool sy_relative_to_absolute_path(const char* relativePath, size_t relativePathL
     relative[relativePathLen] = '\0';
 #if defined(_WIN32)
     // TODO symlink?
-    if (GetFullPathNameA(relativePath, MAX_PATH, absolute, NULL) == 0) {
+    if (GetFullPathNameA(relative, MAX_PATH, absolute, NULL) == 0) {
         return false;
     }
 #else
