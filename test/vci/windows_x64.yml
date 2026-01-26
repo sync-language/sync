@@ -34,6 +34,9 @@ windows-x64:
         - name: Run CTest Visual Studio
           run: ctest --test-dir build-vs --output-on-failure -C Debug
 
+        - name: MinGW Online Fetch
+          offline: false
+
         - name: Install MinGW
           run: |
             Invoke-WebRequest -Uri "https://github.com/brechtsanders/winlibs_mingw/releases/download/13.2.0-16.0.6-11.0.0-ucrt-r1/winlibs-x86_64-posix-seh-gcc-13.2.0-mingw-w64ucrt-11.0.0-r1.7z" -OutFile "$env:TEMP\mingw.7z"
@@ -41,6 +44,9 @@ windows-x64:
             $env:Path = "C:\mingw64\bin;" + $env:Path
             [Environment]::SetEnvironmentVariable("Path", $env:Path, [EnvironmentVariableTarget]::Machine)
             gcc --version
+
+        - name: Run MinGW Toolchain Offline
+          offline: true
 
         - name: Configure CMake MinGW
           run: cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8"
