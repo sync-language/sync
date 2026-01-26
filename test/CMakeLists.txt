@@ -56,6 +56,11 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
         )
     endif()
 
+    if(WIN32)
+        target_link_libraries(${TEST_NAME} PRIVATE dbghelp)
+    endif()
+
+
     if(MSVC)
         target_compile_options(${TEST_NAME} PRIVATE /experimental:c11atomics)
         target_compile_options(${TEST_NAME} PRIVATE /W4 /WX /EHsc /Zi)

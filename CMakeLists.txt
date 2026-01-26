@@ -157,6 +157,10 @@ if(MSVC)
     target_compile_options(SyncLib PRIVATE /experimental:c11atomics)
 endif()
 
+if(WIN32)
+    target_link_libraries(SyncLib PRIVATE "$<$<CONFIG:Debug>:dbghelp>")
+endif()
+
 # Ensure all warnings are caught
 if(EMSCRIPTEN)
     if (CMAKE_GENERATOR MATCHES "Visual Studio")
@@ -167,7 +171,6 @@ if(EMSCRIPTEN)
     endif()
 elseif(MSVC)
     target_compile_options(SyncLib PRIVATE /W4 /WX /EHsc /Zi)
-    target_link_libraries(SyncLib PRIVATE dbghelp)
 else()
     target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
