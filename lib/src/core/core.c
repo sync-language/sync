@@ -109,7 +109,12 @@ void sy_aligned_free(void* mem, size_t len, size_t align) {
 #ifndef SYNC_CUSTOM_PAGE_MEMORY
 #ifndef SYNC_NO_PAGES // SYNC_NO_PAGES
 #if defined(_MSC_VER) || defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif // NOMINMAX
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif // WIN32_LEAN_AND_MEAN
 // clang-format off
 #include <windows.h>
 #include <malloc.h>
@@ -870,8 +875,12 @@ static void print_emscripten_callstack(void) {
     (void)bytesWritten;
 }
 #elif defined(_WIN32) // and mingw
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif // NOMINMAX
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif // WIN32_LEAN_AND_MEAN
 // clang-format off
 #include <windows.h>
 #include <dbghelp.h>
