@@ -115,13 +115,12 @@ void sy_aligned_free(void* mem, size_t len, size_t align) {
 #include <malloc.h>
 #include <memoryapi.h>
 // clang-format on
-#endif // WIN32
-#if __GNUC__
+#elif __GNUC__
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#endif // GNUC
+#endif // WIN32 / GNUC
 #endif // SYNC_NO_PAGES
 
 void* sy_page_malloc(size_t len) {
@@ -810,7 +809,7 @@ bool sy_get_file_info(const char* path, size_t pathLen, size_t* outFileSize) {
 #ifndef SYNC_CUSTOM_RELATIVE_TO_ABSOLUTE_PATH
 bool sy_relative_to_absolute_path(const char* relativePath, size_t relativePathLen, char* outAbsolutePath,
                                   size_t outAbsoluteBufSize) {
-#if defined(_MSC_VER)
+#if defined(_WIN32)
     char relative[MAX_PATH];
     char absolute[MAX_PATH]; // TODO long paths
 #else
@@ -822,7 +821,7 @@ bool sy_relative_to_absolute_path(const char* relativePath, size_t relativePathL
         relative[i] = relativePath[i];
     }
     relative[relativePathLen] = '\0';
-#if defined(_MSC_VER)
+#if defined(_WIN32)
     // TODO symlink?
     if (GetFullPathNameA(relativePath, MAX_PATH, absolute, NULL) == 0) {
         return false;
