@@ -25,8 +25,8 @@ struct AnyError::Impl {
     }
 };
 
-Result<AnyError, ProgramError> sy::AnyError::init(Allocator alloc, StringSlice message, void* payload,
-                                                  const Type* payloadType) noexcept {
+Result<AnyError, AllocErr> sy::AnyError::init(Allocator alloc, StringSlice message, void* payload,
+                                              const Type* payloadType) noexcept {
     const bool nullPayload = payload == nullptr;
     const bool nullType = payloadType == nullptr;
     if (nullPayload) {
@@ -38,13 +38,13 @@ Result<AnyError, ProgramError> sy::AnyError::init(Allocator alloc, StringSlice m
 
     auto implRes = alloc.allocObject<Impl>();
     if (implRes.hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(AllocErr::OutOfMemory);
     }
 
     auto strRes = StringUnmanaged::copyConstructSlice(message, alloc);
     if (strRes.hasErr()) {
         alloc.freeObject(implRes.value());
-        return Error(ProgramError::OutOfMemory);
+        return Error(AllocErr::OutOfMemory);
     }
 
     void* payloadMem = nullptr;
@@ -53,22 +53,17 @@ Result<AnyError, ProgramError> sy::AnyError::init(Allocator alloc, StringSlice m
         if (payloadRes.hasErr()) {
             alloc.freeObject(implRes.value());
             strRes.value().destroy(alloc);
-            return Error(ProgramError::OutOfMemory);
+            return Error(AllocErr::OutOfMemory);
         }
         payloadMem = payloadRes.value();
-        auto copyErr = payloadType->copyConstructObj(payloadMem, payload);
-        if (copyErr.hasErr()) {
-            alloc.freeObject(implRes.value());
-            alloc.freeAlignedArray(payloadRes.value(), payloadType->sizeType, payloadType->alignType);
-            strRes.value().destroy(alloc);
-            return Error(copyErr.takeErr());
-        }
+        memcpy(payloadMem, payload, payloadType->sizeType);
     }
 
     Impl* self = implRes.value();
     new (self) Impl();
     self->alloc = alloc;
-    new (&self->message) StringUnmanaged(strRes.takeValue());
+    // new (&self->message) StringUnmanaged(strRes.takeValue());
+    self->message.moveAssign(strRes.takeValue(), alloc);
 
     if (payloadMem) {
         self->payload = payloadMem;
@@ -86,8 +81,8 @@ AnyError::AnyError(Allocator alloc, StringSlice message, void* payload, const Ty
     err.impl_ = nullptr;
 }
 
-Result<AnyError, ProgramError> sy::AnyError::initCause(AnyError cause, StringSlice message, void* payload,
-                                                       const Type* payloadType) noexcept {
+Result<AnyError, AllocErr> sy::AnyError::initCause(AnyError cause, StringSlice message, void* payload,
+                                                   const Type* payloadType) noexcept {
     sy_assert(cause.impl_ != nullptr, "Expected valid cause");
 
     auto errRes = AnyError::init(cause.impl_->alloc, message, payload, payloadType);
@@ -158,7 +153,7 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
         auto copyErr = type->copyConstructObj(payloadMem, this->impl_->payload.value());
         if (copyErr.hasErr()) {
             alloc.freeObject(implRes.value());
-            alloc.freeAlignedArray(implRes.value(), type->sizeType, type->alignType);
+            alloc.freeAlignedArray(payloadRes.value(), type->sizeType, type->alignType);
             strRes.value().destroy(alloc);
             return Error(copyErr.takeErr());
         }
@@ -403,36 +398,23 @@ TEST_CASE("[AnyError] init with message and payload") {
     CHECK_EQ(storedPayload->a, 123);
 }
 
-TEST_CASE("[AnyError] init with empty message and payload fallible copy fails") {
+TEST_CASE("[AnyError] init with empty message and payload fallible copy doesn't fail cause not copy") {
     const Type* fallibleType = makeExampleFallibleType();
     Example payload = {999};
 
     auto result = AnyError::init({}, StringSlice(), &payload, fallibleType);
 
-    REQUIRE(result.hasErr());
-    CHECK_EQ(result.err(), ProgramError::Unknown);
+    REQUIRE(!result.hasErr());
 }
 
-TEST_CASE("[AnyError] init with message and payload (fallible copy fails)") {
+TEST_CASE("[AnyError] init with message and payload doesn't fail cause not copy") {
     StringSlice msg = "This should fail";
     const Type* fallibleType = makeExampleFallibleType();
     Example payload = {777};
 
     auto result = AnyError::init({}, msg, &payload, fallibleType);
 
-    REQUIRE(result.hasErr());
-    CHECK_EQ(result.err(), ProgramError::Unknown);
-}
-
-TEST_CASE("[AnyError] init cleans up on payload copy failure") {
-    StringSlice msg = "Allocated message that should be cleaned up";
-    const Type* fallibleType = makeExampleFallibleType();
-    Example payload = {456};
-
-    auto result = AnyError::init({}, msg, &payload, fallibleType);
-
-    REQUIRE(result.hasErr());
-    CHECK_EQ(result.err(), ProgramError::Unknown);
+    REQUIRE(!result.hasErr());
 }
 
 TEST_CASE("[AnyError] init with long message") {
@@ -444,6 +426,239 @@ TEST_CASE("[AnyError] init with long message") {
     AnyError err = result.takeValue();
 
     CHECK_EQ(err.message(), longMsg);
+}
+
+TEST_CASE("[AnyError] initCause with single cause") {
+    auto causeResult = AnyError::init({}, "Root cause", nullptr, nullptr);
+    REQUIRE(causeResult.hasValue());
+    AnyError cause = causeResult.takeValue();
+
+    auto result = AnyError::initCause(std::move(cause), "Top-level error", nullptr, nullptr);
+
+    REQUIRE(result.hasValue());
+    AnyError err = result.takeValue();
+
+    CHECK_EQ(err.message(), "Top-level error");
+    REQUIRE(err.cause().hasValue());
+    CHECK_EQ(err.cause().value().message(), "Root cause");
+    CHECK_FALSE(err.cause().value().cause().hasValue());
+}
+
+TEST_CASE("[AnyError] initCause with message and payload") {
+    Example causePayload = {100};
+    auto causeResult = AnyError::init({}, "Database error", &causePayload, exampleGoodType);
+    REQUIRE(causeResult.hasValue());
+    AnyError cause = causeResult.takeValue();
+
+    Example topPayload = {200};
+    auto result = AnyError::initCause(std::move(cause), "Failed to load user", &topPayload, exampleGoodType);
+
+    REQUIRE(result.hasValue());
+    AnyError err = result.takeValue();
+
+    CHECK_EQ(err.message(), "Failed to load user");
+    REQUIRE(err.rawPayload().hasValue());
+    CHECK_EQ(static_cast<const Example*>(err.rawPayload().value())->a, 200);
+
+    REQUIRE(err.cause().hasValue());
+    CHECK_EQ(err.cause().value().message(), "Database error");
+    REQUIRE(err.cause().value().rawPayload().hasValue());
+    CHECK_EQ(static_cast<const Example*>(err.cause().value().rawPayload().value())->a, 100);
+}
+
+TEST_CASE("[AnyError] initCause with nested causes (2 levels deep)") {
+    auto deepestResult = AnyError::init({}, "Network timeout", nullptr, nullptr);
+    REQUIRE(deepestResult.hasValue());
+    AnyError deepest = deepestResult.takeValue();
+
+    auto middleResult = AnyError::initCause(std::move(deepest), "Connection failed", nullptr, nullptr);
+    REQUIRE(middleResult.hasValue());
+    AnyError middle = middleResult.takeValue();
+
+    auto topResult = AnyError::initCause(std::move(middle), "Failed to fetch data", nullptr, nullptr);
+    REQUIRE(topResult.hasValue());
+    AnyError top = topResult.takeValue();
+
+    CHECK_EQ(top.message(), "Failed to fetch data");
+
+    REQUIRE(top.cause().hasValue());
+    CHECK_EQ(top.cause().value().message(), "Connection failed");
+
+    REQUIRE(top.cause().value().cause().hasValue());
+    CHECK_EQ(top.cause().value().cause().value().message(), "Network timeout");
+
+    CHECK_FALSE(top.cause().value().cause().value().cause().hasValue());
+}
+
+TEST_CASE("[AnyError] initCause with fallible payload copy doesn't fail not copy") {
+    auto causeResult = AnyError::init({}, "Valid cause", nullptr, nullptr);
+    REQUIRE(causeResult.hasValue());
+    AnyError cause = causeResult.takeValue();
+
+    const Type* fallibleType = makeExampleFallibleType();
+    Example payload = {42};
+
+    auto result = AnyError::initCause(std::move(cause), "Should fail", &payload, fallibleType);
+
+    REQUIRE(!result.hasErr());
+}
+
+TEST_CASE("[AnyError] clone with no payload or cause") {
+    auto initResult = AnyError::init({}, "Simple error", nullptr, nullptr);
+    REQUIRE(initResult.hasValue());
+    const AnyError& original = initResult.value();
+
+    auto cloneResult = original.clone();
+
+    REQUIRE(cloneResult.hasValue());
+    AnyError cloned = cloneResult.takeValue();
+
+    CHECK_EQ(cloned.message(), "Simple error");
+    CHECK_FALSE(cloned.rawPayload().hasValue());
+    CHECK_FALSE(cloned.cause().hasValue());
+
+    CHECK_EQ(original.message(), "Simple error");
+}
+
+TEST_CASE("[AnyError] clone with payload") {
+    Example payload = {777};
+    auto initResult = AnyError::init({}, "Error with data", &payload, exampleGoodType);
+    REQUIRE(initResult.hasValue());
+    const AnyError& original = initResult.value();
+
+    auto cloneResult = original.clone();
+
+    REQUIRE(cloneResult.hasValue());
+    AnyError cloned = cloneResult.takeValue();
+
+    CHECK_EQ(cloned.message(), "Error with data");
+    REQUIRE(cloned.rawPayload().hasValue());
+    CHECK_EQ(static_cast<const Example*>(cloned.rawPayload().value())->a, 777);
+
+    CHECK_EQ(static_cast<const Example*>(original.rawPayload().value())->a, 777);
+}
+
+TEST_CASE("[AnyError] clone with single cause") {
+    auto causeResult = AnyError::init({}, "Original cause", nullptr, nullptr);
+    REQUIRE(causeResult.hasValue());
+    AnyError cause = causeResult.takeValue();
+
+    auto initResult = AnyError::initCause(std::move(cause), "Top error", nullptr, nullptr);
+    REQUIRE(initResult.hasValue());
+    const AnyError& original = initResult.value();
+
+    auto cloneResult = original.clone();
+
+    REQUIRE(cloneResult.hasValue());
+    AnyError cloned = cloneResult.takeValue();
+
+    CHECK_EQ(cloned.message(), "Top error");
+    REQUIRE(cloned.cause().hasValue());
+    CHECK_EQ(cloned.cause().value().message(), "Original cause");
+}
+
+TEST_CASE("[AnyError] clone with nested causes (2 levels deep)") {
+    auto deepResult = AnyError::init({}, "Deep root cause", nullptr, nullptr);
+    REQUIRE(deepResult.hasValue());
+    AnyError deep = deepResult.takeValue();
+
+    auto middleResult = AnyError::initCause(std::move(deep), "Middle cause", nullptr, nullptr);
+    REQUIRE(middleResult.hasValue());
+    AnyError middle = middleResult.takeValue();
+
+    auto topResult = AnyError::initCause(std::move(middle), "Top error", nullptr, nullptr);
+    REQUIRE(topResult.hasValue());
+    const AnyError& original = topResult.value();
+
+    auto cloneResult = original.clone();
+
+    REQUIRE(cloneResult.hasValue());
+    AnyError cloned = cloneResult.takeValue();
+
+    CHECK_EQ(cloned.message(), "Top error");
+
+    REQUIRE(cloned.cause().hasValue());
+    CHECK_EQ(cloned.cause().value().message(), "Middle cause");
+
+    REQUIRE(cloned.cause().value().cause().hasValue());
+    CHECK_EQ(cloned.cause().value().cause().value().message(), "Deep root cause");
+
+    CHECK_FALSE(cloned.cause().value().cause().value().cause().hasValue());
+
+    CHECK_EQ(original.message(), "Top error");
+    REQUIRE(original.cause().hasValue());
+    CHECK_EQ(original.cause().value().message(), "Middle cause");
+}
+
+TEST_CASE("[AnyError] clone with nested causes and payloads") {
+    Example deepPayload = {111};
+    auto deepResult = AnyError::init({}, "Deep error", &deepPayload, exampleGoodType);
+    REQUIRE(deepResult.hasValue());
+    AnyError deep = deepResult.takeValue();
+
+    Example topPayload = {222};
+    auto topResult = AnyError::initCause(std::move(deep), "Top error", &topPayload, exampleGoodType);
+    REQUIRE(topResult.hasValue());
+    const AnyError& original = topResult.value();
+
+    auto cloneResult = original.clone();
+
+    REQUIRE(cloneResult.hasValue());
+    AnyError cloned = cloneResult.takeValue();
+
+    CHECK_EQ(cloned.message(), "Top error");
+    REQUIRE(cloned.rawPayload().hasValue());
+    CHECK_EQ(static_cast<const Example*>(cloned.rawPayload().value())->a, 222);
+
+    REQUIRE(cloned.cause().hasValue());
+    CHECK_EQ(cloned.cause().value().message(), "Deep error");
+    REQUIRE(cloned.cause().value().rawPayload().hasValue());
+    CHECK_EQ(static_cast<const Example*>(cloned.cause().value().rawPayload().value())->a, 111);
+}
+
+TEST_CASE("[AnyError] clone empty") {
+    AnyError empty;
+
+    auto cloneResult = empty.clone();
+
+    REQUIRE(cloneResult.hasValue());
+    AnyError cloned = cloneResult.takeValue();
+
+    CHECK_GE(cloned.message().len(), 0);
+    CHECK_FALSE(cloned.rawPayload().hasValue());
+    CHECK_FALSE(cloned.cause().hasValue());
+}
+
+TEST_CASE("[AnyError] clone with fallible payload copy fails") {
+    const Type* fallibleType = makeExampleFallibleType();
+    Example payload = {999};
+
+    auto initResult = AnyError::init({}, "Will fail to clone", &payload, fallibleType);
+    REQUIRE(initResult.hasValue());
+    const AnyError& original = initResult.value();
+
+    auto cloneResult = original.clone();
+
+    REQUIRE(cloneResult.hasErr());
+    CHECK_EQ(cloneResult.err(), ProgramError::Unknown);
+}
+
+TEST_CASE("[AnyError] clone fails if nested cause has fallible payload") {
+    const Type* fallibleType = makeExampleFallibleType();
+    Example badPayload = {666};
+    auto causeResult = AnyError::init({}, "Bad cause", &badPayload, fallibleType);
+    REQUIRE(causeResult.hasValue());
+    AnyError cause = causeResult.takeValue();
+
+    Example goodPayload = {123};
+    auto topResult = AnyError::initCause(std::move(cause), "Top error", &goodPayload, exampleGoodType);
+    REQUIRE(topResult.hasValue());
+    const AnyError& original = topResult.value();
+
+    auto cloneResult = original.clone();
+
+    REQUIRE(cloneResult.hasErr());
+    CHECK_EQ(cloneResult.err(), ProgramError::Unknown);
 }
 
 #endif // SYNC_LIB_WITH_TESTS

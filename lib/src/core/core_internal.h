@@ -324,8 +324,8 @@ inline void _sy_unreachable_impl() {
 #define sy_assert_release(expression, message)                                                                         \
     do {                                                                                                               \
         if (!(expression)) {                                                                                           \
-            syncFatalErrorHandlerFn("Assertion Failed \'" #expression "\' " __FILE__ ":" SY_STRINGIFY(__LINE__)        \
-                                        message);                                                                      \
+            syncFatalErrorHandlerFn("Assertion Failed \'" #expression "\' " __FILE__                                   \
+                                    ":" SY_STRINGIFY(__LINE__) " " message);                                           \
         }                                                                                                              \
     } while (0)
 
