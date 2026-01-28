@@ -126,11 +126,11 @@ class SY_API Type {
         this->destroyObjectImpl(reinterpret_cast<void*>(obj));
     }
 
-    template <typename T> void copyConstructObj(T* dst, const T* src) const {
+    template <typename T> Result<void, ProgramError> copyConstructObj(T* dst, const T* src) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
-        this->copyConstructObjectImpl(reinterpret_cast<void*>(dst), reinterpret_cast<const void*>(src));
+        return this->copyConstructObjectImpl(reinterpret_cast<void*>(dst), reinterpret_cast<const void*>(src));
     }
 
     template <typename T> bool equalObj(const T* lhs, const T* rhs) const {
@@ -364,7 +364,7 @@ class SY_API Type {
 
     void assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const;
     void destroyObjectImpl(void* obj) const;
-    void copyConstructObjectImpl(void* dst, const void* src) const;
+    Result<void, ProgramError> copyConstructObjectImpl(void* dst, const void* src) const;
     bool equalObjectsImpl(const void* self, const void* other) const;
     size_t hashObjectImpl(const void* self) const;
     Ordering compareObjectImpl(const void* self, const void* other) const;

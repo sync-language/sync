@@ -96,6 +96,7 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/types/result/result.cpp",
     "lib/src/types/task/task.cpp",
     "lib/src/types/box/box.cpp",
+    "lib/src/types/anyerror/anyerror.cpp",
     "lib/src/interpreter/stack/frame.cpp",
     "lib/src/interpreter/stack/node.cpp",
     "lib/src/interpreter/stack/stack.cpp",
