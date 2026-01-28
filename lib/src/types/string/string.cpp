@@ -137,7 +137,7 @@ void sy::StringUnmanaged::moveAssign(StringUnmanaged&& other, Allocator& alloc) 
         this->raw_[i] = other.raw_[i];
     }
     other.len_ = 0;
-    asAllocMut(this->raw_)->flag = 1;
+    other.setSsoFlag();
 }
 
 sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::copyConstruct(const StringUnmanaged& other,
