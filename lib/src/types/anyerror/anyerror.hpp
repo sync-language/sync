@@ -20,9 +20,10 @@ class AnyError {
     /// @param message Can be an empty string.
     /// @param payload If non-null, `payloadType` must also be non-null.
     /// @param payloadType If non-null, `payload` must also be non-null.
-    /// @return The new `AnyError` object, or a memory allocation error.
-    static Result<AnyError, AllocErr> init(Allocator alloc, StringSlice message, void* payload,
-                                           const Type* payloadType /* TODO stack trace*/) noexcept;
+    /// @return The new `AnyError` object, or program error, which could indicate memory allocation failure, or that
+    /// the clone function on the payload type failed.
+    static Result<AnyError, ProgramError> init(Allocator alloc, StringSlice message, void* payload,
+                                               const Type* payloadType /* TODO stack trace*/) noexcept;
 
     /// @param alloc Memory allocator.
     /// @param message Can be an empty string.
@@ -31,19 +32,21 @@ class AnyError {
     /// @warning Calls `AnyError::init()`, calling the sync fatal handler if allocation fails.
     AnyError(Allocator alloc, StringSlice message, void* payload, const Type* payloadType) noexcept;
 
-    /// @param cause The cause of the previous error, allowing chaining multiple errors together.
+    /// @param cause The cause of the previous error, allowing chaining multiple errors together. Uses the `cause`'s
+    /// allocator.
     /// @param message Can be an empty string.
     /// @param payload If non-null, `payloadType` must also be non-null.
     /// @param payloadType If non-null, `payload` must also be non-null.
-    /// @return The new `AnyError` object, or a memory allocation error.
-    static Result<AnyError, AllocErr> initCause(AnyError cause, StringSlice message, void* payload,
-                                                const Type* payloadType /* TODO stack trace*/) noexcept;
+    /// @return The new `AnyError` object, or program error, which could indicate memory allocation failure, or that
+    /// the clone function on the payload type failed.
+    static Result<AnyError, ProgramError> initCause(AnyError cause, StringSlice message, void* payload,
+                                                    const Type* payloadType /* TODO stack trace*/) noexcept;
 
-    /// @param cause The cause of the previous error, allowing chaining multiple errors together.
+    /// @param cause The cause of the previous error, allowing chaining multiple errors together. Uses the `cause`'s
+    /// allocator.
     /// @param message Can be an empty string.
     /// @param payload If non-null, `payloadType` must also be non-null.
     /// @param payloadType If non-null, `payload` must also be non-null.
-    /// @return The new `AnyError` object, or a memory allocation error.
     /// @warning Calls `AnyError::initCause()`, calling the sync fatal handler if allocation fails.
     AnyError(AnyError cause, StringSlice message, void* payload, const Type* payloadType) noexcept;
 
@@ -62,6 +65,21 @@ class AnyError {
     AnyError& operator=(const AnyError& other) noexcept;
 
     ~AnyError() noexcept;
+
+    /// @return May return an empty string if the AnyError has no message, or is an empty error
+    StringSlice message() const noexcept;
+
+    Option<AnyError&> cause() noexcept;
+
+    Option<const AnyError&> cause() const noexcept;
+
+    Option<void*> rawPayload() noexcept;
+
+    Option<const void*> rawPayload() const noexcept;
+
+    Option<const Type*> payloadType() const noexcept;
+
+    // TODO stack trace and source location (or them together idk)
 
   private:
     struct Impl;

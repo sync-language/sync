@@ -234,33 +234,33 @@ endfunction()
 # =================
 # Core RwLock Tests
 # =================
-add_core_sync_test(SyncTestCore_RwLockInitDestroy "core/rwlock/rwlock_init_destroy.cpp")
-add_core_sync_test(SyncTestCore_RwLockOneThreadShared "core/rwlock/rwlock_one_thread_shared.cpp")
-add_core_sync_test(SyncTestCore_RwLockOneThreadExclusive "core/rwlock/rwlock_one_thread_exclusive.cpp")
-add_core_sync_test(SyncTestCore_RwLockTwoThreadShared "core/rwlock/rwlock_two_thread_shared.cpp")
-add_core_sync_test(SyncTestCore_RwLockTwoThreadExclusive "core/rwlock/rwlock_two_thread_exclusive.cpp")
-add_core_sync_test(SyncTestCore_RwLockOneThreadReenterShared "core/rwlock/rwlock_one_thread_reenter_shared.cpp")
-add_core_sync_test(SyncTestCore_RwLockOneThreadReenterExclusive "core/rwlock/rwlock_one_thread_reenter_exclusive.cpp")
-add_core_sync_test(SyncTestCore_RwLockOneThreadElevateLock "core/rwlock/rwlock_one_thread_elevate_lock.cpp")
-add_core_sync_test(SyncTestCore_RwLockTwoThreadNoElevate "core/rwlock/rwlock_two_thread_no_elevate.cpp")
-add_core_sync_test(SyncTestCore_RwLockTwoThreadSuccessElevate "core/rwlock/rwlock_two_thread_success_elevate.cpp")
-add_core_sync_test(SyncTestCore_RwLockTwoThreadDeadlock "core/rwlock/rwlock_two_thread_deadlock.cpp")
-add_core_sync_test(SyncTestCore_RwLockThreeThreadDeadlock "core/rwlock/rwlock_three_thread_deadlock.cpp")
-add_core_sync_test(SyncTestCore_RwLockDeadlockLateArrival "core/rwlock/rwlock_deadlock_late_arrival.cpp")
-add_core_sync_test(SyncTestCore_RwLockDeadlockRapidRetry "core/rwlock/rwlock_deadlock_rapid_retry.cpp")
-add_core_sync_test(SyncTestCore_RwLockTryAcquireBehavior "core/rwlock/rwlock_try_acquire_behavior.cpp")
-add_core_sync_test(SyncTestCore_RwLockStressManyReaders "core/rwlock/rwlock_stress_many_readers.cpp")
-add_core_sync_test(SyncTestCore_RwLockDeepReentrance "core/rwlock/rwlock_deep_reentrance.cpp")
-add_core_sync_test(SyncTestCore_RwLockStressMixedWorkload "core/rwlock/rwlock_stress_mixed_workload.cpp")
-add_core_sync_test(SyncTestCore_RwLockArrayReallocation "core/rwlock/rwlock_array_reallocation.cpp")
-add_core_sync_test(SyncTestCore_RwLockExclusiveToSharedMultithread "core/rwlock/rwlock_exclusive_to_shared_multithread.cpp")
+add_core_sync_test(SyncTestCore_RwLockInitDestroy "lib_tests/core/rwlock/rwlock_init_destroy.cpp")
+add_core_sync_test(SyncTestCore_RwLockOneThreadShared "lib_tests/core/rwlock/rwlock_one_thread_shared.cpp")
+add_core_sync_test(SyncTestCore_RwLockOneThreadExclusive "lib_tests/core/rwlock/rwlock_one_thread_exclusive.cpp")
+add_core_sync_test(SyncTestCore_RwLockTwoThreadShared "lib_tests/core/rwlock/rwlock_two_thread_shared.cpp")
+add_core_sync_test(SyncTestCore_RwLockTwoThreadExclusive "lib_tests/core/rwlock/rwlock_two_thread_exclusive.cpp")
+add_core_sync_test(SyncTestCore_RwLockOneThreadReenterShared "lib_tests/core/rwlock/rwlock_one_thread_reenter_shared.cpp")
+add_core_sync_test(SyncTestCore_RwLockOneThreadReenterExclusive "lib_tests/core/rwlock/rwlock_one_thread_reenter_exclusive.cpp")
+add_core_sync_test(SyncTestCore_RwLockOneThreadElevateLock "lib_tests/core/rwlock/rwlock_one_thread_elevate_lock.cpp")
+add_core_sync_test(SyncTestCore_RwLockTwoThreadNoElevate "lib_tests/core/rwlock/rwlock_two_thread_no_elevate.cpp")
+add_core_sync_test(SyncTestCore_RwLockTwoThreadSuccessElevate "lib_tests/core/rwlock/rwlock_two_thread_success_elevate.cpp")
+add_core_sync_test(SyncTestCore_RwLockTwoThreadDeadlock "lib_tests/core/rwlock/rwlock_two_thread_deadlock.cpp")
+add_core_sync_test(SyncTestCore_RwLockThreeThreadDeadlock "lib_tests/core/rwlock/rwlock_three_thread_deadlock.cpp")
+add_core_sync_test(SyncTestCore_RwLockDeadlockLateArrival "lib_tests/core/rwlock/rwlock_deadlock_late_arrival.cpp")
+add_core_sync_test(SyncTestCore_RwLockDeadlockRapidRetry "lib_tests/core/rwlock/rwlock_deadlock_rapid_retry.cpp")
+add_core_sync_test(SyncTestCore_RwLockTryAcquireBehavior "lib_tests/core/rwlock/rwlock_try_acquire_behavior.cpp")
+add_core_sync_test(SyncTestCore_RwLockStressManyReaders "lib_tests/core/rwlock/rwlock_stress_many_readers.cpp")
+add_core_sync_test(SyncTestCore_RwLockDeepReentrance "lib_tests/core/rwlock/rwlock_deep_reentrance.cpp")
+add_core_sync_test(SyncTestCore_RwLockStressMixedWorkload "lib_tests/core/rwlock/rwlock_stress_mixed_workload.cpp")
+add_core_sync_test(SyncTestCore_RwLockArrayReallocation "lib_tests/core/rwlock/rwlock_array_reallocation.cpp")
+add_core_sync_test(SyncTestCore_RwLockExclusiveToSharedMultithread "lib_tests/core/rwlock/rwlock_exclusive_to_shared_multithread.cpp")
 
-add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "core/rwlock_death/rwlock_death_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
+add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "lib_tests/core/rwlock_death/rwlock_death_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
 
-add_core_sync_test(SyncTestCore_FilesystemGetFileSizeSmall "core/filesystem/filesystem_get_file_size_this_file_small.cpp")
-add_core_sync_test(SyncTestCore_FilesystemGetFileSizeBigger "core/filesystem/filesystem_get_file_size_this_file_bigger.cpp")
-add_core_sync_test(SyncTestCore_FilesystemGetFileSizeNotAFile "core/filesystem/filesystem_get_file_size_not_a_file.cpp")
-add_core_sync_test(SyncTestCore_FilesystemRelativeToAbsoluteDir "core/filesystem/filesystem_relative_to_absolute_dir.cpp")
+add_core_sync_test(SyncTestCore_FilesystemGetFileSizeSmall "lib_tests/core/filesystem/filesystem_get_file_size_this_file_small.cpp")
+add_core_sync_test(SyncTestCore_FilesystemGetFileSizeBigger "lib_tests/core/filesystem/filesystem_get_file_size_this_file_bigger.cpp")
+add_core_sync_test(SyncTestCore_FilesystemGetFileSizeNotAFile "lib_tests/core/filesystem/filesystem_get_file_size_not_a_file.cpp")
+add_core_sync_test(SyncTestCore_FilesystemRelativeToAbsoluteDir "lib_tests/core/filesystem/filesystem_relative_to_absolute_dir.cpp")
 
 # ==================
 # Main Library Tests
@@ -288,6 +288,7 @@ set(SYNC_LIB_TESTS_SOURCES
     "../lib/src/types/result/result.cpp"
     "../lib/src/types/task/task.cpp"
     "../lib/src/types/box/box.cpp"
+    "../lib/src/types/anyerror/anyerror.cpp"
     "../lib/src/interpreter/stack/frame.cpp"
     "../lib/src/interpreter/stack/node.cpp"
     "../lib/src/interpreter/stack/stack.cpp"
