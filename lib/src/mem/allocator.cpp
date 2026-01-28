@@ -1,6 +1,7 @@
 #include "allocator.h"
 #include "../core/core_internal.h"
 #include "allocator.hpp"
+#include "os_mem.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <utility>
@@ -23,12 +24,14 @@ SY_API void sy_allocator_free(SyAllocator* self, void* buf, size_t len, size_t a
 
 static void* default_alloc(void* self, size_t len, size_t align) {
     (void)self;
-    return sy_aligned_malloc(len, align);
+    return aligned_malloc(len, align);
 }
 
 static void default_free(void* self, void* buf, size_t len, size_t align) {
     (void)self;
-    sy_aligned_free(buf, len, align);
+    (void)len;
+    (void)align;
+    aligned_free(buf);
 }
 
 #ifndef SY_CUSTOM_DEFAULT_ALLOCATOR
