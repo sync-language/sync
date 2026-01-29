@@ -12,8 +12,9 @@ All build requirements are for C and C++. The Rust bindings are currently for no
 | `<stddef.h>` | <ul><li>`size_t`</li><li>`NULL`</li><li>`ptrdiff_t`</li></ul> |
 | `<stdint.h>` | <ul><li>`int8_t`</li><li>`int16_t`</li><li>`int32_t`</li><li>`int64_t`</li><li>`uint8_t`</li><li>`uint16_t`</li><li>`uint32_t`</li><li>`uint64_t`</li><li>`uintptr_t`</li></ul> |
 | `<stdlib.h>` | <ul><li>`aligned_alloc` and `free` (not MSVC) if not defined `SY_CUSTOM_ALIGNED_MALLOC_FREE` </li><li>`abort` if `SY_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER` is not defined</li></ul> |
-| `<stdio.h>` | <ul><li>`fprintf`, `fflush`, `fsync` and `stderr` if `SYNC_CUSTOM_DEFAULT_WRITE_STRING_ERROR` is not defined</li></ul> |
+| `<stdio.h>` | <ul><li>`fprintf`, `fflush`, and `stderr` if `SYNC_CUSTOM_DEFAULT_WRITE_STRING_ERROR` is not defined</li></ul> |
 | `<stdatomic.h>`| <ul><li>`memory_order_relaxed`</li><li>`memory_order_consume`</li><li>`memory_order_acquire`</li><li>`memory_order_release`</li><li>`memory_order_acq_rel`</li><li>`memory_order_seq_cst`</li><li>`atomic_load_explicit`</li><li>`atomic_store_explicit`</li><li>`atomic_fetch_add_explicit`</li><li>`atomic_fetch_sub_explicit`</li><li>`atomic_exchange_explicit`</li><li>`atomic_compare_exchange_weak_explicit`</li></ul> |
+| `<unistd.h>` | <ul><li>`fsync` and `STDERR_FILENO` if `NDEBUG` is not defined</li></ul> |
 
 | C++ Standard Header | Why |
 |---------------------|-----|
