@@ -191,6 +191,7 @@ endfunction()
 function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
     add_sync_test_flags(${TEST_NAME} FALSE ${SYNC_LIB_UBSAN} FALSE)
+    target_compile_definitions(${TEST_NAME} PRIVATE SYNC_DEATH_TEST=1)
     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
     if(SYNC_LIB_CODE_COVERAGE AND MSVC)
         cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
@@ -201,12 +202,14 @@ function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
             --export_type binary:${TEST_NAME}.cov
             -- ${CMAKE_CURRENT_BINARY_DIR}\\Debug\\${TEST_NAME})
         set_tests_properties(${TEST_NAME} PROPERTIES
-            PASS_REGULAR_EXPRESSION ${ERR_MSG}
+            WILL_FAIL TRUE
+            FAIL_REGULAR_EXPRESSION ${ERR_MSG}
         )
     else()
         add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
         set_tests_properties(${TEST_NAME} PROPERTIES
-            PASS_REGULAR_EXPRESSION ${ERR_MSG}
+            WILL_FAIL TRUE
+            FAIL_REGULAR_EXPRESSION ${ERR_MSG}
         )
     endif()
 
@@ -216,7 +219,8 @@ function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
         target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
         add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
         set_tests_properties(${TEST_NAME}_ThreadSanitizer PROPERTIES
-            PASS_REGULAR_EXPRESSION ${ERR_MSG}
+            WILL_FAIL TRUE
+            FAIL_REGULAR_EXPRESSION ${ERR_MSG}
         )
     endif()
 endfunction()
