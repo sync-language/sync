@@ -13,6 +13,10 @@
 #include <emscripten.h>
 #endif
 
+#if defined(__APPLE__) || defined(__GNUC__)
+#include <signal.h>
+#endif
+
 // WHAT
 #if defined(__SANITIZE_THREAD__)
 #define SYNC_TSAN_ENABLED 1
@@ -45,7 +49,9 @@ static void sy_default_fatal_error_handler(const char* message) {
 #elif defined(_WIN32)
     __debugbreak();
 #elif defined(__APPLE__) || defined(__GNUC__)
-    __builtin_trap();
+    fflush(NULL);
+    fsync(STDERR_FILENO);
+    raise(SIGTRAP);
 #endif
 #endif // NDEBUG
     abort();
