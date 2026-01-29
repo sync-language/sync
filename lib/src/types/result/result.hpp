@@ -131,7 +131,8 @@ template <typename T, typename E> class Result<T, E, std::enable_if_t<!std::is_s
     Result(Result&& other) : hasErr_(other.hasErr_) {
         if (hasErr_) {
             new (&val_.err) E(std::move(other.val_.err));
-            other.hasErr_ = false;
+        } else {
+            new (&val_.ok) T(std::move(other.val_.ok));
         }
     }
     Result& operator=(Result&& other) {
@@ -140,16 +141,22 @@ template <typename T, typename E> class Result<T, E, std::enable_if_t<!std::is_s
 
         if (hasErr_) {
             val_.err.~E();
+        } else {
+            val_.ok.~T();
         }
         hasErr_ = other.hasErr_;
         if (hasErr_) {
             new (&val_.err) E(std::move(other.val_.err));
-            other.hasErr_ = false;
+        } else {
+            new (&val_.ok) T(std::move(other.val_.ok));
         }
+        return *this;
     }
     Result(const Result& other) : hasErr_(other.hasErr_) {
         if (hasErr_) {
             new (&val_.err) E(other.val_.err);
+        } else {
+            new (&val_.ok) T(other.val_.ok);
         }
     }
     Result& operator=(const Result& other) {
@@ -158,10 +165,14 @@ template <typename T, typename E> class Result<T, E, std::enable_if_t<!std::is_s
 
         if (hasErr_) {
             val_.err.~E();
+        } else {
+            val_.ok.~T();
         }
         hasErr_ = other.hasErr_;
         if (hasErr_) {
             new (&val_.err) E(other.val_.err);
+        } else {
+            new (&val_.ok) T(other.val_.ok);
         }
     }
 

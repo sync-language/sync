@@ -25,8 +25,8 @@ template <typename T, typename Enable = void> class SY_API Option final {};
 template <typename T> class SY_API Option<T, std::enable_if_t<std::is_pointer_v<T>>> final {
   public:
     Option() = default;
-    Option(std::nullptr_t) {};
-    Option(std::nullopt_t) {};
+    Option(std::nullptr_t){};
+    Option(std::nullopt_t){};
     Option(T ptr) : ptr_(ptr) {}
     [[nodiscard]] bool hasValue() const { return ptr_ != nullptr; }
     [[nodiscard]] operator bool() const { return this->hasValue(); }
@@ -51,8 +51,8 @@ template <typename T> class SY_API Option<T, std::enable_if_t<std::is_reference_
 
   public:
     Option() = default;
-    Option(std::nullptr_t) {};
-    Option(std::nullopt_t) {};
+    Option(std::nullptr_t){};
+    Option(std::nullopt_t){};
     Option(T ref) : ptr_(&ref) {}
     [[nodiscard]] bool hasValue() const { return ptr_ != nullptr; }
     [[nodiscard]] operator bool() const { return this->hasValue(); }
@@ -73,7 +73,7 @@ template <typename T> class SY_API Option<T, std::enable_if_t<std::is_reference_
 template <typename T> class SY_API Option<T, std::enable_if_t<!std::is_reference_v<T> && !std::is_pointer_v<T>>> final {
   public:
     Option() = default;
-    Option(std::nullopt_t) {};
+    Option(std::nullopt_t){};
     Option(T&& val) noexcept : hasVal_(true), val_(std::move(val)) {}
     Option(const T& val) : hasVal_(true), val_(val) {}
     ~Option() noexcept {
