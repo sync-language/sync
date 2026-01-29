@@ -191,35 +191,25 @@ endfunction()
 function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
     add_sync_test_flags(${TEST_NAME} ${SYNC_LIB_ASAN} ${SYNC_LIB_UBSAN} FALSE)
-    target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})   
+    target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
     if(SYNC_LIB_CODE_COVERAGE AND MSVC)
         cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
         file(TO_NATIVE_PATH "${SYNC_ROOT_DIR}" SYNC_WINDOWS_NATIVE_ROOT_DIR)
-        add_test(NAME ${TEST_NAME} 
-            COMMAND OpenCppCoverage.exe 
+        add_test(NAME ${TEST_NAME}
+            COMMAND OpenCppCoverage.exe
             --sources ${SYNC_WINDOWS_NATIVE_ROOT_DIR}\\lib\\src\\core\\*
             --export_type binary:${TEST_NAME}.cov
             -- ${CMAKE_CURRENT_BINARY_DIR}\\Debug\\${TEST_NAME})
+        set_tests_properties(${TEST_NAME} PROPERTIES
+            PASS_REGULAR_EXPRESSION ${ERR_MSG}
+        )
     else()
         add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+        set_tests_properties(${TEST_NAME} PROPERTIES
+            PASS_REGULAR_EXPRESSION ${ERR_MSG}
+        )
     endif()
-    
-    if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
-        add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
-        add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE ${SYNC_LIB_UBSAN} TRUE)
-        target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
-        add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
-    endif()
-endfunction()
 
-function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
-    add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    add_sync_test_flags(${TEST_NAME} ${SYNC_LIB_ASAN} ${SYNC_LIB_UBSAN} FALSE)
-    target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
-    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-    set_tests_properties(${TEST_NAME} PROPERTIES
-        PASS_REGULAR_EXPRESSION ${ERR_MSG}
-    )
     if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
         add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
         add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE ${SYNC_LIB_UBSAN} TRUE)
