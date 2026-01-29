@@ -34,7 +34,7 @@ C++ headers (.hpp): C++17
 
 There are many macros available to disable certain default functionality depending on the constraints of your environment. You are required to link your own implementations of the disabled functions. You must provide them as definitions when building Sync from source. These macros can also be set from building as CMake, Make, Cargo, and Zig. See `lib/src/core/core.h`.
 
-| Macro | Required Functions |
+| Macro | Description |
 |-------|--------------------|
 | SYNC_CUSTOM_ALIGNED_MALLOC_FREE | <ul><li>`void* sy_aligned_malloc(size_t len, size_t align)`</li><li>`void sy_aligned_free(void* mem, size_t len, size_t align)`</li></ul> |
 | SYNC_CUSTOM_PAGE_MEMORY | <ul><li>`void* sy_page_malloc(size_t len)`</li><li>`void sy_page_free(void* pagesStart, size_t len)`</li><li>`size_t sy_page_size()`</li><li>`void sy_make_pages_read_only(void* pagesStart, size_t len)`</li><li>`void sy_make_pages_read_write(void* pagesStart, size_t len)`</li></ul> |
@@ -45,6 +45,7 @@ There are many macros available to disable certain default functionality dependi
 | SYNC_CACHE_LINE_SIZE | <ul><li>`SYNC_CACHE_LINE_SIZE` default to 64</li></ul> |
 | SYNC_CUSTOM_GET_FILE_INFO | <ul><li>`bool sy_get_file_info(const char* path, size_t pathLen, size_t* outFileSize)`</li></ul> |
 | SYNC_CUSTOM_RELATIVE_TO_ABSOLUTE_PATH | <ul><li>`bool sy_relative_to_absolute_path(const char* relativePath, size_t relativePathLen, char* outAbsolutePath, size_t outAbsoluteBufSize)`</li></ul> |
+| SYNC_DEATH_TEST | Modifies the default fatal handler to just exit with status code `1`, which can be intercepted by whatever runner you use, such as CTest |
 
 ## Future Plans
 

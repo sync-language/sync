@@ -19,6 +19,11 @@
 #include <unistd.h>
 #endif
 
+#ifdef SYNC_DEATH_TEST
+#include <stdio.h>
+#include <stdlib.h>
+#endif
+
 // WHAT
 #if defined(__SANITIZE_THREAD__)
 #define SYNC_TSAN_ENABLED 1
@@ -45,6 +50,10 @@ volatile int _sy_coverage_no_optimize = 0;
 static void sy_default_fatal_error_handler(const char* message) {
     sy_print_callstack();
     syncWriteStringError(message);
+#ifdef SYNC_DEATH_TEST
+    fflush(NULL);
+    exit(1);
+#else
 #ifndef NDEBUG
 #if defined(__EMSCRIPTEN__)
     emscripten_debugger();
@@ -57,6 +66,7 @@ static void sy_default_fatal_error_handler(const char* message) {
 #endif
 #endif // NDEBUG
     abort();
+#endif // SYNC_DEATH_TEST
 }
 #else
 extern void sy_default_fatal_error_handler(const char* message);
