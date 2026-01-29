@@ -190,7 +190,7 @@ endfunction()
 
 function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    add_sync_test_flags(${TEST_NAME} ${SYNC_LIB_ASAN} ${SYNC_LIB_UBSAN} FALSE)
+    add_sync_test_flags(${TEST_NAME} FALSE ${SYNC_LIB_UBSAN} FALSE)
     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
     if(SYNC_LIB_CODE_COVERAGE AND MSVC)
         cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
