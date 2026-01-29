@@ -2,6 +2,7 @@
 #include "../../core/core_internal.h"
 #include "../string/string.hpp"
 #include "../type_info.hpp"
+#include <cstring>
 #include <new>
 
 using namespace sy;
