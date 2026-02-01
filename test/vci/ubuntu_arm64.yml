@@ -6,8 +6,8 @@ ubuntu-arm64:
     user: dev
     pass: dev
     uefi:
-      code: /Applications/UTM.app/Contents/Resources/qemu/edk2-aarch64-code.fd
-      vars: /Applications/UTM.app/Contents/Resources/qemu/edk2-arm-vars.fd
+      code: /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+      vars: /opt/homebrew/share/qemu/edk2-arm-vars.fd
     steps:
         - name: Copy Files
           copy:
