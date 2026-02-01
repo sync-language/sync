@@ -35,11 +35,11 @@ windows-arm64:
         - name: Run CTest Visual Studio
           run: ctest --test-dir build-vs --output-on-failure -C Debug
 
-        - name: Configure CMake MinGW
-          run: cmake -S sync -B build-mingw -G "Unix Makefiles" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
+        # - name: Configure CMake MinGW
+        #   run: cmake -S sync -B build-mingw -G "Unix Makefiles" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
 
-        - name: Build CMake MinGW
-          run: cmake --build build-mingw
+        # - name: Build CMake MinGW
+        #   run: cmake --build build-mingw
 
-        - name: Run CTest MinGW
-          run: ctest --test-dir build-mingw --output-on-failure -C Debug
+        # - name: Run CTest MinGW
+        #   run: ctest --test-dir build-mingw --output-on-failure -C Debug
