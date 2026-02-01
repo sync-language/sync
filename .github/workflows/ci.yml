@@ -149,7 +149,9 @@ jobs:
 
             - name: Run Windows VCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/windows_arm64.yml
+              run: |
+                export VCI_QEMU_BINARY="/Applications/UTM.app/Contents/Frameworks/qemu-aarch64-softmmu.framework/Versions/A/qemu-aarch64-softmmu"
+                vci run test/vci/windows_arm64.yml
 
     test-mac-x64:
         needs: security-check
