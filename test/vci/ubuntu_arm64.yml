@@ -1,0 +1,32 @@
+ubuntu-x64:
+    image: ~/Library/Containers/com.utmapp.UTM/Data/Documents/Linux.utm/Data/BE9A8C68-E801-4419-85D9-C4CBAFC86DB4.qcow2
+    arch: amd64
+    cpus: 2
+    memory: 6G
+    user: dev
+    pass: dev
+    uefi:
+      code: /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+      vars: ~/Library/Containers/com.utmapp.UTM/Data/Documents/Linux.utm/Data/efi_vars.fd
+    steps:
+        - name: Copy Files
+          copy:
+            from: ./
+            to: vm:~/
+            exclude:
+              - .git
+              - .github
+              - docs
+
+        - name: Run Subsequent Steps Offline
+          offline: true
+
+        - name: Configure CMake
+          run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
+
+        - name: Build CMake
+          run: cmake --build build
+
+        - name: Run CTest
+          run: ctest --test-dir build --output-on-failure
+          

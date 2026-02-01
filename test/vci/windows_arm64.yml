@@ -1,0 +1,44 @@
+windows-x64:
+    image: ~/Library/Containers/com.utmapp.UTM/Data/Documents/Windows.utm/Data/F2478658-BA33-4D53-894B-330335F7550D.qcow2
+    arch: amd64
+    cpus: 4
+    memory: 16G
+    user: dev
+    pass: dev
+    tpm: true
+    uefi:
+      code: /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+      vars: ~/Library/Containers/com.utmapp.UTM/Data/Documents/Windows.utm/Data/efi_vars.fd
+    steps:
+        - name: Make Dirs
+          run: mkdir sync
+          
+        - name: Copy Files
+          copy:
+            from: ./
+            to: vm:C:\Users\dev\sync
+            exclude:
+              - .git
+              - .github
+              - docs
+
+        - name: Run Subsequent Steps Offline
+          offline: true
+
+        - name: Configure CMake Visual Studio
+          run: cmake -S sync -B build-vs -G "Visual Studio 18 2026" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8"
+
+        - name: Build CMake Visual Studio
+          run: cmake --build build-vs
+
+        - name: Run CTest Visual Studio
+          run: ctest --test-dir build-vs --output-on-failure -C Debug
+
+        - name: Configure CMake MinGW
+          run: cmake -S sync -B build-mingw -G "Unix Makefiles" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
+
+        - name: Build CMake MinGW
+          run: cmake --build build-mingw
+
+        - name: Run CTest MinGW
+          run: ctest --test-dir build-mingw --output-on-failure -C Debug
