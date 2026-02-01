@@ -8,7 +8,7 @@ windows-arm64:
     tpm: true
     uefi:
       code: /opt/homebrew/share/qemu/edk2-aarch64-code.fd
-      vars: /opt/homebrew/share/qemu/edk2-arm-vars.fd
+      vars: ~/vm/windows/windows-efi-vars-padded.fd
     steps:
         - name: Make Dirs
           run: mkdir sync
