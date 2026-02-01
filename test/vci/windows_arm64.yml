@@ -5,7 +5,7 @@ windows-arm64:
     memory: 16G
     user: dev
     pass: dev
-    tpm: true
+    tpm: false
     uefi:
       code: /opt/homebrew/share/qemu/edk2-aarch64-code.fd
       vars: ~/vm/windows/windows-efi-vars-padded.fd
