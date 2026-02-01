@@ -5,10 +5,11 @@ windows-arm64:
     memory: 16G
     user: dev
     pass: dev
-    tpm: tpm-crb-device
+    tpm: true
+    nvme: true
     uefi:
-      code: /Applications/UTM.app/Contents/Resources/qemu/edk2-aarch64-code.fd
-      vars: /Applications/UTM.app/Contents/Resources/qemu/edk2-arm-vars.fd
+      code: /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+      vars: /opt/homebrew/share/qemu/edk2-arm-vars.fd
     steps:
         - name: Make Dirs
           run: mkdir sync
