@@ -181,7 +181,7 @@ jobs:
               working-directory: ${{ env.WORK_DIR }}/repo
               run: vci run test/vci/mac_x64.yml
 
-    test-mac-x64:
+    test-mac-arm64:
         needs: security-check
         runs-on:
             - self-hosted
