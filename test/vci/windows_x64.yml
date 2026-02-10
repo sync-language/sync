@@ -1,11 +1,7 @@
 windows-x64:
     image: win-11-x64
-    arch: amd64
     cpus: 2
     memory: 8G
-    user: dev
-    pass: dev
-    tpm: true
     steps:
         - name: Make Dirs
           run: mkdir sync
