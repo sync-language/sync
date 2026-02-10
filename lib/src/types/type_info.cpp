@@ -171,7 +171,7 @@ void sy::Type::destroyObjectImpl(void* obj) const {
     sy_assert(err.hasErr() == false, "Destructors may not throw/cause errors"); // TODO what do to if error?
 }
 
-void sy::Type::copyConstructObjectImpl(void* dst, const void* src) const {
+Result<void, ProgramError> sy::Type::copyConstructObjectImpl(void* dst, const void* src) const {
     sy_assert(dst != nullptr, "Cannot copy to null object");
     sy_assert(src != nullptr, "Cannot copy from null object");
     sy_assert(this->copyConstructor.hasValue(), "Cannot do equality comparison without an equality function");
@@ -189,8 +189,7 @@ void sy::Type::copyConstructObjectImpl(void* dst, const void* src) const {
     (void)callArgs.push(&dst, this->mutRef);
     (void)callArgs.push(&src, this->constRef);
 
-    const auto err = callArgs.call(nullptr);
-    sy_assert(err.hasErr() == false, "Equality may not throw/cause errors"); // TODO what do to if error?
+    return callArgs.call(nullptr);
 }
 
 bool sy::Type::equalObjectsImpl(const void* self, const void* other) const {
