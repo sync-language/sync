@@ -22,5 +22,5 @@ macos-x64:
       run: cmake --build build
 
     - name: Run CTest
-      run: ./build/test/SyncLibTests 
-      # ctest --test-dir build --output-on-failure
+      # run: ./build/test/SyncLibTests 
+      run: ctest --test-dir build --output-on-failure
