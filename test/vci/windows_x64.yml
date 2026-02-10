@@ -1,14 +1,11 @@
 windows-x64:
-    image: ~/vm/windows-x64.qcow2
+    image: win-11-x64
     arch: amd64
-    cpus: 4
-    memory: 16G
+    cpus: 2
+    memory: 8G
     user: dev
     pass: dev
     tpm: true
-    uefi:
-      code: /usr/share/OVMF/OVMF_CODE_4M.ms.fd
-      vars: /usr/share/OVMF/OVMF_VARS_4M.ms.fd
     steps:
         - name: Make Dirs
           run: mkdir sync

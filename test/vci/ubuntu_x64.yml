@@ -1,10 +1,7 @@
 ubuntu-x64:
-    image: ~/vm/ubuntu-24.04-server.qcow2
-    arch: amd64
+    image: ubuntu-server-x64
     cpus: 2
     memory: 6G
-    user: dev
-    pass: dev
     steps:
         - name: Copy Files
           copy:

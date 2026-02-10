@@ -1,15 +1,7 @@
 windows-arm64:
-    image: ~/Library/Containers/com.utmapp.UTM/Data/Documents/Windows.utm/Data/F2478658-BA33-4D53-894B-330335F7550D.qcow2
-    arch: arm64
-    cpus: 4
-    memory: 16G
-    user: dev
-    pass: dev
-    tpm: true
-    nvme: true
-    uefi:
-      code: /opt/homebrew/share/qemu/edk2-aarch64-code.fd
-      vars: /opt/homebrew/share/qemu/edk2-arm-vars.fd
+    image: win-11-arm64
+    cpus: 2
+    memory: 8G
     steps:
         - name: Make Dirs
           run: mkdir sync

@@ -1,5 +1,5 @@
 macos-x64:
-    image: mac-x64
+    image: mac-arm64
     cpus: 4
     memory: 16G
     steps:
