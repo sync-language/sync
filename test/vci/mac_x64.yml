@@ -1,7 +1,7 @@
 macos-x64:
     image: mac-x64
-    cpus: 4
-    memory: 16G
+    cpus: 2
+    memory: 8G
     steps:
     - name: Copy Files
       copy:
