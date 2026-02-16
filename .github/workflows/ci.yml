@@ -333,7 +333,7 @@ jobs:
             - self-hosted
             - macOS
             - ARM64
-        timeout-minutes: 2
+        timeout-minutes: 5
         continue-on-error: true
         if: github.event_name == 'pull_request_target'
         permissions: # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
@@ -342,89 +342,37 @@ jobs:
         concurrency:
             group: ollama-llm-${{ github.repository }}
             cancel-in-progress: false
-        env:
-            WORK_DIR: ${{ github.workspace }}/runs/${{ github.run_id }}
         steps:
-            - name: Cleanup runs older than 24 hours
+            - name: Run PR Review
               continue-on-error: true
-              shell: pwsh
+              # https://codeberg.org/TobJEnd/Local-PR-Agent
               run: |
-                $cutoffDate = (Get-Date).AddHours(-24)
-                $runsPath = "${{ github.workspace }}/runs"
-                if (Test-Path $runsPath) {
-                  Get-ChildItem -Path $runsPath -Directory | Where-Object { $_.LastWriteTime -lt $cutoffDate } | ForEach-Object {
-                    Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue
-                  }
-                }
-
-            - name: Setup workspace
-              shell: pwsh
-              run: New-Item -ItemType Directory -Force -Path "${{ env.WORK_DIR }}"
-                
-
-            - name: Checkout code
-              uses: actions/checkout@v4
-              with:
-                ref: ${{ github.event.pull_request.head.sha || github.sha }}
-                path: ${{ env.WORK_DIR }}/repo
-
-            - name: Install PR-Agent
-              continue-on-error: true
-              shell: pwsh
-              run: |
-                pip install pr-agent --quiet
-
-            - name: Configure PR-Agent for Ollama
-              continue-on-error: true
-              shell: pwsh
-              working-directory: ${{ env.WORK_DIR }}/repo
-              # https://qodo-merge-docs.qodo.ai/installation/locally/
-              # https://qodo-merge-docs.qodo.ai/usage-guide/configuration_options/
-              run: | 
-                $token = "${{ github.token }}"
-                $config = @"
-                [config]
-                model = "ollama/qwen3-coder:30b"
-
-                [github]
-                user_token = "$token"
-
-                [ollama]
-                api_base = "http://localhost:11434"
-
-                [pr_reviewer]
-                num_code_suggestions = 5
-                inline_code_comments = true
-
-                [pr_description]
-                publish_description = true
-                "@
-
-                New-Item -ItemType Directory -Force -Path ".pr_agent" | Out-Null
-                $config | Out-File -FilePath ".pr_agent/configuration.toml" -Encoding UTF8
-
-            - name: Run Review
-              continue-on-error: true
-              shell: pwsh
-              working-directory: ${{ env.WORK_DIR }}/repo
-              run: | # https://qodo-merge-docs.qodo.ai/usage-guide/changing_a_model/
-                $env:GITHUB__USER_TOKEN = "${{ github.token }}"
-                $env:config__model = "ollama/qwen3-coder:30b"
-                $env:config__custom_model_max_tokens = "256000"
-                $env:ollama__api_base = "http://localhost:11434"
-                $env:LITELLM_LOG = "DEBUG"
-
-                pr-agent --pr_url="${{ github.event.pull_request.html_url }}" review
-              env:
-                GH_TOKEN: ${{ github.token }}
+                docker run --rm --platform linux/amd64 \
+                  -e CONFIG.GIT_PROVIDER=github \
+                  -e GITHUB.USER_TOKEN="${{ github.token }}" \
+                  -e GITHUB.DEPLOYMENT_TYPE=user \
+                  -e OPENAI.API_BASE=http://host.docker.internal:11434/v1 \
+                  -e CONFIG.MODEL=openai/qwen3-coder:30b \
+                  -e CONFIG.CUSTOM_MODEL_MAX_TOKENS=256000 \
+                  -e CONFIG.VERBOSITY_LEVEL=2 \
+                  -e PR_REVIEWER.NUM_MAX_FINDINGS=6 \
+                  -e LITELLM.ENABLE_JSON_SCHEMA_VALIDATION=true \
+                  ghcr.io/tobend/pr-agent:latest \
+                  --pr_url="${{ github.event.pull_request.html_url }}" review
 
             - name: Post Warning if Error
               if: failure() || cancelled()
               continue-on-error: true
-              shell: pwsh
               run: |
-                $message = "**LLM Analysis Warning**`n`nThe LLM-based code analysis workflow did not complete. This may be due to:`n- Timeout (>2 minutes)`n- Hosted machine not reachable`n- Other configuration issues`n`nThis is non-blocking and does not affect PR approval."
+                message="**LLM Analysis Warning**
 
-                gh pr comment ${{ github.event.pull_request.number }} --body $message
+                The LLM-based code analysis workflow did not complete. This may be due to:
+                - Timeout (>2 minutes)
+                - Hosted machine not reachable
+                - Other configuration issues
+
+                This is non-blocking and does not affect PR approval."
+
+                gh pr comment ${{ github.event.pull_request.number }} --body "$message"
               env:
                 GH_TOKEN: ${{ github.token }}
