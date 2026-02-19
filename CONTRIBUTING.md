@@ -14,17 +14,12 @@ These are all mandatory to develop for Sync, as all APIs must be kept up to date
 
 - [git](https://git-scm.com/)
 - [CMake](https://cmake.org/)
-- [Rust with Cargo](https://rust-lang.org/learn/get-started/)
+- [Rust and Cargo](https://rust-lang.org/learn/get-started/)
 - [Zig](https://ziglang.org/learn/getting-started/)
 
 ### Optional
 
-- [Python](https://www.python.org/) to execute cross-platform tests
-- [Docker](https://docs.docker.com/desktop/) to run the Linux test suite
 - [Emscripten](https://emscripten.org/docs/getting_started/downloads.html) to run the WASM test suite along with either [Node.js](https://nodejs.org/en/download) or [Bun](https://bun.com/)
-- [QEMU](https://www.qemu.org/) basis for VMs
-- [quickemu](https://github.com/quickemu-project/quickemu) for Mac/Windows/Linux VMs
-- [UTM](https://mac.getutm.app/) to run Windows test suite from a MacOS device
 - [bwrap](https://github.com/containers/bubblewrap) for sandboxing Linux
 
 ### MacOS Setup
@@ -58,21 +53,6 @@ brew install zig
 brew upgrade zig
 ```
 
-#### 5. Install Python
-
-```sh
-# get Python. Latest is fine.
-brew install python
-```
-
-#### 6. Install Docker
-
-```sh
-# see https://docs.docker.com/desktop/setup/install/mac-install/ to get Docker Desktop
-# alternatively run the following
-brew install --cask docker
-```
-
 #### 7. Install and Build Emscripten
 
 ```sh
@@ -91,90 +71,6 @@ source ./emsdk_env.sh
 # alternatively get bun
 # alternatively run the following
 brew install node
-```
-
-#### 9. Install VM Runners
-
-```sh
-# get QEMU, UTM, and SSH auto insert password
-brew install qemu
-brew install --cask utm
-brew install sshpass
-```
-
-#### 10. Setup Windows VM with UTM
-
-##### 10.1. Get a Windows ISO
-
-**NOTE:** Running unlicensed windows is not recommended. We recommend getting a trial version of Windows Enterprise from the [Microsoft Evaluation Center](https://www.microsoft.com/en-us/evalcenter/evaluate-windows-11-iot-enterprise-ltsc).
-
-For unlicensed Windows (not recommended), get a normal ISO.
-
-- For Apple Silicon: [Windows 11 ARM64 ISO](https://www.microsoft.com/en-us/software-download/windows11arm64)
-- For Intel Mac: A Windows 10/11 x64 ISO should be fine
-
-##### 10.2. Create the Virtual Machine
-
-1. Open UTM
-2. Click "+"
-3. Select "Virtualize" or "Emulate"
-    - "Virtualize" if the CPU architectures match (apple silicon + win11 arm OR intel mac + win10/11 x64)
-    - "Emulate" otherwise
-4. Select "Windows"
-5. Set the required specs
-    - 8192MB recommended memory
-    - 4 cores recommend (maybe 2 is fine?)
-6. Select `Install Windows 10 or higher`
-7. Select your downloaded ISO file
-8. Set disk size (64+GB)
-    - 128GB recommended, as Sync does not require too many resources to run the test suite, but VS tools are quite big
-9. No shared directories are required
-10. Name the VM. This name will be used later. Prefer the format `Windows <10 or 11> <arch>` for instance `Windows 11 arm64`
-
-##### 10.3. Setup Windows
-
-I encountered some difficulty with this part. At first I only see `SHELL>`. Run `map` to see some FS devices.
-
-The trick is to press a key when it says "Press any key to boot from CD or DVD" (duh). If you're in the UEFI shell, enter `exit` and then select `Reset`, or just restart the VM.
-
-Once you're actually in the Windows setup, follow it as normally.
-
-After it restarts, to not press a key to boot into CD / DVD again. It will keep restarting, which is fine. It is making progress as can be seen by the visible percentage.
-
-##### 10.4. Setup UTM guest tools
-
-Setup UTM guest tools with the `UTM Guest Tools Installer`. This should be loaded on first setup already.
-
-`https://docs.getutm.app/guest-support/windows/`.
-
-##### 10.5. Configure SSH
-
-Configure SSH
-
-Open Adminstrator Powershell
-
-```sh
-# This first one may take a while
-Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
-Start-Service sshd
-Set-Service -Name sshd -StartupType Automatic
-New-NetFirewallRule -Name sshd -DisplayName 'OpenSSH Server' -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22
-# Maybe also disable the firewall
-Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
-```
-
-##### 10.6. Perform Windows Environment Setup as Normal
-
-Install Windows Environment Tools by performing the [Windows Environment Setup](#windows-setup).
-
-You do not need to setup Emscripten or Docker for the Virtual Machine.
-
-##### 10.7. Useful VM Commands
-
-```sh
-# ssh into the VM
-utmctl ip-address "<yourvmname>"
-sshpass -p 'PASSWORD' ssh -o StrictHostKeyChecking=no USERNAME@IP
 ```
 
 ### Windows Setup
@@ -209,11 +105,7 @@ winget install -e --id zig.zig
 
 Getting CMake, Rust, and Zig will vary depending on your Distro.
 
-#### 2. Get Docker For Your Distro
-
-[Install Docker for Linux](https://docs.docker.com/desktop/setup/install/linux/), with command line support.
-
-#### 3. Install and Build Emscripten
+#### 2. Install and Build Emscripten
 
 ```sh
 git clone https://github.com/emscripten-core/emsdk.git
@@ -224,98 +116,10 @@ cd emsdk
 source ./emsdk_env.sh
 ```
 
-#### 4. Install Node.js or Bun
+#### 3. Install Node.js or Bun
 
 ```sh
 # see https://nodejs.org/en/download to get Node.js
 # alternatively get bun
 curl -fsSL https://bun.sh/install | bash
-```
-
-#### 6. Install QEMU
-
-Download [QEMU](https://www.qemu.org/download/#linux) for your distro.
-
-#### 7. Install Quickemu
-
-```sh
-git clone https://github.com/quickemu-project/quickemu.git
-cd quickemu
-# Add the quickemu runner to your path for this terminal only
-# alternatively, add this to your ~/.zshrc, ~/.bashrc, or other to have it globally
-export PATH="$PATH:."
-```
-
-#### 8. Install SSH Stuff
-
-- `sshpass`
-
-#### 9. Setup Windows VM
-
-#### 10. Setup MacOS VM
-
-**NOTE** Running MacOS on non-apple hardware is a strict violation of EULA, and we do not recommend setting this up.
-
-## Running Tests
-
-The python script [test/run_tests.py](test/run_tests.py) will run a configured set of the test suite.
-
-### Arguments
-
-| Argument | Options | Description |
-|----------|---------|-------------|
-| `--asan` | N/A | Enable Address Sanitizing on main tests |
-| `--tsan` | N/A | Enable Thread Sanitizer tests |
-| `--sandbox` | N/A | Run host system tests in sandboxed environment |
-| `--no-docker` | N/A | Disables execution of docker tests |
-| `--no-vm` | N/A | Disables execution of Virtual Machine tests<br>- UTM on MacOS |
-| `--utm` | "VM_NAME" USER PASS | Specifies a virtual machine for UTM to run. Multiple `--utm` options are allowed |
-
-## LLM Analysis Setup
-
-Firstly, we do not have the budget or resources for our own data-center. Secondly, we as a team believe in not being wasteful, which unfortunately massive data centers can be. Lastly, we do not have big enough egos to assume all of our code is perfect. Therefore, using smaller on-device LLMs for basic static analysis of PRs is acceptable. In this case, the false-positives / hallucinations by the models (even if mildly annoying) is fine, as ensuring we actively audit our code is a top priority.
-
-### 1. Install ollama
-
-Download [Ollama](https://ollama.com/download)
-
-### 2. Install your Model of Choice
-
-```sh
-# for instance, deepseek-r1:14b, which gives acceptable results
-ollama pull deepseek-r1:14b
-```
-
-### 3. Start ollama
-
-```sh
-ollama serve
-```
-
-### 4. Run [llm_analysis.py](test/llm_analysis.py) Script
-
-| Argument | Options | Description |
-|----------|---------|-------------|
-| `--model` | MODEL_NAME | Select the model to use in ollama |
-| `--files` | FILE_1 FILE_2 FILE_3 ... | Files to analyze (incompatible with `--diff` or `--pr`) |
-| `--diff` | N/A | Analyze git diff (incompatible with `--files` or `--pr`) |
-| `--pr` | BASE_BRANCH | Analyze pull request diff against another branch (incompatible with `--files` or `--diff`) |
-| `--prompt` | "PROMPT" | The actual prompt, with the other args adding context |
-| `--no-include` | N/A | Disable recursively including non-system headers and add it to model context |
-
-```sh
-# specific files
-python test/llm_analysis.py --files lib/src/interpreter/interpreter.cpp
-
-# analyze staged changes
-python test/llm_analysis.py --diff
-
-# analyze against other branch
-python test/llm_analysis.py --pr main
-
-# custom prompt
-python test/llm_analysis.py --files src/main.c --prompt "Review this code for memory safety issues:"
-
-# specific model
-python test/llm_analysis.py --model qwen2.5-coder:14b --diff
 ```
