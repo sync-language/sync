@@ -216,6 +216,7 @@ function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
     if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
         add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
         add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE ${SYNC_LIB_UBSAN} TRUE)
+        target_compile_definitions(${TEST_NAME}_ThreadSanitizer PRIVATE SYNC_DEATH_TEST=1)
         target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
         add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
         set_tests_properties(${TEST_NAME}_ThreadSanitizer PROPERTIES
