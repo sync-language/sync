@@ -239,8 +239,11 @@ jobs:
               working-directory: ${{ env.WORK_DIR }}/repo
               run: vci run test/vci/wasm.yml
                 
-    sync-static-analysis:   
+    sync-static-analysis:
         needs: security-check
+        permissions: # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
+            contents: read           # read repo
+            pull-requests: write     # post comments
         runs-on:
             - self-hosted
             - Linux
@@ -358,6 +361,7 @@ jobs:
                   -e CONFIG.VERBOSITY_LEVEL=2 \
                   -e PR_REVIEWER.NUM_MAX_FINDINGS=6 \
                   -e LITELLM.ENABLE_JSON_SCHEMA_VALIDATION=true \
+                  -e PR_REVIEWER.EXTRA_INSTRUCTIONS="This is a C++ library for an embeddable programming language to extent host applications made in C, C++, Rust, or Zig. Key constraints: (1) No C++ exceptions — the codebase targets -fno-exceptions environments, so do not flag missing exception handling. (2) Custom memory allocators are used intentionally throughout — do not flag manual placement new, custom allocator usage, or lack of RAII as issues. (3) The library is designed for deterministic, low-level memory control. Focus reviews on actual logic errors, data races, undefined behavior, API contract violations, and platform portability issues rather than generic C++ best practices." \
                   ghcr.io/tobend/pr-agent:latest \
                   --pr_url="${{ github.event.pull_request.html_url }}" review
 
