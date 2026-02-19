@@ -72,7 +72,8 @@ struct Person {
 | Shared[T] | SyShared / sy::Shared<T> | thread-safe multiple owned object |
 | Weak[T] | SyWeak / sy::Weak<T> | thread-safe weak reference to Unique or Shared |
 | Task[?T] | SyTask / sy::Task<T> | Parallel execution unit or result from it. See [Task](#task) |
-| Ordering | SyOrdering / sy::Ordering | order of two elements |
+| Ordering | SyOrdering / sy::Ordering | Order of two elements |
+| AnyError | SyAnyError / sy::AnyError | Default error type with runtime type information |
 
 ### Primitive Values
 
@@ -941,7 +942,7 @@ const nullPointer: ?*i32 = null;
 
 Sync does not use exceptions, rather choosing to have errors as values. Similar to [Zig errors](https://ziglang.org/documentation/0.15.2/#Errors), error values have special syntax associated with them. Like [Rust std::Result](https://doc.rust-lang.org/std/result/), error values can be of any type, containing any user defined payload.
 
-The syntax for an error type definition is `ErrorType!OkType`. The `ErrorType` and `OkType` may be omitted.
+The syntax for an error type definition is `ErrorType!OkType`. The `OkType` may be omitted. If the `ErrorType` is omitted, it will be of type `AnyError` implicitly.
 
 ```sync
 // error union containing a f32 as an ok value, rather than an i16 error
@@ -954,7 +955,7 @@ const okValues: str!i32 = 5;
 // error union containing a str as an error value, rather than a i32 ok value
 const errorValues: str!i32 = "failed!";
 
-// This function DOES return, but it either returns nothing, or errors and also has no error value
+// This function DOES return, but it either returns nothing, or errors with an empty `AnyError` instance
 fn doSomeLogic(num: i32) ! {
     if num == 0 {
         throw;
@@ -1008,6 +1009,64 @@ fn main() {
     }
 }
 ```
+
+`try` itself can just return the error itself.
+
+```sync
+fn 
+```
+
+`try` can also work with multiple chains error function calls.
+
+```sync
+fn readFile(path: str) IoError!str {
+    // Reads a file
+}
+
+impl str {
+    fn trim(s: str) str {
+        // No start and end whitespace
+    }
+
+    fn parseJson(s: str) ParseError!JsonObject {
+        // Parse the json object from the string
+    }
+}
+
+fn readAllUsersExplicit() AnyError! {
+    const fileContents = try readFile("users.json");
+    const trimmed = fileContents.trim();
+    const jsonObject = trimmed.parseJson();
+    // do stuff with the json object
+}
+
+// Does the same as `readAllUsersExplicit()`, but the `try` works on all
+// fallible functions, creating `AnyError` from them due to differing error types.
+fn readAllUsersImplicit() AnyError! {
+    const jsonObject = try readFile("users.json").trim().parseJson();
+    // do stuff with the json object
+}
+```
+
+See [@err](#err).
+
+### AnyError
+
+The `AnyError` type is a special type that can wrap any other type, being used as the default error type. Internally it stores runtime type information, an cause chain, stack traces, and more, which is all configurable. It can also hold no information, in which it allocates no memory.
+
+```sync
+// Implicitly returns `AnyError`.
+fn doSomethingImplicit() ! {
+    throw; // Empty `AnyError` instance.
+}
+
+// Explicitly returns `AnyError`, but is functionally the same as above.
+fn doSomethingExplicit() ! {
+    throw; // Empty `AnyError` instance.
+}
+```
+
+The payload type of an `AnyError` will **NEVER** be another `AnyError`. Those may only be causes.
 
 ## Multithreading
 
@@ -2470,6 +2529,59 @@ struct Player {
 ```
 
 Modifier on a trait to implement a trait default, or disable a trait implementation.
+
+### @err
+
+Creates an `AnyError` with custom metadata from a `try` or `throw` statement.
+
+- `@err("message")`: Attaches a message from a `String`/`str`.
+- `@err("example1", cause <variable_name>)`: Chains a cause of the new error
+- `@err("example2", trace)`: Adds a stack trace
+- `@err("example3", cause <variable_name>, trace)`: Chains a cause, and adds a stack trace
+- `@err("example3", trace, cause <variable_name>)`: Chains a cause, and adds a stack trace
+- `@err(trace, cause <variable_name>)`: Chains a cause, and adds a stack trace, without a message
+- `@err(cause <variable_name>, trace)`: Chains a cause, and adds a stack trace, without a message
+- `@err(trace)`: Adds a stack trace, without a message or cause
+- `@err(cause <variable_name>)`: Chains a cause, without a message or stack trace
+
+An empty `@err()` is not allowed. One to all of message, cause, and trace must be supplied.
+
+`cause` may only ever be of type `AnyError`.
+
+```sync
+fn doSomething() ! {
+    // some condition causes a throw
+    throw 15 @err("error code supplied", trace);
+}
+
+fn wrapDoSomething() ! {
+    // Try catch
+    try doSomething() catch as e {
+        // no payload, but has the cause
+        throw @err("doSomething failed!", cause e);
+    }
+
+    // Or just try without catch
+    // Since doSomething() has an error type of AnyError, it will become the cause
+    // Same as the try/catch example above, but implicit cause
+    try doSomething() @err("doSomething failed!");
+}
+
+fn explicitError() i32! {
+    throw 24;
+}
+
+fn wrapExplicitError() ! {
+    try explicitError() catch as e {
+        // e is of type i32
+        // cannot do a cause here, as there is no AnyError to wrap
+        throw e @err("explicitError failed!");
+    }
+
+    // Same as above
+    try explicitError() @err("explicitError failed!");
+}
+```
 
 ### @skipTest
 
