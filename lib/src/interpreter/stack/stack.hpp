@@ -31,6 +31,8 @@ class Stack final {
 
     static Stack& getActiveStack();
 
+    static Stack* setActiveStack(Stack* newStack);
+
     /// Pushes a new frame onto the stack, given a length in slots, as well as return value and type destinations.
     /// Can stack overflow. Since functions track their return types, only the return value destination is required.
     /// @param frameLength The amount of slots the frame requires. Internally, some more will be added

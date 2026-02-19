@@ -414,8 +414,8 @@ bool sy::RawFunction::CallArgs::push(void* argMem, const Type* typeInfo) {
     return true;
 }
 
-sy::Result<void, sy::ProgramError> sy::RawFunction::CallArgs::call(void* retDst) {
-    sy_assert(this->pushedCount == this->func->argsLen, "Did not push enough arguments for function");
+sy::Result<void, sy::ProgramError> sy::RawFunction::CallArgs::call(void* retDst) noexcept {
+    sy_assert_release(this->pushedCount == this->func->argsLen, "Did not push enough arguments for function");
 
     if (this->func->tag == FunctionType::Script) {
         return interpreterExecuteScriptFunction(this->func, retDst);
@@ -433,6 +433,18 @@ sy::Result<void, sy::ProgramError> sy::RawFunction::CallArgs::call(void* retDst)
     } else {
         unreachable();
     }
+}
+
+Result<RawTask, ProgramError> sy::RawFunction::CallArgs::callParallel() noexcept {
+    sy_assert_release(this->pushedCount == this->func->argsLen, "Did not push enough arguments for function");
+
+    /*
+    1. submit task to thread pool
+    2. when ran, create a new stack and swap the current threadlocal active stack
+    3. when finish, restore the previous threadlocal active stack
+    */
+
+    return Error(ProgramError::BufferTooSmall);
 }
 
 sy::RawFunction::CallArgs sy::RawFunction::startCall() const {

@@ -19,8 +19,9 @@
 
 namespace sy {
 namespace detail {
+static thread_local Stack defaultThreadStack{};
 /// For now, this value will never change, however it'll be supported anyways for when coroutines become a thing.
-static thread_local Stack activeStack{};
+static thread_local Stack* activeStack = &defaultThreadStack;
 } // namespace detail
 } // namespace sy
 
@@ -40,11 +41,17 @@ sy::Stack::~Stack() noexcept {
     alloc.freeAlignedArray(this->callstackFunctions, this->callstackCapacity, ALLOC_CACHE_ALIGN);
 }
 
-Stack& sy::Stack::getThisThreadDefaultStack() { return detail::activeStack; }
+Stack& sy::Stack::getThisThreadDefaultStack() { return detail::defaultThreadStack; }
 
 Stack& sy::Stack::getActiveStack() {
     // TODO stack switching for co-routines?
-    return detail::activeStack;
+    return *detail::activeStack;
+}
+
+Stack* sy::Stack::setActiveStack(Stack* newStack) {
+    Stack* previous = detail::activeStack;
+    detail::activeStack = newStack;
+    return previous;
 }
 
 static constexpr size_t minNodeCapacityForCacheAlign() {

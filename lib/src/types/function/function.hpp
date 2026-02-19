@@ -77,9 +77,9 @@ class RawFunction {
         /// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
         bool push(void* argMem, const Type* typeInfo);
 
-        Result<void, ProgramError> call(void* retDst);
+        Result<void, ProgramError> call(void* retDst) noexcept;
 
-        Result<RawTask, ProgramError> callParallel();
+        Result<RawTask, ProgramError> callParallel() noexcept;
     };
 
     CallArgs startCall() const;

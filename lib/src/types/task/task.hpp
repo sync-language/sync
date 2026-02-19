@@ -7,9 +7,23 @@
 #include "../result/result.hpp"
 
 namespace sy {
-
 class RawFunction;
 class Type;
+
+namespace detail {
+class TaskUtils {
+  public:
+};
+} // namespace detail
+
+class SY_API TaskExecutor {
+  public:
+    void run() noexcept;
+
+  private:
+    friend class TaskUtils;
+    void* inner_;
+};
 
 class SY_API RawTask {
   public:
@@ -32,6 +46,7 @@ class SY_API RawTask {
     Result<bool, ProgramError> getIfDone(void* outReturn) noexcept;
 
   private:
+    friend class TaskUtils;
     void* inner_;
 };
 } // namespace sy

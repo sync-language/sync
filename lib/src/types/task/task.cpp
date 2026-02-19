@@ -49,6 +49,16 @@ const TaskHeader* asHeader(const void* inner) { return reinterpret_cast<const Ta
 
 TaskHeader* asHeaderMut(void* inner) { return reinterpret_cast<TaskHeader*>(inner); }
 
+void TaskExecutor::run() noexcept {
+    TaskHeader* header = asHeaderMut(this->inner_);
+    this->inner_ = nullptr;
+
+    Stack* previous = Stack::setActiveStack(&header->stack_);
+
+    (void)Stack::setActiveStack(previous);
+    sy_atomic_bool_store(&header->isDone_, true, SY_MEMORY_ORDER_SEQ_CST);
+}
+
 RawTask::RawTask(RawTask&& other) noexcept {
     this->inner_ = other.inner_;
     other.inner_ = nullptr;
