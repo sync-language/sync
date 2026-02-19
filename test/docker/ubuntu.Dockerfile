@@ -1,18 +1,18 @@
 # cached
-FROM --platform=linux/arm64 ubuntu:24.04 AS ubuntu-arm64-base
+FROM ubuntu:24.04 AS sync-base
 
 RUN apt-get update && \
     apt-get install -y build-essential cmake && \
     rm -rf /var/lib/apt/lists/*
 
 # not cached
-FROM ubuntu-arm64-base AS ubuntu-arm64-build
+FROM ubuntu-x64-base AS ubuntu-x64-build
 
 WORKDIR /sync
 COPY . .
 
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
-RUN cmake --build build --parallel
+RUN cmake --build build
 
 # LSan doesn't work in Docker/qemu
 ENV ASAN_OPTIONS="detect_leaks=0:abort_on_error=1"

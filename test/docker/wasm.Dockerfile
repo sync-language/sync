@@ -1,5 +1,5 @@
 # cached
-FROM ubuntu:24.04 AS wasm-base
+FROM ubuntu:24.04 AS sync-wasm-base
 
 RUN apt-get update && \
     apt-get install -y build-essential cmake git-all python3 nodejs && \
@@ -23,6 +23,6 @@ WORKDIR /sync
 COPY . .
 
 RUN emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
-RUN cmake --build build --parallel
+RUN cmake --build build
 RUN --network=none ctest --test-dir build --output-on-failure --verbose
 #RUN node --experimental-wasm-threads build/test/SyncTestCore_FilesystemGetFileSizeSmall.js
