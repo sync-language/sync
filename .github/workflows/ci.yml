@@ -304,6 +304,7 @@ jobs:
 
             - name: Post Summary
               if: always() && github.event_name == 'pull_request_target'
+              working-directory: ${{ env.WORK_DIR }}/repo
               run: |
                 SUMMARY="## Static Analysis Results\n\n"
                 SUMMARY+="### Clang-Tidy\n"
