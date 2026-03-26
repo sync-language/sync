@@ -40,15 +40,15 @@ jobs:
                 cd ${{ env.WORK_DIR }}
 
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                 ref: ${{ github.event.pull_request.head.sha || github.sha }}
                 path: ${{ env.WORK_DIR }}/repo
                 clean: true
 
-            - name: Run Ubuntu VCI tests
+            - name: Run Ubuntu VirtCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/ubuntu_x64.yml
+              run: virtci run test/vci/ubuntu_x64.yml
 
     test-ubuntu-arm64:
         needs: gate
@@ -70,15 +70,15 @@ jobs:
                 cd ${{ env.WORK_DIR }}
 
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                 ref: ${{ github.event.pull_request.head.sha || github.sha }}
                 path: ${{ env.WORK_DIR }}/repo
                 clean: true
 
-            - name: Run Ubuntu VCI tests
+            - name: Run Ubuntu VirtCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/ubuntu_arm64.yml
+              run: virtci run test/vci/ubuntu_arm64.yml
     
     test-windows-x64:
         needs: gate
@@ -100,15 +100,15 @@ jobs:
                 cd ${{ env.WORK_DIR }}
 
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                 ref: ${{ github.event.pull_request.head.sha || github.sha }}
                 path: ${{ env.WORK_DIR }}/repo
                 clean: true
 
-            - name: Run Windows VCI tests
+            - name: Run Windows VirtCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/windows_x64.yml
+              run: virtci run test/vci/windows_x64.yml
 
     test-windows-arm64:
         needs: gate
@@ -130,16 +130,16 @@ jobs:
                 cd ${{ env.WORK_DIR }}
 
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                 ref: ${{ github.event.pull_request.head.sha || github.sha }}
                 path: ${{ env.WORK_DIR }}/repo
                 clean: true
 
-            - name: Run Windows VCI tests
+            - name: Run Windows VirtCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
               run: |
-                vci run test/vci/windows_arm64.yml
+                virtci run test/vci/windows_arm64.yml
 
     test-mac-x64:
         needs: gate
@@ -161,15 +161,15 @@ jobs:
                 cd ${{ env.WORK_DIR }}
 
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                 ref: ${{ github.event.pull_request.head.sha || github.sha }}
                 path: ${{ env.WORK_DIR }}/repo
                 clean: true
 
-            - name: Run MacOS VCI tests
+            - name: Run MacOS VirtCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/mac_x64.yml
+              run: virtci run test/vci/mac_x64.yml
 
     test-mac-arm64:
         needs: gate
@@ -191,15 +191,15 @@ jobs:
                 cd ${{ env.WORK_DIR }}
 
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                 ref: ${{ github.event.pull_request.head.sha || github.sha }}
                 path: ${{ env.WORK_DIR }}/repo
                 clean: true
 
-            - name: Run MacOS VCI tests
+            - name: Run MacOS VirtCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/mac_arm64.yml
+              run: virtci run test/vci/mac_arm64.yml
     
     test-wasm:
         needs: gate
@@ -221,15 +221,15 @@ jobs:
                 cd ${{ env.WORK_DIR }}
 
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                 ref: ${{ github.event.pull_request.head.sha || github.sha }}
                 path: ${{ env.WORK_DIR }}/repo
                 clean: true
 
-            - name: Run WASM VCI tests
+            - name: Run WASM VirtCI tests
               working-directory: ${{ env.WORK_DIR }}/repo
-              run: vci run test/vci/wasm.yml
+              run: virtci run test/vci/wasm.yml
                 
     sync-static-analysis:
         needs: gate
@@ -253,7 +253,7 @@ jobs:
                 mkdir -p ${{ env.WORK_DIR }}
 
             - name: Checkout code
-              uses: actions/checkout@v4
+              uses: actions/checkout@v6
               with:
                 ref: ${{ github.event.pull_request.head.sha || github.sha }}
                 path: ${{ env.WORK_DIR }}/repo
@@ -262,7 +262,7 @@ jobs:
             - name: Run static analysis (sandboxed in VMs)
               working-directory: ${{ env.WORK_DIR }}/repo
               run: |
-                vci run test/vci/static_analysis.yml
+                virtci run test/vci/static_analysis.yml
 
             - name: Clang-Tidy Results
               if: always()
@@ -326,12 +326,12 @@ jobs:
 
     sync-llm-analysis:
         needs: gate
-        if: always() && needs.gate.result == 'success'
+        if: always() && (needs.gate.result == 'success' || needs.gate.result == 'skipped')
         runs-on:
             - self-hosted
             - macOS
             - ARM64
-        timeout-minutes: 5
+        timeout-minutes: 20
         continue-on-error: true
         permissions: # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
             contents: read           # read repo
@@ -340,37 +340,77 @@ jobs:
             group: ollama-llm-${{ github.repository }}
             cancel-in-progress: false
         steps:
-            - name: Run PR Review
-              continue-on-error: true
-              # https://codeberg.org/TobJEnd/Local-PR-Agent
+            - name: Checkout code
+              uses: actions/checkout@v6
+              with:
+                ref: ${{ github.event.pull_request.head.sha || github.sha }}
+                fetch-depth: 0
+
+            - name: Generate diff
               run: |
-                docker run --rm --platform linux/amd64 \
-                  -e CONFIG.GIT_PROVIDER=github \
-                  -e GITHUB.USER_TOKEN="${{ github.token }}" \
-                  -e GITHUB.DEPLOYMENT_TYPE=user \
-                  -e OPENAI.API_BASE=http://host.docker.internal:11434/v1 \
-                  -e CONFIG.MODEL=openai/qwen3-coder:30b \
-                  -e CONFIG.CUSTOM_MODEL_MAX_TOKENS=256000 \
-                  -e CONFIG.VERBOSITY_LEVEL=2 \
-                  -e PR_REVIEWER.NUM_MAX_FINDINGS=6 \
-                  -e LITELLM.ENABLE_JSON_SCHEMA_VALIDATION=true \
-                  -e PR_REVIEWER.EXTRA_INSTRUCTIONS="This is a C++ library for an embeddable programming language to extent host applications made in C, C++, Rust, or Zig. Key constraints: (1) No C++ exceptions — the codebase targets -fno-exceptions environments, so do not flag missing exception handling. (2) Custom memory allocators are used intentionally throughout — do not flag manual placement new, custom allocator usage, or lack of RAII as issues. (3) The library is designed for deterministic, low-level memory control. Focus reviews on actual logic errors, data races, undefined behavior, API contract violations, and platform portability issues rather than generic C++ best practices." \
-                  ghcr.io/tobend/pr-agent:latest \
-                  --pr_url="${{ github.event.pull_request.html_url }}" review
+                if [ "${{ github.event_name }}" == "pull_request" ]; then
+                  git diff origin/${{ github.base_ref }}...HEAD > diff.txt
+                else
+                  git diff HEAD~1 > diff.txt
+                fi
 
-            - name: Post Warning if Error
-              if: failure() || cancelled()
+            - name: Run opencode Review
+              id: llm_analysis
+              continue-on-error: true
+              env:
+                # https://opencode.ai/docs/config/ -- no GITHUB_TOKEN in container; diff is pre-generated at /workspace/diff.txt
+                OPENCODE_CONFIG_CONTENT: '{"$schema":"https://opencode.ai/config.json","provider":{"ollama":{"npm":"@ai-sdk/openai-compatible","name":"Ollama","options":{"baseURL":"http://host.docker.internal:11434/v1"},"models":{"qwen3.5:27b":{"name":"Qwen 3.5 27B"}}}}}'
+              run: |
+                # --network none cannot be used: Ollama requires host.docker.internal connectivity unfortunately.
+                # All other available isolation is applied instead.
+                # https://github.com/anomalyco/opencode
+                timeout 1140 docker run --rm \
+                  --cap-drop ALL \
+                  --security-opt no-new-privileges:true \
+                  --read-only \
+                  --tmpfs /tmp:rw,nosuid,size=256m \
+                  --tmpfs /root:rw,nosuid,size=256m \
+                  --pids-limit 64 \
+                  --memory 4g \
+                  -v "${{ github.workspace }}:/workspace:ro" \
+                  -w /workspace \
+                  -e OPENCODE_CONFIG_CONTENT \
+                  ghcr.io/anomalyco/opencode:latest \
+                  opencode run \
+                    "You are a software development expert reviewing the Sync Programming Language C++ library: an embeddable language runtime for host applications in C, C++, Rust, or Zig, focused on allowing scriptable multithreading. Read /workspace/diff.txt for the changes. Before forming conclusions, read header files referenced by changed sources from /workspace. Constraints do not flag as issues: no C++ exceptions (-fno-exceptions is intentional), custom memory allocators throughout (placement new and custom allocator patterns are by design), deterministic low-level memory control is a design goal. Focus only on: logic errors, data races, undefined behavior (pointer aliasing/OOB/signed overflow/UAF/uninit reads), API contract violations, platform portability (endianness/alignment/ABI), memory leaks outside the custom allocator, incorrect error propagation. Do not report: missing exception handling, RAII suggestions, standard library alternatives, naming, formatting, or generic C++ best practices. Output exactly these sections: ## Critical Issues, ## Potential Issues, ## Suggestions, ## Summary. Cite file:line for each finding. Write None found for empty sections." \
+                  --model ollama/qwen3.5:27b \
+                  > llm-analysis.md 2>&1
+
+            - name: Post PR Comment
+              if: github.event_name == 'pull_request' && steps.llm_analysis.outcome == 'success'
               continue-on-error: true
               run: |
-                message="**LLM Analysis Warning**
+                gh pr comment ${{ github.event.pull_request.number }} --body-file llm-analysis.md
+              env:
+                GH_TOKEN: ${{ github.token }}
 
-                The LLM-based code analysis workflow did not complete. This may be due to:
-                - Timeout (>2 minutes)
-                - Hosted machine not reachable
-                - Other configuration issues
+            - name: Add to Job Summary
+              if: always()
+              continue-on-error: true
+              run: |
+                [ -f llm-analysis.md ] && cat llm-analysis.md >> "$GITHUB_STEP_SUMMARY" || true
 
-                This is non-blocking and does not affect PR approval."
+            - name: Upload Analysis Artifact
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                name: llm-analysis-${{ github.run_id }}
+                path: llm-analysis.md
+                if-no-files-found: ignore
 
-                gh pr comment ${{ github.event.pull_request.number }} --body "$message"
+            - name: Post Warning on Failure
+              if: always() && steps.llm_analysis.outcome != 'success'
+              continue-on-error: true
+              run: |
+                if [ "${{ github.event_name }}" == "pull_request" ]; then
+                  gh pr comment ${{ github.event.pull_request.number }} --body "**LLM Analysis Warning**: The analysis didn't complete (timeout or Ollama unavailable). This is non-blocking and doesn't affect PR approval."
+                else
+                  echo "::warning::LLM analysis didn't complete for this ${{ github.event_name }} event."
+                fi
               env:
                 GH_TOKEN: ${{ github.token }}
