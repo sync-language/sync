@@ -354,6 +354,9 @@ jobs:
                   git diff HEAD~1 > diff.txt
                 fi
 
+            - name: Pull opencode image
+              run: docker pull -q ghcr.io/anomalyco/opencode:latest
+
             - name: Run opencode Review
               id: llm_analysis
               continue-on-error: true
@@ -362,7 +365,7 @@ jobs:
                 # --network none cannot be used: Ollama requires host.docker.internal connectivity.
                 # All other available isolation is applied instead.
                 # https://github.com/anomalyco/opencode
-                OPENCODE_CONFIG_CONTENT: '{"$schema":"https://opencode.ai/config.json","provider":{"ollama":{"npm":"@ai-sdk/openai-compatible","name":"Ollama","options":{"baseURL":"http://host.docker.internal:11434/v1"},"models":{"qwen3.5:27b":{"name":"Qwen 3.5 27B"}}}}}'
+                OPENCODE_CONFIG_CONTENT: '{"$schema":"https://opencode.ai/config.json","provider":{"ollama":{"npm":"@ai-sdk/openai-compatible","name":"Ollama","options":{"baseURL":"http://host.docker.internal:11434/v1"},"models":{"qwen3.5:9b":{"name":"Qwen 3.5 9B"}}}}}'
                 CONTAINER_NAME: sync-opencode-review-${{ github.run_id }}
               run: |
                 docker run --name "$CONTAINER_NAME" \
@@ -379,7 +382,7 @@ jobs:
                   ghcr.io/anomalyco/opencode:latest \
                   run \
                     "You are a software development expert reviewing the Sync Programming Language C++ library: an embeddable language runtime for host applications in C, C++, Rust, or Zig, focused on allowing scriptable multithreading. Read /workspace/diff.txt for the changes. Before forming conclusions, read header files referenced by changed sources from /workspace. Constraints do not flag as issues: no C++ exceptions (-fno-exceptions is intentional), custom memory allocators throughout (placement new and custom allocator patterns are by design), deterministic low-level memory control is a design goal. Focus only on: logic errors, data races, undefined behavior (pointer aliasing/OOB/signed overflow/UAF/uninit reads), API contract violations, platform portability (endianness/alignment/ABI), memory leaks outside the custom allocator, incorrect error propagation. Do not report: missing exception handling, RAII suggestions, standard library alternatives, naming, formatting, or generic C++ best practices. Output exactly these sections: ## Critical Issues, ## Potential Issues, ## Suggestions, ## Summary. Cite file:line for each finding. Write None found for empty sections." \
-                  --model ollama/qwen3.5:27b \
+                  --model ollama/qwen3.5:9b \
                   > llm-analysis.md 2>&1 &
                 DOCKER_PID=$!
                 ELAPSED=0
@@ -393,6 +396,8 @@ jobs:
                   ELAPSED=$((ELAPSED + 5))
                 done
                 wait "$DOCKER_PID"
+                sed -n '/^## Critical Issues/,$p' llm-analysis.md > llm-analysis-trimmed.md \
+                  && mv llm-analysis-trimmed.md llm-analysis.md || true
 
             - name: Cleanup container
               if: always()
