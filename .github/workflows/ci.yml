@@ -316,7 +316,7 @@ jobs:
 
             - name: Upload analysis reports
               if: always()
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               with:
                 name: static-analysis-reports-${{ github.run_id }}
                 path: |
@@ -376,7 +376,7 @@ jobs:
                   -w /workspace \
                   -e OPENCODE_CONFIG_CONTENT \
                   ghcr.io/anomalyco/opencode:latest \
-                  opencode run \
+                  run \
                     "You are a software development expert reviewing the Sync Programming Language C++ library: an embeddable language runtime for host applications in C, C++, Rust, or Zig, focused on allowing scriptable multithreading. Read /workspace/diff.txt for the changes. Before forming conclusions, read header files referenced by changed sources from /workspace. Constraints do not flag as issues: no C++ exceptions (-fno-exceptions is intentional), custom memory allocators throughout (placement new and custom allocator patterns are by design), deterministic low-level memory control is a design goal. Focus only on: logic errors, data races, undefined behavior (pointer aliasing/OOB/signed overflow/UAF/uninit reads), API contract violations, platform portability (endianness/alignment/ABI), memory leaks outside the custom allocator, incorrect error propagation. Do not report: missing exception handling, RAII suggestions, standard library alternatives, naming, formatting, or generic C++ best practices. Output exactly these sections: ## Critical Issues, ## Potential Issues, ## Suggestions, ## Summary. Cite file:line for each finding. Write None found for empty sections." \
                   --model ollama/qwen3.5:27b \
                   > llm-analysis.md 2>&1
@@ -397,7 +397,7 @@ jobs:
 
             - name: Upload Analysis Artifact
               if: always()
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v6
               with:
                 name: llm-analysis-${{ github.run_id }}
                 path: llm-analysis.md
