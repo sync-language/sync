@@ -369,6 +369,7 @@ jobs:
                 CONTAINER_NAME: sync-opencode-review-${{ github.run_id }}
               run: |
                 docker run --name "$CONTAINER_NAME" \
+                  --add-host=host.docker.internal:host-gateway \
                   --cap-drop ALL \
                   --security-opt no-new-privileges:true \
                   --read-only \
