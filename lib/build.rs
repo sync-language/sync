@@ -21,6 +21,7 @@ fn main() {
         .file("src/types/function/function.cpp")
         .file("src/types/string/string_slice.cpp")
         .file("src/types/string/string.cpp")
+        .file("src/types/string/atomic_string.cpp")
         .file("src/types/sync_obj/sync_obj.cpp")
         .file("src/types/array/dynamic_array.cpp")
         .file("src/types/array/slice.cpp")

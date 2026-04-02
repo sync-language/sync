@@ -11,7 +11,7 @@ endif()
 project("Sync")
 
 option(BUILD_SHARED_LIBS "Build Sync as a shared library" OFF)
-option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" ON)
+option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" OFF)
 option(SYNC_SKIP_TSAN_TESTS "Disable TSan tests even if the compiler supports it, such as in containerized environments" OFF)
 option(SYNC_SANDBOX_TESTS "Use sandboxing for tests" OFF)
 option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
@@ -90,23 +90,24 @@ if(SYNC_LIB_WITH_TESTS)
 endif()
 
 if(BUILD_SHARED_LIBS)
-    add_library(SyncLib SHARED ${SYNC_LIB_SOURCES})
+    add_library(sync SHARED ${SYNC_LIB_SOURCES})
 else()
-    add_library(SyncLib STATIC ${SYNC_LIB_SOURCES})
+    add_library(sync STATIC ${SYNC_LIB_SOURCES})
 endif()
-target_include_directories(SyncLib INTERFACE "include")
+target_include_directories(sync INTERFACE "include")
+add_library(sync::sync ALIAS sync)
 
 if(NOT DEFINED CMAKE_CXX_STANDARD)
     if(EMSCRIPTEN)
         message(STATUS "Using C++23 for Emscripten") # __COUNTER__ for doctest
-        set_target_properties(SyncLib PROPERTIES
+        set_target_properties(sync PROPERTIES
             C_STANDARD 11
             C_STANDARD_REQUIRED YES
             CXX_STANDARD 23
             CXX_STANDARD_REQUIRED YES
         )
     else()
-        set_target_properties(SyncLib PROPERTIES
+        set_target_properties(sync PROPERTIES
             C_STANDARD 11
             C_STANDARD_REQUIRED YES
             CXX_STANDARD 17
@@ -119,69 +120,69 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # See docs/core_requirements.md
 if(SYNC_CUSTOM_ALIGNED_MALLOC_FREE)
-    target_compile_definitions(SyncLib PRIVATE SYNC_CUSTOM_ALIGNED_MALLOC_FREE=1)
+    target_compile_definitions(sync PRIVATE SYNC_CUSTOM_ALIGNED_MALLOC_FREE=1)
 endif()
 if(SYNC_CUSTOM_PAGE_MEMORY)
-    target_compile_definitions(SyncLib PRIVATE SYNC_CUSTOM_PAGE_MEMORY=1)
+    target_compile_definitions(sync PRIVATE SYNC_CUSTOM_PAGE_MEMORY=1)
 endif()
 if(SYNC_DEFAULT_PAGE_ALIGNMENT)
-    target_compile_definitions(SyncLib PRIVATE SYNC_DEFAULT_PAGE_ALIGNMENT=1)
+    target_compile_definitions(sync PRIVATE SYNC_DEFAULT_PAGE_ALIGNMENT=1)
 endif()
 if(SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER)
-    target_compile_definitions(SyncLib PRIVATE SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER=1)
+    target_compile_definitions(sync PRIVATE SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER=1)
 endif()
 if(SYNC_NO_FILESYSTEM)
-    target_compile_definitions(SyncLib PRIVATE SYNC_NO_FILESYSTEM=1)
+    target_compile_definitions(sync PRIVATE SYNC_NO_FILESYSTEM=1)
 endif()
 if(SYNC_NO_SAFETY_CHECKS)
-    target_compile_definitions(SyncLib PRIVATE SYNC_NO_SAFETY_CHECKS=1)
+    target_compile_definitions(sync PRIVATE SYNC_NO_SAFETY_CHECKS=1)
 endif()
 if(SYNC_CUSTOM_BACKTRACE)
-    target_compile_definitions(SyncLib PRIVATE SYNC_CUSTOM_BACKTRACE=1)
+    target_compile_definitions(sync PRIVATE SYNC_CUSTOM_BACKTRACE=1)
 endif()
 
 
 if(MSVC)
-    target_compile_options(SyncLib PRIVATE /MP)
+    target_compile_options(sync PRIVATE /MP)
 endif()
 
 if(SYNC_LIB_WITH_TESTS)
-    target_compile_definitions(SyncLib PRIVATE SYNC_LIB_WITH_TESTS)
+    target_compile_definitions(sync PRIVATE SYNC_LIB_WITH_TESTS)
 endif()
 
 if(SYNC_NO_PAGES)
-    target_compile_definitions(SyncLib PRIVATE SYNC_NO_PAGES)
+    target_compile_definitions(sync PRIVATE SYNC_NO_PAGES)
 endif()
 
 # C11 Atomic Support. NOT REQUIRED, can build using the Interlocked API
 if(MSVC)
-    target_compile_options(SyncLib PRIVATE /experimental:c11atomics)
+    target_compile_options(sync PRIVATE /experimental:c11atomics)
 endif()
 
 if(WIN32)
-    target_link_libraries(SyncLib PRIVATE "$<$<CONFIG:Debug>:dbghelp>")
+    target_link_libraries(sync PRIVATE "$<$<CONFIG:Debug>:dbghelp>")
 endif()
 
 # Ensure all warnings are caught
 if(EMSCRIPTEN)
     if (CMAKE_GENERATOR MATCHES "Visual Studio")
-        target_compile_options(SyncLib PRIVATE "/W4 /WX /EHsc /Zi")
+        target_compile_options(sync PRIVATE "/W4 /WX /EHsc /Zi")
     else()
-        target_compile_options(SyncLib PRIVATE "-Wall -Wextra -Wpedantic -Werror -Wno-c2y-extensions")
-        target_compile_options(SyncLib PRIVATE "-Wno-c2y-extensions") # TODO -Wno-c2y-extensions not this. __COUNTER__ is not liked by emsdk right now.  
+        target_compile_options(sync PRIVATE "-Wall -Wextra -Wpedantic -Werror -Wno-c2y-extensions")
+        target_compile_options(sync PRIVATE "-Wno-c2y-extensions") # TODO -Wno-c2y-extensions not this. __COUNTER__ is not liked by emsdk right now.  
     endif()
 elseif(MSVC)
-    target_compile_options(SyncLib PRIVATE /W4 /WX /EHsc /Zi)
+    target_compile_options(sync PRIVATE /W4 /WX /EHsc /Zi)
 else()
-    target_compile_options(SyncLib PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(sync PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
 if(SYNC_LIB_ASAN)
     if(MSVC)
-        target_compile_options(SyncLib PRIVATE /fsanitize=address)
+        target_compile_options(sync PRIVATE /fsanitize=address)
     else()
-        target_compile_options(SyncLib PRIVATE -fsanitize=address)
-        target_link_options(SyncLib PRIVATE -fsanitize=address)
+        target_compile_options(sync PRIVATE -fsanitize=address)
+        target_link_options(sync PRIVATE -fsanitize=address)
     endif()
 endif()
 
@@ -218,10 +219,10 @@ if(SYNC_X86_64) # TODO evaluate using -msimd128
         if(HAS_SSE2)
             if(MSVC)
                 message(STATUS "SSE2 supported by this system - enabling")
-                target_compile_options(SyncLib PRIVATE /arch:SSE2)
+                target_compile_options(sync PRIVATE /arch:SSE2)
             else()
                 message(STATUS "SSE2 supported by this system - enabling")
-                target_compile_options(SyncLib PRIVATE -msse2)  
+                target_compile_options(sync PRIVATE -msse2)  
             endif()
         else()
             message(STATUS "SSE2 not supported by this system")
@@ -243,10 +244,10 @@ if(SYNC_X86_64) # TODO evaluate using -msimd128
             if(HAS_AVX2)
                 if(MSVC)
                     message(STATUS "AVX2 supported on this system - enabling")
-                    target_compile_options(SyncLib PRIVATE /arch:AVX2)
+                    target_compile_options(sync PRIVATE /arch:AVX2)
                 else()
                     message(STATUS "AVX2 supported on this system - enabling")
-                    target_compile_options(SyncLib PRIVATE -mavx2)
+                    target_compile_options(sync PRIVATE -mavx2)
                 endif()
             else()
                 message(STATUS "AVX2 not supported on this system")
@@ -269,10 +270,10 @@ if(SYNC_X86_64) # TODO evaluate using -msimd128
             if(HAS_AVX512)
                 if(MSVC)
                     message(STATUS "AVX512 supported on this system - enabling")
-                    target_compile_options(SyncLib PRIVATE /arch:AVX512)
+                    target_compile_options(sync PRIVATE /arch:AVX512)
                 else()
                     message(STATUS "AVX512 supported on this system - enabling")
-                    target_compile_options(SyncLib PRIVATE -mavx512f -mavx512bw)
+                    target_compile_options(sync PRIVATE -mavx512f -mavx512bw)
                 endif()
             else()
                 message(STATUS "AVX512 not supported on this system")
@@ -285,22 +286,22 @@ if(EMSCRIPTEN AND SYNC_WASM_USE_SIMD)
     # https://webassembly.org/features/
     # Fixed-width SIMD supported by everything
     message(STATUS "Enabling Fixed-width SIMD for WASM")
-    target_compile_options(SyncLib PRIVATE -msimd128)
+    target_compile_options(sync PRIVATE -msimd128)
 endif()
 
 if(EMSCRIPTEN)
     message(STATUS "Enabling pthread support for Emscripten")
-    target_compile_options(SyncLib PRIVATE -pthread)
-    target_link_options(SyncLib PRIVATE -pthread)
+    target_compile_options(sync PRIVATE -pthread)
+    target_link_options(sync PRIVATE -pthread)
     # Sure
-    target_link_options(SyncLib PRIVATE "SHELL:-s PTHREAD_POOL_SIZE=8")
+    target_link_options(sync PRIVATE "SHELL:-s PTHREAD_POOL_SIZE=8")
 endif()
 
 if(MSVC)
-    target_compile_definitions(SyncLib PRIVATE SYNC_EXPORT_DLL)
-    target_compile_definitions(SyncLib INTERFACE SYNC_IMPORT_DLL)
+    target_compile_definitions(sync PRIVATE SYNC_EXPORT_DLL)
+    target_compile_definitions(sync INTERFACE SYNC_IMPORT_DLL)
 endif()
-set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
+set_target_properties(sync PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 
 # ===========
 # Debug Utils
@@ -314,30 +315,30 @@ set_target_properties(SyncLib PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY
 # https://github.com/microsoft/Xbox-GDK-Samples/blob/73f8aa373138ecd6331a05ac908a88c287602db8/Samples/Tools/CMakeGDKExample/CMakeLists.txt#L152
 if(NOT EMSCRIPTEN AND NOT (DEFINED XBOX_CONSOLE_TARGET))
     if(CMAKE_BUILD_TYPE EQUAL "Debug" OR CMAKE_BUILD_TYPE EQUAL "RelWithDebInfo")
-        target_compile_definitions(SyncLib PRIVATE SYNC_BACKTRACE_SUPPORTED)
+        target_compile_definitions(sync PRIVATE SYNC_BACKTRACE_SUPPORTED)
     endif()
 endif()
 
 if(SYNC_LIB_CODE_COVERAGE)
-    target_compile_definitions(SyncLib PRIVATE SYNC_LIB_CODE_COVERAGE=1)
+    target_compile_definitions(sync PRIVATE SYNC_LIB_CODE_COVERAGE=1)
     message(STATUS "Code coverage enabled")
     if(MSVC)
         # OpenCppCoverage?
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         # llvm-cov
-        target_compile_options(SyncLib PRIVATE -fprofile-instr-generate -fcoverage-mapping)
-        target_link_options(SyncLib PRIVATE -fprofile-instr-generate)
+        target_compile_options(sync PRIVATE -fprofile-instr-generate -fcoverage-mapping)
+        target_link_options(sync PRIVATE -fprofile-instr-generate)
     else(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         # gcov
-        target_compile_options(SyncLib PRIVATE --coverage)
-        target_link_options(SyncLib PRIVATE --coverage)
+        target_compile_options(sync PRIVATE --coverage)
+        target_link_options(sync PRIVATE --coverage)
     endif()
 endif()
 
-install(TARGETS SyncLib DESTINATION .)
+install(TARGETS sync DESTINATION .)
 
 if(SYNC_LIB_WITH_TESTS)
-    target_compile_definitions(SyncLib PRIVATE SYNC_LIB_WITH_TESTS=1)
+    target_compile_definitions(sync PRIVATE SYNC_LIB_WITH_TESTS=1)
     add_subdirectory(test)
 endif()
 

@@ -87,6 +87,7 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/types/function/function.cpp",
     "lib/src/types/string/string_slice.cpp",
     "lib/src/types/string/string.cpp",
+    "lib/src/types/string/atomic_string.cpp",
     "lib/src/types/array/dynamic_array.cpp",
     "lib/src/types/array/slice.cpp",
     "lib/src/types/sync_obj/sync_obj.cpp",
