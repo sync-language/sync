@@ -279,15 +279,15 @@ template <typename ContainerT> static inline size_t paddingForType(const size_t 
 
 // Uses compiler specific extensions if possible.
 #ifdef SYNC_NO_SAFETY_CHECKS
-#define unreachable() ((void)0)
+#define sync_unreachable() ((void)0)
 #else
 #ifdef __GNUC__ // GCC, Clang, ICC
 
-#define unreachable() (__builtin_unreachable())
+#define sync_unreachable() (__builtin_unreachable())
 
 #elif _MSC_VER // MSVC
 
-#define unreachable() (__assume(false))
+#define sync_unreachable() (__assume(false))
 
 #else
 // Even if no extension is used, undefined behavior is still raised by
@@ -309,7 +309,7 @@ inline void _sy_unreachable_impl() {
     }
 }
 #endif
-#define unreachable() (_sy_unreachable_impl())
+#define sync_unreachable() (_sy_unreachable_impl())
 
 #endif // Compiler specific
 #endif // SYNC_NO_SAFETY_CHECKS

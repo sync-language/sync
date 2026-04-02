@@ -226,7 +226,7 @@ void sy::sync_queue::SyncQueue::acquire() {
             obj.vtable->lockShared(obj.ptr);
         } break;
         default:
-            unreachable();
+            sync_unreachable();
         }
     }
     this->isAcquired_ = true;
@@ -252,7 +252,7 @@ bool sy::sync_queue::SyncQueue::tryAcquire() {
             }
         } break;
         default:
-            unreachable();
+            sync_unreachable();
         }
     }
 
@@ -274,7 +274,7 @@ bool sy::sync_queue::SyncQueue::tryAcquire() {
             obj.vtable->unlockShared(obj.ptr);
         } break;
         default:
-            unreachable();
+            sync_unreachable();
         }
     }
     this->len_ = 0; // "Clear" the currently held sync objects
@@ -293,7 +293,7 @@ void sy::sync_queue::SyncQueue::release() {
             obj.vtable->unlockShared(obj.ptr);
         } break;
         default:
-            unreachable();
+            sync_unreachable();
         }
     }
     this->isAcquired_ = false;

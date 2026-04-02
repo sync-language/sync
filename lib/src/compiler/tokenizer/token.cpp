@@ -253,7 +253,7 @@ StringSlice sy::tokenTypeToString(TokenType tokenType) {
     default:
         sy_assert(false, "Invalid token");
     }
-    unreachable();
+    sync_unreachable();
 }
 
 // no need to include whole header

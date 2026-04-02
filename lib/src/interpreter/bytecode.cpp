@@ -40,7 +40,7 @@ const sy::Type* sy::scalarTypeFromTag(ScalarTag tag) {
     case ScalarTag::F64:
         return sy::Type::TYPE_F64;
     }
-    unreachable();
+    sync_unreachable();
 }
 
 size_t sy::operators::CallImmediateNoReturn::bytecodeUsed(uint16_t argCount) {

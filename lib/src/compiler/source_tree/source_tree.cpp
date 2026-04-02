@@ -167,7 +167,7 @@ Result<SourceTreeNode*, SourceTreeErr> SourceTree::insert(sy::StringSlice absolu
         return Error(SourceTreeErr::OutOfMemory);
     }
 
-    unreachable();
+    sync_unreachable();
 }
 
 #if SYNC_LIB_WITH_TESTS

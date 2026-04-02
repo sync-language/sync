@@ -225,7 +225,7 @@ double NumberLiteral::asFloat64() const {
         return this->rep_.float64;
     }
     default:
-        unreachable();
+        sync_unreachable();
     }
 }
 

@@ -431,7 +431,7 @@ sy::Result<void, sy::ProgramError> sy::RawFunction::CallArgs::call(void* retDst)
         cArgBufs.popBuf();
         return err;
     } else {
-        unreachable();
+        sync_unreachable();
     }
 }
 
