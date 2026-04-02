@@ -250,7 +250,7 @@ static int sy_memory_order_to_std(SyMemoryOrder order) {
     case SY_MEMORY_ORDER_SEQ_CST:
         return (int)memory_order_seq_cst;
     default:
-        unreachable();
+        sync_unreachable();
     }
 }
 #endif
