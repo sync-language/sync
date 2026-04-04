@@ -97,23 +97,22 @@ endif()
 target_include_directories(sync INTERFACE "include")
 add_library(sync::sync ALIAS sync)
 
-if(NOT DEFINED CMAKE_CXX_STANDARD)
-    if(EMSCRIPTEN)
-        message(STATUS "Using C++23 for Emscripten") # __COUNTER__ for doctest
-        set_target_properties(sync PROPERTIES
-            C_STANDARD 11
-            C_STANDARD_REQUIRED YES
-            CXX_STANDARD 23
-            CXX_STANDARD_REQUIRED YES
-        )
-    else()
-        set_target_properties(sync PROPERTIES
-            C_STANDARD 11
-            C_STANDARD_REQUIRED YES
-            CXX_STANDARD 17
-            CXX_STANDARD_REQUIRED YES
-        )
-    endif()
+set_target_properties(sync PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED YES
+)
+
+if(EMSCRIPTEN)
+    message(STATUS "Using C++23 for Emscripten") # __COUNTER__ for doctest
+    set_target_properties(sync PROPERTIES
+        CXX_STANDARD 23
+        CXX_STANDARD_REQUIRED YES
+    )
+else()
+    set_target_properties(sync PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED YES
+    )
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
