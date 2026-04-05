@@ -26,8 +26,8 @@ class SY_API IAllocator {
   private:
     friend class Allocator;
 
-    static void* allocImpl(IAllocator* self, size_t len, size_t align) noexcept;
-    static void freeImpl(IAllocator* self, void* buf, size_t len, size_t align) noexcept;
+    static void* allocImpl(void* self, size_t len, size_t align) noexcept;
+    static void freeImpl(void* self, void* buf, size_t len, size_t align) noexcept;
 };
 
 namespace detail {

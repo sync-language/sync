@@ -10,6 +10,8 @@ int main() {
     assert(sy_get_file_info(fileName, len, &fileSize));
     assert(fileSize > 512);  // this source file is not as small as the other one
     assert(fileSize < 1024); // this source file is not more than 1KB
+    (void)len;
+    (void)fileSize;
 }
 
 // add extra stuff

@@ -132,6 +132,8 @@ SY_API const SyType* SY_TYPE_ORDERING = reinterpret_cast<const SyType*>(Type::TY
 void sy::Type::assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const {
     sy_assert(this->sizeType == sizeOfType, "Type size mismatch");
     sy_assert(this->alignType == alignOfType, "Type align mismatch");
+    (void)sizeOfType;
+    (void)alignOfType;
 }
 
 void sy::Type::destroyObjectImpl(void* obj) const {
@@ -166,9 +168,11 @@ void sy::Type::destroyObjectImpl(void* obj) const {
     RawFunction::CallArgs callArgs = this->destructor.value()->startCall();
     const bool pushSuccess = callArgs.push(&obj, this->mutRef);
     sy_assert(pushSuccess, "TODO overflow when destructor call"); // TODO decide what to do if destructor overflows
+    (void)pushSuccess;
 
     const auto err = callArgs.call(nullptr);
     sy_assert(err.hasErr() == false, "Destructors may not throw/cause errors"); // TODO what do to if error?
+    (void)err;
 }
 
 Result<void, ProgramError> sy::Type::copyConstructObjectImpl(void* dst, const void* src) const {

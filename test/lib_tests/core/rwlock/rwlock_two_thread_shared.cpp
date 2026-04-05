@@ -4,7 +4,9 @@
 
 void threadFn(SyRawRwLock* lock) {
     for (int i = 0; i < 10000; i++) {
-        assert(sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+        const bool _r1 = (sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+        assert(_r1);
+        (void)_r1;
         sy_raw_rwlock_release_shared(lock);
     }
 }

@@ -10,7 +10,9 @@ std::atomic<int> currentReaders{0};
 
 void readerFn(SyRawRwLock* lock) {
     for (int i = 0; i < 100; i++) {
-        assert(sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+        const bool _r1 = (sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+        assert(_r1);
+        (void)_r1;
 
         int current = currentReaders.fetch_add(1, std::memory_order_seq_cst) + 1;
         int expected = maxConcurrentReaders.load(std::memory_order_seq_cst);

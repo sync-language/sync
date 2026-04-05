@@ -381,7 +381,7 @@ void executeSetType(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
         type = scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
     } else {
         const Bytecode next = bytecodes[1];
-        type = *reinterpret_cast<const Type* const*>(&next);
+        memcpy(&type, &next, sizeof(const Type*));
         ipChange = 2;
     }
     activeStack.setTypeAt(Node::TypeOfValue(type, true), operands.dst);
@@ -405,6 +405,7 @@ static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode) {
     Stack& activeStack = Stack::getActiveStack();
     const Type* srcType = activeStack.typeAt(operands.src);
     sy_assert(srcType == Type::TYPE_BOOL, "Can only conditionally jump on boolean types");
+    (void)srcType;
 
     if (*activeStack.frameValueAt<bool>(operands.src) == false) {
         int32_t jumpAmount = static_cast<int32_t>(operands.amount);

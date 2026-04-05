@@ -9,14 +9,18 @@ std::atomic<int> phase{0};
 std::atomic<int> deadlockCount{0};
 
 void earlyThread(SyRawRwLock* lock) {
-    assert(sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    const bool _r1 = (sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    assert(_r1);
+    (void)_r1;
 
     phase.fetch_add(1, std::memory_order_seq_cst);
     while (phase.load(std::memory_order_seq_cst) < 2) {
         std::this_thread::yield();
     }
 
-    assert(sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_DEADLOCK);
+    const bool _r2 = (sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_DEADLOCK);
+    assert(_r2);
+    (void)_r2;
     deadlockCount.fetch_add(1, std::memory_order_seq_cst);
 
     sy_raw_rwlock_release_shared(lock);
@@ -33,8 +37,12 @@ void lateThread(SyRawRwLock* lock) {
     // they both deadlocked
     assert(deadlockCount.load() == 2);
 
-    assert(sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
-    assert(sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_NONE);
+    const bool _r1 = (sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    assert(_r1);
+    (void)_r1;
+    const bool _r2 = (sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_NONE);
+    assert(_r2);
+    (void)_r2;
 
     assert(lock->exclusiveId.value != 0);
     assert(lock->exclusiveCount.value == 1);

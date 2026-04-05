@@ -8,4 +8,5 @@ int main() {
 
     size_t fileSize;
     assert(sy_get_file_info(fileName.c_str(), fileName.size(), &fileSize) == false);
+    (void)fileSize;
 }

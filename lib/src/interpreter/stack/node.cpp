@@ -363,6 +363,7 @@ std::optional<uint16_t> sy::Node::pushScriptFunctionArg(const void* argMem, cons
     const uint16_t normalizedAlign =
         frameByteAlign < (2 * alignof(uint64_t)) ? (2 * alignof(uint64_t)) : frameByteAlign;
     sy_assert(type->alignType <= normalizedAlign, "Type alignment exceeds frame alignment");
+    (void)normalizedAlign;
 
     if (this->isInUse()) { // update next base offset and current frame for length
         const uint32_t newNextBaseOffset = requiredBaseOffsetForByteAlignment(this->nextBaseOffset, frameByteAlign);
@@ -448,6 +449,7 @@ std::optional<uint32_t> sy::Node::shouldReallocate(uint16_t frameLength, uint16_
     const size_t pageSize = page_size();
     sy_assert(alignment > 0, "Alignment must be non zero");
     sy_assert(alignment <= pageSize, "Alignment greater than page size does not make sense");
+    (void)pageSize;
 #ifndef NDEBUG
     uint32_t normalizeAlign = alignment / sizeof(uint64_t); // not size_t because the stack values occupy 64 bits
     if (normalizeAlign == 0)
@@ -506,6 +508,7 @@ void sy::Node::setFrameFunction(const uint16_t functionIndex) {
 void sy::Node::ensureOffsetWithinFrameBounds(const uint16_t offset) const {
     sy_assert(this->currentFrame.has_value(), "No frame");
     sy_assert(offset < this->currentFrame.value().frameLength, "Index out of bounds for stack frame");
+    (void)offset;
 }
 
 sy::Node::TypeOfValue::TypeOfValue(const sy::Type* type, bool owned) { this->set(type, owned); }

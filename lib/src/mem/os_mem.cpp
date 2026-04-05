@@ -88,9 +88,11 @@ void page_free(void* pagesStart, size_t len) {
     (void)len;
     auto result = VirtualFree(pagesStart, 0, MEM_RELEASE);
     sy_assert(result != 0, "Failed to free pages");
+    (void)result;
 #elif defined(__GNUC__)
     auto result = munmap(pagesStart, len);
     sy_assert(result == 0, "Failed to free pages");
+    (void)result;
 #else
     static_assert(
         false, "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'")

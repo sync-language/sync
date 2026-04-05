@@ -1,5 +1,13 @@
 cmake_minimum_required (VERSION 3.16)
 
+if(WIN32)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/find_windows_sdk.cmake)
+endif()
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/base_compiler_flags.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/sanitizers_coverage.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/simd_target.cmake)
+
 enable_testing()
 
 # Configure test runner for Emscripten
@@ -8,138 +16,48 @@ if(EMSCRIPTEN)
     set(CMAKE_CROSSCOMPILING_EMULATOR "${NODE_EXECUTABLE};--experimental-wasm-threads")
 endif()
 
-if(APPLE AND SYNC_SANDBOX_TESTS)
-    set(CMAKE_CROSSCOMPILING_EMULATOR "sandbox-exec" "-f" "${CMAKE_CURRENT_SOURCE_DIR}/sandbox.sb")
-endif()
-
-# idk this should probably work
-if(LINUX AND SYNC_SANDBOX_TESTS)
-    find_program(BWRAP_EXECUTABLE bwrap)
-    if(BWRAP_EXECUTABLE)
-        set(CMAKE_CROSSCOMPILING_EMULATOR
-            "${BWRAP_EXECUTABLE}"
-            "--unshare-net"           # No network
-            "--ro-bind" "/" "/"       # Read-only root
-            "--bind" "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_BINARY_DIR}"  # Writable build dir
-            "--bind" "/tmp" "/tmp"
-            "--dev" "/dev"
-            "--proc" "/proc"
-        )
-    endif()
-endif()
-
 set(SYNC_LIB_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../lib/src)
 
 set(CORE_DIR ${SYNC_LIB_SRC_DIR}/core)
 set(CORE_SOURCES ${CORE_DIR}/core.c)
 
-if(SYNC_LIB_CODE_COVERAGE)
-    message(STATUS "Enabling coverage for tests, and disabiling any sanitizers for test executables")
-endif()
-
 include(CheckCXXCompilerFlag)
 
-function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
+function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_TSAN)
+    set_target_properties(${TEST_NAME} PROPERTIES
+        C_STANDARD 11
+        C_STANDARD_REQUIRED YES
+    )
+
     if(EMSCRIPTEN)
         set_target_properties(${TEST_NAME} PROPERTIES
-            C_STANDARD 11
-            C_STANDARD_REQUIRED YES
-            CXX_STANDARD 23  # __COUNTER__ for doctest
+            CXX_STANDARD 23
             CXX_STANDARD_REQUIRED YES
         )
     else()
         set_target_properties(${TEST_NAME} PROPERTIES
-            C_STANDARD 11
-            C_STANDARD_REQUIRED YES
             CXX_STANDARD 17
             CXX_STANDARD_REQUIRED YES
         )
     endif()
 
-    if(WIN32)
-        target_link_libraries(${TEST_NAME} PRIVATE dbghelp)
+    set_base_compiler_flags(${TEST_NAME})
+    if(EMSCRIPTEN)
+        target_compile_options(${TEST_NAME} PRIVATE -Wno-c2y-extensions)
     endif()
 
-
-    if(MSVC)
-        target_compile_options(${TEST_NAME} PRIVATE /experimental:c11atomics)
-        target_compile_options(${TEST_NAME} PRIVATE /W4 /WX /EHsc /Zi)
-        target_compile_options(${TEST_NAME} PRIVATE /MP)
-        if(ENABLE_ASAN)
-            if(NOT SYNC_LIB_CODE_COVERAGE)
-                target_compile_options(${TEST_NAME} PRIVATE /fsanitize=address)
-            endif()
-        endif()
-    else()
-        target_compile_options(${TEST_NAME} PRIVATE -Wall -Wextra -Wpedantic -Werror)
-        if(NOT EMSCRIPTEN)
-            if(ENABLE_ASAN)
-                target_compile_options(${TEST_NAME} PRIVATE -fsanitize=address)
-                target_link_options(${TEST_NAME} PRIVATE -fsanitize=address)
-            endif()
-            if(ENABLE_UBSAN)
-                target_compile_options(${TEST_NAME} PRIVATE -fsanitize=undefined)
-                target_link_options(${TEST_NAME} PRIVATE -fsanitize=undefined)
-            endif()
-            if(ENABLE_TSAN)
-                target_compile_options(${TEST_NAME} PRIVATE -fsanitize=thread -fno-PIE)
-                target_link_options(${TEST_NAME} PRIVATE -fsanitize=thread -no-pie)
-            endif()
-        
-        else()
-            target_compile_options(${TEST_NAME} PRIVATE "-Wno-c2y-extensions")
-        endif()
+    if(ENABLE_ASAN)
+        enable_asan(${TEST_NAME})
+    elseif(ENABLE_TSAN)
+        enable_tsan(${TEST_NAME})
     endif()
 
     if(SYNC_LIB_CODE_COVERAGE)
+        enable_coverage(${TEST_NAME})
         target_compile_definitions(${TEST_NAME} PRIVATE SYNC_LIB_CODE_COVERAGE=1)
-        if(MSVC)
-            # OpenCppCoverage?
-        elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-            # llvm-cov
-            target_compile_options(${TEST_NAME} PRIVATE -fprofile-instr-generate -fcoverage-mapping)
-            target_link_options(${TEST_NAME} PRIVATE -fprofile-instr-generate)
-        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-            # gcov
-            target_compile_options(${TEST_NAME} PRIVATE --coverage)
-            target_link_options(${TEST_NAME} PRIVATE --coverage)
-        endif()
     endif()
 
-    if(HAS_SSE2)
-        if(MSVC)
-            target_compile_options(${TEST_NAME} PRIVATE /arch:SSE2)
-        else()
-            target_compile_options(${TEST_NAME} PRIVATE -msse2)
-        endif()
-    endif()
-
-    if(NOT ${SYNC_NO_AVX2})
-        if(HAS_AVX2)
-            if(MSVC)
-                target_compile_options(${TEST_NAME} PRIVATE /arch:AVX2)
-            else()
-                target_compile_options(${TEST_NAME} PRIVATE -mavx2)
-            endif()
-        endif()
-    endif()
-
-    if(NOT ${SYNC_NO_AVX512})
-        if(HAS_AVX2)
-            if(MSVC)
-                target_compile_options(${TEST_NAME} PRIVATE /arch:AVX512)
-            else()
-                target_compile_options(${TEST_NAME} PRIVATE -mavx512f -mavx512bw)
-            endif()
-        endif()
-    endif()
-
-
-    if(EMSCRIPTEN AND SYNC_WASM_USE_SIMD)
-        # https://webassembly.org/features/
-        # Fixed-width SIMD supported by everything
-        target_compile_options(${TEST_NAME} PRIVATE -msimd128)
-    endif()
+    add_simd_flags_to_target(sync SYNC_NO_AVX2 SYNC_NO_AVX512 SYNC_WASM_USE_SIMD SYNC_NO_RVV)
 
     if(EMSCRIPTEN)
         target_compile_options(${TEST_NAME} PRIVATE -pthread)
@@ -147,7 +65,9 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_UBSAN ENABLE_TSAN)
         target_link_options(${TEST_NAME} PRIVATE "SHELL:-s PTHREAD_POOL_SIZE=8")
 
         target_link_options(${TEST_NAME} PRIVATE
-            "-s ASSERTIONS=1 -s DEMANGLE_SUPPORT=1 --profiling-funcs -g"
+            "SHELL:-s ASSERTIONS=1"
+            --profiling-funcs
+            -g
         )
 
         # Give node filesystem access
@@ -158,7 +78,7 @@ endfunction()
 
 function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    add_sync_test_flags(${TEST_NAME} ${SYNC_LIB_ASAN} ${SYNC_LIB_UBSAN} FALSE)
+    add_sync_test_flags(${TEST_NAME} TRUE FALSE)
     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
     if(SYNC_LIB_CODE_COVERAGE)
         if(MSVC)
@@ -181,7 +101,7 @@ function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
 
         if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
             add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
-            add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE ${SYNC_LIB_UBSAN} TRUE)
+            add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE)
             target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
             add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
         endif()
@@ -190,32 +110,18 @@ endfunction()
 
 function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    add_sync_test_flags(${TEST_NAME} FALSE ${SYNC_LIB_UBSAN} FALSE)
+    add_sync_test_flags(${TEST_NAME} FALSE FALSE)
     target_compile_definitions(${TEST_NAME} PRIVATE SYNC_DEATH_TEST=1)
     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
-    if(SYNC_LIB_CODE_COVERAGE AND MSVC)
-        cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
-        file(TO_NATIVE_PATH "${SYNC_ROOT_DIR}" SYNC_WINDOWS_NATIVE_ROOT_DIR)
-        add_test(NAME ${TEST_NAME}
-            COMMAND OpenCppCoverage.exe
-            --sources ${SYNC_WINDOWS_NATIVE_ROOT_DIR}\\lib\\src\\core\\*
-            --export_type binary:${TEST_NAME}.cov
-            -- ${CMAKE_CURRENT_BINARY_DIR}\\Debug\\${TEST_NAME})
-        set_tests_properties(${TEST_NAME} PROPERTIES
-            WILL_FAIL TRUE
-            FAIL_REGULAR_EXPRESSION ${ERR_MSG}
-        )
-    else()
-        add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-        set_tests_properties(${TEST_NAME} PROPERTIES
-            WILL_FAIL TRUE
-            FAIL_REGULAR_EXPRESSION ${ERR_MSG}
-        )
-    endif()
+    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+    set_tests_properties(${TEST_NAME} PROPERTIES
+        WILL_FAIL TRUE
+        FAIL_REGULAR_EXPRESSION ${ERR_MSG}
+    )
 
     if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
         add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
-        add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE ${SYNC_LIB_UBSAN} TRUE)
+        add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE)
         target_compile_definitions(${TEST_NAME}_ThreadSanitizer PRIVATE SYNC_DEATH_TEST=1)
         target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
         add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
@@ -318,24 +224,14 @@ set(SYNC_LIB_TESTS_SOURCES
 
 add_executable(SyncLibTests ${SYNC_LIB_TESTS_SOURCES})
 target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS=1)
-add_sync_test_flags(SyncLibTests ${SYNC_LIB_ASAN} ${SYNC_LIB_UBSAN} FALSE)
+add_sync_test_flags(SyncLibTests TRUE FALSE)
 if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
     add_executable(SyncLibTests_ThreadSanitizer ${SYNC_LIB_TESTS_SOURCES})
     target_compile_definitions(SyncLibTests_ThreadSanitizer PRIVATE SYNC_LIB_WITH_TESTS=1)
-    add_sync_test_flags(SyncLibTests_ThreadSanitizer FALSE ${SYNC_LIB_UBSAN} TRUE)
+    add_sync_test_flags(SyncLibTests_ThreadSanitizer FALSE TRUE)
 endif()
 
-if(SYNC_LIB_CODE_COVERAGE AND MSVC)
-    cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
-    file(TO_NATIVE_PATH "${SYNC_ROOT_DIR}" SYNC_WINDOWS_NATIVE_ROOT_DIR)
-    add_test(NAME SyncLibTests 
-        COMMAND OpenCppCoverage.exe 
-        --sources ${SYNC_WINDOWS_NATIVE_ROOT_DIR}\\lib\\src\\*
-        --export_type binary:SyncLibTests.cov
-        -- ${CMAKE_CURRENT_BINARY_DIR}\\Debug\\SyncLibTests)
-else()
-    add_test(NAME SyncLibTests COMMAND SyncLibTests)
-    if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
-        add_test(NAME SyncLibTests_ThreadSanitizer COMMAND SyncLibTests_ThreadSanitizer)
-    endif()
+add_test(NAME SyncLibTests COMMAND SyncLibTests)
+if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
+    add_test(NAME SyncLibTests_ThreadSanitizer COMMAND SyncLibTests_ThreadSanitizer)
 endif()

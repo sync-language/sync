@@ -21,7 +21,9 @@ void thread2Fn(SyRawRwLock* lock) {
     while (ready.load() == true) {
         std::this_thread::yield();
     }
-    assert(sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_NONE);
+    const bool _r1 = (sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_NONE);
+    assert(_r1);
+    (void)_r1;
     sy_raw_rwlock_release_exclusive(lock);
     sy_raw_rwlock_release_shared(lock);
 }

@@ -9,4 +9,6 @@ int main() {
     size_t fileSize;
     assert(sy_get_file_info(fileName, len, &fileSize));
     assert(fileSize < 512); // this source file is pretty small
+    (void)fileSize;
+    (void)len;
 }

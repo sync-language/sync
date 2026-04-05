@@ -398,9 +398,9 @@ bool sy::RawFunction::CallArgs::push(void* argMem, const Type* typeInfo) {
 
         const size_t newOffset = this->_offset + slotsOccupied;
         sy_assert(newOffset <= UINT16_MAX, "Cannot push argument. Would overflow script stack");
-
         sy_assert(newOffset <= scriptInfo->stackSpaceRequired,
                   "Pushing argument would overflow this function's script stack");
+        (void)newOffset;
 
         this->_offset = static_cast<uint16_t>(slotsOccupied);
     } else if (this->func->tag == FunctionType::C) {
@@ -472,6 +472,10 @@ void sy::FunctionHandler::validateArgTypeMatches(void* arg, const Type* storedTy
     sy_assert((reinterpret_cast<uintptr_t>(arg) % alignType) == 0, "Function argument misaligned");
     sy_assert(storedType->sizeType == sizeType, "Function argument size mismatch");
     sy_assert(storedType->alignType == alignType, "Function argument alignment mismatch");
+    (void)arg;
+    (void)storedType;
+    (void)sizeType;
+    (void)alignType;
 }
 
 void* sy::FunctionHandler::getRetDst() {
@@ -481,6 +485,8 @@ void* sy::FunctionHandler::getRetDst() {
 
 void sy::FunctionHandler::validateReturnDstAligned(void* retDst, size_t alignType) {
     sy_assert((reinterpret_cast<uintptr_t>(retDst) % alignType) == 0, "Function return value destination misaligned");
+    (void)retDst;
+    (void)alignType;
 }
 
 #if SYNC_LIB_WITH_TESTS

@@ -8,7 +8,9 @@ std::atomic<int> sharedCounter{0};
 
 void readerFn(SyRawRwLock* lock, std::atomic<int>* counter) {
     for (int i = 0; i < 500; i++) {
-        assert(sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+        const bool _r1 = (sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+        assert(_r1);
+        (void)_r1;
         int value = counter->load(std::memory_order_seq_cst);
         (void)value;
         sy_raw_rwlock_release_shared(lock);
@@ -17,7 +19,9 @@ void readerFn(SyRawRwLock* lock, std::atomic<int>* counter) {
 
 void writerFn(SyRawRwLock* lock, std::atomic<int>* counter) {
     for (int i = 0; i < 100; i++) {
-        assert(sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_NONE);
+        const bool _r2 = (sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_NONE);
+        assert(_r2);
+        (void)_r2;
         counter->fetch_add(1, std::memory_order_seq_cst);
         sy_raw_rwlock_release_exclusive(lock);
     }

@@ -22,4 +22,5 @@ int main() {
     assert(sy_relative_to_absolute_path(relativeDir.c_str(), relativeDir.size(), absoluteBuf, 256));
     std::string absolute = absoluteBuf;
     assert(absolute == cwd);
+    (void)absolute;
 }

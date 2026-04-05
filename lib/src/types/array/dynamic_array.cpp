@@ -19,9 +19,11 @@ static size_t capacityIncrease(const size_t inCapacity) {
     constexpr size_t lowAmount = 1024;
     // increasing by 1.5 without double conversion is n * 3 / 2.
     // simplified, it is (n * 3) >> 1;
+
     constexpr size_t superHighAmount = SIZE_MAX / 3;
 
     sy_assert(inCapacity <= superHighAmount, "DynArrayUnmanaged too big");
+    (void)superHighAmount;
 
     if (inCapacity < lowAmount) {
         return inCapacity << 1;
@@ -700,7 +702,10 @@ void* sy::RawDynArrayUnmanaged::beforeFront(const size_t size) {
     return selfAsBytes - size;
 }
 
-void SY_API sy::detail::dynArrayDebugAssertNoErr(bool hasErr) { sy_assert(!hasErr, "Expected no dynamic array error"); }
+void SY_API sy::detail::dynArrayDebugAssertNoErr(bool hasErr) {
+    sy_assert(!hasErr, "Expected no dynamic array error");
+    (void)hasErr;
+}
 
 #if SYNC_LIB_WITH_TESTS
 

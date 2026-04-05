@@ -20,7 +20,9 @@ void thread2Fn(SyRawRwLock* lock) {
     while (ready.load() == false) {
         std::this_thread::yield();
     }
-    assert(sy_raw_rwlock_try_acquire_exclusive(lock) == SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS);
+    const bool _r1 = (sy_raw_rwlock_try_acquire_exclusive(lock) == SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS);
+    assert(_r1);
+    (void)_r1;
     ready = false;
     sy_raw_rwlock_release_shared(lock);
 }

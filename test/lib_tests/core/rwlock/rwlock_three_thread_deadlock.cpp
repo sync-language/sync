@@ -10,7 +10,9 @@ std::atomic<int> readyCount{0};
 std::atomic<int> deadlockCount{0};
 
 void threadFn(SyRawRwLock* lock) {
-    assert(sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    const bool _r1 = (sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    assert(_r1);
+    (void)_r1;
 
     // signal ready and wait for all threads to be ready
     readyCount.fetch_add(1, std::memory_order_seq_cst);

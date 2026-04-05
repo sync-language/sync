@@ -1,0 +1,231 @@
+﻿{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "mac-base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/install/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "linux-base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/install/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "win-msvc-base",
+      "hidden": true,
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/install/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "win-clang-cl-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/install/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-cl.exe",
+        "CMAKE_CXX_COMPILER": "clang-cl.exe"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "mac-dev-asan",
+      "displayName": "Mac Dev ASan",
+      "inherits": "mac-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_ASAN": "ON"
+      }
+    },
+    {
+      "name": "mac-dev-tsan",
+      "displayName": "Mac Dev TSan",
+      "inherits": "mac-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_TSAN": "ON"
+      }
+    },
+    {
+      "name": "mac-debug-cov-asan",
+      "displayName": "Mac Debug Cov ASan",
+      "inherits": "mac-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_ASAN": "ON",
+        "SYNC_LIB_CODE_COVERAGE": "ON"
+      }
+    },
+    {
+      "name": "mac-debug-cov-tsan",
+      "displayName": "Mac Debug Cov TSan",
+      "inherits": "mac-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_TSAN": "ON",
+        "SYNC_LIB_CODE_COVERAGE": "ON"
+      }
+    },
+    {
+      "name": "linux-dev-asan",
+      "displayName": "Linux Dev ASan",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_ASAN": "ON"
+      }
+    },
+    {
+      "name": "linux-dev-tsan",
+      "displayName": "Linux Dev TSan",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_TSAN": "ON"
+      }
+    },
+    {
+      "name": "linux-debug-cov-asan",
+      "displayName": "Linux Debug Cov ASan",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_ASAN": "ON",
+        "SYNC_LIB_CODE_COVERAGE": "ON"
+      }
+    },
+    {
+      "name": "linux-debug-cov-tsan",
+      "displayName": "Linux Debug Cov TSan",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_TSAN": "ON",
+        "SYNC_LIB_CODE_COVERAGE": "ON"
+      }
+    },
+    {
+      "name": "win-msvc-dev-asan",
+      "displayName": "Win MSVC Dev ASan",
+      "inherits": "win-msvc-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_ASAN": "ON"
+      }
+    },
+    {
+      "name": "win-clang-cl-dev-asan",
+      "displayName": "Win Clang-CL Dev ASan",
+      "inherits": "win-clang-cl-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_ASAN": "ON"
+      }
+    },
+    {
+      "name": "win-clang-cl-debug-cov-asan",
+      "displayName": "Win Clang-CL Debug Cov ASan",
+      "inherits": "win-clang-cl-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_ASAN": "ON",
+        "SYNC_LIB_CODE_COVERAGE": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "mac-dev-asan",
+      "configurePreset": "mac-dev-asan"
+    },
+    {
+      "name": "mac-dev-tsan",
+      "configurePreset": "mac-dev-tsan"
+    },
+    {
+      "name": "mac-debug-cov-asan",
+      "configurePreset": "mac-debug-cov-asan"
+    },
+    {
+      "name": "mac-debug-cov-tsan",
+      "configurePreset": "mac-debug-cov-tsan"
+    },
+    {
+      "name": "linux-dev-asan",
+      "configurePreset": "linux-dev-asan"
+    },
+    {
+      "name": "linux-dev-tsan",
+      "configurePreset": "linux-dev-tsan"
+    },
+    {
+      "name": "linux-debug-cov-asan",
+      "configurePreset": "linux-debug-cov-asan"
+    },
+    {
+      "name": "linux-debug-cov-tsan",
+      "configurePreset": "linux-debug-cov-tsan"
+    },
+    {
+      "name": "win-msvc-dev-asan",
+      "configurePreset": "win-msvc-dev-asan",
+      "targets": ["ALL_BUILD"]
+    },
+    {
+      "name": "win-clang-cl-dev-asan",
+      "configurePreset": "win-clang-cl-dev-asan"
+    },
+    {
+      "name": "win-clang-cl-debug-cov-asan",
+      "configurePreset": "win-clang-cl-debug-cov-asan"
+    }
+  ]
+}

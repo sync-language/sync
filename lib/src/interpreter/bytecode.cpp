@@ -11,6 +11,8 @@ OpCode sy::Bytecode::getOpcode() const {
 
 void sy::Bytecode::assertOpCodeMatch(OpCode actual, OpCode expected) {
     sy_assert(actual == expected, "Cannot convert this bytecode to an invalid operand");
+    (void)actual;
+    (void)expected;
 }
 
 const sy::Type* sy::scalarTypeFromTag(ScalarTag tag) {

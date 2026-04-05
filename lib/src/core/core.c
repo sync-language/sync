@@ -1,4 +1,5 @@
-#if defined(__linux__) || (defined(__GNUC__) && !defined(__APPLE__) && !defined(_WIN32) && !defined(__EMSCRIPTEN__))
+#if defined(__linux__) || (defined(__GNUC__) && !defined(__APPLE__) &&         \
+                           !defined(_WIN32) && !defined(__EMSCRIPTEN__))
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -34,11 +35,11 @@
 #endif
 
 #ifdef SYNC_TSAN_ENABLED
-extern void __tsan_mutex_destroy(void* addr, unsigned flags);
-extern void __tsan_mutex_pre_lock(void* addr, unsigned flags);
-extern void __tsan_mutex_post_lock(void* addr, unsigned flags);
-extern void __tsan_mutex_pre_unlock(void* addr, unsigned flags);
-extern void __tsan_mutex_post_unlock(void* addr, unsigned flags);
+extern void __tsan_mutex_destroy(void *addr, unsigned flags);
+extern void __tsan_mutex_pre_lock(void *addr, unsigned flags);
+extern void __tsan_mutex_post_lock(void *addr, unsigned flags);
+extern void __tsan_mutex_pre_unlock(void *addr, unsigned flags);
+extern void __tsan_mutex_post_unlock(void *addr, unsigned flags);
 #define __tsan_mutex_not_static 0x1
 #endif
 
@@ -47,8 +48,10 @@ volatile int _sy_coverage_no_optimize = 0;
 #endif
 
 #ifndef SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER
-static void sy_default_fatal_error_handler(const char* message) {
+static void sy_default_fatal_error_handler(const char *message) {
+#ifndef NDEBUG
     sy_print_callstack();
+#endif
     syncWriteStringError(message);
 #ifdef SYNC_DEATH_TEST
     fflush(NULL);
@@ -69,37 +72,47 @@ static void sy_default_fatal_error_handler(const char* message) {
 #endif // SYNC_DEATH_TEST
 }
 #else
-extern void sy_default_fatal_error_handler(const char* message);
+extern void sy_default_fatal_error_handler(const char *message);
 #endif
 
-void (*syncFatalErrorHandlerFn)(const char* message) = sy_default_fatal_error_handler;
+void (*syncFatalErrorHandlerFn)(const char *message) =
+    sy_default_fatal_error_handler;
 
 #ifndef SYNC_CUSTOM_DEFAULT_WRITE_STRING_ERROR
 #include <stdio.h>
-static void sy_default_write_string_error(const char* message) {
+static void sy_default_write_string_error(const char *message) {
     (void)fprintf(stderr, "%s\n", message);
     (void)fflush(stderr);
 }
 #else
-extern void sy_default_write_string_error(const char* message);
+extern void sy_default_write_string_error(const char *message);
 #endif
 
-void (*syncWriteStringError)(const char* message) = sy_default_write_string_error;
+void (*syncWriteStringError)(const char *message) =
+    sy_default_write_string_error;
 
-SY_API void sy_set_fatal_error_handler(void (*errHandler)(const char* message)) {
-    sy_assert_release(errHandler != NULL, "[sy_set_fatal_error_handler] expected non-null function pointer");
+SY_API void
+sy_set_fatal_error_handler(void (*errHandler)(const char *message)) {
+    sy_assert_release(
+        errHandler != NULL,
+        "[sy_set_fatal_error_handler] expected non-null function pointer");
     syncFatalErrorHandlerFn = errHandler;
 }
 
-SY_API void sy_set_write_string_error(void (*writeStrErr)(const char* message)) {
-    sy_assert_release(writeStrErr != NULL, "[sy_set_write_string_error] expected non-null function pointer");
+SY_API void
+sy_set_write_string_error(void (*writeStrErr)(const char *message)) {
+    sy_assert_release(
+        writeStrErr != NULL,
+        "[sy_set_write_string_error] expected non-null function pointer");
     syncWriteStringError = writeStrErr;
 }
 
 #ifndef SYNC_CUSTOM_ALIGNED_MALLOC_FREE
-void* sy_aligned_malloc(size_t len, size_t align) {
-    sy_assert_release((align & (align - 1)) == 0, "[sy_aligned_malloc] align is not a power of 2");
-    sy_assert_release((len % align) == 0, "[sy_aligned_malloc] len must be multiple of align");
+void *sy_aligned_malloc(size_t len, size_t align) {
+    sy_assert_release((align & (align - 1)) == 0,
+                      "[sy_aligned_malloc] align is not a power of 2");
+    sy_assert_release((len % align) == 0,
+                      "[sy_aligned_malloc] len must be multiple of align");
 #if defined(_WIN32)
     return _aligned_malloc(len, align);
 #else
@@ -107,9 +120,11 @@ void* sy_aligned_malloc(size_t len, size_t align) {
 #endif
 }
 
-void sy_aligned_free(void* mem, size_t len, size_t align) {
-    sy_assert_release((align & (align - 1)) == 0, "[sy_aligned_free] align is not a power of 2");
-    sy_assert_release((len % align) == 0, "[sy_aligned_free] len must be multiple of align");
+void sy_aligned_free(void *mem, size_t len, size_t align) {
+    sy_assert_release((align & (align - 1)) == 0,
+                      "[sy_aligned_free] align is not a power of 2");
+    sy_assert_release((len % align) == 0,
+                      "[sy_aligned_free] len must be multiple of align");
 #if defined(_WIN32)
     _aligned_free(mem);
 #else
@@ -146,23 +161,27 @@ void sy_aligned_free(void* mem, size_t len, size_t align) {
 #endif // WIN32 / GNUC
 #endif // SYNC_NO_PAGES
 
-void* sy_page_malloc(size_t len) {
+void *sy_page_malloc(size_t len) {
     const size_t pageSize = sy_page_size();
-    sy_assert_release((len % pageSize) == 0, "[sy_page_malloc] len must be multiple of sy_page_size");
+    sy_assert_release((len % pageSize) == 0,
+                      "[sy_page_malloc] len must be multiple of sy_page_size");
 #if defined(SYNC_NO_PAGES)
     return sy_aligned_malloc(len, pageSize);
 #elif defined(_WIN32)
     return VirtualAlloc(NULL, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 #elif defined(__GNUC__)
-    return mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    return mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
+                -1, 0);
 #else
-#error "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
+#error                                                                         \
+    "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
 #endif
 }
 
-void sy_page_free(void* pagesStart, size_t len) {
+void sy_page_free(void *pagesStart, size_t len) {
     const size_t pageSize = sy_page_size();
-    sy_assert_release((len % pageSize) == 0, "[sy_page_free] len must be multiple of sy_page_size");
+    sy_assert_release((len % pageSize) == 0,
+                      "[sy_page_free] len must be multiple of sy_page_size");
 #if defined(SYNC_NO_PAGES)
     sy_aligned_free(pagesStart, len, pageSize);
 #elif defined(_WIN32)
@@ -172,7 +191,8 @@ void sy_page_free(void* pagesStart, size_t len) {
     int result = munmap(pagesStart, len);
     sy_assert_release(result != -1, "[sy_page_free] failed to free pages");
 #else
-#error "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
+#error                                                                         \
+    "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
 #endif
 }
 
@@ -187,52 +207,70 @@ size_t sy_page_size(void) {
     long sz = sysconf(_SC_PAGESIZE);
     return (size_t)(sz);
 #else
-#error "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
+#error                                                                         \
+    "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
 #endif
 }
 
-void sy_make_pages_read_only(void* pagesStart, size_t len) {
+void sy_make_pages_read_only(void *pagesStart, size_t len) {
     const size_t pageSize = sy_page_size();
-    sy_assert_release((len % pageSize) == 0, "[sy_make_pages_read_only] len must be multiple of sy_page_size");
+    sy_assert_release(
+        (len % pageSize) == 0,
+        "[sy_make_pages_read_only] len must be multiple of sy_page_size");
 #if defined(SYNC_NO_PAGES)
     (void)pagesStart;
     (void)len;
 #elif defined(_WIN32)
     const DWORD newProtect = PAGE_READONLY;
     DWORD oldProtect;
-    const bool success = VirtualProtect(pagesStart, len, newProtect, &oldProtect);
-    sy_assert_release(success == true, "[sy_make_pages_read_only] failed to make pages read only");
+    const bool success =
+        VirtualProtect(pagesStart, len, newProtect, &oldProtect);
+    sy_assert_release(
+        success == true,
+        "[sy_make_pages_read_only] failed to make pages read only");
 #elif defined(__APPLE__) || defined(__GNUC__)
     const int success = mprotect(pagesStart, len, PROT_READ);
-    sy_assert_release(success == 0, "[sy_make_pages_read_only] failed to make pages read only");
+    sy_assert_release(
+        success == 0,
+        "[sy_make_pages_read_only] failed to make pages read only");
 #else
-#error "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
+#error                                                                         \
+    "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
 #endif
 }
 
-void sy_make_pages_read_write(void* pagesStart, size_t len) {
+void sy_make_pages_read_write(void *pagesStart, size_t len) {
     const size_t pageSize = sy_page_size();
-    sy_assert_release((len % pageSize) == 0, "[sy_make_pages_read_write] len must be multiple of sy_page_size");
+    sy_assert_release(
+        (len % pageSize) == 0,
+        "[sy_make_pages_read_write] len must be multiple of sy_page_size");
 #if defined(SYNC_NO_PAGES)
     (void)pagesStart;
     (void)len;
 #elif defined(_WIN32)
     const DWORD newProtect = PAGE_READWRITE;
     DWORD oldProtect;
-    const bool success = VirtualProtect(pagesStart, len, newProtect, &oldProtect);
-    sy_assert_release(success == true, "[sy_make_pages_read_only] failed to make pages read / write");
+    const bool success =
+        VirtualProtect(pagesStart, len, newProtect, &oldProtect);
+    sy_assert_release(
+        success == true,
+        "[sy_make_pages_read_only] failed to make pages read / write");
 #elif defined(__APPLE__) || defined(__GNUC__)
     const int success = mprotect(pagesStart, len, PROT_READ | PROT_WRITE);
-    sy_assert_release(success == 0, "[sy_make_pages_read_only] failed to make pages read / write");
+    sy_assert_release(
+        success == 0,
+        "[sy_make_pages_read_only] failed to make pages read / write");
 #else
-#error "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
+#error                                                                         \
+    "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'"
 #endif
 }
 #endif // SYNC_CUSTOM_PAGE_MEMORY
 
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
-// If someone wants to build Sync using only the source files, and not the provided build scripts, they should be able
-// to do that. To avoid `/experimental:c11atomics`, lets just used the Interlocked functions
+// If someone wants to build Sync using only the source files, and not the
+// provided build scripts, they should be able to do that. To avoid
+// `/experimental:c11atomics`, lets just used the Interlocked functions
 #else
 #include <stdatomic.h>
 static int sy_memory_order_to_std(SyMemoryOrder order) {
@@ -255,56 +293,70 @@ static int sy_memory_order_to_std(SyMemoryOrder order) {
 }
 #endif
 
-size_t sy_atomic_size_t_load(const SyAtomicSizeT* self, SyMemoryOrder order) {
+size_t sy_atomic_size_t_load(const SyAtomicSizeT *self, SyMemoryOrder order) {
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
     (void)order; // Interlocked functions use full memory barrier (seq_cst)
-    return (size_t)_InterlockedOr64((volatile LONG64*)&self->value, 0);
+    return (size_t)_InterlockedOr64((volatile LONG64 *)&self->value, 0);
 #else
-    return atomic_load_explicit((const _Atomic volatile size_t*)&self->value, sy_memory_order_to_std(order));
+    return atomic_load_explicit((const _Atomic volatile size_t *)&self->value,
+                                sy_memory_order_to_std(order));
 #endif
 }
 
-void sy_atomic_size_t_store(SyAtomicSizeT* self, size_t newValue, SyMemoryOrder order) {
+void sy_atomic_size_t_store(SyAtomicSizeT *self, size_t newValue,
+                            SyMemoryOrder order) {
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
     (void)order;
-    _InterlockedExchange64((volatile LONG64*)&self->value, (LONG64)newValue);
+    _InterlockedExchange64((volatile LONG64 *)&self->value, (LONG64)newValue);
 #else
-    atomic_store_explicit((_Atomic volatile size_t*)&self->value, newValue, sy_memory_order_to_std(order));
+    atomic_store_explicit((_Atomic volatile size_t *)&self->value, newValue,
+                          sy_memory_order_to_std(order));
 #endif
 }
 
-size_t sy_atomic_size_t_fetch_add(SyAtomicSizeT* self, size_t toAdd, SyMemoryOrder order) {
+size_t sy_atomic_size_t_fetch_add(SyAtomicSizeT *self, size_t toAdd,
+                                  SyMemoryOrder order) {
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
     (void)order;
-    return (size_t)_InterlockedExchangeAdd64((volatile LONG64*)&self->value, (LONG64)toAdd); // no overflow?
+    return (size_t)_InterlockedExchangeAdd64((volatile LONG64 *)&self->value,
+                                             (LONG64)toAdd); // no overflow?
 #else
-    return atomic_fetch_add_explicit((_Atomic volatile size_t*)&self->value, toAdd, sy_memory_order_to_std(order));
+    return atomic_fetch_add_explicit((_Atomic volatile size_t *)&self->value,
+                                     toAdd, sy_memory_order_to_std(order));
 #endif
 }
 
-size_t sy_atomic_size_t_fetch_sub(SyAtomicSizeT* self, size_t toSub, SyMemoryOrder order) {
+size_t sy_atomic_size_t_fetch_sub(SyAtomicSizeT *self, size_t toSub,
+                                  SyMemoryOrder order) {
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
     (void)order;
-    return (size_t)_InterlockedExchangeAdd64((volatile LONG64*)&self->value, -(LONG64)toSub); // no overflow?
+    return (size_t)_InterlockedExchangeAdd64((volatile LONG64 *)&self->value,
+                                             -(LONG64)toSub); // no overflow?
 #else
-    return atomic_fetch_sub_explicit((_Atomic volatile size_t*)&self->value, toSub, sy_memory_order_to_std(order));
+    return atomic_fetch_sub_explicit((_Atomic volatile size_t *)&self->value,
+                                     toSub, sy_memory_order_to_std(order));
 #endif
 }
 
-size_t sy_atomic_size_t_exchange(SyAtomicSizeT* self, size_t newValue, SyMemoryOrder order) {
+size_t sy_atomic_size_t_exchange(SyAtomicSizeT *self, size_t newValue,
+                                 SyMemoryOrder order) {
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
     (void)order;
-    return (size_t)_InterlockedExchange64((volatile LONG64*)&self->value, (LONG64)newValue);
+    return (size_t)_InterlockedExchange64((volatile LONG64 *)&self->value,
+                                          (LONG64)newValue);
 #else
-    return atomic_exchange_explicit((_Atomic volatile size_t*)&self->value, newValue, sy_memory_order_to_std(order));
+    return atomic_exchange_explicit((_Atomic volatile size_t *)&self->value,
+                                    newValue, sy_memory_order_to_std(order));
 #endif
 }
 
-bool sy_atomic_size_t_compare_exchange_weak(SyAtomicSizeT* self, size_t* expected, size_t desired,
+bool sy_atomic_size_t_compare_exchange_weak(SyAtomicSizeT *self,
+                                            size_t *expected, size_t desired,
                                             SyMemoryOrder order) {
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
     (void)order;
-    LONG64 prev = _InterlockedCompareExchange64((volatile LONG64*)&self->value, (LONG64)desired, (LONG64)*expected);
+    LONG64 prev = _InterlockedCompareExchange64(
+        (volatile LONG64 *)&self->value, (LONG64)desired, (LONG64)*expected);
     if (prev == (LONG64)*expected) {
         return true;
     } else {
@@ -312,44 +364,54 @@ bool sy_atomic_size_t_compare_exchange_weak(SyAtomicSizeT* self, size_t* expecte
         return false;
     }
 #else
-    return atomic_compare_exchange_weak_explicit((_Atomic volatile size_t*)&self->value, expected, desired,
-                                                 sy_memory_order_to_std(order), memory_order_relaxed);
+    return atomic_compare_exchange_weak_explicit(
+        (_Atomic volatile size_t *)&self->value, expected, desired,
+        sy_memory_order_to_std(order), memory_order_relaxed);
 #endif
 }
 
-bool sy_atomic_bool_load(const SyAtomicBool* self, SyMemoryOrder order) {
+bool sy_atomic_bool_load(const SyAtomicBool *self, SyMemoryOrder order) {
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
     (void)order;
-    return (_InterlockedOr8((volatile char*)&self->value, 0) != 0);
+    return (_InterlockedOr8((volatile char *)&self->value, 0) != 0);
 #else
-    return atomic_load_explicit((const _Atomic volatile bool*)&self->value, sy_memory_order_to_std(order));
+    return atomic_load_explicit((const _Atomic volatile bool *)&self->value,
+                                sy_memory_order_to_std(order));
 #endif
 }
 
-void sy_atomic_bool_store(SyAtomicBool* self, bool newValue, SyMemoryOrder order) {
+void sy_atomic_bool_store(SyAtomicBool *self, bool newValue,
+                          SyMemoryOrder order) {
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
     (void)order;
-    _InterlockedExchange8((volatile char*)&self->value, (char)(newValue ? 1 : 0));
+    _InterlockedExchange8((volatile char *)&self->value,
+                          (char)(newValue ? 1 : 0));
 #else
-    atomic_store_explicit((_Atomic volatile bool*)&self->value, newValue, sy_memory_order_to_std(order));
+    atomic_store_explicit((_Atomic volatile bool *)&self->value, newValue,
+                          sy_memory_order_to_std(order));
 #endif
 }
 
-bool sy_atomic_bool_exchange(SyAtomicBool* self, bool newValue, SyMemoryOrder order) {
+bool sy_atomic_bool_exchange(SyAtomicBool *self, bool newValue,
+                             SyMemoryOrder order) {
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
     (void)order;
-    return (_InterlockedExchange8((volatile char*)&self->value, (char)(newValue ? 1 : 0)) != 0);
+    return (_InterlockedExchange8((volatile char *)&self->value,
+                                  (char)(newValue ? 1 : 0)) != 0);
 #else
-    return atomic_exchange_explicit((_Atomic volatile bool*)&self->value, newValue, sy_memory_order_to_std(order));
+    return atomic_exchange_explicit((_Atomic volatile bool *)&self->value,
+                                    newValue, sy_memory_order_to_std(order));
 #endif
 }
 
-bool sy_atomic_bool_compare_exchange_weak(SyAtomicBool* self, bool* expected, bool desired, SyMemoryOrder order) {
+bool sy_atomic_bool_compare_exchange_weak(SyAtomicBool *self, bool *expected,
+                                          bool desired, SyMemoryOrder order) {
 #if defined(_MSC_VER) && defined(__STDC_NO_ATOMICS__)
     (void)order;
     char expectedChar = (char)(*expected ? 1 : 0);
     char desiredChar = (char)(desired ? 1 : 0);
-    char prev = _InterlockedCompareExchange8((volatile char*)&self->value, desiredChar, expectedChar);
+    char prev = _InterlockedCompareExchange8((volatile char *)&self->value,
+                                             desiredChar, expectedChar);
     if (prev == expectedChar) {
         return true;
     } else {
@@ -357,8 +419,9 @@ bool sy_atomic_bool_compare_exchange_weak(SyAtomicBool* self, bool* expected, bo
         return false;
     }
 #else
-    return atomic_compare_exchange_weak_explicit((_Atomic volatile bool*)&self->value, expected, desired,
-                                                 sy_memory_order_to_std(order), memory_order_relaxed);
+    return atomic_compare_exchange_weak_explicit(
+        (_Atomic volatile bool *)&self->value, expected, desired,
+        sy_memory_order_to_std(order), memory_order_relaxed);
 #endif
 }
 
@@ -415,15 +478,17 @@ static void initializeThisThreadId(void) {
     if (threadLocalThreadId != 0)
         return;
 
-    size_t fetched = sy_atomic_size_t_fetch_add(&globalThreadIdGenerator, 1, SY_MEMORY_ORDER_SEQ_CST);
+    size_t fetched = sy_atomic_size_t_fetch_add(&globalThreadIdGenerator, 1,
+                                                SY_MEMORY_ORDER_SEQ_CST);
     sy_assert_release(fetched < (SIZE_MAX - 1),
-                      "[initializeThisThreadId] reached max value for thread id generator (how?)");
+                      "[initializeThisThreadId] reached max value for thread "
+                      "id generator (how?)");
 
     threadLocalThreadId = fetched + 1; // don't start at 0
 }
 
 /// @return `false` if out of memory, otherwise `true`
-static bool addThisThreadToReaders(SyRawRwLock* self) {
+static bool addThisThreadToReaders(SyRawRwLock *self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
@@ -432,23 +497,27 @@ static bool addThisThreadToReaders(SyRawRwLock* self) {
 
     if (currentLen == currentCapacity) { // reallocate if necessary
         sy_assert_release(currentCapacity <= ((INT32_MAX / 2) - 1),
-                          "[addThisThreadToReaders] reached max value for reader capacity (how?)");
+                          "[addThisThreadToReaders] reached max value for "
+                          "reader capacity (how?)");
         int32_t newCapacity = currentCapacity * 2;
         if (newCapacity == 0) {
             newCapacity = 4; // reasonable default number of readers
         }
 
-        size_t* newReaders = (size_t*)sy_aligned_malloc((size_t)(newCapacity) * sizeof(size_t), RAW_RWLOCK_ALLOC_ALIGN);
+        size_t *newReaders = (size_t *)sy_aligned_malloc(
+            (size_t)(newCapacity) * sizeof(size_t), RAW_RWLOCK_ALLOC_ALIGN);
         if (newReaders == NULL) {
             return false; // out of memory
         }
-        size_t* oldReaders = (size_t*)self->readers; // can be NULL it is fine
+        size_t *oldReaders = (size_t *)self->readers; // can be NULL it is fine
         for (int32_t i = 0; i < currentLen; i++) {
             newReaders[i] = oldReaders[i];
         }
 
         if (oldReaders != NULL) {
-            sy_aligned_free((void*)oldReaders, currentCapacity * sizeof(size_t), RAW_RWLOCK_ALLOC_ALIGN);
+            sy_aligned_free((void *)oldReaders,
+                            currentCapacity * sizeof(size_t),
+                            RAW_RWLOCK_ALLOC_ALIGN);
         }
 
         self->readers = newReaders;
@@ -460,12 +529,12 @@ static bool addThisThreadToReaders(SyRawRwLock* self) {
     return true;
 }
 
-static void removeThisThreadFromReadersFirstInstance(SyRawRwLock* self) {
+static void removeThisThreadFromReadersFirstInstance(SyRawRwLock *self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
     const int32_t currentLen = self->readerLen;
-    size_t* readers = self->readers;
+    size_t *readers = self->readers;
 
     int32_t found = -1;
     for (int32_t i = 0; i < currentLen; i++) {
@@ -484,12 +553,12 @@ static void removeThisThreadFromReadersFirstInstance(SyRawRwLock* self) {
     }
 }
 
-static bool isThisThreadOnlyReader(const SyRawRwLock* self) {
+static bool isThisThreadOnlyReader(const SyRawRwLock *self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
     const int32_t currentLen = self->readerLen;
-    const size_t* readers = (const size_t*)self->readers;
+    const size_t *readers = (const size_t *)self->readers;
 
     // as many of this thread re-entrance
     for (int32_t i = 0; i < currentLen; i++) {
@@ -500,12 +569,12 @@ static bool isThisThreadOnlyReader(const SyRawRwLock* self) {
     return true;
 }
 
-static bool isThisThreadAReader(const SyRawRwLock* self) {
+static bool isThisThreadAReader(const SyRawRwLock *self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
     const int32_t currentLen = self->readerLen;
-    const size_t* readers = (const size_t*)self->readers;
+    const size_t *readers = (const size_t *)self->readers;
 
     for (int32_t i = 0; i < currentLen; i++) {
         if (readers[i] == threadId) {
@@ -515,7 +584,7 @@ static bool isThisThreadAReader(const SyRawRwLock* self) {
     return false;
 }
 
-static void removeThisThreadFromWantToElevate(SyRawRwLock* self) {
+static void removeThisThreadFromWantToElevate(SyRawRwLock *self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
@@ -534,12 +603,13 @@ static void removeThisThreadFromWantToElevate(SyRawRwLock* self) {
     }
 }
 
-static void acquireFence(SyRawRwLock* self) {
+static void acquireFence(SyRawRwLock *self) {
 #ifdef SYNC_TSAN_ENABLED
     __tsan_mutex_pre_lock(&self->fence, 0);
 #endif
     bool expected = false;
-    while (!(sy_atomic_bool_compare_exchange_weak(&self->fence, &expected, true, SY_MEMORY_ORDER_SEQ_CST))) {
+    while (!(sy_atomic_bool_compare_exchange_weak(&self->fence, &expected, true,
+                                                  SY_MEMORY_ORDER_SEQ_CST))) {
         expected = false;
         sy_thread_yield();
     }
@@ -548,7 +618,7 @@ static void acquireFence(SyRawRwLock* self) {
 #endif
 }
 
-static void releaseFence(SyRawRwLock* self) {
+static void releaseFence(SyRawRwLock *self) {
 #ifdef SYNC_TSAN_ENABLED
     __tsan_mutex_pre_unlock(&self->fence, 0);
 #endif
@@ -558,24 +628,32 @@ static void releaseFence(SyRawRwLock* self) {
 #endif
 }
 
-void sy_raw_rwlock_destroy(SyRawRwLock* self) {
+void sy_raw_rwlock_destroy(SyRawRwLock *self) {
     acquireFence(self);
 
-    const size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
+    const size_t currentExclusiveId =
+        sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
     const int32_t currentReadersLen = self->readerLen;
     const int32_t currentWantElevateLen = self->threadsWantElevateLen;
     sy_assert_release(currentExclusiveId == 0,
-                      "[sy_raw_rwlock_destroy] cannot destroy rwlock when a thread has exclusive access");
+                      "[sy_raw_rwlock_destroy] cannot destroy rwlock when a "
+                      "thread has exclusive access");
     sy_assert_release(currentReadersLen == 0,
-                      "[sy_raw_rwlock_destroy] cannot destroy rwlock that was locked by another thread");
+                      "[sy_raw_rwlock_destroy] cannot destroy rwlock that was "
+                      "locked by another thread");
     sy_assert_release(currentWantElevateLen == 0,
-                      "[sy_raw_rwlock_destroy] cannot destroy rwlock that other threads wanting to elevate");
+                      "[sy_raw_rwlock_destroy] cannot destroy rwlock that "
+                      "other threads wanting to elevate");
 
     if (self->readers != NULL) {
-        sy_aligned_free((void*)self->readers, (size_t)(self->readerCapacity) * sizeof(size_t), RAW_RWLOCK_ALLOC_ALIGN);
+        sy_aligned_free((void *)self->readers,
+                        (size_t)(self->readerCapacity) * sizeof(size_t),
+                        RAW_RWLOCK_ALLOC_ALIGN);
     }
     if (self->threadsWantElevate != NULL) {
-        sy_aligned_free((void*)self->threadsWantElevate, (size_t)(self->threadsWantElevateCapacity) * sizeof(size_t),
+        sy_aligned_free((void *)self->threadsWantElevate,
+                        (size_t)(self->threadsWantElevateCapacity) *
+                            sizeof(size_t),
                         RAW_RWLOCK_ALLOC_ALIGN);
     }
     releaseFence(self);
@@ -584,12 +662,14 @@ void sy_raw_rwlock_destroy(SyRawRwLock* self) {
 #endif
 }
 
-SyAcquireErr sy_raw_rwlock_try_acquire_shared(SyRawRwLock* self) {
+SyAcquireErr sy_raw_rwlock_try_acquire_shared(SyRawRwLock *self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
-    { // Quick check. Don't wanna go through all the steps if someone has an exclusive lock.
-        size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
+    { // Quick check. Don't wanna go through all the steps if someone has an
+      // exclusive lock.
+        size_t currentExclusiveId =
+            sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
         if (currentExclusiveId != threadId) {
             if (currentExclusiveId != 0) {
                 return SY_ACQUIRE_ERR_SHARED_HAS_EXCLUSIVE;
@@ -599,8 +679,10 @@ SyAcquireErr sy_raw_rwlock_try_acquire_shared(SyRawRwLock* self) {
 
     acquireFence(self);
 
-    { // Fence acquired, check exclusive id again in case someone else acquired in the meantime
-        size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
+    { // Fence acquired, check exclusive id again in case someone else acquired
+      // in the meantime
+        size_t currentExclusiveId =
+            sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
         if (currentExclusiveId != threadId) {
             if (currentExclusiveId != 0) {
                 releaseFence(self);
@@ -617,7 +699,7 @@ SyAcquireErr sy_raw_rwlock_try_acquire_shared(SyRawRwLock* self) {
     return SY_ACQUIRE_ERR_NONE;
 }
 
-SyAcquireErr sy_raw_rwlock_acquire_shared(SyRawRwLock* self) {
+SyAcquireErr sy_raw_rwlock_acquire_shared(SyRawRwLock *self) {
     while (true) {
         SyAcquireErr err = sy_raw_rwlock_try_acquire_shared(self);
         if (err == SY_ACQUIRE_ERR_NONE || err == SY_ACQUIRE_ERR_OUT_OF_MEMORY) {
@@ -627,34 +709,41 @@ SyAcquireErr sy_raw_rwlock_acquire_shared(SyRawRwLock* self) {
     }
 }
 
-void sy_raw_rwlock_release_shared(SyRawRwLock* self) {
+void sy_raw_rwlock_release_shared(SyRawRwLock *self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
     acquireFence(self);
 
-    const size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
-    // releasing shared lock on a thread that ALSO has exclusive lock (re-entrant)
-    sy_assert_release(
-        currentExclusiveId == 0 || currentExclusiveId == threadId,
-        "[sy_raw_rwlock_release_exclusive] cannot release shared lock when another thread has an exclusive lock");
+    const size_t currentExclusiveId =
+        sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
+    // releasing shared lock on a thread that ALSO has exclusive lock
+    // (re-entrant)
+    sy_assert_release(currentExclusiveId == 0 || currentExclusiveId == threadId,
+                      "[sy_raw_rwlock_release_exclusive] cannot release shared "
+                      "lock when another thread has an exclusive lock");
     sy_assert_release(self->readerLen != 0,
-                      "[sy_raw_rwlock_release_exclusive] cannot release shared lock if no thread has a shared lock");
+                      "[sy_raw_rwlock_release_exclusive] cannot release shared "
+                      "lock if no thread has a shared lock");
 
     removeThisThreadFromReadersFirstInstance(self);
     releaseFence(self);
 }
 
-SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
-    const size_t oldDeadlockGeneration = sy_atomic_size_t_load(&self->deadlockGeneration, SY_MEMORY_ORDER_SEQ_CST);
+SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock *self) {
+    const size_t oldDeadlockGeneration = sy_atomic_size_t_load(
+        &self->deadlockGeneration, SY_MEMORY_ORDER_SEQ_CST);
 
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
-    { // Quick check. Don't wanna go through all the steps if someone has an exclusive lock.
-        size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
+    { // Quick check. Don't wanna go through all the steps if someone has an
+      // exclusive lock.
+        size_t currentExclusiveId =
+            sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
         if (currentExclusiveId == threadId) {
-            sy_atomic_size_t_fetch_add(&self->exclusiveCount, 1, SY_MEMORY_ORDER_SEQ_CST);
+            sy_atomic_size_t_fetch_add(&self->exclusiveCount, 1,
+                                       SY_MEMORY_ORDER_SEQ_CST);
             return SY_ACQUIRE_ERR_NONE;
         }
         if (currentExclusiveId != 0) {
@@ -669,19 +758,22 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
         if (isThisThreadAReader(self)) {
             thisThreadIsReader = true;
 
-            const int32_t currentElevateCapacity = self->threadsWantElevateCapacity;
+            const int32_t currentElevateCapacity =
+                self->threadsWantElevateCapacity;
             const int32_t currentElevateLen = self->threadsWantElevateLen;
 
             if (currentElevateLen == currentElevateCapacity) {
                 sy_assert_release(
                     currentElevateCapacity <= ((INT32_MAX / 2) - 1),
-                    "[sy_raw_rwlock_try_acquire_exclusive] reached max value for elevate capacity (how?)");
+                    "[sy_raw_rwlock_try_acquire_exclusive] reached max value "
+                    "for elevate capacity (how?)");
                 int32_t newCapacity = currentElevateCapacity * 2;
                 if (newCapacity == 0) {
                     newCapacity = 2; // reasonable default for elevation
                 }
-                size_t* newThreadsWantElevate =
-                    (size_t*)sy_aligned_malloc((size_t)(newCapacity) * sizeof(size_t), RAW_RWLOCK_ALLOC_ALIGN);
+                size_t *newThreadsWantElevate = (size_t *)sy_aligned_malloc(
+                    (size_t)(newCapacity) * sizeof(size_t),
+                    RAW_RWLOCK_ALLOC_ALIGN);
                 if (newThreadsWantElevate == NULL) {
                     releaseFence(self);
                     return SY_ACQUIRE_ERR_OUT_OF_MEMORY;
@@ -692,7 +784,8 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
                 }
 
                 if (self->threadsWantElevate != NULL) {
-                    sy_aligned_free((void*)self->threadsWantElevate, currentElevateCapacity * sizeof(size_t),
+                    sy_aligned_free((void *)self->threadsWantElevate,
+                                    currentElevateCapacity * sizeof(size_t),
                                     RAW_RWLOCK_ALLOC_ALIGN);
                 }
 
@@ -711,7 +804,8 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
 
     acquireFence(self);
 
-    const size_t newDeadlockGeneration = sy_atomic_size_t_load(&self->deadlockGeneration, SY_MEMORY_ORDER_SEQ_CST);
+    const size_t newDeadlockGeneration = sy_atomic_size_t_load(
+        &self->deadlockGeneration, SY_MEMORY_ORDER_SEQ_CST);
     if (oldDeadlockGeneration != newDeadlockGeneration) {
         // another thread detected a deadlock on this rwlock
         removeThisThreadFromWantToElevate(self);
@@ -732,60 +826,73 @@ SyAcquireErr sy_raw_rwlock_try_acquire_exclusive(SyRawRwLock* self) {
         removeThisThreadFromWantToElevate(self); // remove no matter what
         if (foundOther) {
             sy_assert_release(oldDeadlockGeneration < (SIZE_MAX - 1),
-                              "[sy_raw_rwlock_try_acquire_exclusive] too many deadlocks have occurred on this rwlock");
+                              "[sy_raw_rwlock_try_acquire_exclusive] too many "
+                              "deadlocks have occurred on this rwlock");
 
-            (void)sy_atomic_size_t_fetch_add(&self->deadlockGeneration, 1, SY_MEMORY_ORDER_SEQ_CST);
+            (void)sy_atomic_size_t_fetch_add(&self->deadlockGeneration, 1,
+                                             SY_MEMORY_ORDER_SEQ_CST);
             releaseFence(self);
             return SY_ACQUIRE_ERR_DEADLOCK;
         }
     }
 
-    { // Fence acquired, check exclusive id again in case someone else acquired in the meantime
-        size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
+    { // Fence acquired, check exclusive id again in case someone else acquired
+      // in the meantime
+        size_t currentExclusiveId =
+            sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
         if (currentExclusiveId != 0) {
             releaseFence(self);
             return SY_ACQUIRE_ERR_EXCLUSIVE_HAS_EXCLUSIVE;
         }
     }
 
-    { // Check if we are the only reader, if so we can elevate this thread to exclusive
+    { // Check if we are the only reader, if so we can elevate this thread to
+      // exclusive
         if (!isThisThreadOnlyReader(self)) {
             releaseFence(self);
             return SY_ACQUIRE_ERR_EXCLUSIVE_HAS_OTHER_READERS;
         }
 
-        // don't remove readers cause re-entrant functionality, just set this as exclusive owner
-        sy_atomic_size_t_store(&self->exclusiveId, threadId, SY_MEMORY_ORDER_SEQ_CST);
-        sy_atomic_size_t_fetch_add(&self->exclusiveCount, 1, SY_MEMORY_ORDER_SEQ_CST);
+        // don't remove readers cause re-entrant functionality, just set this as
+        // exclusive owner
+        sy_atomic_size_t_store(&self->exclusiveId, threadId,
+                               SY_MEMORY_ORDER_SEQ_CST);
+        sy_atomic_size_t_fetch_add(&self->exclusiveCount, 1,
+                                   SY_MEMORY_ORDER_SEQ_CST);
         releaseFence(self);
         return SY_ACQUIRE_ERR_NONE;
     }
 }
 
-SyAcquireErr sy_raw_rwlock_acquire_exclusive(SyRawRwLock* self) {
+SyAcquireErr sy_raw_rwlock_acquire_exclusive(SyRawRwLock *self) {
     while (true) {
         SyAcquireErr err = sy_raw_rwlock_try_acquire_exclusive(self);
-        if (err == SY_ACQUIRE_ERR_NONE || err == SY_ACQUIRE_ERR_OUT_OF_MEMORY || err == SY_ACQUIRE_ERR_DEADLOCK) {
+        if (err == SY_ACQUIRE_ERR_NONE || err == SY_ACQUIRE_ERR_OUT_OF_MEMORY ||
+            err == SY_ACQUIRE_ERR_DEADLOCK) {
             return err;
         }
         sy_thread_yield();
     }
 }
 
-void sy_raw_rwlock_release_exclusive(SyRawRwLock* self) {
+void sy_raw_rwlock_release_exclusive(SyRawRwLock *self) {
     initializeThisThreadId();
     const size_t threadId = threadLocalThreadId;
 
     acquireFence(self);
 
-    const size_t currentExclusiveId = sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
-    sy_assert_release(currentExclusiveId != 0, "[sy_raw_rwlock_release_exclusive] cannot release exclusive lock when "
-                                               "no thread has acquired");
+    const size_t currentExclusiveId =
+        sy_atomic_size_t_load(&self->exclusiveId, SY_MEMORY_ORDER_SEQ_CST);
     sy_assert_release(
-        currentExclusiveId == threadId,
-        "[sy_raw_rwlock_release_exclusive] cannot release exclusive lock that was locked by another thread");
+        currentExclusiveId != 0,
+        "[sy_raw_rwlock_release_exclusive] cannot release exclusive lock when "
+        "no thread has acquired");
+    sy_assert_release(currentExclusiveId == threadId,
+                      "[sy_raw_rwlock_release_exclusive] cannot release "
+                      "exclusive lock that was locked by another thread");
 
-    const size_t currentExclusiveCount = sy_atomic_size_t_fetch_sub(&self->exclusiveCount, 1, SY_MEMORY_ORDER_SEQ_CST);
+    const size_t currentExclusiveCount = sy_atomic_size_t_fetch_sub(
+        &self->exclusiveCount, 1, SY_MEMORY_ORDER_SEQ_CST);
     if (currentExclusiveCount == 1) {
         sy_atomic_size_t_store(&self->exclusiveId, 0, SY_MEMORY_ORDER_SEQ_CST);
     }
@@ -801,7 +908,7 @@ void sy_raw_rwlock_release_exclusive(SyRawRwLock* self) {
 #include <stdio.h>
 #include <string.h>
 
-bool sy_get_file_info(const char* path, size_t pathLen, size_t* outFileSize) {
+bool sy_get_file_info(const char *path, size_t pathLen, size_t *outFileSize) {
 #if defined(_MSC_VER)
     char nullTermPath[MAX_PATH];
 #else
@@ -830,7 +937,8 @@ bool sy_get_file_info(const char* path, size_t pathLen, size_t* outFileSize) {
 #endif // SYNC_CUSTOM_GET_FILE_INFO
 
 #ifndef SYNC_CUSTOM_RELATIVE_TO_ABSOLUTE_PATH
-bool sy_relative_to_absolute_path(const char* relativePath, size_t relativePathLen, char* outAbsolutePath,
+bool sy_relative_to_absolute_path(const char *relativePath,
+                                  size_t relativePathLen, char *outAbsolutePath,
                                   size_t outAbsoluteBufSize) {
 #if defined(_WIN32)
     char relative[MAX_PATH];
@@ -879,7 +987,8 @@ bool sy_relative_to_absolute_path(const char* relativePath, size_t relativePathL
 #ifndef SYNC_CUSTOM_BACKTRACE
 
 #ifndef NDEBUG
-#if defined(_GAMING_XBOX) || defined(__ORBIS__) || defined(__PROSPERO__) || defined(__NX__) || defined(NN_NINTENDO_SDK)
+#if defined(_GAMING_XBOX) || defined(__ORBIS__) || defined(__PROSPERO__) ||    \
+    defined(__NX__) || defined(NN_NINTENDO_SDK)
 void sy_print_callstack(void) {}
 #else
 
@@ -888,7 +997,8 @@ static void print_emscripten_callstack(void) {
     syncWriteStringError("Stack trace (most recent call first):");
     char buf[4096];
     // EM_LOG_C_STACK no longer does anything?
-    int bytesWritten = emscripten_get_callstack(EM_LOG_JS_STACK, buf, sizeof(buf));
+    int bytesWritten =
+        emscripten_get_callstack(EM_LOG_JS_STACK, buf, sizeof(buf));
     syncWriteStringError(buf);
     (void)bytesWritten;
 }
@@ -928,16 +1038,18 @@ void print_windows_callstack(void) {
         syncWriteStringError("failed to initialize symbol handler");
     }
 
-    void* stack[DEFAULT_BACKTRACE_DEPTH];
-    WORD frames = CaptureStackBackTrace(1, DEFAULT_BACKTRACE_DEPTH, stack, NULL);
+    void *stack[DEFAULT_BACKTRACE_DEPTH];
+    WORD frames =
+        CaptureStackBackTrace(1, DEFAULT_BACKTRACE_DEPTH, stack, NULL);
 
     if (frames == 0) {
         syncWriteStringError("failed to capture stack frames");
         return;
     }
 
-    alignas(alignof(SYMBOL_INFO)) char symbolBuf[sizeof(SYMBOL_INFO) + (256 * sizeof(char))];
-    SYMBOL_INFO* symbol = (SYMBOL_INFO*)symbolBuf;
+    alignas(alignof(SYMBOL_INFO)) char
+        symbolBuf[sizeof(SYMBOL_INFO) + (256 * sizeof(char))];
+    SYMBOL_INFO *symbol = (SYMBOL_INFO *)symbolBuf;
     symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
     symbol->MaxNameLen = 255;
 
@@ -949,10 +1061,10 @@ void print_windows_callstack(void) {
     for (WORD i = 2; i < frames; i++) {
         DWORD64 address = (DWORD64)(uintptr_t)(stack[i]);
         char lineBuf[1024] = {0};
-        const char* funcName = "???";
-        const char* fileName = NULL;
+        const char *funcName = "???";
+        const char *fileName = NULL;
         DWORD lineNumber = 0;
-        const char* modName = NULL;
+        const char *modName = NULL;
 
         DWORD64 symDisplacement = 0;
         if (SymFromAddr(process, address, &symDisplacement, symbol)) {
@@ -968,7 +1080,8 @@ void print_windows_callstack(void) {
         }
 
         HMODULE hModule = NULL;
-        if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                   GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                                (LPCSTR)(uintptr_t)(stack[i]), &hModule)) {
             if (GetModuleFileNameA(hModule, moduleName, MAX_PATH) != 0) {
                 modName = moduleName;
@@ -978,24 +1091,30 @@ void print_windows_callstack(void) {
         bool success = true;
         if (fileName != NULL && lineNumber != 0) {
             if (modName != NULL) {
-                if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s at %s:%lu (in %s)", (int)i, funcName, fileName,
-                             (unsigned long)lineNumber, modName) > (int)sizeof(lineBuf)) {
+                if (snprintf(lineBuf, sizeof(lineBuf),
+                             "#%-2d %s at %s:%lu (in %s)", (int)i, funcName,
+                             fileName, (unsigned long)lineNumber,
+                             modName) > (int)sizeof(lineBuf)) {
                     success = false;
                 }
             } else {
-                if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s at %s:%lu", (int)i, funcName, fileName,
-                             (unsigned long)lineNumber) > (int)sizeof(lineBuf)) {
+                if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s at %s:%lu",
+                             (int)i, funcName, fileName,
+                             (unsigned long)lineNumber) >
+                    (int)sizeof(lineBuf)) {
                     success = false;
                 }
             }
         } else if (modName != NULL) {
-            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d 0x%llx %s (in %s)", (int)i, (unsigned long long)address,
-                         funcName, modName) > (int)sizeof(lineBuf)) {
+            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d 0x%llx %s (in %s)",
+                         (int)i, (unsigned long long)address, funcName,
+                         modName) > (int)sizeof(lineBuf)) {
                 success = false;
             }
         } else {
-            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d 0x%llx %s", (int)i, (unsigned long long)address, funcName) >
-                (int)sizeof(lineBuf)) {
+            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d 0x%llx %s", (int)i,
+                         (unsigned long long)address,
+                         funcName) > (int)sizeof(lineBuf)) {
                 success = false;
             }
         }
@@ -1021,17 +1140,19 @@ void print_windows_callstack(void) {
 
 #define DEFAULT_BACKTRACE_DEPTH 64
 
-extern char** environ; // what the heck
+extern char **environ; // what the heck
 
-static void fallback_dladdr_print(const Dl_info* info, int i, void** addresses) {
+static void fallback_dladdr_print(const Dl_info *info, int i,
+                                  void **addresses) {
     char lineBuf[512] = {0};
-    const char* fname = info->dli_fname;
-    const char* lastSlash = strrchr(info->dli_fname, '/');
+    const char *fname = info->dli_fname;
+    const char *lastSlash = strrchr(info->dli_fname, '/');
     if (lastSlash != NULL) {
         fname = lastSlash + 1;
     }
-    if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %p %s in %s", i - 1, addresses[i],
-                 info->dli_sname ? info->dli_sname : "???", fname) < (int)sizeof(lineBuf)) {
+    if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %p %s in %s", i - 1,
+                 addresses[i], info->dli_sname ? info->dli_sname : "???",
+                 fname) < (int)sizeof(lineBuf)) {
         syncWriteStringError(lineBuf);
     } else {
         syncWriteStringError("???");
@@ -1040,7 +1161,7 @@ static void fallback_dladdr_print(const Dl_info* info, int i, void** addresses) 
 
 static void print_posix_callstack(void) {
     syncWriteStringError("Stack trace (most recent call first):");
-    void* addresses[DEFAULT_BACKTRACE_DEPTH];
+    void *addresses[DEFAULT_BACKTRACE_DEPTH];
     int traceSize = backtrace(addresses, DEFAULT_BACKTRACE_DEPTH);
 
     // don't care about this function being called
@@ -1049,7 +1170,8 @@ static void print_posix_callstack(void) {
         char lineBuf[512] = {0};
 
         if (dladdr(addresses[i], &info) == 0 || info.dli_fname == NULL) {
-            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %p", i - 1, addresses[i]) < (int)sizeof(lineBuf)) {
+            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %p", i - 1,
+                         addresses[i]) < (int)sizeof(lineBuf)) {
                 syncWriteStringError(lineBuf);
             } else {
                 syncWriteStringError("???");
@@ -1061,18 +1183,22 @@ static void print_posix_callstack(void) {
 
         char loadAddrStr[64] = {0};
         char addrStr[64] = {0};
-        if (snprintf(loadAddrStr, sizeof(loadAddrStr), "0x%llx", (unsigned long long)(uintptr_t)(info.dli_fbase)) >=
+        if (snprintf(loadAddrStr, sizeof(loadAddrStr), "0x%llx",
+                     (unsigned long long)(uintptr_t)(info.dli_fbase)) >=
             (int)sizeof(loadAddrStr)) {
             fallback_dladdr_print(&info, i, addresses);
             continue;
         }
-        if (snprintf(addrStr, sizeof(addrStr), "0x%llx", (unsigned long long)(uintptr_t)(addresses[i])) >=
+        if (snprintf(addrStr, sizeof(addrStr), "0x%llx",
+                     (unsigned long long)(uintptr_t)(addresses[i])) >=
             (int)sizeof(addrStr)) {
             fallback_dladdr_print(&info, i, addresses);
             continue;
         }
 
-        const char* argv[] = {"/usr/bin/atos", "-o", info.dli_fname, "-l", loadAddrStr, "-fullPath", addrStr, NULL};
+        const char *argv[] = {
+            "/usr/bin/atos", "-o",        info.dli_fname, "-l",
+            loadAddrStr,     "-fullPath", addrStr,        NULL};
         int pipefd[2] = {0};
         if (pipe(pipefd) == -1) {
             fallback_dladdr_print(&info, i, addresses);
@@ -1088,7 +1214,8 @@ static void print_posix_callstack(void) {
         }
 
         if (posix_spawn_file_actions_addclose(&actions, pipefd[0]) != 0 ||
-            posix_spawn_file_actions_adddup2(&actions, pipefd[1], STDOUT_FILENO) != 0 ||
+            posix_spawn_file_actions_adddup2(&actions, pipefd[1],
+                                             STDOUT_FILENO) != 0 ||
             posix_spawn_file_actions_addclose(&actions, pipefd[1]) != 0) {
             fallback_dladdr_print(&info, i, addresses);
             (void)posix_spawn_file_actions_destroy(&actions);
@@ -1098,7 +1225,8 @@ static void print_posix_callstack(void) {
         }
 
         pid_t pid;
-        int spawnResult = posix_spawn(&pid, "/usr/bin/atos", &actions, NULL, (char* const*)argv, environ);
+        int spawnResult = posix_spawn(&pid, "/usr/bin/atos", &actions, NULL,
+                                      (char *const *)argv, environ);
         (void)posix_spawn_file_actions_destroy(&actions);
         if (spawnResult != 0) {
             fallback_dladdr_print(&info, i, addresses);
@@ -1113,7 +1241,9 @@ static void print_posix_callstack(void) {
         ssize_t totalRead = 0;
         ssize_t bytesRead = 0;
         while (totalRead < (ssize_t)(sizeof(atosBuf) - 1) &&
-               (bytesRead = read(pipefd[0], atosBuf + totalRead, sizeof(atosBuf) - 1 - (size_t)totalRead)) > 0) {
+               (bytesRead = read(pipefd[0], atosBuf + totalRead,
+                                 sizeof(atosBuf) - 1 - (size_t)totalRead)) >
+                   0) {
             totalRead += bytesRead;
         }
         atosBuf[totalRead] = '\0';
@@ -1128,7 +1258,8 @@ static void print_posix_callstack(void) {
         }
 
         if (totalRead > 0 && atosBuf[0] != '\0') {
-            (void)snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s", i - 1, atosBuf);
+            (void)snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s", i - 1,
+                           atosBuf);
             syncWriteStringError(lineBuf);
         } else {
             fallback_dladdr_print(&info, i, addresses);
@@ -1138,12 +1269,20 @@ static void print_posix_callstack(void) {
 
         uintptr_t offset = (uintptr_t)addresses[i] - (uintptr_t)info.dli_fbase;
         char offsetStr[64] = {0};
-        if (snprintf(offsetStr, sizeof(offsetStr), "0x%llx", (unsigned long long)offset) >= (int)sizeof(offsetStr)) {
+        if (snprintf(offsetStr, sizeof(offsetStr), "0x%llx",
+                     (unsigned long long)offset) >= (int)sizeof(offsetStr)) {
             fallback_dladdr_print(&info, i, addresses);
             continue;
         }
 
-        const char* argv[] = {"/usr/bin/addr2line", "-e", info.dli_fname, "-f", "-C", "-p", offsetStr, NULL};
+        const char *argv[] = {"/usr/bin/addr2line",
+                              "-e",
+                              info.dli_fname,
+                              "-f",
+                              "-C",
+                              "-p",
+                              offsetStr,
+                              NULL};
 
         int pipefd[2] = {0};
         if (pipe(pipefd) == -1) {
@@ -1160,7 +1299,8 @@ static void print_posix_callstack(void) {
         }
 
         if (posix_spawn_file_actions_addclose(&actions, pipefd[0]) != 0 ||
-            posix_spawn_file_actions_adddup2(&actions, pipefd[1], STDOUT_FILENO) != 0 ||
+            posix_spawn_file_actions_adddup2(&actions, pipefd[1],
+                                             STDOUT_FILENO) != 0 ||
             posix_spawn_file_actions_addclose(&actions, pipefd[1]) != 0) {
             (void)posix_spawn_file_actions_destroy(&actions);
             fallback_dladdr_print(&info, i, addresses);
@@ -1170,7 +1310,8 @@ static void print_posix_callstack(void) {
         }
 
         pid_t pid;
-        int spawnResult = posix_spawn(&pid, "/usr/bin/addr2line", &actions, NULL, (char* const*)argv, environ);
+        int spawnResult = posix_spawn(&pid, "/usr/bin/addr2line", &actions,
+                                      NULL, (char *const *)argv, environ);
         (void)posix_spawn_file_actions_destroy(&actions);
         if (spawnResult != 0) {
             fallback_dladdr_print(&info, i, addresses);
@@ -1185,8 +1326,9 @@ static void print_posix_callstack(void) {
         ssize_t totalRead = 0;
         ssize_t bytesRead = 0;
         while (totalRead < (ssize_t)(sizeof(addr2lineBuf) - 1) &&
-               (bytesRead = read(pipefd[0], addr2lineBuf + totalRead, sizeof(addr2lineBuf) - 1 - (size_t)totalRead)) >
-                   0) {
+               (bytesRead =
+                    read(pipefd[0], addr2lineBuf + totalRead,
+                         sizeof(addr2lineBuf) - 1 - (size_t)totalRead)) > 0) {
             totalRead += bytesRead;
         }
         addr2lineBuf[totalRead] = '\0';
@@ -1200,11 +1342,12 @@ static void print_posix_callstack(void) {
             addr2lineBuf[totalRead - 1] = '\0';
         }
 
-        bool isUnknown =
-            (totalRead == 0) || (addr2lineBuf[0] == '\0') || (addr2lineBuf[0] == '?' && addr2lineBuf[1] == '?');
+        bool isUnknown = (totalRead == 0) || (addr2lineBuf[0] == '\0') ||
+                         (addr2lineBuf[0] == '?' && addr2lineBuf[1] == '?');
 
         if (!isUnknown) {
-            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s", i - 1, addr2lineBuf) < (int)sizeof(addr2lineBuf)) {
+            if (snprintf(lineBuf, sizeof(lineBuf), "#%-2d %s", i - 1,
+                         addr2lineBuf) < (int)sizeof(addr2lineBuf)) {
                 syncWriteStringError(lineBuf);
             } else {
                 fallback_dladdr_print(&info, i, addresses);
@@ -1227,7 +1370,8 @@ void sy_print_callstack(void) {
         __tsan_mutex_pre_lock(&callstackMutex, 0);
 #endif
         bool expected = false;
-        while (!(sy_atomic_bool_compare_exchange_weak(&callstackMutex, &expected, true, SY_MEMORY_ORDER_SEQ_CST))) {
+        while (!(sy_atomic_bool_compare_exchange_weak(
+            &callstackMutex, &expected, true, SY_MEMORY_ORDER_SEQ_CST))) {
             expected = false;
             sy_thread_yield();
         }

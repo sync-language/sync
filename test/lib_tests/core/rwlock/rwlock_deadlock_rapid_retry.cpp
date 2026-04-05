@@ -10,14 +10,18 @@ std::atomic<int> deadlockCountIteration1{0};
 std::atomic<int> deadlockCountIteration2{0};
 
 void thread1Fn(SyRawRwLock* lock) {
-    assert(sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    const bool _r1 = (sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    assert(_r1);
+    (void)_r1;
 
     iteration.fetch_add(1, std::memory_order_seq_cst);
     while (iteration.load(std::memory_order_seq_cst) < 2) {
         std::this_thread::yield();
     }
 
-    assert(sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_DEADLOCK);
+    const bool _r2 = (sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_DEADLOCK);
+    assert(_r2);
+    (void)_r2;
     deadlockCountIteration1.fetch_add(1, std::memory_order_seq_cst);
     sy_raw_rwlock_release_shared(lock);
 
@@ -28,27 +32,35 @@ void thread1Fn(SyRawRwLock* lock) {
     }
 
     // again
-    assert(sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    const bool _r3 = (sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    assert(_r3);
+    (void)_r3;
 
     iteration.fetch_add(1, std::memory_order_seq_cst);
     while (iteration.load(std::memory_order_seq_cst) < 6) {
         std::this_thread::yield();
     }
 
-    assert(sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_DEADLOCK);
+    const bool _r4 = (sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_DEADLOCK);
+    assert(_r4);
+    (void)_r4;
     deadlockCountIteration2.fetch_add(1, std::memory_order_seq_cst);
     sy_raw_rwlock_release_shared(lock);
 }
 
 void thread2Fn(SyRawRwLock* lock) {
-    assert(sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    const bool _r1 = (sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    assert(_r1);
+    (void)_r1;
 
     iteration.fetch_add(1, std::memory_order_seq_cst);
     while (iteration.load(std::memory_order_seq_cst) < 2) {
         std::this_thread::yield();
     }
 
-    assert(sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_DEADLOCK);
+    const bool _r2 = (sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_DEADLOCK);
+    assert(_r2);
+    (void)_r2;
     deadlockCountIteration1.fetch_add(1, std::memory_order_seq_cst);
     sy_raw_rwlock_release_shared(lock);
 
@@ -59,14 +71,18 @@ void thread2Fn(SyRawRwLock* lock) {
     }
 
     // repeat
-    assert(sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    const bool _r3 = (sy_raw_rwlock_acquire_shared(lock) == SY_ACQUIRE_ERR_NONE);
+    assert(_r3);
+    (void)_r3;
 
     iteration.fetch_add(1, std::memory_order_seq_cst);
     while (iteration.load(std::memory_order_seq_cst) < 6) {
         std::this_thread::yield();
     }
 
-    assert(sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_DEADLOCK);
+    const bool _r4 = (sy_raw_rwlock_acquire_exclusive(lock) == SY_ACQUIRE_ERR_DEADLOCK);
+    assert(_r4);
+    (void)_r4;
     deadlockCountIteration2.fetch_add(1, std::memory_order_seq_cst);
     sy_raw_rwlock_release_shared(lock);
 }

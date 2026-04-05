@@ -21,7 +21,9 @@ struct AnyError::Impl {
     ~Impl() noexcept {
         message.destroy(alloc);
         if (payload.hasValue()) {
-            payloadType.value()->destroyObject(payload.value());
+            const Type* type = payloadType.value();
+            type->destroyObject(payload.value());
+            alloc.freeAlignedArray(static_cast<uint8_t*>(payload.value()), type->sizeType, type->alignType);
         }
     }
 };

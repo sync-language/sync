@@ -18,12 +18,12 @@ SY_API bool sy_sync_queue_try_lock() { return sy::sync_queue::tryLock(); }
 SY_API void sy_sync_queue_unlock() { return sy::sync_queue::unlock(); }
 
 SY_API void sy_sync_queue_add_exclusive(SySyncObject obj) {
-    SyncObject object = *reinterpret_cast<SyncObject*>(&obj);
+    SyncObject object = {obj.ptr, reinterpret_cast<const SyncObject::VTable*>(obj.vtable)};
     (void)sy::sync_queue::addExclusive(std::move(object));
 }
 
 SY_API void sy_sync_queue_add_shared(SySyncObject obj) {
-    SyncObject object = *reinterpret_cast<SyncObject*>(&obj);
+    SyncObject object = {obj.ptr, reinterpret_cast<const SyncObject::VTable*>(obj.vtable)};
     (void)sy::sync_queue::addShared(std::move(object));
 }
 }

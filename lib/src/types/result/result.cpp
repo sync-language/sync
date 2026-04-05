@@ -3,10 +3,12 @@
 
 void SY_API sy::detail::debugAssertResultIsOk(bool isOk) {
     sy_assert(isOk, "Bad Result access: Result is not an error");
+    (void)isOk;
 }
 
 void SY_API sy::detail::debugAssertResultIsErr(bool isErr) {
     sy_assert(isErr, "Bad Result access: Result is an error");
+    (void)isErr;
 }
 
 #if SYNC_LIB_WITH_TESTS

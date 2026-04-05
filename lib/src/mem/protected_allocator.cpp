@@ -35,6 +35,7 @@ static void makeMemoryReadOnly(void* baseAddress, size_t size) {
     DWORD oldProtect;
     const bool success = VirtualProtect(baseAddress, size, newProtect, &oldProtect);
     sy_assert(success, "Failed to make memory read-only");
+    (void)success;
 }
 
 static void makeMemoryReadWrite(void* baseAddress, size_t size) {
@@ -42,6 +43,7 @@ static void makeMemoryReadWrite(void* baseAddress, size_t size) {
     DWORD oldProtect;
     const bool success = VirtualProtect(baseAddress, size, newProtect, &oldProtect);
     sy_assert(success, "Failed to make memory read-only");
+    (void)success;
 }
 
 #elif defined(__APPLE__) || defined(__GNUC__)
@@ -50,11 +52,13 @@ static void makeMemoryReadWrite(void* baseAddress, size_t size) {
 static void makeMemoryReadOnly(void* baseAddress, size_t size) {
     const int success = mprotect(baseAddress, size, PROT_READ);
     sy_assert(success == 0, "Failed to make memory read-only");
+    (void)success;
 }
 
 static void makeMemoryReadWrite(void* baseAddress, size_t size) {
     const int success = mprotect(baseAddress, size, PROT_READ | PROT_WRITE);
     sy_assert(success == 0, "Failed to make memory read-only");
+    (void)success;
 }
 
 #endif

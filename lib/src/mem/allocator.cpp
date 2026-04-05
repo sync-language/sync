@@ -15,11 +15,11 @@ static_assert(offsetof(sy::Allocator::VTable, freeFn) == offsetof(SyAllocatorVTa
 
 extern "C" {
 SY_API void* sy_allocator_alloc(SyAllocator* self, size_t len, size_t align) {
-    return self->vtable->allocFn(self->ptr, len, align);
+    return self->vtable->allocFn(reinterpret_cast<void*>(self->ptr), len, align);
 }
 
 SY_API void sy_allocator_free(SyAllocator* self, void* buf, size_t len, size_t align) {
-    self->vtable->freeFn(self->ptr, buf, len, align);
+    self->vtable->freeFn(reinterpret_cast<void*>(self->ptr), buf, len, align);
 }
 
 static void* default_alloc(void* self, size_t len, size_t align) {
@@ -50,10 +50,14 @@ sy::Allocator sy::IAllocator::asAllocator() {
     return a;
 }
 
-void* sy::IAllocator::allocImpl(IAllocator* self, size_t len, size_t align) noexcept { return self->alloc(len, align); }
+void* sy::IAllocator::allocImpl(void* self, size_t len, size_t align) noexcept {
+    IAllocator* interface = reinterpret_cast<IAllocator*>(self);
+    return interface->alloc(len, align);
+}
 
-void sy::IAllocator::freeImpl(IAllocator* self, void* buf, size_t len, size_t align) noexcept {
-    self->free(buf, len, align);
+void sy::IAllocator::freeImpl(void* self, void* buf, size_t len, size_t align) noexcept {
+    IAllocator* interface = reinterpret_cast<IAllocator*>(self);
+    interface->free(buf, len, align);
 }
 
 sy::Allocator::Allocator() {
@@ -71,10 +75,14 @@ void sy::Allocator::freeImpl(void* buf, size_t len, size_t align) noexcept {
     sy_allocator_free(reinterpret_cast<SyAllocator*>(this), buf, len, align);
 }
 
-void sy::detail::debugAssertNonNull(void* ptr) noexcept { sy_assert(ptr != nullptr, "Expected non-null pointer"); }
+void sy::detail::debugAssertNonNull(void* ptr) noexcept {
+    sy_assert(ptr != nullptr, "Expected non-null pointer");
+    (void)ptr;
+}
 
 void sy::detail::debugAssertHasVal(bool hasVal) noexcept {
     sy_assert(hasVal, "Expected allocator error result object to have a value");
+    (void)hasVal;
 }
 
 #if SYNC_LIB_WITH_TESTS
@@ -128,15 +136,17 @@ struct CustomCAllocator {
     bool freed;
 };
 
-static void* customAlloc(CustomCAllocator* self, size_t len, size_t align) {
-    self->ptr = (int*)sy_allocator_alloc(sy_defaultAllocator, len, align);
-    return self->ptr;
+static void* customAlloc(void* self, size_t len, size_t align) {
+    CustomCAllocator* c = reinterpret_cast<CustomCAllocator*>(self);
+    c->ptr = (int*)sy_allocator_alloc(sy_defaultAllocator, len, align);
+    return c->ptr;
 }
 
-static void customFree(CustomCAllocator* self, void* buf, size_t len, size_t align) {
+static void customFree(void* self, void* buf, size_t len, size_t align) {
+    CustomCAllocator* c = reinterpret_cast<CustomCAllocator*>(self);
     sy_allocator_free(sy_defaultAllocator, buf, len, align);
-    self->freed = true;
-    self->ptr = nullptr;
+    c->freed = true;
+    c->ptr = nullptr;
 }
 
 static SyAllocatorVTable customVTable = {(sy_allocator_alloc_fn)&customAlloc, (sy_allocator_free_fn)&customFree};

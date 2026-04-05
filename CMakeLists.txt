@@ -8,21 +8,24 @@ if (POLICY CMP0141)
     # set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
+if(WIN32)
+    include(cmake/find_windows_sdk.cmake)
+endif()
+
 project("Sync")
 
 option(BUILD_SHARED_LIBS "Build Sync as a shared library" OFF)
 option(SYNC_LIB_WITH_TESTS "Compile doctest tests as well" OFF)
 option(SYNC_SKIP_TSAN_TESTS "Disable TSan tests even if the compiler supports it, such as in containerized environments" OFF)
-option(SYNC_SANDBOX_TESTS "Use sandboxing for tests" OFF)
 option(SYNC_LIB_DOCTEST_ADD_CTESTS "Add all test cases to CTest individually" ON)
 option(SYNC_LIB_CODE_COVERAGE "Enable code coverage" OFF)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" OFF)
 option(SYNC_LIB_TSAN "Use compiler specific thread sanitizing" OFF)
-option(SYNC_LIB_UBSAN "Use compiler specific undefined sanitizing" OFF)
 option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
-option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" OFF)
-option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" OFF)
+option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" ON)
+option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" ON)
 option(SYNC_WASM_USE_SIMD "Use Fixed-width SIMD on WASM" OFF)
+option(SYNC_NO_RVV "Explicitly disable riscv64 RVV" OFF)
 option(SYNC_NO_FILESYSTEM "Disable file system access" OFF)
 option(SYNC_NO_SAFETY_CHECKS "Disable all safety checks" OFF)
 
@@ -103,7 +106,6 @@ set_target_properties(sync PROPERTIES
 )
 
 if(EMSCRIPTEN)
-    message(STATUS "Using C++23 for Emscripten") # __COUNTER__ for doctest
     set_target_properties(sync PROPERTIES
         CXX_STANDARD 23
         CXX_STANDARD_REQUIRED YES
@@ -139,22 +141,19 @@ endif()
 if(SYNC_CUSTOM_BACKTRACE)
     target_compile_definitions(sync PRIVATE SYNC_CUSTOM_BACKTRACE=1)
 endif()
-
-
-if(MSVC)
-    target_compile_options(sync PRIVATE /MP)
-endif()
-
 if(SYNC_LIB_WITH_TESTS)
     target_compile_definitions(sync PRIVATE SYNC_LIB_WITH_TESTS)
 endif()
-
 if(SYNC_NO_PAGES)
     target_compile_definitions(sync PRIVATE SYNC_NO_PAGES)
 endif()
 
+if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(sync PRIVATE /MP)
+endif()
+
 # C11 Atomic Support. NOT REQUIRED, can build using the Interlocked API
-if(MSVC)
+if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(sync PRIVATE /experimental:c11atomics)
 endif()
 
@@ -162,131 +161,25 @@ if(WIN32)
     target_link_libraries(sync PRIVATE "$<$<CONFIG:Debug>:dbghelp>")
 endif()
 
-# Ensure all warnings are caught
+include(cmake/base_compiler_flags.cmake)
+set_base_compiler_flags(sync)
 if(EMSCRIPTEN)
-    if (CMAKE_GENERATOR MATCHES "Visual Studio")
-        target_compile_options(sync PRIVATE "/W4 /WX /EHsc /Zi")
-    else()
-        target_compile_options(sync PRIVATE "-Wall -Wextra -Wpedantic -Werror -Wno-c2y-extensions")
-        target_compile_options(sync PRIVATE "-Wno-c2y-extensions") # TODO -Wno-c2y-extensions not this. __COUNTER__ is not liked by emsdk right now.  
-    endif()
-elseif(MSVC)
-    target_compile_options(sync PRIVATE /W4 /WX /EHsc /Zi)
-else()
-    target_compile_options(sync PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(sync PRIVATE -Wno-c2y-extensions)
 endif()
 
+include(cmake/sanitizers_coverage.cmake)
 if(SYNC_LIB_ASAN)
-    if(MSVC)
-        target_compile_options(sync PRIVATE /fsanitize=address)
-    else()
-        target_compile_options(sync PRIVATE -fsanitize=address)
-        target_link_options(sync PRIVATE -fsanitize=address)
-    endif()
+    enable_asan(sync)
+elseif(SYNC_LIB_TSAN)
+    enable_tsan(sync)
+endif()
+if(SYNC_LIB_CODE_COVERAGE)
+    enable_coverage(sync)
+    target_compile_definitions(sync PRIVATE SYNC_LIB_CODE_COVERAGE=1)
 endif()
 
-if(ANDROID)
-    message(STATUS "Building Sync for Android")
-    target_link_libraries(
-        SyncLib
-        android
-        log)
-endif()
-
-# ========================
-# X86_64 SIMD instructions
-# ========================
-include(CheckCXXCompilerFlag)
-include(CheckCXXSourceRuns) # Stupid GitHub Actions (I love you github actions)
-
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(X86_64)|(amd64)|(AMD64)")
-    set (SYNC_X86_64 ON)
-else()
-    set (SYNC_X86_64 OFF)
-endif()
-
-if(SYNC_X86_64) # TODO evaluate using -msimd128
-    if(EMSCRIPTEN AND NOT SYNC_WASM_USE_SIMD)
-        set(SYNC_X86_64_SIMD OFF)
-    else()
-        set(SYNC_X86_64_SIMD ON)
-    endif()
-
-    if(SYNC_X86_64_SIMD)
-        # SSE2
-        cmake_host_system_information(RESULT HAS_SSE2 QUERY HAS_SSE2)
-        if(HAS_SSE2)
-            if(MSVC)
-                message(STATUS "SSE2 supported by this system - enabling")
-                target_compile_options(sync PRIVATE /arch:SSE2)
-            else()
-                message(STATUS "SSE2 supported by this system - enabling")
-                target_compile_options(sync PRIVATE -msse2)  
-            endif()
-        else()
-            message(STATUS "SSE2 not supported by this system")
-        endif()
-
-        # AVX2
-        if(NOT ${SYNC_NO_AVX2})
-            set(CMAKE_REQUIRED_FLAGS_PRE_AVX2 ${CMAKE_REQUIRED_FLAGS})
-            if(MSVC)
-                set(CMAKE_REQUIRED_FLAGS "/arch:AVX2")
-            else()
-                set(CMAKE_REQUIRED_FLAGS "-mavx2")
-            endif()
-            check_cxx_source_runs("
-                #include <immintrin.h>
-                int main() { __m256i thing = _mm256_setzero_si256(); return 0; }
-            " HAS_AVX2)
-            set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_PRE_AVX2})
-            if(HAS_AVX2)
-                if(MSVC)
-                    message(STATUS "AVX2 supported on this system - enabling")
-                    target_compile_options(sync PRIVATE /arch:AVX2)
-                else()
-                    message(STATUS "AVX2 supported on this system - enabling")
-                    target_compile_options(sync PRIVATE -mavx2)
-                endif()
-            else()
-                message(STATUS "AVX2 not supported on this system")
-            endif()
-        endif()
-
-        # AVX512
-        if(NOT ${SYNC_NO_AVX512})
-            set(CMAKE_REQUIRED_FLAGS_PRE_AVX512 ${CMAKE_REQUIRED_FLAGS})
-            if(MSVC)
-                set(CMAKE_REQUIRED_FLAGS "/arch:AVX512")
-            else()
-                set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw")
-            endif()
-            check_cxx_source_runs("
-                #include <immintrin.h>
-                int main() { __m512i thing = _mm512_setzero_si512(); return 0; }
-            " HAS_AVX512)
-            set(CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS_PRE_AVX512})
-            if(HAS_AVX512)
-                if(MSVC)
-                    message(STATUS "AVX512 supported on this system - enabling")
-                    target_compile_options(sync PRIVATE /arch:AVX512)
-                else()
-                    message(STATUS "AVX512 supported on this system - enabling")
-                    target_compile_options(sync PRIVATE -mavx512f -mavx512bw)
-                endif()
-            else()
-                message(STATUS "AVX512 not supported on this system")
-            endif()
-        endif()
-    endif() # SYNC_X86_64_SIMD
-endif()
-
-if(EMSCRIPTEN AND SYNC_WASM_USE_SIMD)
-    # https://webassembly.org/features/
-    # Fixed-width SIMD supported by everything
-    message(STATUS "Enabling Fixed-width SIMD for WASM")
-    target_compile_options(sync PRIVATE -msimd128)
-endif()
+include(cmake/simd_target.cmake)
+add_simd_flags_to_target(sync SYNC_NO_AVX2 SYNC_NO_AVX512 SYNC_WASM_USE_SIMD SYNC_NO_RVV)
 
 if(EMSCRIPTEN)
     message(STATUS "Enabling pthread support for Emscripten")

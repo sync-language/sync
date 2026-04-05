@@ -7,13 +7,16 @@ static_assert(sizeof(sy::Option<sy::Option<int>*>) == sizeof(void*), "Optional p
 
 void SY_API sy::detail::debugAssertPtrNotNull(const void* ptr) {
     sy_assert(ptr != nullptr, "Bad Option Access: Optional pointer was null");
+    (void)ptr;
 }
 
 void SY_API sy::detail::debugAssertOptionHasValue(bool hasVal) {
     sy_assert(hasVal, "Bad Option Access: Optional has no value");
+    (void)hasVal;
 }
 
 #if SYNC_LIB_WITH_TESTS
+// LCOV_EXCL_START
 
 #include "../../doctest.h"
 
@@ -145,4 +148,5 @@ TEST_CASE("Option complex type empty") {
     CHECK_EQ(ComplexType::aliveCount, 0);
 }
 
+// LCOV_EXCL_STOP
 #endif
