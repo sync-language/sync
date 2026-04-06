@@ -4,6 +4,10 @@ if(DEFINED ENV{VSCMD_VER})
     return()
 endif()
 
+if(CMAKE_C_COMPILER MATCHES "gcc|mingw" OR CMAKE_CXX_COMPILER MATCHES "g\\+\\+|mingw")
+    return()
+endif()
+
 if(NOT _PROG_FILES_X86)
     execute_process(
         COMMAND cmd /c "echo %ProgramFiles(x86)%"
