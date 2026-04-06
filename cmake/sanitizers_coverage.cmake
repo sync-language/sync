@@ -1,22 +1,22 @@
 # Enables ASan + UBSan, TSan, and code coverage instrumentation.
 # Finds the clang ASan libraries for windows if using clang-cl.
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-    if(NOT _PROG_FILES_X86)
-        execute_process(
-            COMMAND cmd /c "echo %ProgramFiles(x86)%"
-            OUTPUT_VARIABLE _PROG_FILES_X86
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-    endif()
-    if(NOT _PROG_FILES)
-        execute_process(
-            COMMAND cmd /c "echo %ProgramFiles%"
-            OUTPUT_VARIABLE _PROG_FILES
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-    endif()
+if(NOT _PROG_FILES_X86)
+    execute_process(
+        COMMAND cmd /c "echo %ProgramFiles(x86)%"
+        OUTPUT_VARIABLE _PROG_FILES_X86
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+endif()
+if(NOT _PROG_FILES)
+    execute_process(
+        COMMAND cmd /c "echo %ProgramFiles%"
+        OUTPUT_VARIABLE _PROG_FILES
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+endif()
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(X86_64)|(amd64)|(AMD64)")
         set(_CLANG_ASAN_DYNAMIC_LIB_NAME "clang_rt.asan_dynamic-x86_64.lib")
         set(_CLANG_ASAN_DYNAMIC_THUNK_LIB_NAME "clang_rt.asan_dynamic_runtime_thunk-x86_64.lib")
@@ -72,8 +72,27 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT
             list(GET _ASAN_DLLS 0 CLANG_ASAN_DLL)
         endif()
     endif()
-endif()
+elseif(MSVC)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(X86_64)|(amd64)|(AMD64)")
+        set(_CLANG_ASAN_DYNAMIC_DLL_NAME "clang_rt.asan_dynamic-x86_64.dll")
+        set(_MSVC_ASAN_HOST_DIR "Hostx64/x64")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+        set(_CLANG_ASAN_DYNAMIC_DLL_NAME "clang_rt.asan_dynamic-arm64.dll")
+        set(_MSVC_ASAN_HOST_DIR "Hostarm64/arm64")
+    endif()
 
+    if(NOT CLANG_ASAN_DLL AND _CLANG_ASAN_DYNAMIC_DLL_NAME)
+        file(GLOB _ASAN_DLLS
+            "${_PROG_FILES}/Microsoft Visual Studio/*/*/VC/Tools/MSVC/*/bin/${_MSVC_ASAN_HOST_DIR}/${_CLANG_ASAN_DYNAMIC_DLL_NAME}"
+            "${_PROG_FILES_X86}/Microsoft Visual Studio/*/*/VC/Tools/MSVC/*/bin/${_MSVC_ASAN_HOST_DIR}/${_CLANG_ASAN_DYNAMIC_DLL_NAME}"
+        )
+        if(_ASAN_DLLS)
+            list(SORT _ASAN_DLLS)
+            list(REVERSE _ASAN_DLLS)  # Newest first
+            list(GET _ASAN_DLLS 0 CLANG_ASAN_DLL)
+        endif()
+    endif()
+endif()
 
 # Enables UBSan as well for targets that support it
 function(enable_asan TARGET)
@@ -98,7 +117,14 @@ function(enable_asan TARGET)
         endif()
         add_dependencies(${TARGET} copy_asan_dll_${_dir_hash})
     elseif(MSVC)
-        target_compile_options(${TARGET} PRIVATE /fsanitize=address)
+        if(CLANG_ASAN_DLL)
+            target_compile_options(${TARGET} PRIVATE /fsanitize=address)
+            add_custom_command(TARGET ${TARGET} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${CLANG_ASAN_DLL}"
+                    "$<TARGET_FILE_DIR:${TARGET}>/${_CLANG_ASAN_DYNAMIC_DLL_NAME}"
+            )
+        endif()
     else()
         target_compile_options(${TARGET} PRIVATE -fsanitize=address -fsanitize=undefined)
         target_link_options(${TARGET} PRIVATE -fsanitize=address -fsanitize=undefined)
