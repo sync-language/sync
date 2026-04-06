@@ -77,7 +77,7 @@ elseif(MSVC)
         set(_CLANG_ASAN_DYNAMIC_DLL_NAME "clang_rt.asan_dynamic-x86_64.dll")
         set(_MSVC_ASAN_HOST_DIR "Hostx64/x64")
     elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
-        set(_CLANG_ASAN_DYNAMIC_DLL_NAME "clang_rt.asan_dynamic-arm64.dll")
+        set(_CLANG_ASAN_DYNAMIC_DLL_NAME "clang_rt.asan_dynamic-aarch64.dll")
         set(_MSVC_ASAN_HOST_DIR "Hostarm64/arm64")
     endif()
 

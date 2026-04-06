@@ -78,7 +78,7 @@ endfunction()
 
 function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    add_sync_test_flags(${TEST_NAME} TRUE FALSE)
+    add_sync_test_flags(${TEST_NAME} (NOT ${SYNC_DISABLE_ASAN_TESTS}) FALSE)
     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
     if(SYNC_LIB_CODE_COVERAGE)
         if(MSVC)
