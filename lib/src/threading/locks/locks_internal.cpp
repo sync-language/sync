@@ -44,7 +44,11 @@ void sy::internal::acquireAtomicFence(std::atomic<bool>& fence) {
     __tsan_mutex_pre_lock(&fence, 0);
 #endif
     bool expected = false;
-    while (!(fence.compare_exchange_weak(expected, true, std::memory_order_seq_cst))) {
+    // on success, acquire is fine cause we want to see writes from the previous fence owner that
+    // used release.
+    // on failure, relaxed is fine since no other shared data is being changed / access.
+    while (!(fence.compare_exchange_weak(expected, true, std::memory_order_acquire,
+                                         std::memory_order_relaxed))) {
         expected = false;
         std::this_thread::yield();
     }
@@ -57,7 +61,7 @@ void sy::internal::releaseAtomicFence(std::atomic<bool>& fence) {
 #ifdef SYNC_TSAN_ENABLED
     __tsan_mutex_pre_unlock(&fence, 0);
 #endif
-    fence.store(false, std::memory_order_seq_cst);
+    fence.store(false, std::memory_order_release);
 #ifdef SYNC_TSAN_ENABLED
     __tsan_mutex_post_unlock(&fence, 0);
 #endif
