@@ -59,9 +59,10 @@ bool internal::ThreadIdStore::add(uint32_t threadId) noexcept {
         }
 
     } else {
-        const uint32_t newCapacity = 8; // reasonable default
+        // reasonable default, allocates 64 bytes, and 16 concurrent readers as a base is ok.
+        constexpr uint32_t NEW_CAPACITY = 16;
         uint32_t* newBuf = (uint32_t*)sy_aligned_malloc(
-            static_cast<size_t>(newCapacity) * sizeof(uint32_t), alignof(void*));
+            static_cast<size_t>(NEW_CAPACITY) * sizeof(uint32_t), alignof(void*));
         if (newBuf == nullptr) {
             return false;
         }
@@ -70,7 +71,7 @@ bool internal::ThreadIdStore::add(uint32_t threadId) noexcept {
             newBuf[i] = this->buf[i];
         }
 
-        this->buf[0] = newCapacity;
+        this->buf[0] = NEW_CAPACITY;
         *bufStorage = newBuf;
     }
 
