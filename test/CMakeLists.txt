@@ -88,8 +88,8 @@ function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
         if(MSVC)
         cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
         file(TO_NATIVE_PATH "${SYNC_ROOT_DIR}" SYNC_WINDOWS_NATIVE_ROOT_DIR)
-        add_test(NAME ${TEST_NAME} 
-            COMMAND OpenCppCoverage.exe 
+        add_test(NAME ${TEST_NAME}
+            COMMAND OpenCppCoverage.exe
             --sources ${SYNC_WINDOWS_NATIVE_ROOT_DIR}\\lib\\src\\core\\*
             --export_type binary:${TEST_NAME}.cov
             -- ${CMAKE_CURRENT_BINARY_DIR}\\Debug\\${TEST_NAME})
@@ -139,28 +139,28 @@ endfunction()
 # =================
 # Core RwLock Tests
 # =================
-add_core_sync_test(SyncTestCore_RwLockInitDestroy "lib_tests/core/rwlock/rwlock_init_destroy.cpp")
-add_core_sync_test(SyncTestCore_RwLockOneThreadShared "lib_tests/core/rwlock/rwlock_one_thread_shared.cpp")
-add_core_sync_test(SyncTestCore_RwLockOneThreadExclusive "lib_tests/core/rwlock/rwlock_one_thread_exclusive.cpp")
-add_core_sync_test(SyncTestCore_RwLockTwoThreadShared "lib_tests/core/rwlock/rwlock_two_thread_shared.cpp")
-add_core_sync_test(SyncTestCore_RwLockTwoThreadExclusive "lib_tests/core/rwlock/rwlock_two_thread_exclusive.cpp")
-add_core_sync_test(SyncTestCore_RwLockOneThreadReenterShared "lib_tests/core/rwlock/rwlock_one_thread_reenter_shared.cpp")
-add_core_sync_test(SyncTestCore_RwLockOneThreadReenterExclusive "lib_tests/core/rwlock/rwlock_one_thread_reenter_exclusive.cpp")
-add_core_sync_test(SyncTestCore_RwLockOneThreadElevateLock "lib_tests/core/rwlock/rwlock_one_thread_elevate_lock.cpp")
-add_core_sync_test(SyncTestCore_RwLockTwoThreadNoElevate "lib_tests/core/rwlock/rwlock_two_thread_no_elevate.cpp")
-add_core_sync_test(SyncTestCore_RwLockTwoThreadSuccessElevate "lib_tests/core/rwlock/rwlock_two_thread_success_elevate.cpp")
-add_core_sync_test(SyncTestCore_RwLockTwoThreadDeadlock "lib_tests/core/rwlock/rwlock_two_thread_deadlock.cpp")
-add_core_sync_test(SyncTestCore_RwLockThreeThreadDeadlock "lib_tests/core/rwlock/rwlock_three_thread_deadlock.cpp")
-add_core_sync_test(SyncTestCore_RwLockDeadlockLateArrival "lib_tests/core/rwlock/rwlock_deadlock_late_arrival.cpp")
-add_core_sync_test(SyncTestCore_RwLockDeadlockRapidRetry "lib_tests/core/rwlock/rwlock_deadlock_rapid_retry.cpp")
-add_core_sync_test(SyncTestCore_RwLockTryAcquireBehavior "lib_tests/core/rwlock/rwlock_try_acquire_behavior.cpp")
-add_core_sync_test(SyncTestCore_RwLockStressManyReaders "lib_tests/core/rwlock/rwlock_stress_many_readers.cpp")
-add_core_sync_test(SyncTestCore_RwLockDeepReentrance "lib_tests/core/rwlock/rwlock_deep_reentrance.cpp")
-add_core_sync_test(SyncTestCore_RwLockStressMixedWorkload "lib_tests/core/rwlock/rwlock_stress_mixed_workload.cpp")
-add_core_sync_test(SyncTestCore_RwLockArrayReallocation "lib_tests/core/rwlock/rwlock_array_reallocation.cpp")
-add_core_sync_test(SyncTestCore_RwLockExclusiveToSharedMultithread "lib_tests/core/rwlock/rwlock_exclusive_to_shared_multithread.cpp")
+# add_core_sync_test(SyncTestCore_RwLockInitDestroy "lib_tests/core/rwlock/rwlock_init_destroy.cpp")
+# add_core_sync_test(SyncTestCore_RwLockOneThreadShared "lib_tests/core/rwlock/rwlock_one_thread_shared.cpp")
+# add_core_sync_test(SyncTestCore_RwLockOneThreadExclusive "lib_tests/core/rwlock/rwlock_one_thread_exclusive.cpp")
+# add_core_sync_test(SyncTestCore_RwLockTwoThreadShared "lib_tests/core/rwlock/rwlock_two_thread_shared.cpp")
+# add_core_sync_test(SyncTestCore_RwLockTwoThreadExclusive "lib_tests/core/rwlock/rwlock_two_thread_exclusive.cpp")
+# add_core_sync_test(SyncTestCore_RwLockOneThreadReenterShared "lib_tests/core/rwlock/rwlock_one_thread_reenter_shared.cpp")
+# add_core_sync_test(SyncTestCore_RwLockOneThreadReenterExclusive "lib_tests/core/rwlock/rwlock_one_thread_reenter_exclusive.cpp")
+# add_core_sync_test(SyncTestCore_RwLockOneThreadElevateLock "lib_tests/core/rwlock/rwlock_one_thread_elevate_lock.cpp")
+# add_core_sync_test(SyncTestCore_RwLockTwoThreadNoElevate "lib_tests/core/rwlock/rwlock_two_thread_no_elevate.cpp")
+# add_core_sync_test(SyncTestCore_RwLockTwoThreadSuccessElevate "lib_tests/core/rwlock/rwlock_two_thread_success_elevate.cpp")
+# add_core_sync_test(SyncTestCore_RwLockTwoThreadDeadlock "lib_tests/core/rwlock/rwlock_two_thread_deadlock.cpp")
+# add_core_sync_test(SyncTestCore_RwLockThreeThreadDeadlock "lib_tests/core/rwlock/rwlock_three_thread_deadlock.cpp")
+# add_core_sync_test(SyncTestCore_RwLockDeadlockLateArrival "lib_tests/core/rwlock/rwlock_deadlock_late_arrival.cpp")
+# add_core_sync_test(SyncTestCore_RwLockDeadlockRapidRetry "lib_tests/core/rwlock/rwlock_deadlock_rapid_retry.cpp")
+# add_core_sync_test(SyncTestCore_RwLockTryAcquireBehavior "lib_tests/core/rwlock/rwlock_try_acquire_behavior.cpp")
+# add_core_sync_test(SyncTestCore_RwLockStressManyReaders "lib_tests/core/rwlock/rwlock_stress_many_readers.cpp")
+# add_core_sync_test(SyncTestCore_RwLockDeepReentrance "lib_tests/core/rwlock/rwlock_deep_reentrance.cpp")
+# add_core_sync_test(SyncTestCore_RwLockStressMixedWorkload "lib_tests/core/rwlock/rwlock_stress_mixed_workload.cpp")
+# add_core_sync_test(SyncTestCore_RwLockArrayReallocation "lib_tests/core/rwlock/rwlock_array_reallocation.cpp")
+# add_core_sync_test(SyncTestCore_RwLockExclusiveToSharedMultithread "lib_tests/core/rwlock/rwlock_exclusive_to_shared_multithread.cpp")
 
-add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "lib_tests/core/rwlock_death/rwlock_death_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
+# add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "lib_tests/core/rwlock_death/rwlock_death_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
 
 add_core_sync_test(SyncTestCore_FilesystemGetFileSizeSmall "lib_tests/core/filesystem/filesystem_get_file_size_this_file_small.cpp")
 add_core_sync_test(SyncTestCore_FilesystemGetFileSizeBigger "lib_tests/core/filesystem/filesystem_get_file_size_this_file_bigger.cpp")
@@ -180,6 +180,8 @@ set(SYNC_LIB_TESTS_SOURCES
     "../lib/src/mem/protected_allocator.cpp"
     "../lib/src/threading/sync_queue.cpp"
     "../lib/src/threading/sync_obj_val.cpp"
+    "../lib/src/threading/locks/locks_internal.cpp"
+    "../lib/src/threading/locks/rwlock.cpp"
     "../lib/src/types/type_info.cpp"
     "../lib/src/types/function/function.cpp"
     "../lib/src/types/string/string_slice.cpp"
@@ -243,3 +245,13 @@ add_test(NAME SyncLibTests COMMAND SyncLibTests)
 if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
     add_test(NAME SyncLibTests_ThreadSanitizer COMMAND SyncLibTests_ThreadSanitizer)
 endif()
+
+add_executable(NewTests "lib/test_main.cpp" "lib/unit_tests/rwlock.cpp")
+target_link_libraries(NewTests PRIVATE sync::sync)
+target_include_directories(NewTests PRIVATE "../lib/src" "lib")
+if(SYNC_DISABLE_ASAN_TESTS)
+    add_sync_test_flags(NewTests FALSE ${SYNC_LIB_TSAN})
+else()
+    add_sync_test_flags(NewTests TRUE FALSE)
+endif()
+add_test(NAME NewTests COMMAND NewTests)

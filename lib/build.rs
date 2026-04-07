@@ -17,6 +17,8 @@ fn main() {
         .file("src/mem/protected_allocator.cpp")
         .file("src/threading/sync_queue.cpp")
         .file("src/threading/sync_obj_val.cpp")
+        .file("src/threading/locks/locks_internal.cpp")
+        .file("src/threading/locks/rwloc.cpp")
         .file("src/types/type_info.cpp")
         .file("src/types/function/function.cpp")
         .file("src/types/string/string_slice.cpp")

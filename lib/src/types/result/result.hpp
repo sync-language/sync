@@ -30,7 +30,8 @@ template <typename E> class Error final {
     E&& take() && { return std::move(err_); }
 };
 
-template <typename T, typename E> class Result<T, E, std::enable_if_t<std::is_same_v<T, void>>> final {
+template <typename T, typename E>
+class Result<T, E, std::enable_if_t<std::is_same_v<T, void>>> final {
     static_assert(!std::is_same_v<E, void>, "Result Error type <E> may not be void");
 
   public:
@@ -114,7 +115,8 @@ template <typename T, typename E> class Result<T, E, std::enable_if_t<std::is_sa
     Val val_;
 };
 
-template <typename T, typename E> class Result<T, E, std::enable_if_t<!std::is_same_v<T, void>>> final {
+template <typename T, typename E>
+class Result<T, E, std::enable_if_t<!std::is_same_v<T, void>>> final {
     static_assert(!std::is_same_v<E, void>, "Result Error type <E> may not be void");
 
   public:

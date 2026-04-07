@@ -1,12 +1,24 @@
 {
     "editor.wordWrap": "bounded",
-    "editor.wordWrapColumn": 120,
-    "editor.detectIndentation": false,
-    "editor.insertSpaces": true,
-    "editor.tabSize": 4,
-    "rust-analyzer.testExplorer": true,
-    "C_Cpp.formatting": "clangFormat",
+    "editor.wordWrapColumn": 100,
     "editor.formatOnSave": true,
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true,
+    "rust-analyzer.testExplorer": true,
+    "[c]": {
+      "editor.defaultFormatter": "xaver.clang-format"
+    },
+    "[cpp]": {
+      "editor.defaultFormatter": "xaver.clang-format"
+    },
+    "[json]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[yaml]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "C_Cpp.formatting": "clangFormat",
     "editor.defaultFormatter": "xaver.clang-format",
     "files.associations": {
         "cstdint": "cpp",

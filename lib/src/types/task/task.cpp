@@ -1,6 +1,7 @@
 #include "task.hpp"
 #include "../../core/core_internal.h"
 #include "../../interpreter/stack/stack.hpp"
+#include "../../threading/locks/rwlock.hpp"
 #include "../function/function.hpp"
 #include "../option/option.hpp"
 #include "../type_info.hpp"
@@ -12,7 +13,7 @@ namespace sy {
 struct TaskHeader {
     Allocator alloc_;
     SyAtomicBool isDone_;
-    SyRawRwLock lock_;
+    RwLock lock_;
     Option<ProgramError> encounteredErr_;
     const RawFunction* function_;
     Stack stack_;
@@ -20,7 +21,8 @@ struct TaskHeader {
     const Type* valType() const { return this->function_->returnType; }
 
     uintptr_t valueMemLocation() const {
-        const size_t memOffset = sizeof(TaskHeader) + paddingForType<TaskHeader>(this->valType()->alignType);
+        const size_t memOffset =
+            sizeof(TaskHeader) + paddingForType<TaskHeader>(this->valType()->alignType);
         const uint8_t* asBytes = reinterpret_cast<const uint8_t*>(this);
         return reinterpret_cast<uintptr_t>(&asBytes[memOffset]);
     }
@@ -30,10 +32,12 @@ struct TaskHeader {
     void* valueMemMut() { return reinterpret_cast<void*>(this->valueMemLocation()); }
 
     void destroy() {
-        const size_t allocAlign =
-            this->valType()->alignType < SYNC_CACHE_LINE_SIZE ? SYNC_CACHE_LINE_SIZE : this->valType()->alignType;
-        const size_t fullAllocSize =
-            sizeof(TaskHeader) + paddingForType<TaskHeader>(this->valType()->alignType) + this->valType()->sizeType;
+        const size_t allocAlign = this->valType()->alignType < SYNC_CACHE_LINE_SIZE
+                                      ? SYNC_CACHE_LINE_SIZE
+                                      : this->valType()->alignType;
+        const size_t fullAllocSize = sizeof(TaskHeader) +
+                                     paddingForType<TaskHeader>(this->valType()->alignType) +
+                                     this->valType()->sizeType;
 
         sy::Allocator alloc = this->alloc_;
         uint8_t* mem = reinterpret_cast<uint8_t*>(this);
@@ -103,11 +107,11 @@ Result<bool, ProgramError> RawTask::getIfDone(void* outReturn) noexcept {
 
     TaskHeader* header = asHeaderMut(this->inner_);
 
-    sy_raw_rwlock_acquire_exclusive(&header->lock_);
+    (void)header->lock_.lockExclusive();
 
     if (header->encounteredErr_.hasValue()) {
         ProgramError err = header->encounteredErr_.value();
-        sy_raw_rwlock_release_exclusive(&header->lock_);
+        header->lock_.unlockExclusive();
         header->destroy();
         this->inner_ = nullptr;
         return Error(err);
@@ -121,7 +125,7 @@ Result<bool, ProgramError> RawTask::getIfDone(void* outReturn) noexcept {
         }
     }
 
-    sy_raw_rwlock_release_exclusive(&header->lock_);
+    header->lock_.unlockExclusive();
     header->destroy();
     this->inner_ = nullptr;
     return true;

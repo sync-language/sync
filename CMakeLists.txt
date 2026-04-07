@@ -48,6 +48,8 @@ set(SYNC_LIB_SOURCES
     "lib/src/mem/protected_allocator.cpp"
     "lib/src/threading/sync_queue.cpp"
     "lib/src/threading/sync_obj_val.cpp"
+    "lib/src/threading/locks/locks_internal.cpp"
+    "lib/src/threading/locks/rwlock.cpp"
     "lib/src/types/type_info.cpp"
     "lib/src/types/function/function.cpp"
     "lib/src/types/string/string_slice.cpp"
@@ -200,9 +202,9 @@ set_target_properties(sync PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_IN
 # Debug Utils
 # ===========
 
-# Conditionally enable backtrace support. 
-# Backtraces are not required as a core component of sync itself, so having 
-# them be configured as a build step, NOT as part of the C++ sources themselves 
+# Conditionally enable backtrace support.
+# Backtraces are not required as a core component of sync itself, so having
+# them be configured as a build step, NOT as part of the C++ sources themselves
 # is acceptable.
 # CMake XBOX stuff publicly available. No NDA violation!!!!
 # https://github.com/microsoft/Xbox-GDK-Samples/blob/73f8aa373138ecd6331a05ac908a88c287602db8/Samples/Tools/CMakeGDKExample/CMakeLists.txt#L152
