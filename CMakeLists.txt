@@ -194,7 +194,9 @@ endif()
 
 if(MSVC)
     target_compile_definitions(sync PRIVATE SYNC_EXPORT_DLL)
-    target_compile_definitions(sync INTERFACE SYNC_IMPORT_DLL)
+    if(BUILD_SHARED_LIBS)
+        target_compile_definitions(sync INTERFACE SYNC_IMPORT_DLL)
+    endif()
 endif()
 set_target_properties(sync PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 

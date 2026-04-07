@@ -1,17 +1,18 @@
 #include "rwlock.h"
 #include "../../core/core_internal.h"
-#include "locks_internal.hpp"
+// clang-format off
 #include "rwlock.hpp"
+#include "locks_internal.hpp"
+// clang-format on
 #include <cstring>
 #include <thread>
 #include <utility>
 
 using namespace sy;
 
-static_assert(alignof(internal::ThreadIdStore) == alignof(void*));
-static_assert(sizeof(internal::ThreadIdStore) == 16);
-static_assert(alignof(RwLock) == alignof(uint64_t));
-static_assert(sizeof(RwLock) == 24);
+static_assert(sizeof(internal::ThreadIdStore) == 24);
+static_assert(alignof(RwLock) == alignof(void*));
+static_assert(sizeof(RwLock) == 32);
 static_assert(alignof(SyRwLock) == alignof(sy::RwLock));
 static_assert(sizeof(SyRwLock) == sizeof(sy::RwLock));
 
@@ -59,9 +60,9 @@ bool internal::ThreadIdStore::add(uint32_t threadId) noexcept {
             return false;
         }
 
-        newBuf[0] = this->buf[0];
-        newBuf[1] = this->buf[1];
-        newBuf[2] = this->buf[2];
+        for (uint32_t i = 0; i < SMALL_SIZE; i++) {
+            newBuf[i] = this->buf[i];
+        }
 
         this->buf[0] = newCapacity;
         *bufStorage = newBuf;
@@ -106,9 +107,10 @@ void internal::ThreadIdStore::removeFirstInstance(uint32_t threadId) noexcept {
     if (this->len == SMALL_SIZE) { // was heap allocated, make inline stored
         const uint32_t currentCapacity = this->buf[0];
 
-        this->buf[0] = bufStorage[0];
-        this->buf[1] = bufStorage[1];
-        this->buf[2] = bufStorage[2];
+        for (uint32_t i = 0; i < SMALL_SIZE; i++) {
+            this->buf[i] = bufStorage[i];
+        }
+
         sy_aligned_free(reinterpret_cast<void*>(bufStorage), currentCapacity * sizeof(uint32_t),
                         alignof(void*));
     }
@@ -168,21 +170,24 @@ internal::ThreadIdStore::~ThreadIdStore() noexcept {
 }
 
 internal::ThreadIdStore::ThreadIdStore(ThreadIdStore&& other) noexcept : len(other.len) {
-    this->buf[0] = other.buf[0];
-    this->buf[1] = other.buf[1];
-    this->buf[2] = other.buf[2];
+    for (uint32_t i = 0; i < SMALL_SIZE; i++) {
+        this->buf[i] = other.buf[i];
+    }
 
     other.len = 0;
-    other.buf[0] = 0;
-    other.buf[1] = 0;
-    other.buf[2] = 0;
+    for (uint32_t i = 0; i < SMALL_SIZE; i++) {
+        other.buf[i] = 0;
+    }
 }
 
 RwLock::~RwLock() noexcept {
-    internal::acquireAtomicFence(this->fence_);
+    static_assert(offsetof(sy::internal::RwLockLayout, readers_.buf[1]) == 16);
+    internal::RwLockLayout* self = this->asLayout();
 
-    const uint32_t currentExclusiveId = this->exclusiveId_.load(std::memory_order_seq_cst);
-    const uint32_t currentReadersLen = this->readers_.len;
+    internal::acquireAtomicFence(self->fence_);
+
+    const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
+    const uint32_t currentReadersLen = self->readers_.len;
     sy_assert_release(currentExclusiveId == 0, "[sy::RwLock::~RwLock] cannot destroy rwlock when a "
                                                "thread has exclusive access");
     sy_assert_release(currentReadersLen == 0,
@@ -190,13 +195,13 @@ RwLock::~RwLock() noexcept {
                       "locked by another thread");
 
     {
-        auto moveReaders = std::move(this->readers_);
+        auto moveReaders = std::move(self->readers_);
         // explicitly move them to invoke the destructors prior to atomic fence cleanup
         (void)moveReaders;
     }
 
-    internal::releaseAtomicFence(this->fence_);
-    internal::tsan_mutex_destroy(this->fence_);
+    internal::releaseAtomicFence(self->fence_);
+    internal::tsan_mutex_destroy(self->fence_);
 }
 
 Result<void, RwLock::AcquireErr> RwLock::lockShared() noexcept {
@@ -216,51 +221,53 @@ Result<void, RwLock::AcquireErr> RwLock::lockShared() noexcept {
 }
 
 Result<void, RwLock::AcquireErr> RwLock::tryLockShared() noexcept {
+    internal::RwLockLayout* self = this->asLayout();
     const uint32_t threadId = internal::getThisThreadId();
 
     { // Quick check. Don't wanna go through all the steps if someone has an exclusive lock.
-        const uint32_t currentExclusiveId = this->exclusiveId_.load(std::memory_order_seq_cst);
+        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
         if (currentExclusiveId != threadId && currentExclusiveId != 0) {
             return Error(AcquireErr::HasExclusive);
         }
     }
 
-    internal::acquireAtomicFence(this->fence_);
+    internal::acquireAtomicFence(self->fence_);
 
     { // check again in case someone else acquired in the meantime
-        const uint32_t currentExclusiveId = this->exclusiveId_.load(std::memory_order_seq_cst);
+        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
         if (currentExclusiveId != threadId && currentExclusiveId != 0) {
-            internal::releaseAtomicFence(this->fence_);
+            internal::releaseAtomicFence(self->fence_);
             return Error(AcquireErr::HasExclusive);
         }
     }
 
-    if (this->readers_.add(threadId) == false) {
-        internal::releaseAtomicFence(this->fence_);
+    if (self->readers_.add(threadId) == false) {
+        internal::releaseAtomicFence(self->fence_);
         return Error(AcquireErr::OutOfMemory);
     }
-    internal::releaseAtomicFence(this->fence_);
+    internal::releaseAtomicFence(self->fence_);
     return {};
 }
 
 void sy::RwLock::unlockShared() noexcept {
+    internal::RwLockLayout* self = this->asLayout();
     const uint32_t threadId = internal::getThisThreadId();
 
-    internal::acquireAtomicFence(this->fence_);
+    internal::acquireAtomicFence(self->fence_);
 
-    const uint32_t currentExclusiveId = this->exclusiveId_.load(std::memory_order_seq_cst);
+    const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
     sy_assert(currentExclusiveId == threadId || currentExclusiveId == 0,
               "[sy::RwLock::unlockShared] cannot release shared lock when another thread "
               "has an exclusive lock");
-    sy_assert(this->readers_.len != 0, "[sy::RwLock::unlockShared] cannot release shared "
+    sy_assert(self->readers_.len != 0, "[sy::RwLock::unlockShared] cannot release shared "
                                        "lock if no thread has a shared lock");
     sy_assert(
-        this->readers_.contains(threadId),
+        self->readers_.contains(threadId),
         "[sy::RwLock::unlockShared] cannot release shared lock that wasn't locked by this thread");
     (void)currentExclusiveId;
 
-    this->readers_.removeFirstInstance(threadId);
-    internal::releaseAtomicFence(this->fence_);
+    self->readers_.removeFirstInstance(threadId);
+    internal::releaseAtomicFence(self->fence_);
 }
 
 void sy::RwLock::lockSharedUnchecked() noexcept {
@@ -299,13 +306,14 @@ Result<void, RwLock::AcquireErr> RwLock::lockExclusive() noexcept {
 }
 
 Result<void, RwLock::AcquireErr> RwLock::tryLockExclusive() noexcept {
+    internal::RwLockLayout* self = this->asLayout();
     const uint32_t threadId = internal::getThisThreadId();
 
     { // Quick check. Don't wanna go through all the steps if someone has an exclusive lock.
-        const uint32_t currentExclusiveId = this->exclusiveId_.load(std::memory_order_seq_cst);
+        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
         if (currentExclusiveId == threadId) {
             const uint16_t previousExclusiveCount =
-                this->exclusiveReentrantCount_.fetch_add(1, std::memory_order_seq_cst);
+                self->exclusiveReentrantCount_.fetch_add(1, std::memory_order_seq_cst);
             sy_assert(previousExclusiveCount < (UINT16_MAX - 1),
                       "[sy::RwLock::tryLockExclusive] re-entered rwlock too many times");
             (void)previousExclusiveCount;
@@ -316,12 +324,12 @@ Result<void, RwLock::AcquireErr> RwLock::tryLockExclusive() noexcept {
         }
     }
 
-    internal::acquireAtomicFence(this->fence_);
+    internal::acquireAtomicFence(self->fence_);
 
-    const bool thisThreadIsReader = this->readers_.contains(threadId);
+    const bool thisThreadIsReader = self->readers_.contains(threadId);
 
-    if (this->readers_.len > 0 && !this->readers_.isOnlyEntry(threadId)) {
-        internal::releaseAtomicFence(this->fence_);
+    if (self->readers_.len > 0 && !self->readers_.isOnlyEntry(threadId)) {
+        internal::releaseAtomicFence(self->fence_);
         if (thisThreadIsReader) {
             // cannot elevate
             return Error(AcquireErr::Deadlock);
@@ -330,31 +338,32 @@ Result<void, RwLock::AcquireErr> RwLock::tryLockExclusive() noexcept {
     }
 
     { // check again in case someone else acquired in the meantime
-        const uint32_t currentExclusiveId = this->exclusiveId_.load(std::memory_order_seq_cst);
+        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
         if (currentExclusiveId != threadId && currentExclusiveId != 0) {
-            internal::releaseAtomicFence(this->fence_);
+            internal::releaseAtomicFence(self->fence_);
             return Error(AcquireErr::HasExclusive);
         }
     }
 
     // DO NOT remove from readers if it's a reader to maintain re-entrant functionality on both
-    this->exclusiveId_.store(threadId, std::memory_order_seq_cst);
+    self->exclusiveId_.store(threadId, std::memory_order_seq_cst);
     const uint16_t previousExclusiveCount =
-        this->exclusiveReentrantCount_.fetch_add(1, std::memory_order_seq_cst);
+        self->exclusiveReentrantCount_.fetch_add(1, std::memory_order_seq_cst);
     sy_assert(previousExclusiveCount < (UINT16_MAX - 1),
               "[sy::RwLock::tryLockExclusive] re-entered rwlock too many times");
     (void)previousExclusiveCount;
-    internal::releaseAtomicFence(this->fence_);
+    internal::releaseAtomicFence(self->fence_);
     return {};
 }
 
 void sy::RwLock::unlockExclusive() noexcept {
+    internal::RwLockLayout* self = this->asLayout();
 
     const uint32_t threadId = internal::getThisThreadId();
 
-    internal::acquireAtomicFence(this->fence_);
+    internal::acquireAtomicFence(self->fence_);
 
-    const uint32_t currentExclusiveId = this->exclusiveId_.load(std::memory_order_seq_cst);
+    const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
     sy_assert(
         currentExclusiveId != 0,
         "[sy::RwLock::unlockExclusive] cannot release exclusive lock when not thread has acquired");
@@ -364,12 +373,12 @@ void sy::RwLock::unlockExclusive() noexcept {
     (void)currentExclusiveId;
 
     const uint16_t currentExclusiveCount =
-        this->exclusiveReentrantCount_.fetch_sub(1, std::memory_order_seq_cst);
+        self->exclusiveReentrantCount_.fetch_sub(1, std::memory_order_seq_cst);
     if (currentExclusiveCount == 1) {
-        this->exclusiveId_.store(0, std::memory_order_seq_cst);
+        self->exclusiveId_.store(0, std::memory_order_seq_cst);
     }
 
-    internal::releaseAtomicFence(this->fence_);
+    internal::releaseAtomicFence(self->fence_);
 }
 
 void sy::RwLock::lockExclusiveUnchecked() noexcept {
@@ -388,6 +397,10 @@ void sy::RwLock::lockExclusiveUnchecked() noexcept {
             break;
         }
     }
+}
+
+internal::RwLockLayout* sy::RwLock::asLayout() noexcept {
+    return reinterpret_cast<internal::RwLockLayout*>(this);
 }
 
 extern "C" {

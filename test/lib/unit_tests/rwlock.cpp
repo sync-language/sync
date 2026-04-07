@@ -85,10 +85,12 @@ namespace sy {
 struct RwLockTest {
     RwLock lock;
 
-    std::atomic<bool>& fence() { return lock.fence_; }
-    std::atomic<uint16_t>& exclusiveReentrantCount() { return lock.exclusiveReentrantCount_; }
-    std::atomic<uint32_t>& exclusiveId() { return lock.exclusiveId_; }
-    sy::internal::ThreadIdStore& readers() { return lock.readers_; }
+    std::atomic<bool>& fence() { return lock.asLayout()->fence_; }
+    std::atomic<uint16_t>& exclusiveReentrantCount() {
+        return lock.asLayout()->exclusiveReentrantCount_;
+    }
+    std::atomic<uint32_t>& exclusiveId() { return lock.asLayout()->exclusiveId_; }
+    sy::internal::ThreadIdStore& readers() { return lock.asLayout()->readers_; }
 };
 } // namespace sy
 

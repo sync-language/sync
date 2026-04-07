@@ -5,8 +5,11 @@
 
 #include "../../core/core.h"
 
-typedef struct SyRwLock {
-    uint64_t _inner_[3];
+typedef union SyRwLock {
+    struct Padding {
+        uint8_t _p[32];
+    } _padding;
+    void* _forceAlign;
 } SyRwLock;
 
 typedef enum SyAcquireErr {

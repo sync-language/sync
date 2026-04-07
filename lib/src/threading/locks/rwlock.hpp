@@ -10,43 +10,13 @@ namespace sy {
 struct RwLockTest;
 
 namespace internal {
-/// For internal use only.
-struct alignas(alignof(void*)) SY_API ThreadIdStore {
-    static constexpr uint32_t SMALL_SIZE = 3;
-
-    uint32_t len{};
-    /// If `len <= SMALL_SIZE`, `buf` contains the thread ids.
-    /// If `len > SMALL_SIZE` `buf[0]` contains the capacity, and `buf[1]`'s memory address can be
-    /// cast to a double pointer which is an allocated memory region containing the thread ids.
-    uint32_t buf[SMALL_SIZE]{};
-
-    /// Adds a thread id entry to the storage. This function allocates memory, and thus is fallible.
-    /// @param threadId The id to add.
-    /// @return `false` if it failed to allocate memory, `true` on success.
-    bool add(uint32_t threadId) noexcept;
-
-    /// Removes the first occurrence of `threadId` within the storage.
-    /// @param threadId The id to remove.
-    void removeFirstInstance(uint32_t threadId) noexcept;
-
-    /// Checks if `threadId` is within the storage. `threadId` can appear multiple times.
-    /// @param threadId The id to check.
-    /// @return `true` if `threadId` is in the storage, otherwise `false`.
-    bool contains(uint32_t threadId) const noexcept;
-
-    /// Checks if `threadId` is the only entry in the storage. `threadId` can appear multiple times.
-    /// @param threadId The id to check.
-    /// @return `true` if `threadId` is the only entry, otherwise `false`.
-    bool isOnlyEntry(uint32_t threadId) const noexcept;
-
-    ThreadIdStore() = default;
-
-    ~ThreadIdStore() noexcept;
-
-    ThreadIdStore(ThreadIdStore&& other) noexcept;
-};
+struct RwLockLayout;
 } // namespace internal
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4251)
+#endif
 /// As sync code executes, it will inevitably call into external functions (C functions) due to
 /// being embeddable. As such, some static analysis between external and sync function calls for the
 /// compiler is not fully possible.
@@ -154,11 +124,21 @@ class SY_API RwLock {
   private:
     friend struct RwLockTest;
 
-    std::atomic<bool> fence_{};
-    std::atomic<uint16_t> exclusiveReentrantCount_{};
-    std::atomic<uint32_t> exclusiveId_{};
-    internal::ThreadIdStore readers_{};
+    internal::RwLockLayout* asLayout() noexcept;
+
+    union Inner {
+        struct Padding {
+            uint8_t _p[32]{};
+            Padding() = default;
+        } padding_;
+        void* forceAlign_;
+
+        Inner() : padding_(Padding()) {}
+    } inner_;
 };
+#if _MSC_VER
+#pragma warning(pop)
+#endif
 } // namespace sy
 
 #endif // SY_THREADING_RWLOCK_RWLOCK_HPP_
