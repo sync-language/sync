@@ -4,7 +4,6 @@
 #define SY_THREADING_LOCKS_RWLOCK_HPP_
 
 #include "../../types/result/result.hpp"
-#include <atomic>
 
 namespace sy {
 struct RwLockTest;
@@ -13,10 +12,8 @@ namespace internal {
 struct RwLockLayout;
 } // namespace internal
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4251)
-#endif
+/// Is zero initialized.
+///
 /// As sync code executes, it will inevitably call into external functions (C functions) due to
 /// being embeddable. As such, some static analysis between external and sync function calls for the
 /// compiler is not fully possible.
@@ -126,8 +123,8 @@ class SY_API RwLock {
 
     internal::RwLockLayout* asLayout() noexcept;
 
-    union Inner {
-        struct Padding {
+    union SY_API Inner {
+        struct SY_API Padding {
             uint8_t _p[32]{};
             Padding() = default;
         } padding_;
@@ -136,9 +133,6 @@ class SY_API RwLock {
         Inner() : padding_(Padding()) {}
     } inner_;
 };
-#if _MSC_VER
-#pragma warning(pop)
-#endif
 } // namespace sy
 
 #endif // SY_THREADING_RWLOCK_RWLOCK_HPP_

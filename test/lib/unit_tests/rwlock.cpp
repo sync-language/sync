@@ -86,9 +86,7 @@ struct RwLockTest {
     RwLock lock;
 
     std::atomic<bool>& fence() { return lock.asLayout()->fence_; }
-    std::atomic<uint16_t>& exclusiveReentrantCount() {
-        return lock.asLayout()->exclusiveReentrantCount_;
-    }
+    uint16_t& exclusiveReentrantCount() { return lock.asLayout()->exclusiveReentrantCount_; }
     std::atomic<uint32_t>& exclusiveId() { return lock.asLayout()->exclusiveId_; }
     sy::internal::ThreadIdStore& readers() { return lock.asLayout()->readers_; }
 };

@@ -51,9 +51,21 @@ struct SY_API ThreadIdStore {
     ThreadIdStore(ThreadIdStore&& other) noexcept;
 };
 
+/// NOTE to the developer reading this internal implementation, this is some tomfoolery.
+///
+/// The memory layout of `RwLockLayout` is such that the offset of `readers_.buf[1]`,
+/// which is the beginning of where a heap allocated pointer would be stored for
+/// `ThreadIdStore`, is at a 16 byte offset. This means, any platform that has 16 byte pointers,
+/// such as CHERI, would work.
+///
+/// Doing it this EXACT layout also means that the RwLock can have a relatively small footprint of
+/// just 32 bytes, and by forcing pointer alignment, means it would work in 16 byte pointer aligned
+/// systems.
+///
+/// As such, DO NOT MODIFY THIS LAYOUT.
 struct RwLockLayout {
     std::atomic<bool> fence_{};
-    std::atomic<uint16_t> exclusiveReentrantCount_{};
+    uint16_t exclusiveReentrantCount_{};
     std::atomic<uint32_t> exclusiveId_{};
     internal::ThreadIdStore readers_{};
 };

@@ -5,11 +5,31 @@
 
 #include "../../core/core.h"
 
-typedef union SyRwLock {
-    struct Padding {
-        uint8_t _p[32];
-    } _padding;
-    void* _forceAlign;
+/// Must be zero initialized.
+///
+/// As sync code executes, it will inevitably call into external functions (C functions) due to
+/// being embeddable. As such, some static analysis between external and sync function calls for the
+/// compiler is not fully possible.
+///
+/// This presents a massive challenge when trying to acquire locks, as we cannot prevent, at sync
+/// language code compile time, that acquiring an exclusive lock has not already been acquired by
+/// that same thread as a shared lock.
+///
+/// How we can solve this is by combining two methods. Firstly, supporting re-entrant locks. This
+/// will mean that a thread trying to re-acquire a lock in the same way as it did before is not a
+/// problem. Secondly, allow to "elevate" a lock, meaning turn a shared lock into an exclusive lock
+/// without giving up acquisition to another thread. If a thread has a shared lock, and so does
+/// another, fail to "elevate" the lock into an exclusive lock. If two thread try to elevate at the
+/// same time, also fail.
+///
+/// Works with ThreadSanitizer.
+typedef struct SyRwLock {
+    union {
+        struct {
+            uint8_t _p[32];
+        } _padding;
+        void* _forceAlign;
+    } _inner;
 } SyRwLock;
 
 typedef enum SyAcquireErr {

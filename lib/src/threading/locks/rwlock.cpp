@@ -10,9 +10,15 @@
 
 using namespace sy;
 
+// sy::internal::RwLockLayout stuff
+static_assert(sizeof(std::atomic<bool>) == sizeof(bool));
+static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
+
 static_assert(sizeof(internal::ThreadIdStore) == 24);
 static_assert(alignof(RwLock) == alignof(void*));
 static_assert(sizeof(RwLock) == 32);
+static_assert(alignof(RwLock) >= alignof(internal::RwLockLayout));
+static_assert(sizeof(RwLock) == sizeof(internal::RwLockLayout));
 static_assert(alignof(SyRwLock) == alignof(sy::RwLock));
 static_assert(sizeof(SyRwLock) == sizeof(sy::RwLock));
 
@@ -186,7 +192,7 @@ RwLock::~RwLock() noexcept {
 
     internal::acquireAtomicFence(self->fence_);
 
-    const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
+    const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_acquire);
     const uint32_t currentReadersLen = self->readers_.len;
     sy_assert_release(currentExclusiveId == 0, "[sy::RwLock::~RwLock] cannot destroy rwlock when a "
                                                "thread has exclusive access");
@@ -225,7 +231,7 @@ Result<void, RwLock::AcquireErr> RwLock::tryLockShared() noexcept {
     const uint32_t threadId = internal::getThisThreadId();
 
     { // Quick check. Don't wanna go through all the steps if someone has an exclusive lock.
-        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
+        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_acquire);
         if (currentExclusiveId != threadId && currentExclusiveId != 0) {
             return Error(AcquireErr::HasExclusive);
         }
@@ -234,7 +240,7 @@ Result<void, RwLock::AcquireErr> RwLock::tryLockShared() noexcept {
     internal::acquireAtomicFence(self->fence_);
 
     { // check again in case someone else acquired in the meantime
-        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
+        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_acquire);
         if (currentExclusiveId != threadId && currentExclusiveId != 0) {
             internal::releaseAtomicFence(self->fence_);
             return Error(AcquireErr::HasExclusive);
@@ -255,7 +261,7 @@ void sy::RwLock::unlockShared() noexcept {
 
     internal::acquireAtomicFence(self->fence_);
 
-    const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
+    const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_acquire);
     sy_assert(currentExclusiveId == threadId || currentExclusiveId == 0,
               "[sy::RwLock::unlockShared] cannot release shared lock when another thread "
               "has an exclusive lock");
@@ -310,13 +316,11 @@ Result<void, RwLock::AcquireErr> RwLock::tryLockExclusive() noexcept {
     const uint32_t threadId = internal::getThisThreadId();
 
     { // Quick check. Don't wanna go through all the steps if someone has an exclusive lock.
-        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
+        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_acquire);
         if (currentExclusiveId == threadId) {
-            const uint16_t previousExclusiveCount =
-                self->exclusiveReentrantCount_.fetch_add(1, std::memory_order_seq_cst);
-            sy_assert(previousExclusiveCount < (UINT16_MAX - 1),
+            sy_assert(self->exclusiveReentrantCount_ < UINT16_MAX,
                       "[sy::RwLock::tryLockExclusive] re-entered rwlock too many times");
-            (void)previousExclusiveCount;
+            self->exclusiveReentrantCount_ += 1;
             return {};
         }
         if (currentExclusiveId != 0) {
@@ -338,7 +342,7 @@ Result<void, RwLock::AcquireErr> RwLock::tryLockExclusive() noexcept {
     }
 
     { // check again in case someone else acquired in the meantime
-        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
+        const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_acquire);
         if (currentExclusiveId != threadId && currentExclusiveId != 0) {
             internal::releaseAtomicFence(self->fence_);
             return Error(AcquireErr::HasExclusive);
@@ -346,12 +350,10 @@ Result<void, RwLock::AcquireErr> RwLock::tryLockExclusive() noexcept {
     }
 
     // DO NOT remove from readers if it's a reader to maintain re-entrant functionality on both
-    self->exclusiveId_.store(threadId, std::memory_order_seq_cst);
-    const uint16_t previousExclusiveCount =
-        self->exclusiveReentrantCount_.fetch_add(1, std::memory_order_seq_cst);
-    sy_assert(previousExclusiveCount < (UINT16_MAX - 1),
+    self->exclusiveId_.store(threadId, std::memory_order_release);
+    sy_assert(self->exclusiveReentrantCount_ < UINT16_MAX,
               "[sy::RwLock::tryLockExclusive] re-entered rwlock too many times");
-    (void)previousExclusiveCount;
+    self->exclusiveReentrantCount_ += 1;
     internal::releaseAtomicFence(self->fence_);
     return {};
 }
@@ -363,7 +365,7 @@ void sy::RwLock::unlockExclusive() noexcept {
 
     internal::acquireAtomicFence(self->fence_);
 
-    const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_seq_cst);
+    const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_acquire);
     sy_assert(
         currentExclusiveId != 0,
         "[sy::RwLock::unlockExclusive] cannot release exclusive lock when not thread has acquired");
@@ -372,10 +374,9 @@ void sy::RwLock::unlockExclusive() noexcept {
     (void)threadId;
     (void)currentExclusiveId;
 
-    const uint16_t currentExclusiveCount =
-        self->exclusiveReentrantCount_.fetch_sub(1, std::memory_order_seq_cst);
-    if (currentExclusiveCount == 1) {
-        self->exclusiveId_.store(0, std::memory_order_seq_cst);
+    self->exclusiveReentrantCount_ -= 1;
+    if (self->exclusiveReentrantCount_ == 0) {
+        self->exclusiveId_.store(0, std::memory_order_release);
     }
 
     internal::releaseAtomicFence(self->fence_);
