@@ -14,11 +14,13 @@
 #endif
 #endif // defined(__x86_64__) || defined(_M_AMD64)
 
+#if defined(__aarch64__)
 #if defined(_MSC_VER)
 #pragma intrinsic(__yield)
 #elif defined(__GNUC__) || defined(__clang__)
-#include <arm_acle.h>
+#include <intrin.h>
 #endif
+#endif // defined(__aarch64__)
 
 namespace sy {
 namespace internal {
