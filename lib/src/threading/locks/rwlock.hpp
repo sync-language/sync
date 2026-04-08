@@ -125,7 +125,7 @@ class SY_API RwLock {
 
     union SY_API Inner {
         struct SY_API Padding {
-            uint8_t _p[32]{};
+            uint8_t _p[48]{};
             Padding() = default;
         } padding_;
         void* forceAlign_;

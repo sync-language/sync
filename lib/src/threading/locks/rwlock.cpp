@@ -14,9 +14,8 @@ using namespace sy;
 static_assert(sizeof(std::atomic<bool>) == sizeof(bool));
 static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
 
-static_assert(sizeof(internal::ThreadIdStore) == 24);
 static_assert(alignof(RwLock) == alignof(void*));
-static_assert(sizeof(RwLock) == 32);
+static_assert(sizeof(RwLock) == 48);
 static_assert(alignof(RwLock) >= alignof(internal::RwLockLayout));
 static_assert(sizeof(RwLock) == sizeof(internal::RwLockLayout));
 static_assert(alignof(SyRwLock) == alignof(sy::RwLock));
@@ -31,10 +30,10 @@ bool internal::ThreadIdStore::add(uint32_t threadId) noexcept {
         return true;
     }
 
-    uint32_t** bufStorage = reinterpret_cast<uint32_t**>(&this->buf[1]);
+    uint32_t** bufStorage = reinterpret_cast<uint32_t**>(&this->buf[HEAP_PTR_INDEX]);
 
     if (currentLen > SMALL_SIZE) {
-        const uint32_t currentCapacity = this->buf[0];
+        const uint32_t currentCapacity = this->buf[CAPACITY_INDEX];
         if (currentLen == currentCapacity) {
             sy_assert_release(currentCapacity <= ((UINT32_MAX / 2) - 1),
                               "[addThisThreadToReaders] reached max value for "
@@ -54,7 +53,7 @@ bool internal::ThreadIdStore::add(uint32_t threadId) noexcept {
 
             sy_aligned_free(reinterpret_cast<void*>(oldBuf), currentCapacity * sizeof(uint32_t),
                             alignof(void*));
-            this->buf[0] = newCapacity;
+            this->buf[CAPACITY_INDEX] = newCapacity;
             *bufStorage = newBuf;
         }
 
@@ -71,7 +70,7 @@ bool internal::ThreadIdStore::add(uint32_t threadId) noexcept {
             newBuf[i] = this->buf[i];
         }
 
-        this->buf[0] = NEW_CAPACITY;
+        this->buf[CAPACITY_INDEX] = NEW_CAPACITY;
         *bufStorage = newBuf;
     }
 
@@ -88,7 +87,7 @@ void internal::ThreadIdStore::removeFirstInstance(uint32_t threadId) noexcept {
     if (currentLen <= SMALL_SIZE) {
         bufStorage = this->buf;
     } else {
-        memcpy(reinterpret_cast<void*>(&bufStorage), &this->buf[1], sizeof(uint32_t*));
+        memcpy(reinterpret_cast<void*>(&bufStorage), &this->buf[HEAP_PTR_INDEX], sizeof(uint32_t*));
     }
 
     bool found = false;
@@ -112,7 +111,7 @@ void internal::ThreadIdStore::removeFirstInstance(uint32_t threadId) noexcept {
     this->len -= 1;
 
     if (this->len == SMALL_SIZE) { // was heap allocated, make inline stored
-        const uint32_t currentCapacity = this->buf[0];
+        const uint32_t currentCapacity = this->buf[CAPACITY_INDEX];
 
         for (uint32_t i = 0; i < SMALL_SIZE; i++) {
             this->buf[i] = bufStorage[i];
@@ -131,7 +130,7 @@ bool internal::ThreadIdStore::contains(uint32_t threadId) const noexcept {
     if (currentLen <= SMALL_SIZE) {
         bufStorage = this->buf;
     } else {
-        memcpy(reinterpret_cast<void*>(&bufStorage), &this->buf[1], sizeof(uint32_t*));
+        memcpy(reinterpret_cast<void*>(&bufStorage), &this->buf[HEAP_PTR_INDEX], sizeof(uint32_t*));
     }
 
     for (uint32_t i = 0; i < currentLen; i++) {
@@ -153,7 +152,7 @@ bool internal::ThreadIdStore::isOnlyEntry(uint32_t threadId) const noexcept {
     if (currentLen <= SMALL_SIZE) {
         bufStorage = this->buf;
     } else {
-        memcpy(reinterpret_cast<void*>(&bufStorage), &this->buf[1], sizeof(uint32_t*));
+        memcpy(reinterpret_cast<void*>(&bufStorage), &this->buf[HEAP_PTR_INDEX], sizeof(uint32_t*));
     }
 
     for (uint32_t i = 0; i < currentLen; i++) {
@@ -166,9 +165,9 @@ bool internal::ThreadIdStore::isOnlyEntry(uint32_t threadId) const noexcept {
 
 internal::ThreadIdStore::~ThreadIdStore() noexcept {
     if (this->len > SMALL_SIZE) {
-        const uint32_t capacity = this->buf[0];
+        const uint32_t capacity = this->buf[CAPACITY_INDEX];
         uint32_t* bufStorage;
-        memcpy(reinterpret_cast<void*>(&bufStorage), &this->buf[1], sizeof(uint32_t*));
+        memcpy(reinterpret_cast<void*>(&bufStorage), &this->buf[HEAP_PTR_INDEX], sizeof(uint32_t*));
         sy_aligned_free(reinterpret_cast<void*>(bufStorage), capacity * sizeof(uint32_t),
                         alignof(uint32_t));
 
@@ -188,7 +187,7 @@ internal::ThreadIdStore::ThreadIdStore(ThreadIdStore&& other) noexcept : len(oth
 }
 
 RwLock::~RwLock() noexcept {
-    static_assert(offsetof(sy::internal::RwLockLayout, readers_.buf[1]) == 16);
+    static_assert(offsetof(sy::internal::RwLockLayout, readers_.buf[0]) == 16);
     internal::RwLockLayout* self = this->asLayout();
 
     internal::acquireAtomicFence(self->fence_);
@@ -319,7 +318,7 @@ Result<void, RwLock::AcquireErr> RwLock::tryLockExclusive() noexcept {
     { // Quick check. Don't wanna go through all the steps if someone has an exclusive lock.
         const uint32_t currentExclusiveId = self->exclusiveId_.load(std::memory_order_acquire);
         if (currentExclusiveId == threadId) {
-            sy_assert(self->exclusiveReentrantCount_ < UINT16_MAX,
+            sy_assert(self->exclusiveReentrantCount_ < UINT32_MAX,
                       "[sy::RwLock::tryLockExclusive] re-entered rwlock too many times");
             self->exclusiveReentrantCount_ += 1;
             return {};
@@ -352,7 +351,7 @@ Result<void, RwLock::AcquireErr> RwLock::tryLockExclusive() noexcept {
 
     // DO NOT remove from readers if it's a reader to maintain re-entrant functionality on both
     self->exclusiveId_.store(threadId, std::memory_order_release);
-    sy_assert(self->exclusiveReentrantCount_ < UINT16_MAX,
+    sy_assert(self->exclusiveReentrantCount_ < UINT32_MAX,
               "[sy::RwLock::tryLockExclusive] re-entered rwlock too many times");
     self->exclusiveReentrantCount_ += 1;
     internal::releaseAtomicFence(self->fence_);

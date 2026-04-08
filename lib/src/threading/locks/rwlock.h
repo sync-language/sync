@@ -26,7 +26,7 @@
 typedef struct SyRwLock {
     union {
         struct {
-            uint8_t _p[32];
+            uint8_t _p[48];
         } _padding;
         void* _forceAlign;
     } _inner;
