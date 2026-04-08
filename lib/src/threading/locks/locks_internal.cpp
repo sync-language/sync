@@ -105,8 +105,12 @@ void sy::internal::SpinYielder::yield(volatile void* address, uint32_t compariso
 #elif defined(__linux__)
         syscall(__NR_futex, address, FUTEX_WAIT, comparisonValue, nullptr, nullptr, 0);
 #elif defined(__MACH__)
+        (void)address;
+        (void)comparisonValue;
         std::this_thread::yield();
 #else
+        (void)address;
+        (void)comparisonValue;
         std::this_thread::yield();
 #endif
         // reset the whole thing
