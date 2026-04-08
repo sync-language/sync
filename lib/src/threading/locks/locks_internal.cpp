@@ -3,7 +3,7 @@
 #include <atomic>
 #include <thread>
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(_WIN32)
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif // NOMINMAX
@@ -12,7 +12,9 @@
 #endif // WIN32_LEAN_AND_MEAN
 // clang-format off
 #include <windows.h>
+#if defined(_MSC_VER)
 #pragma comment(lib, "Synchronization.lib")
+#endif
 // clang-format on
 #endif // WIN32
 
@@ -66,7 +68,7 @@ extern void __tsan_mutex_post_unlock(void* addr, unsigned flags);
 void sy::internal::SpinYielder::yield(volatile void* address, uint32_t comparisonValue) noexcept {
     if (this->counter < YIELD_THRESHOLD) {
 #if defined(__EMSCRIPTEN__)
-        for (int i = 0; i < MAX_TSC_CYCLES; i++) {
+        for (uint64_t i = 0; i < MAX_TSC_CYCLES; i++) {
             pause();
         }
         this->counter += 1;
