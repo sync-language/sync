@@ -3,7 +3,7 @@
 #include <atomic>
 #include <thread>
 
-#if defined(_MSC_VER) || defined(_WIN32)
+#if defined(_MSC_VER)
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif // NOMINMAX
@@ -99,7 +99,9 @@ void sy::internal::SpinYielder::yield(volatile void* address, uint32_t compariso
         std::this_thread::yield();
     } else {
 #if defined(__EMSCRIPTEN__)
-        wasm_sleep();
+        (void)address;
+        (void)comparisonValue;
+        std::this_thread::yield();
 #elif defined(_MSC_VER) || defined(_WIN32)
         WaitOnAddress(address, &comparisonValue, sizeof(uint32_t), 1);
 #elif defined(__linux__)
