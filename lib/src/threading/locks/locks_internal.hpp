@@ -14,14 +14,6 @@
 #endif
 #endif // defined(__x86_64__) || defined(_M_AMD64)
 
-#if defined(__aarch64__)
-#if defined(_MSC_VER)
-#pragma intrinsic(__yield)
-#elif defined(__GNUC__) || defined(__clang__)
-#include <intrin.h>
-#endif
-#endif // defined(__aarch64__)
-
 namespace sy {
 namespace internal {
 uint32_t getThisThreadId() noexcept;
@@ -45,7 +37,7 @@ static inline void pause() {
 #elif defined(__x86_64__) || defined(_M_AMD64)
     _mm_pause();
 #elif defined(__aarch64__)
-    __yield();
+    asm volatile("yield");
 #elif defined(__riscv) && (__riscv_xlen == 64)
     __builtin_riscv_pause();
 #endif
