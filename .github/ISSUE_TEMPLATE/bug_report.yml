@@ -1,0 +1,78 @@
+name: Bug Report
+description: Report a bug with Sync
+type: Bug
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill out the sections below to assist diagnosing the issue.
+        For VM running issues, include all possible relevant details about your VM for more accurate troubleshooting.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: |
+        Describe the problem you encountered and what you expected to happen instead.
+      placeholder: |
+        What is the bug?
+        **Expected behavior:**
+
+        **Actual behavior:**
+
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce
+      description: How can it be reproduced?
+    validations:
+      required: true
+
+  - type: textarea
+    id: host-details
+    attributes:
+      label: System Details
+      description: Information about the machine
+      placeholder: |
+        - OS: macOS 15.7.3 / Windows 11 / Linux (distro)
+        - Host CPU: Ryzen 9 7950x / M3 Pro / i7 14700k / Xeon w7-2495X
+        - Host memory: 16G
+    validations:
+      required: true
+
+  - type: input
+    id: sync-version
+    attributes:
+      label: Sync Version
+    validations:
+      required: true
+
+  # https://blog.qatestlab.com/2015/03/10/software-bugs-severity-levels/
+  # https://www.ibm.com/docs/en/targetprocess/atp/saas?topic=tracking-severity-bugs
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this issue.
+      options:
+        - Blocker (Prevent use completely)
+        - Critical (Severely impacts functionality)
+        - Major (Disrupts key features but is operational)
+        - Minor (Does not interfere with core functionality)
+        - Trivial (Cosmetic or stylistic with minimal to no functional impact)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: troubleshooting
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched open and closed issues for duplicates
+          required: true
+        - label: I have tried the latest version of Sync
+          required: true

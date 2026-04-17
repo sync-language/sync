@@ -1,16 +1,16 @@
-macos-arm64:
-    image: mac-arm64
-    cpus: 2
-    memory: 8G
-    steps:
+macos-x64:
+  image: mac-x64
+  cpus: 2
+  memory: 8G
+  steps:
     - name: Copy Files
       copy:
         from: ./
         to: vm:~/
         exclude:
-            - .git
-            - .github
-            - docs
+          - .git
+          - .github
+          - docs
 
     - name: Run Subsequent Steps Offline
       offline: true
@@ -22,5 +22,5 @@ macos-arm64:
       run: cmake --build build
 
     - name: Run CTest
-      # run: ./build/test/SyncLibTests 
+      # run: ./build/test/SyncLibTests
       run: ctest --test-dir build --output-on-failure

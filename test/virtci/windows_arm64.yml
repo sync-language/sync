@@ -1,0 +1,37 @@
+windows-arm64:
+  image: win-11-arm64
+  cpus: 2
+  memory: 8G
+  steps:
+    - name: Make Dirs
+      run: mkdir sync
+
+    - name: Copy Files
+      copy:
+        from: ./
+        to: vm:C:\Users\dev\sync
+        exclude:
+          - .git
+          - .github
+          - docs
+
+    - name: Run Subsequent Steps Offline
+      offline: true
+
+    - name: Configure CMake Visual Studio
+      run: cmake -S sync -B build-vs -G "Visual Studio 18 2026" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8" -DSYNC_DISABLE_ASAN_TESTS=ON
+
+    - name: Build CMake Visual Studio
+      run: cmake --build build-vs
+
+    - name: Run CTest Visual Studio
+      run: ctest --test-dir build-vs --output-on-failure -C Debug
+
+    # - name: Configure CMake MinGW
+    #   run: cmake -S sync -B build-mingw -G "Unix Makefiles" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
+
+    # - name: Build CMake MinGW
+    #   run: cmake --build build-mingw
+
+    # - name: Run CTest MinGW
+    #   run: ctest --test-dir build-mingw --output-on-failure -C Debug

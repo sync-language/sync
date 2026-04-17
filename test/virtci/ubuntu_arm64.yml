@@ -1,0 +1,25 @@
+ubuntu-arm64:
+  image: ubuntu-arm64
+  cpus: 2
+  memory: 6G
+  steps:
+    - name: Copy Files
+      copy:
+        from: ./
+        to: vm:~/
+        exclude:
+          - .git
+          - .github
+          - docs
+
+    - name: Run Subsequent Steps Offline
+      offline: true
+
+    - name: Configure CMake
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
+
+    - name: Build CMake
+      run: cmake --build build
+
+    - name: Run CTest
+      run: ctest --test-dir build --output-on-failure
