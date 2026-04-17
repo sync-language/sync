@@ -37,7 +37,7 @@ windows-x64:
       run: ctest --test-dir build-mingw --output-on-failure -C Debug
 
     - name: Configure CMake Clang-cl
-      run: cmake -S sync -B build-clang-cl -G "Unix Makefiles" -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
+      run: cmake -S sync -B build-clang-cl -G "Ninja" -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
 
     - name: Build CMake Clang-cl
       run: cmake --build build-clang-cl
