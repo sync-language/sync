@@ -16,7 +16,7 @@ windows-x64:
           - docs
 
     - name: Install Ninja
-      run: choco install -y ninja --force --no-progress --install-argumentrs '/Quiet'
+      run: choco install -y ninja --force --no-progress --install-arguments '/Quiet'
 
     - name: Run Subsequent Steps Offline
       offline: true
