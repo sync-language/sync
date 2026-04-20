@@ -19,6 +19,9 @@ typedef enum SyTypeTag {
     SyTypeTagFloat = 2,
     /// Maps to a singular `SyType` instance.
     // SyTypeTagChar = 3,
+    /// Pointer-sized, pointer-aligned opaque payload. Used for type-erased trait fn arguments
+    /// where the actual element type is supplied implicitly by the surrounding `SyType`.
+    SyTypeTagOpaquePointer = 3,
     /// Maps to a singular `SyType` instance. Is an owned string. For string references, see
     /// `SyTypeTagStringSlice`.
     SyTypeTagString = 4,

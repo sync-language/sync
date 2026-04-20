@@ -134,7 +134,7 @@ template <typename Ret, typename... Args> class Function<Ret(Args...)> {
         raw_.innerFn = reinterpret_cast<const void*>(fn);
     }
 
-    Result<Ret, ProgramError> operator()(Args... args) const noexcept {
+    Result<Ret, ProgramError> call(Args... args) const noexcept {
         RawFunction::CallArgs callArgs = raw_.startCall();
         const bool pushedAll =
             (... && callArgs.push(const_cast<void*>(static_cast<const void*>(&args)),
@@ -155,6 +155,8 @@ template <typename Ret, typename... Args> class Function<Ret(Args...)> {
     }
 
     const RawFunction* raw() const noexcept { return &raw_; }
+
+    RawFunction* rawMut() noexcept { return &raw_; }
 
   private:
     void initRaw() noexcept {

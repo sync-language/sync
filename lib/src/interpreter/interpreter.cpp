@@ -20,7 +20,8 @@ static void setupFunctionStackFrame(const RawFunction* scriptFunction, void* out
     sy_assert(scriptFunction->tag == FunctionType::Script,
               "Interpreter can only start executing from script functions");
     if (scriptFunction->returnType != nullptr) {
-        sy_assert(outReturnValue != nullptr, "Function returns a value, which cannot be safely ignored");
+        sy_assert(outReturnValue != nullptr,
+                  "Function returns a value, which cannot be safely ignored");
     } else {
         sy_assert(outReturnValue == nullptr,
                   "Function does not return a value, so no return value address should be used");
@@ -50,7 +51,8 @@ Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const RawFunctio
         if (res.hasErr()) {
             while (depth > 0) {
                 currentFunction = activeStack.getCurrentFunction().value();
-                currentScriptInfo = reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(currentFunction->fptr);
+                currentScriptInfo = reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(
+                    currentFunction->fptr);
                 unwindStackFrame(currentScriptInfo->unwindSlots, currentScriptInfo->unwindLen);
                 activeStack.popFrame();
                 depth -= 1;
@@ -58,7 +60,8 @@ Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const RawFunctio
             return Error(res.takeErr());
         }
 
-        sy_assert(res.value() != OkExecStatus::Continue, "Continue should not have escaped to here");
+        sy_assert(res.value() != OkExecStatus::Continue,
+                  "Continue should not have escaped to here");
 
         if (res.value() == OkExecStatus::Return) {
             unwindStackFrame(currentScriptInfo->unwindSlots, currentScriptInfo->unwindLen);
@@ -89,7 +92,7 @@ static void unwindStackFrame(const int16_t* unwindSlots, const uint16_t len) {
     Stack& activeStack = Stack::getActiveStack();
     for (uint16_t i = 0; i < len; i++) {
         const Type* type = activeStack.typeAt(unwindSlots[i]);
-        if (type == nullptr || !type->destructor.hasValue()) {
+        if (type == nullptr) {
             continue;
         }
 
@@ -101,10 +104,14 @@ static void unwindStackFrame(const int16_t* unwindSlots, const uint16_t len) {
 
 static void executeReturn(const Bytecode b);
 static void executeReturnValue(const Bytecode b);
-static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
-static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
-static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
-static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes);
+static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChange,
+                                                               const Bytecode* bytecodes);
+static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
+                                                         const Bytecode* bytecodes);
+static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange,
+                                                                 const Bytecode* bytecodes);
+static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange,
+                                                           const Bytecode* bytecodes);
 static void executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeMemsetUninitialized(const Bytecode bytecode);
@@ -134,25 +141,29 @@ static Result<OkExecStatus, ProgramError> interpreterExecuteOperation(const Prog
             return OkExecStatus::Return;
         } break;
         case OpCode::CallImmediateNoReturn: {
-            if (auto callRes = executeCallImmediateNoReturn(ipChange, instructionPointer); callRes.hasErr()) {
+            if (auto callRes = executeCallImmediateNoReturn(ipChange, instructionPointer);
+                callRes.hasErr()) {
                 return Error(callRes.takeErr());
             }
             return OkExecStatus::FunctionCall;
         } break;
         case OpCode::CallSrcNoReturn: {
-            if (auto callRes = executeCallSrcNoReturn(ipChange, instructionPointer); callRes.hasErr()) {
+            if (auto callRes = executeCallSrcNoReturn(ipChange, instructionPointer);
+                callRes.hasErr()) {
                 return Error(callRes.takeErr());
             }
             return OkExecStatus::FunctionCall;
         } break;
         case OpCode::CallImmediateWithReturn: {
-            if (auto callRes = executeCallImmediateWithReturn(ipChange, instructionPointer); callRes.hasErr()) {
+            if (auto callRes = executeCallImmediateWithReturn(ipChange, instructionPointer);
+                callRes.hasErr()) {
                 return Error(callRes.takeErr());
             }
             return OkExecStatus::FunctionCall;
         } break;
         case OpCode::CallSrcWithReturn: {
-            if (auto callRes = executeCallSrcWithReturn(ipChange, instructionPointer); callRes.hasErr()) {
+            if (auto callRes = executeCallSrcWithReturn(ipChange, instructionPointer);
+                callRes.hasErr()) {
                 return Error(callRes.takeErr());
             }
             return OkExecStatus::FunctionCall;
@@ -224,9 +235,11 @@ static void executeReturnValue(const Bytecode b) {
     // Frame is automatically unwinded
 }
 
-static bool pushScriptFunctionArgs(const RawFunction* function, const uint16_t argsCount, const uint16_t* argsSrc) {
+static bool pushScriptFunctionArgs(const RawFunction* function, const uint16_t argsCount,
+                                   const uint16_t* argsSrc) {
     sy_assert(function->argsLen == argsCount, "Mismatched number of arguments passed to function");
-    sy_assert(function->tag == FunctionType::Script, "Cannot push script function arguments to non scirpt function");
+    sy_assert(function->tag == FunctionType::Script,
+              "Cannot push script function arguments to non scirpt function");
 
     RawFunction::CallArgs callArgs = function->startCall();
     Stack& activeStack = Stack::getActiveStack();
@@ -242,8 +255,9 @@ static bool pushScriptFunctionArgs(const RawFunction* function, const uint16_t a
     return true;
 }
 
-static Result<void, ProgramError> setupInterpreterNestedCall(const RawFunction* function, void* retDst,
-                                                             const uint16_t argsCount, const uint16_t* argsSrc) {
+static Result<void, ProgramError> setupInterpreterNestedCall(const RawFunction* function,
+                                                             void* retDst, const uint16_t argsCount,
+                                                             const uint16_t* argsSrc) {
     if (function->tag == FunctionType::Script) {
         (void)pushScriptFunctionArgs(function, argsCount, argsSrc);
         setupFunctionStackFrame(function, retDst);
@@ -254,27 +268,33 @@ static Result<void, ProgramError> setupInterpreterNestedCall(const RawFunction* 
     return {};
 }
 
-static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
-    const operators::CallImmediateNoReturn operands = bytecodes[0].toOperands<operators::CallImmediateNoReturn>();
+static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChange,
+                                                               const Bytecode* bytecodes) {
+    const operators::CallImmediateNoReturn operands =
+        bytecodes[0].toOperands<operators::CallImmediateNoReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
 
     const RawFunction* function = *reinterpret_cast<const RawFunction* const*>(&bytecodes[1]);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[2]);
 
-    ipChange = static_cast<ptrdiff_t>(operators::CallImmediateNoReturn::bytecodeUsed(operands.argCount));
+    ipChange =
+        static_cast<ptrdiff_t>(operators::CallImmediateNoReturn::bytecodeUsed(operands.argCount));
 
     activeStack.setInstructionPointer(activeStack.getInstructionPointer() + ipChange);
 
     return setupInterpreterNestedCall(function, nullptr, operands.argCount, argsSrcs);
 }
 
-static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
-    const operators::CallSrcNoReturn operands = bytecodes[0].toOperands<operators::CallSrcNoReturn>();
+static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
+                                                         const Bytecode* bytecodes) {
+    const operators::CallSrcNoReturn operands =
+        bytecodes[0].toOperands<operators::CallSrcNoReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
 
-    sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function, "Expected function to call");
+    sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function,
+              "Expected function to call");
     const RawFunction* function = activeStack.frameValueAt<const RawFunction>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
 
@@ -285,13 +305,16 @@ static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange, co
     return setupInterpreterNestedCall(function, nullptr, operands.argCount, argsSrcs);
 }
 
-static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
-    const operators::CallImmediateWithReturn operands = bytecodes[0].toOperands<operators::CallImmediateWithReturn>();
+static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange,
+                                                                 const Bytecode* bytecodes) {
+    const operators::CallImmediateWithReturn operands =
+        bytecodes[0].toOperands<operators::CallImmediateWithReturn>();
 
     const RawFunction* function = *reinterpret_cast<const RawFunction* const*>(&bytecodes[1]);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[2]);
 
-    ipChange = static_cast<ptrdiff_t>(operators::CallImmediateWithReturn::bytecodeUsed(operands.argCount));
+    ipChange =
+        static_cast<ptrdiff_t>(operators::CallImmediateWithReturn::bytecodeUsed(operands.argCount));
 
     Stack& activeStack = Stack::getActiveStack();
     void* returnDst = activeStack.frameValueAt<void>(operands.retDst);
@@ -301,16 +324,20 @@ static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipCh
     return setupInterpreterNestedCall(function, returnDst, operands.argCount, argsSrcs);
 }
 
-static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
-    const operators::CallSrcWithReturn operands = bytecodes[0].toOperands<operators::CallSrcWithReturn>();
+static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange,
+                                                           const Bytecode* bytecodes) {
+    const operators::CallSrcWithReturn operands =
+        bytecodes[0].toOperands<operators::CallSrcWithReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
 
-    sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function, "Expected function to call");
+    sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function,
+              "Expected function to call");
     const RawFunction* function = activeStack.frameValueAt<const RawFunction>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
 
-    ipChange = static_cast<ptrdiff_t>(operators::CallSrcWithReturn::bytecodeUsed(operands.argCount));
+    ipChange =
+        static_cast<ptrdiff_t>(operators::CallSrcWithReturn::bytecodeUsed(operands.argCount));
 
     void* returnDst = activeStack.frameValueAt<void>(operands.retDst);
 
@@ -336,7 +363,8 @@ void executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
 }
 
 void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
-    const operators::LoadImmediateScalar operands = bytecodes[0].toOperands<operators::LoadImmediateScalar>();
+    const operators::LoadImmediateScalar operands =
+        bytecodes[0].toOperands<operators::LoadImmediateScalar>();
     const ScalarTag scalarTag = static_cast<ScalarTag>(operands.scalarTag);
 
     Stack& activeStack = Stack::getActiveStack();
@@ -359,13 +387,15 @@ void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes) 
 }
 
 void executeMemsetUninitialized(const Bytecode bytecode) {
-    const operators::MemsetUninitialized operands = bytecode.toOperands<operators::MemsetUninitialized>();
+    const operators::MemsetUninitialized operands =
+        bytecode.toOperands<operators::MemsetUninitialized>();
 
     Stack& activeStack = Stack::getActiveStack();
     void* destination = activeStack.frameValueAt<void>(operands.dst);
 #ifndef NDEBUG
     const uint32_t frameLength = activeStack.getCurrentFrame().value().frameLength;
-    sy_assert(frameLength >= (static_cast<uint64_t>(operands.dst) + static_cast<uint64_t>(operands.slots)),
+    sy_assert(frameLength >=
+                  (static_cast<uint64_t>(operands.dst) + static_cast<uint64_t>(operands.slots)),
               "Trying to uninitialize memory outside of stack frame");
 #endif
     const size_t bytesToSet = sizeof(void*) * static_cast<size_t>(operands.slots);

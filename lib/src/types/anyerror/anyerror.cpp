@@ -1,4 +1,5 @@
 #include "anyerror.hpp"
+#include "../../core/builtin_traits/builtin_traits.hpp"
 #include "../../core/core_internal.h"
 #include "../string/string.hpp"
 #include "../type_info.hpp"
@@ -132,8 +133,6 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
     const Type* type = nullptr;
     if (this->impl_->payloadType.hasValue()) {
         type = this->impl_->payloadType.value();
-        sy_assert(type->copyConstructor.hasValue(),
-                  "Cannot clone AnyError payload that doesn't have a copy constructor");
     }
 
     Allocator alloc = this->impl_->alloc;
@@ -158,7 +157,7 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
             return Error(ProgramError::OutOfMemory);
         }
         payloadMem = payloadRes.value();
-        auto copyErr = type->copyConstructObj(payloadMem, this->impl_->payload.value());
+        auto copyErr = type->cloneObj(payloadMem, this->impl_->payload.value());
         if (copyErr.hasErr()) {
             alloc.freeObject(implRes.value());
             alloc.freeAlignedArray(payloadRes.value(), type->sizeType, type->alignType);
@@ -273,7 +272,7 @@ struct Example {
     int a;
 };
 
-Result<void, ProgramError> fallibleCopyExample(FunctionHandler) {
+Result<void, ProgramError> fallibleCopyExample(void*, const void*) {
     return Error(ProgramError::Unknown);
 }
 
@@ -289,30 +288,20 @@ const Type* makeExampleFallibleType() {
     static Type constRefType = {sizeof(const Example*),
                                 static_cast<uint16_t>(alignof(const Example*)),
                                 "ConstRef",
-                                {},
-                                {},
-                                {},
-                                {},
-                                {},
-                                {},
-                                {},
                                 Type::Tag::Reference,
                                 constRefExtra,
+                                {},
+                                {},
                                 nullptr,
                                 nullptr};
 
     static Type mutRefType = {sizeof(Example*),
                               static_cast<uint16_t>(alignof(Example*)),
                               "MutRef",
-                              {},
-                              {},
-                              {},
-                              {},
-                              {},
-                              {},
-                              {},
                               Type::Tag::Reference,
                               mutRefExtra,
+                              {},
+                              {},
                               nullptr,
                               nullptr};
 
@@ -328,18 +317,17 @@ const Type* makeExampleFallibleType() {
         FunctionType::C,
         reinterpret_cast<const void*>(fallibleCopyExample)};
 
+    static Function<void(void* dst, const void* src)> cloneFn = fallibleCopyExample;
+
+    static BuiltInCoherentTraits coherent{&cloneFn, {}, {}, {}, {}, {}};
+
     static Type exampleFallibleType = {sizeof(Example),
                                        static_cast<uint16_t>(alignof(Example)),
                                        "Example",
-                                       exampleGoodType->destructor,
-                                       &fallibleCopyFunction,
-                                       {},
-                                       {},
-                                       {},
-                                       {},
-                                       {},
                                        Type::Tag::Int,
                                        {},
+                                       exampleGoodType->destructor,
+                                       &coherent,
                                        &constRefType,
                                        &mutRefType};
 

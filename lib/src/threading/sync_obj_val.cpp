@@ -16,7 +16,8 @@ sy::Result<SyncObjVal*, sy::AllocErr> SyncObjVal::create(Allocator alloc, const 
     sy_assert(inAlignType <= UINT16_MAX, "Type alignment too big");
 
     const size_t allocAlign = inAlignType < ALLOC_CACHE_ALIGN ? ALLOC_CACHE_ALIGN : inAlignType;
-    const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType<SyncObjVal>(inAlignType) + inSizeType;
+    const size_t fullAllocSize =
+        sizeof(SyncObjVal) + paddingForType<SyncObjVal>(inAlignType) + inSizeType;
 
     auto res = alloc.allocAlignedArray<uint8_t>(fullAllocSize, allocAlign);
     if (res.hasErr()) {
@@ -34,7 +35,8 @@ void SyncObjVal::destroy() {
     // assumes the held object's destructor has already been called
 
     const size_t allocAlign = alignType < ALLOC_CACHE_ALIGN ? ALLOC_CACHE_ALIGN : alignType;
-    const size_t fullAllocSize = sizeof(SyncObjVal) + paddingForType<SyncObjVal>(alignType) + this->sizeType;
+    const size_t fullAllocSize =
+        sizeof(SyncObjVal) + paddingForType<SyncObjVal>(alignType) + this->sizeType;
 
     sy::Allocator alloc = this->allocator;
     uint8_t* mem = reinterpret_cast<uint8_t*>(this);
@@ -50,7 +52,8 @@ uintptr_t SyncObjVal::valueMemLocation() const {
 }
 
 SyncObjVal::SyncObjVal(Allocator alloc, size_t inSizeType, uint16_t inAlignType)
-    : allocator(alloc), sizeType(inSizeType), sharedCount(0), weakCount(0), isExpired(false), alignType(inAlignType) {}
+    : allocator(alloc), sizeType(inSizeType), sharedCount(0), weakCount(0), isExpired(false),
+      alignType(inAlignType) {}
 
 void SyncObjVal::addWeakCount() { (void)this->weakCount.fetch_add(1); }
 
@@ -68,13 +71,9 @@ void SyncObjVal::destroyHeldObjectCFunction(void (*destruct)(void* ptr)) {
 
 void SyncObjVal::destroyHeldObjectScriptFunction(const sy::Type* typeInfo) {
     sy_assert(typeInfo->alignType == this->alignType, "Type mismatch");
-    if (typeInfo->destructor.hasValue() == false)
-        return;
-    this->isExpired.store(true);
-    sy::RawFunction::CallArgs callArgs = typeInfo->destructor.value()->startCall();
-    callArgs.push(this->valueMemMut(), typeInfo->mutRef);
-    auto err = callArgs.call(nullptr);
+    auto err = typeInfo->destroyObject(this->valueMemMut());
     sy_assert(err.hasValue(), "Destructors should not fail");
+    (void)err; // TODO what happens if destructor fails?
 }
 
 const void* SyncObjVal::valueMem() const {

@@ -3,6 +3,7 @@
 #ifndef SY_TYPES_TYPE_HPP_
 #define SY_TYPES_TYPE_HPP_
 
+#include "../core/builtin_traits/builtin_traits.hpp"
 #include "../core/core.h"
 #include "../program/program_error.hpp"
 #include "function/function.hpp"
@@ -54,7 +55,7 @@ class SY_API Type {
         Bool = 0,
         Int = 1,
         Float = 2,
-        // Char = c::SyTypeTag::SyTypeTagChar,
+        OpaquePointer = 3,
         String = 4,
         StringSlice = 5,
         Ordering = 6,
@@ -109,15 +110,10 @@ class SY_API Type {
     /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported.
     uint16_t alignType;
     StringSlice name;
-    Option<const RawFunction*> destructor;
-    Option<const RawFunction*> copyConstructor;
-    Option<const RawFunction*> equality;
-    Option<const RawFunction*> hash;
-    Option<const RawFunction*> compare;
-    Option<const RawFunction*> elementWiseAtomicClone;
-    Option<const RawFunction*> elementWiseAtomicMove;
     Tag tag;
     ExtraInfo extra;
+    const Function<void(void*)>* destructor;
+    const BuiltInCoherentTraits* builtinTraits;
     const Type* constRef;
     const Type* mutRef;
 
@@ -127,19 +123,19 @@ class SY_API Type {
         return actualType;
     }
 
-    template <typename T> void destroyObject(T* obj) const {
+    template <typename T> Result<void, ProgramError> destroyObject(T* obj) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
-        this->destroyObjectImpl(reinterpret_cast<void*>(obj));
+        return this->destroyObjectImpl(reinterpret_cast<void*>(obj));
     }
 
-    template <typename T> Result<void, ProgramError> copyConstructObj(T* dst, const T* src) const {
+    template <typename T> Result<void, ProgramError> cloneObj(T* dst, const T* src) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
-        return this->copyConstructObjectImpl(reinterpret_cast<void*>(dst),
-                                             reinterpret_cast<const void*>(src));
+        return this->cloneObjectImpl(reinterpret_cast<void*>(dst),
+                                     reinterpret_cast<const void*>(src));
     }
 
     template <typename T> bool equalObj(const T* lhs, const T* rhs) const {
@@ -198,66 +194,18 @@ class SY_API Type {
     static const Type* const TYPE_STRING_SLICE;
     static const Type* const TYPE_STRING;
     static const Type* const TYPE_ORDERING;
+    /// Pointer-sized, pointer-aligned opaque payload. Used for type-erased trait fn arguments
+    /// (e.g. `Function<void(void*, const void*)>`) where the actual element type is supplied
+    /// implicitly by the surrounding `Type`.
+    static const Type* const TYPE_OPAQUE_PTR;
 
   private:
-    template <typename T> static c_function_t makeDestructor() {
-        c_function_t func = [](FunctionHandler handler) -> Result<void, ProgramError> {
-            T* obj = handler.takeArg<T*>(0);
-            obj->~T();
-            return {};
+    template <typename T> static Function<void(void*)>* makeDestructor() {
+        static Function<void(void*)> func = [](void* obj) {
+            T* tObj = reinterpret_cast<T*>(obj);
+            tObj->~T();
         };
-        return func;
-    }
-
-    template <typename T> static c_function_t makeCopyConstruct() {
-        c_function_t func = [](FunctionHandler handler) -> Result<void, ProgramError> {
-            T* dst = handler.takeArg<T*>(0);
-            const T* src = handler.takeArg<const T*>(1);
-            T* _ = new (dst) T(*src);
-            (void)_;
-            return {};
-        };
-        return func;
-    }
-
-    template <typename T> static c_function_t makeEqualityFunction() {
-        c_function_t func = [](FunctionHandler handler) -> Result<void, ProgramError> {
-            const T* lhs = handler.takeArg<const T*>(0);
-            const T* rhs = handler.takeArg<const T*>(1);
-            bool equal = (*lhs) == (*rhs);
-            handler.setReturn(std::move(equal));
-            return {};
-        };
-        return func;
-    }
-
-    template <typename T> static c_function_t makeHashFunction() {
-        c_function_t func = [](FunctionHandler handler) -> Result<void, ProgramError> {
-            const T* obj = handler.takeArg<const T*>(0);
-            std::hash<T> h;
-            size_t hashed = h(*obj);
-            handler.setReturn(std::move(hashed));
-            return {};
-        };
-        return func;
-    }
-
-    template <typename T> static c_function_t makeCompareFunction() {
-        c_function_t func = [](FunctionHandler handler) -> Result<void, ProgramError> {
-            const T* lhs = handler.takeArg<const T*>(0);
-            const T* rhs = handler.takeArg<const T*>(1);
-            bool equal = (*lhs) == (*rhs);
-            if (equal) {
-                handler.setReturn(Ordering::Equal);
-            } else if ((*lhs) < (*rhs)) {
-                handler.setReturn(Ordering::Less);
-            } else {
-
-                handler.setReturn(Ordering::Greater);
-            }
-            return {};
-        };
-        return func;
+        return &func;
     }
 
     template <typename T>
@@ -266,15 +214,10 @@ class SY_API Type {
             sizeof(T),                         // sizeType
             static_cast<uint16_t>(alignof(T)), // alignType
             inName,                            // name
-            nullptr,                           // destructor
-            nullptr,                           // copyConstructor
-            nullptr,                           // equality
-            nullptr,                           // hash
-            nullptr,                           // compare
-            nullptr,                           // atomic clone
-            nullptr,                           // atomic swap
             inTag,                             // tag
             inExtra,                           // extra
+            nullptr,                           // destructor
+            {},                                // builtin traits
             nullptr,                           // constRef
             nullptr                            // mutRef
         };
@@ -285,22 +228,20 @@ class SY_API Type {
         const ExtraInfo constRefExtra{constRefInfo};
         const ExtraInfo mutRefExtra{mutRefInfo};
 
-        static Type constRefType = {sizeof(const T*), static_cast<uint16_t>(alignof(const T*)),
-                                    "ConstRef", // TODO proper naming
-                                    nullptr,          nullptr,
-                                    nullptr,          nullptr,
-                                    nullptr,          nullptr,
-                                    nullptr,          Tag::Reference,
-                                    constRefExtra,    nullptr,
+        static Type constRefType = {sizeof(const T*),
+                                    static_cast<uint16_t>(alignof(const T*)),
+                                    "ConstRef",
+                                    Tag::Reference,
+                                    constRefExtra,
+                                    nullptr,
+                                    {},
+                                    nullptr,
                                     nullptr};
 
         static Type mutRefType = {sizeof(T*),  static_cast<uint16_t>(alignof(T*)),
-                                  "MutRef", // TODO proper naming
-                                  nullptr,     nullptr,
-                                  nullptr,     nullptr,
-                                  nullptr,     nullptr,
-                                  nullptr,     Tag::Reference,
+                                  "MutRef",    Tag::Reference,
                                   mutRefExtra, nullptr,
+                                  {},          nullptr,
                                   nullptr};
 
         concreteType.constRef = &constRefType;
@@ -312,95 +253,40 @@ class SY_API Type {
         mutRefType.constRef = &constRefType;
         mutRefType.mutRef = &mutRefType;
 
-        // Destructor
-        if constexpr (std::is_destructible_v<T> || !std::is_trivially_destructible_v<T>) {
-            c_function_t func = makeDestructor<T>();
-            static const Type* argsTypes[1] = {&mutRefType};
-            static RawFunction cEqualFunc = {"Destructor", // name
-                                             "Destructor", // identifier name
-                                             nullptr,      // no return type
-                                             argsTypes,
-                                             1,                     // number of args
-                                             SY_FUNCTION_MIN_ALIGN, // alignment
-                                             true,
-                                             FunctionType::C,
-                                             reinterpret_cast<const void*>(func)};
-            concreteType.destructor = &cEqualFunc;
-        }
+        concreteType.destructor = makeDestructor<T>();
 
-        // Copy Constructor
+        static BuiltInCoherentTraits coherentTraits;
+
         if constexpr (std::is_copy_constructible_v<T>) {
-            c_function_t func = makeCopyConstruct<T>();
-            static const Type* argsTypes[2] = {&mutRefType, &constRefType};
-            static RawFunction cEqualFunc = {"CopyConstructor", // name
-                                             "CopyConstructor", // identifier name
-                                             nullptr,           // no return type
-                                             argsTypes,
-                                             2,                     // number of args
-                                             SY_FUNCTION_MIN_ALIGN, // alignment
-                                             true,
-                                             FunctionType::C,
-                                             reinterpret_cast<const void*>(func)};
-            concreteType.copyConstructor = &cEqualFunc;
+            coherentTraits.clone = BuiltInCoherentTraits::makeClone<T>();
         }
 
         // Equality
         if constexpr (detail::has_operator_equal<T>::value) {
-            c_function_t func = makeEqualityFunction<T>();
-            static const Type* argsTypes[2] = {&constRefType, &constRefType};
-            static RawFunction cEqualFunc = {"eq",            // name
-                                             "eq",            // identifier name
-                                             Type::TYPE_BOOL, // return type
-                                             argsTypes,
-                                             2,                     // number of args
-                                             SY_FUNCTION_MIN_ALIGN, // alignment
-                                             true,
-                                             FunctionType::C,
-                                             reinterpret_cast<const void*>(func)};
-            concreteType.equality = &cEqualFunc;
+            coherentTraits.equal = BuiltInCoherentTraits::makeEqualityFunction<T>();
         }
 
         // Hash
         if constexpr (detail::is_std_hashable<T>::value) {
-            c_function_t func = makeHashFunction<T>();
-            static const Type* argsTypes[1] = {&constRefType};
-            static RawFunction cHashFunc = {"hash",           // name
-                                            "hash",           // identifier name
-                                            Type::TYPE_USIZE, // return type
-                                            argsTypes,
-                                            1,                     // number of args
-                                            SY_FUNCTION_MIN_ALIGN, // alignment
-                                            true,
-                                            FunctionType::C,
-                                            reinterpret_cast<const void*>(func)};
-            concreteType.hash = &cHashFunc;
+            coherentTraits.hash = BuiltInCoherentTraits::makeHashFunction<T>();
         }
 
         // Ordering
         if constexpr (detail::has_less_than<T>::value) {
-            c_function_t func = makeCompareFunction<T>();
-            static const Type* argsTypes[2] = {&constRefType, &constRefType};
-            static RawFunction cCompareFunc = {"cmp",               // name
-                                               "cmp",               // identifier name
-                                               Type::TYPE_ORDERING, // return type
-                                               argsTypes,
-                                               2,                     // number of args
-                                               SY_FUNCTION_MIN_ALIGN, // alignment
-                                               true,
-                                               FunctionType::C,
-                                               reinterpret_cast<const void*>(func)};
-            concreteType.compare = &cCompareFunc;
+            coherentTraits.compare = BuiltInCoherentTraits::makeCompareFunction<T>();
         }
+
+        concreteType.builtinTraits = &coherentTraits;
 
         return &concreteType;
     }
 
     void assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const;
-    void destroyObjectImpl(void* obj) const;
-    Result<void, ProgramError> copyConstructObjectImpl(void* dst, const void* src) const;
-    bool equalObjectsImpl(const void* self, const void* other) const;
-    size_t hashObjectImpl(const void* self) const;
-    Ordering compareObjectImpl(const void* self, const void* other) const;
+    Result<void, ProgramError> destroyObjectImpl(void* obj) const;
+    Result<void, ProgramError> cloneObjectImpl(void* dst, const void* src) const;
+    Result<bool, ProgramError> equalObjectsImpl(const void* self, const void* other) const;
+    Result<size_t, ProgramError> hashObjectImpl(const void* self) const;
+    Result<Ordering, ProgramError> compareObjectImpl(const void* self, const void* other) const;
     Result<void, ProgramError> elementWiseAtomicCloneObjImpl(void* dst, const void* src) const;
     Result<void, ProgramError> elementWiseAtomicMoveObjImpl(void* dst, void* src) const;
 };
@@ -413,6 +299,22 @@ template <typename T, typename Enable = void> struct Reflect {
 };
 
 template <> struct SY_API Reflect<bool> {
+    static const Type* get() noexcept;
+};
+
+template <> struct SY_API Reflect<size_t> {
+    static const Type* get() noexcept;
+};
+
+template <> struct SY_API Reflect<Ordering> {
+    static const Type* get() noexcept;
+};
+
+template <> struct SY_API Reflect<void*> {
+    static const Type* get() noexcept;
+};
+
+template <> struct SY_API Reflect<const void*> {
     static const Type* get() noexcept;
 };
 
