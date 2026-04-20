@@ -31,20 +31,23 @@ typedef struct SyFunction {
     const struct SyType** argsTypes;
     /// If zero, the function take no arguments
     uint16_t argsLen;
-    /// Alignment required for this function call. Any value under `SY_FUNCTION_MIN_ALIGN` will be rounded up to it.
-    /// This is used to determine the necessary alignment of function calls for both script and C functions.
-    /// It is possible that a function will have non-standard alignment, such as functions using SIMD types.
-    /// # Debug Asserts
-    /// Alignment must be a multiple of 2.
-    /// `alignment % 2 == 0`.
+    /// Alignment required for this function call. Any value under `SY_FUNCTION_MIN_ALIGN` will be
+    /// rounded up to it. This is used to determine the necessary alignment of function calls for
+    /// both script and C functions. It is possible that a function will have non-standard
+    /// alignment, such as functions using SIMD types. # Debug Asserts Alignment must be a multiple
+    /// of 2. `alignment % 2 == 0`.
     uint16_t alignment;
     /// If `true`, this function can be called in a comptime context within Sync source code.
     bool comptimeSafe;
     /// Determines if this function is a C function or script function.
     SyFunctionType tag;
-    /// Both for C functions and script functions. Given `tag` and `info`, the function will be correctly called.
-    /// For C functions, this should be a function with the signature of `sy_c_function_t`.
+    /// Both for C functions and script functions. Given `tag` and `info`, the function will be
+    /// correctly called. For C functions, this should be a function with the signature of
+    /// `sy_c_function_t`.
     const void* fptr;
+    /// Used only for the C++ (probably Rust and Zig) APIs to enable simpler usage. Can be nullptr
+    /// most of the time.
+    const void* innerFn;
 } SyFunction;
 
 /// Helper struct to push function arguments to C functions or into the next script stack frame.
@@ -66,18 +69,22 @@ typedef SyProgramRuntimeError (*sy_c_function_t)(SyCFunctionHandler handler);
 extern "C" {
 #endif
 
-// /// Starts the process of calling a function. See `sy_function_push_arg(...)` and `sy_function_call(...)`.
-// SY_API SyFunctionCallArgs sy_function_start_call(const SyFunction* self);
+// /// Starts the process of calling a function. See `sy_function_push_arg(...)` and
+// `sy_function_call(...)`. SY_API SyFunctionCallArgs sy_function_start_call(const SyFunction*
+// self);
 
 // /// Pushs an argument onto the the script or C stack for the next function call.
-// /// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
-// SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, void* argMem, const struct SyType* typeInfo);
+// /// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing
+// the argument. SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, void* argMem,
+// const struct SyType* typeInfo);
 
 // SY_API SyProgramRuntimeError sy_function_call(SyFunctionCallArgs self, void* retDst);
 
-// SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler* self, void* outValue, size_t argIndex);
+// SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler* self, void* outValue, size_t
+// argIndex);
 
-// SY_API void sy_c_function_handler_set_return_value(SyCFunctionHandler* self, const void* retValue,
+// SY_API void sy_c_function_handler_set_return_value(SyCFunctionHandler* self, const void*
+// retValue,
 //                                                    const struct SyType* type);
 
 #ifdef __cplusplus

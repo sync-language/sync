@@ -14,10 +14,13 @@
 #include <utility>
 
 namespace sy {
+class Type;
+
 namespace detail {
 // https://stackoverflow.com/a/35207812
 template <class T, class EqualTo> struct has_operator_equal_impl {
-    template <class U, class V> static auto test(U*) -> decltype(std::declval<U>() == std::declval<V>());
+    template <class U, class V>
+    static auto test(U*) -> decltype(std::declval<U>() == std::declval<V>());
     template <typename, typename> static auto test(...) -> std::false_type;
 
     using type = typename std::is_same<bool, decltype(test<T, EqualTo>(0))>::type;
@@ -29,11 +32,13 @@ template <typename T> struct has_operator_equal : has_operator_equal_impl<T, T>:
 template <typename T, typename = std::void_t<>> struct is_std_hashable : std::false_type {};
 
 template <typename T>
-struct is_std_hashable<T, std::void_t<decltype(std::declval<std::hash<T>>()(std::declval<T>()))>> : std::true_type {};
+struct is_std_hashable<T, std::void_t<decltype(std::declval<std::hash<T>>()(std::declval<T>()))>>
+    : std::true_type {};
 
 template <typename T> struct has_less_than {
   private:
-    template <typename U, typename = decltype(std::declval<U>() < std::declval<U>())> static std::true_type test(U*);
+    template <typename U, typename = decltype(std::declval<U>() < std::declval<U>())>
+    static std::true_type test(U*);
 
     template <typename> static std::false_type test(...);
 
@@ -109,12 +114,15 @@ class SY_API Type {
     Option<const RawFunction*> equality;
     Option<const RawFunction*> hash;
     Option<const RawFunction*> compare;
+    Option<const RawFunction*> elementWiseAtomicClone;
+    Option<const RawFunction*> elementWiseAtomicMove;
     Tag tag;
     ExtraInfo extra;
     const Type* constRef;
     const Type* mutRef;
 
-    template <typename T> static const Type* makeType(StringSlice inName, Tag inTag, ExtraInfo inExtra) {
+    template <typename T>
+    static const Type* makeType(StringSlice inName, Tag inTag, ExtraInfo inExtra) {
         static const Type* actualType = createType<T>(inName, inTag, inExtra);
         return actualType;
     }
@@ -130,14 +138,16 @@ class SY_API Type {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
-        return this->copyConstructObjectImpl(reinterpret_cast<void*>(dst), reinterpret_cast<const void*>(src));
+        return this->copyConstructObjectImpl(reinterpret_cast<void*>(dst),
+                                             reinterpret_cast<const void*>(src));
     }
 
     template <typename T> bool equalObj(const T* lhs, const T* rhs) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
-        return this->equalObjectsImpl(reinterpret_cast<const void*>(lhs), reinterpret_cast<const void*>(rhs));
+        return this->equalObjectsImpl(reinterpret_cast<const void*>(lhs),
+                                      reinterpret_cast<const void*>(rhs));
     }
 
     template <typename T> size_t hashObj(const T* obj) const {
@@ -151,7 +161,25 @@ class SY_API Type {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
-        return this->compareObjectImpl(reinterpret_cast<const void*>(lhs), reinterpret_cast<const void*>(rhs));
+        return this->compareObjectImpl(reinterpret_cast<const void*>(lhs),
+                                       reinterpret_cast<const void*>(rhs));
+    }
+
+    template <typename T> Result<void, ProgramError> atomicCloneObj(T* dst, const T* src) const {
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        }
+        return this->atomicCloneObjImpl(reinterpret_cast<void*>(dst),
+                                        reinterpret_cast<const void*>(src));
+    }
+
+    template <typename T>
+    Result<void, ProgramError> elementWiseAtomicMoveObj(T* dst, T* src) const {
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        }
+        return this->elementWiseAtomicMoveObjImpl(reinterpret_cast<void*>(dst),
+                                                  reinterpret_cast<const void*>(src));
     }
 
     static const Type* const TYPE_BOOL;
@@ -232,7 +260,8 @@ class SY_API Type {
         return func;
     }
 
-    template <typename T> static const Type* createType(StringSlice inName, Tag inTag, ExtraInfo inExtra) {
+    template <typename T>
+    static const Type* createType(StringSlice inName, Tag inTag, ExtraInfo inExtra) {
         static Type concreteType = {
             sizeof(T),                         // sizeType
             static_cast<uint16_t>(alignof(T)), // alignType
@@ -242,6 +271,8 @@ class SY_API Type {
             nullptr,                           // equality
             nullptr,                           // hash
             nullptr,                           // compare
+            nullptr,                           // atomic clone
+            nullptr,                           // atomic swap
             inTag,                             // tag
             inExtra,                           // extra
             nullptr,                           // constRef
@@ -258,12 +289,14 @@ class SY_API Type {
                                     "ConstRef", // TODO proper naming
                                     nullptr,          nullptr,
                                     nullptr,          nullptr,
+                                    nullptr,          nullptr,
                                     nullptr,          Tag::Reference,
                                     constRefExtra,    nullptr,
                                     nullptr};
 
         static Type mutRefType = {sizeof(T*),  static_cast<uint16_t>(alignof(T*)),
                                   "MutRef", // TODO proper naming
+                                  nullptr,     nullptr,
                                   nullptr,     nullptr,
                                   nullptr,     nullptr,
                                   nullptr,     Tag::Reference,
@@ -368,7 +401,21 @@ class SY_API Type {
     bool equalObjectsImpl(const void* self, const void* other) const;
     size_t hashObjectImpl(const void* self) const;
     Ordering compareObjectImpl(const void* self, const void* other) const;
+    Result<void, ProgramError> elementWiseAtomicCloneObjImpl(void* dst, const void* src) const;
+    Result<void, ProgramError> elementWiseAtomicMoveObjImpl(void* dst, void* src) const;
 };
+
+template <typename T, typename Enable = void> struct Reflect {
+    static const Type* get() noexcept {
+        static_assert(sizeof(T) == 0, "sy::Reflect must be specialized for this type");
+        return nullptr;
+    }
+};
+
+template <> struct SY_API Reflect<bool> {
+    static const Type* get() noexcept;
+};
+
 } // namespace sy
 
 #endif // SY_TYPES_TYPE_HPP_

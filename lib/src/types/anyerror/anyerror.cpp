@@ -23,7 +23,8 @@ struct AnyError::Impl {
         if (payload.hasValue()) {
             const Type* type = payloadType.value();
             type->destroyObject(payload.value());
-            alloc.freeAlignedArray(static_cast<uint8_t*>(payload.value()), type->sizeType, type->alignType);
+            alloc.freeAlignedArray(static_cast<uint8_t*>(payload.value()), type->sizeType,
+                                   type->alignType);
         }
     }
 };
@@ -52,7 +53,8 @@ Result<AnyError, AllocErr> sy::AnyError::init(Allocator alloc, StringSlice messa
 
     void* payloadMem = nullptr;
     if (!nullPayload) {
-        auto payloadRes = alloc.allocAlignedArray<uint8_t>(payloadType->sizeType, payloadType->alignType);
+        auto payloadRes =
+            alloc.allocAlignedArray<uint8_t>(payloadType->sizeType, payloadType->alignType);
         if (payloadRes.hasErr()) {
             alloc.freeObject(implRes.value());
             strRes.value().destroy(alloc);
@@ -78,13 +80,15 @@ Result<AnyError, AllocErr> sy::AnyError::init(Allocator alloc, StringSlice messa
     return e;
 }
 
-AnyError::AnyError(Allocator alloc, StringSlice message, void* payload, const Type* payloadType) noexcept {
+AnyError::AnyError(Allocator alloc, StringSlice message, void* payload,
+                   const Type* payloadType) noexcept {
     AnyError err = AnyError::init(alloc, message, payload, payloadType).takeValue();
     this->impl_ = err.impl_;
     err.impl_ = nullptr;
 }
 
-Result<AnyError, AllocErr> sy::AnyError::initCause(AnyError cause, StringSlice message, void* payload,
+Result<AnyError, AllocErr> sy::AnyError::initCause(AnyError cause, StringSlice message,
+                                                   void* payload,
                                                    const Type* payloadType) noexcept {
     sy_assert(cause.impl_ != nullptr, "Expected valid cause");
 
@@ -96,7 +100,8 @@ Result<AnyError, AllocErr> sy::AnyError::initCause(AnyError cause, StringSlice m
     return errRes;
 }
 
-AnyError::AnyError(AnyError cause, StringSlice message, void* payload, const Type* payloadType) noexcept {
+AnyError::AnyError(AnyError cause, StringSlice message, void* payload,
+                   const Type* payloadType) noexcept {
     AnyError err = AnyError::initCause(std::move(cause), message, payload, payloadType).takeValue();
     this->impl_ = err.impl_;
     err.impl_ = nullptr;
@@ -189,7 +194,9 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
     return e;
 }
 
-AnyError::AnyError(const AnyError& other) noexcept { new (this) AnyError(other.clone().takeValue()); }
+AnyError::AnyError(const AnyError& other) noexcept {
+    new (this) AnyError(other.clone().takeValue());
+}
 
 AnyError& sy::AnyError::operator=(const AnyError& other) noexcept {
     if (this == &other)
@@ -266,7 +273,9 @@ struct Example {
     int a;
 };
 
-Result<void, ProgramError> fallibleCopyExample(FunctionHandler) { return Error(ProgramError::Unknown); }
+Result<void, ProgramError> fallibleCopyExample(FunctionHandler) {
+    return Error(ProgramError::Unknown);
+}
 
 const Type* exampleGoodType = Type::makeType<Example>("Example", Type::Tag::Int, {});
 
@@ -285,6 +294,8 @@ const Type* makeExampleFallibleType() {
                                 {},
                                 {},
                                 {},
+                                {},
+                                {},
                                 Type::Tag::Reference,
                                 constRefExtra,
                                 nullptr,
@@ -298,27 +309,32 @@ const Type* makeExampleFallibleType() {
                               {},
                               {},
                               {},
+                              {},
+                              {},
                               Type::Tag::Reference,
                               mutRefExtra,
                               nullptr,
                               nullptr};
 
     static const Type* copyArgTypes[2] = {&mutRefType, &constRefType};
-    static const RawFunction fallibleCopyFunction = {"fallibleCopyExample",
-                                                     "fallibleCopyExample",
-                                                     nullptr,
-                                                     copyArgTypes,
-                                                     2,
-                                                     SY_FUNCTION_MIN_ALIGN,
-                                                     true,
-                                                     FunctionType::C,
-                                                     reinterpret_cast<const void*>(fallibleCopyExample)};
+    static const RawFunction fallibleCopyFunction = {
+        "fallibleCopyExample",
+        "fallibleCopyExample",
+        nullptr,
+        copyArgTypes,
+        2,
+        SY_FUNCTION_MIN_ALIGN,
+        true,
+        FunctionType::C,
+        reinterpret_cast<const void*>(fallibleCopyExample)};
 
     static Type exampleFallibleType = {sizeof(Example),
                                        static_cast<uint16_t>(alignof(Example)),
                                        "Example",
                                        exampleGoodType->destructor,
                                        &fallibleCopyFunction,
+                                       {},
+                                       {},
                                        {},
                                        {},
                                        {},
@@ -401,7 +417,8 @@ TEST_CASE("[AnyError] init with message and payload") {
     CHECK_EQ(storedPayload->a, 123);
 }
 
-TEST_CASE("[AnyError] init with empty message and payload fallible copy doesn't fail cause not copy") {
+TEST_CASE(
+    "[AnyError] init with empty message and payload fallible copy doesn't fail cause not copy") {
     const Type* fallibleType = makeExampleFallibleType();
     Example payload = {999};
 
@@ -454,7 +471,8 @@ TEST_CASE("[AnyError] initCause with message and payload") {
     AnyError cause = causeResult.takeValue();
 
     Example topPayload = {200};
-    auto result = AnyError::initCause(std::move(cause), "Failed to load user", &topPayload, exampleGoodType);
+    auto result =
+        AnyError::initCause(std::move(cause), "Failed to load user", &topPayload, exampleGoodType);
 
     REQUIRE(result.hasValue());
     AnyError err = result.takeValue();
@@ -474,11 +492,13 @@ TEST_CASE("[AnyError] initCause with nested causes (2 levels deep)") {
     REQUIRE(deepestResult.hasValue());
     AnyError deepest = deepestResult.takeValue();
 
-    auto middleResult = AnyError::initCause(std::move(deepest), "Connection failed", nullptr, nullptr);
+    auto middleResult =
+        AnyError::initCause(std::move(deepest), "Connection failed", nullptr, nullptr);
     REQUIRE(middleResult.hasValue());
     AnyError middle = middleResult.takeValue();
 
-    auto topResult = AnyError::initCause(std::move(middle), "Failed to fetch data", nullptr, nullptr);
+    auto topResult =
+        AnyError::initCause(std::move(middle), "Failed to fetch data", nullptr, nullptr);
     REQUIRE(topResult.hasValue());
     AnyError top = topResult.takeValue();
 
@@ -600,7 +620,8 @@ TEST_CASE("[AnyError] clone with nested causes and payloads") {
     AnyError deep = deepResult.takeValue();
 
     Example topPayload = {222};
-    auto topResult = AnyError::initCause(std::move(deep), "Top error", &topPayload, exampleGoodType);
+    auto topResult =
+        AnyError::initCause(std::move(deep), "Top error", &topPayload, exampleGoodType);
     REQUIRE(topResult.hasValue());
     const AnyError& original = topResult.value();
 
@@ -654,7 +675,8 @@ TEST_CASE("[AnyError] clone fails if nested cause has fallible payload") {
     AnyError cause = causeResult.takeValue();
 
     Example goodPayload = {123};
-    auto topResult = AnyError::initCause(std::move(cause), "Top error", &goodPayload, exampleGoodType);
+    auto topResult =
+        AnyError::initCause(std::move(cause), "Top error", &goodPayload, exampleGoodType);
     REQUIRE(topResult.hasValue());
     const AnyError& original = topResult.value();
 
