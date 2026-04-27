@@ -13,6 +13,9 @@ static_assert(alignof(sy::Allocator::VTable) == alignof(SyAllocatorVTable));
 static_assert(offsetof(sy::Allocator::VTable, allocFn) == offsetof(SyAllocatorVTable, allocFn));
 static_assert(offsetof(sy::Allocator::VTable, freeFn) == offsetof(SyAllocatorVTable, freeFn));
 
+static_assert(SY_ALLOC_ERR_NONE == 0);
+static_assert(static_cast<int>(sy::AllocErr::OutOfMemory) == SY_ALLOC_ERR_OUT_OF_MEMORY);
+
 extern "C" {
 SY_API void* sy_allocator_alloc(SyAllocator* self, size_t len, size_t align) {
     return self->vtable->allocFn(reinterpret_cast<void*>(self->ptr), len, align);
@@ -42,8 +45,9 @@ SyAllocator* const sy_defaultAllocator = &defaultAllocator;
 }
 
 sy::Allocator sy::IAllocator::asAllocator() {
-    static const Allocator::VTable vtable = {reinterpret_cast<Allocator::VTable::alloc_fn>(IAllocator::allocImpl),
-                                             reinterpret_cast<Allocator::VTable::free_fn>(IAllocator::freeImpl)};
+    static const Allocator::VTable vtable = {
+        reinterpret_cast<Allocator::VTable::alloc_fn>(IAllocator::allocImpl),
+        reinterpret_cast<Allocator::VTable::free_fn>(IAllocator::freeImpl)};
     Allocator a;
     a.ptr_ = reinterpret_cast<void*>(this);
     a.vtable_ = &vtable;
@@ -149,7 +153,8 @@ static void customFree(void* self, void* buf, size_t len, size_t align) {
     c->ptr = nullptr;
 }
 
-static SyAllocatorVTable customVTable = {(sy_allocator_alloc_fn)&customAlloc, (sy_allocator_free_fn)&customFree};
+static SyAllocatorVTable customVTable = {(sy_allocator_alloc_fn)&customAlloc,
+                                         (sy_allocator_free_fn)&customFree};
 
 TEST_CASE("C custom allocator") {
     CustomCAllocator obj = {nullptr, false};

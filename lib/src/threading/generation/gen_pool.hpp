@@ -5,15 +5,28 @@
 
 #include "../../core/core.h"
 #include "../../mem/allocator.hpp"
+#include "../../program/program_error.hpp"
 #include "../../types/result/result.hpp"
+#include "../../util/move_and_leak.hpp"
+#include <cstring>
 
 namespace sy {
+class Type;
+class GenPool;
+template <typename T> class GenOwner;
+template <typename T> class GenRef;
+
 namespace internal {
 struct GenTypedPool;
-}
+struct GenPoolImpl;
 
-class Type;
-class RawGenRef;
+SY_API void ensureNoProgramError(int err);
+
+extern "C" {
+extern int sy_gen_pool_add(GenPool* self, void* obj, const sy::Type* objType, void* outGenRef);
+extern int sy_gen_owner_destroy(void* self);
+}
+} // namespace internal
 
 /// Generational reference pool, supporting atomic data access.
 /// Supports two access modes, the first being clone / swap, the second being readonly/readwrite
@@ -34,23 +47,104 @@ class GenPool {
 
     static Result<GenPool, AllocErr> init(Allocator allocator = Allocator()) noexcept;
 
-    Result<RawGenRef, AllocErr> rawAdd(void* obj, const Type* objType) noexcept;
+    template <typename T> Result<GenOwner<T>, AllocErr> add(T obj) noexcept;
 
-  private:
-    struct GenPoolImpl;
-    friend struct internal::GenTypedPool;
-
-    GenPoolImpl* impl_ = nullptr;
-};
-
-class RawGenRef {
-  public:
   private:
     friend struct internal::GenTypedPool;
 
-    void* chunk_;
-    uint32_t objectIndex_;
+    internal::GenPoolImpl* impl_ = nullptr;
 };
+
+template <typename T> class GenOwner {
+    GenOwner() = default;
+
+    GenOwner(GenOwner&& other) noexcept;
+
+    GenOwner& operator=(GenOwner&& other) noexcept;
+
+    ~GenOwner() noexcept;
+
+    GenOwner(const GenOwner& other) = delete;
+
+    GenOwner& operator=(const GenOwner& other) = delete;
+
+    GenRef<T> ref() const noexcept;
+
+  private:
+    friend class GenPool;
+    uint64_t gen_;
+    void* chunk_ = nullptr;
+    uint32_t objectIndex_ = 0;
+};
+
+template <typename T> class GenRef {
+    GenRef() = default;
+    GenRef(const GenRef& other) = default;
+    GenRef& operator=(const GenRef& other) = default;
+    GenRef(GenRef&& other) noexcept = default;
+    GenRef& operator=(GenRef&& other) noexcept = default;
+    ~GenRef() noexcept = default;
+
+  private:
+    template <typename T> friend class GenOwner;
+    uint64_t gen_;
+    const void* chunk_ = nullptr;
+    uint32_t objectIndex_ = 0;
+};
+
+template <typename T> inline Result<GenOwner<T>, AllocErr> GenPool::add(T obj) noexcept {
+    GenOwner<T> ref{};
+    const sy::Type* typeOfObj = sy::Reflect<T>::get();
+
+    const int err = internal::sy_gen_pool_add(this, &obj, typeOfObj, &ref);
+    if (err == 0) {
+        return ref;
+    }
+
+    internal::moveAndLeak(std::move(obj));
+    return Error(static_cast<AllocErr>(err));
+}
+
+template <typename T>
+GenOwner<T>::GenOwner(GenOwner&& other) noexcept
+    : gen_(other.gen_), chunk_(other.chunk_), objectIndex_(other.objectIndex_) {
+    other.gen_ = 0;
+    other.chunk_ = nullptr;
+    other.objectIndex_ = 0;
+}
+
+template <typename T> GenOwner<T>& GenOwner<T>::operator=(GenOwner&& other) noexcept {
+    if (this != &other) {
+        internal::ensureNoProgramError(internal::sy_gen_owner_destroy(static_cast<void*>(this)));
+        this->gen_ = other.gen_;
+        this->chunk_ = other.chunk_;
+        this->objectIndex_ = other.objectIndex_;
+        other.gen_ = 0;
+        other.chunk_ = nullptr;
+        other.objectIndex_ = 0;
+    }
+    return *this;
+}
+
+template <typename T> inline GenOwner<T>::~GenOwner() noexcept {
+    if (this->gen_ == 0) {
+        return;
+    }
+
+    internal::ensureNoProgramError(internal::sy_gen_owner_destroy(static_cast<void*>(this)));
+
+    this->gen_ = 0;
+    this->chunk_ = nullptr;
+    this->objectIndex_ = 0;
+}
+
+template <typename T> inline GenRef<T> GenOwner<T>::ref() const noexcept {
+    GenRef<T> ref{};
+    ref.gen_ = this->gen_;
+    ref.chunk_ = this->chunk_;
+    ref.objectIndex_ = this->objectIndex_;
+    return ref;
+}
 
 } // namespace sy
 

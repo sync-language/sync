@@ -70,15 +70,16 @@ using std::uint8_t;
 // https://github.com/LuaJIT/LuaJIT/blob/e17ee83326f73d2bbfce5750ae8dc592a3b63c27/src/lj_arch.h#L86
 // https://github.com/LuaJIT/LuaJIT/blob/e17ee83326f73d2bbfce5750ae8dc592a3b63c27/src/lj_arch.h#L171
 // https://iter.ca/post/switch-oss/
-#if defined(_GAMING_XBOX) || defined(__EMSCRIPTEN__) || defined(__ORBIS__) || defined(__PROSPERO__) ||                 \
-    defined(__NX__) || defined(NN_NINTENDO_SDK)
+#if defined(_GAMING_XBOX) || defined(__EMSCRIPTEN__) || defined(__ORBIS__) ||                      \
+    defined(__PROSPERO__) || defined(__NX__) || defined(NN_NINTENDO_SDK)
 #define SYNC_NO_PAGES 1
 #endif
 #endif // SYNC_NO_PAGES
 
 #ifndef SYNC_BACKTRACE_SUPPORTED
 #ifndef NDEBUG
-#if defined(_GAMING_XBOX) || defined(__ORBIS__) || defined(__PROSPERO__) || defined(__NX__) || defined(NN_NINTENDO_SDK)
+#if defined(_GAMING_XBOX) || defined(__ORBIS__) || defined(__PROSPERO__) || defined(__NX__) ||     \
+    defined(NN_NINTENDO_SDK)
 // Don't support backtraces (at least in public code)
 #else
 #define SYNC_BACKTRACE_SUPPORTED 1
@@ -90,14 +91,16 @@ using std::uint8_t;
 extern "C" {
 #endif
 
-/// Sets the current fatal error handler for sync. Thread-safety is not guaranteed. The default fatal error handler can
-/// be overridden at compile time if `SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER` is defined.
+/// Sets the current fatal error handler for sync. Thread-safety is not guaranteed. The default
+/// fatal error handler can be overridden at compile time if
+/// `SYNC_CUSTOM_DEFAULT_FATAL_ERROR_HANDLER` is defined.
 /// @param errHandler Non-null function pointer. Is expected to eventually terminate the program.
 /// @warning If `errHandler` is `NULL` the current fatal error handler is invoked.
 SY_API void sy_set_fatal_error_handler(void (*errHandler)(const char* message));
 
-/// Sets the callback to write error messages to. Thread-safety is not guaranteed. The default string error message
-/// writer can be overridden at compile time if `SYNC_CUSTOM_DEFAULT_WRITE_STRING_ERROR` is defined.
+/// Sets the callback to write error messages to. Thread-safety is not guaranteed. The default
+/// string error message writer can be overridden at compile time if
+/// `SYNC_CUSTOM_DEFAULT_WRITE_STRING_ERROR` is defined.
 /// @param writeStrErr Non-null function pointer.
 /// @warning If `writeStrErr` is `NULL` the current fatal error handler is invoked.
 SY_API void sy_set_write_string_error(void (*writeStrErr)(const char* message));

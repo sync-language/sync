@@ -20,7 +20,7 @@ Result<GenTypedPool*, AllocErr> sy::internal::GenTypedPool::init(const Type* typ
     self->type = type;
 
     auto chunkRes = alloc.allocObject<Chunk>();
-    if (poolAllocRes.hasErr()) {
+    if (chunkRes.hasErr()) {
         alloc.freeObject(self);
         return Error(AllocErr::OutOfMemory);
     }
@@ -70,10 +70,10 @@ size_t sy::internal::GenTypedPool::dataAllocationAlign() const noexcept {
     return ALLOC_CACHE_ALIGN;
 }
 
-Result<RawGenRef, AllocErr> sy::internal::GenTypedPool::addObj(void* obj) noexcept {
+Result<SyGenOwner, AllocErr> sy::internal::GenTypedPool::addObj(void* obj) noexcept {
     this->lock.lockExclusive();
 
-    RawGenRef ref;
+    SyGenOwner owner;
 
     for (size_t i = 0; i < chunksLen; i++) {
         Chunk* chunk = this->chunks[i];
@@ -84,15 +84,17 @@ Result<RawGenRef, AllocErr> sy::internal::GenTypedPool::addObj(void* obj) noexce
             uint8_t* data = &chunk->data[static_cast<size_t>(index) * this->type->sizeType];
             memcpy(reinterpret_cast<void*>(data), obj, this->type->sizeType);
 
-            const uint64_t _genCount = chunk->generations[index].fetch_add(1);
-            sy_assert(_genCount < (UINT64_MAX - 1),
+            const uint64_t genCount = chunk->generations[index].fetch_add(1);
+            sy_assert(genCount < (UINT64_MAX - 1),
                       "Generation count exceeded 64 bit integer limit");
-            (void)_genCount;
 
             chunk->hasData[index] = true;
 
-            ref.chunk_ = reinterpret_cast<void*>(chunk);
-            ref.objectIndex_ = index;
+            owner.gen_ = genCount;
+            owner.chunk_ = reinterpret_cast<void*>(chunk);
+            owner.objectIndex_ = index;
+            this->lock.unlockExclusive();
+            return owner;
         }
     }
 
@@ -101,6 +103,7 @@ Result<RawGenRef, AllocErr> sy::internal::GenTypedPool::addObj(void* obj) noexce
     {
         auto chunkRes = this->allocator.allocObject<Chunk>();
         if (chunkRes.hasErr()) {
+            this->lock.unlockExclusive();
             return Error(AllocErr::OutOfMemory);
         }
         Chunk* newChunk = chunkRes.value();
@@ -112,6 +115,7 @@ Result<RawGenRef, AllocErr> sy::internal::GenTypedPool::addObj(void* obj) noexce
                                                        type->sizeType, type->alignType);
         if (chunkDataRes.hasErr()) {
             this->allocator.freeObject(newChunk);
+            this->lock.unlockExclusive();
             return Error(AllocErr::OutOfMemory);
         }
 
@@ -122,16 +126,17 @@ Result<RawGenRef, AllocErr> sy::internal::GenTypedPool::addObj(void* obj) noexce
         uint8_t* data = &newChunk->data[static_cast<size_t>(index) * this->type->sizeType];
         memcpy(reinterpret_cast<void*>(data), obj, this->type->sizeType);
 
-        (void)newChunk->generations[index].fetch_add(1);
+        const uint64_t genCount = newChunk->generations[index].fetch_add(1);
 
         newChunk->hasData[index] = true;
 
-        ref.chunk_ = reinterpret_cast<void*>(newChunk);
-        ref.objectIndex_ = index;
+        owner.gen_ = genCount;
+        owner.chunk_ = reinterpret_cast<void*>(newChunk);
+        owner.objectIndex_ = index;
     }
 
     this->lock.unlockExclusive();
-    return ref;
+    return owner;
 }
 
 Result<void, AllocErr>
@@ -189,4 +194,9 @@ sy::internal::GenTypedPool::Chunk::firstEmptySlot(bool* fromFreedList) const noe
     }
 
     return Option<uint32_t>();
+}
+
+void* sy::internal::GenTypedPool::Chunk::objAt(uint32_t index) {
+    uint8_t* mem = &this->data[static_cast<size_t>(index) * this->typedPoolParent->type->sizeType];
+    return static_cast<void*>(mem);
 }

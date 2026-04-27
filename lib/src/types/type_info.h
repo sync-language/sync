@@ -3,6 +3,7 @@
 #ifndef SY_TYPES_TYPE_H_
 #define SY_TYPES_TYPE_H_
 
+#include "../core/builtin_traits/builtin_traits.h"
 #include "../core/core.h"
 #include "string/string_slice.h"
 
@@ -139,24 +140,13 @@ typedef struct SyType {
     /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported.
     uint16_t alignType;
     SyStringSlice name;
-    /// Can be NULL.
-    const SyFunction* destructor;
-    /// Can be NULL.
-    const SyFunction* copyConstructor;
-    /// Can be NULL.
-    const SyFunction* equality;
-    /// Can be NULL.
-    const SyFunction* hash;
-    /// Can be NULL.
-    const SyFunction* compare;
-    /// Can be NULL.
-    const SyFunction* elementWiseAtomicClone;
-    /// Can be NULL.
-    const SyFunction* elementWiseAtomicMove;
     /// Used as a tagged union with the payload being `extra`.
     SyTypeTag tag;
     /// Used as a tagged union, with the tags being `tag`.
     SyTypeExtraInfo extra;
+    /// Can be NULL.
+    const SyFunction* destructor;
+    const SyBuiltInCoherentTraits* builtinTraits;
     const SyType* constRef;
     const SyType* mutRef;
 } SyType;

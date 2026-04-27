@@ -16,11 +16,20 @@ typedef struct SyAllocatorVTable {
     sy_allocator_free_fn freeFn;
 } SyAllocatorVTable;
 
-/// Should not be copied.
+/// Should not be copied. The default allocator can be dereferenced and used in most places:
+/// ```
+/// *sy_defaultAllocator
+/// ```
 typedef struct SyAllocator {
     void* ptr;
     const SyAllocatorVTable* vtable;
 } SyAllocator;
+
+typedef enum SyAllocErr {
+    /// This NONE variant means no error happened.
+    SY_ALLOC_ERR_NONE = 0,
+    SY_ALLOC_ERR_OUT_OF_MEMORY = 1,
+} SyAllocErr;
 
 #ifdef __cplusplus
 extern "C" {

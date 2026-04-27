@@ -6,6 +6,7 @@
 #include "../../types/hash/map.hpp"
 #include "../../types/option/option.hpp"
 #include "../locks/rwlock.hpp"
+#include "gen_pool.h"
 #include "gen_pool.hpp"
 #include <atomic>
 #include <mutex>
@@ -19,6 +20,15 @@ Swap / clone does not.
 
 namespace sy {
 namespace internal {
+
+struct GenPoolImpl {
+    std::mutex mutex;
+    Allocator allocator;
+    /// The GenTypedPool* value type is allocated, guaranteeing pointer stablility through
+    /// allocating each element.
+    MapUnmanaged<const Type*, internal::GenTypedPool*> typedPools;
+};
+
 struct GenTypedPool {
     struct Chunk {
         GenTypedPool* typedPoolParent = nullptr;
@@ -41,12 +51,14 @@ struct GenTypedPool {
                                                 size_t dataAlign) noexcept;
 
         Option<uint32_t> firstEmptySlot(bool* fromFreedList) const noexcept;
+
+        void* objAt(uint32_t index);
     };
 
     static constexpr size_t MAX_CHUNK_COUNT = 24;
     static constexpr size_t CHUNK_BASE_CAPACITY = 256;
 
-    GenPool::GenPoolImpl* poolOwner;
+    GenPoolImpl* poolOwner;
     RwLock lock;
     Allocator allocator;
     /// Single pointer containing the type this typed pool holds.
@@ -70,17 +82,10 @@ struct GenTypedPool {
     size_t dataAllocationAlign() const noexcept;
 
     /// Takes ownership of the data at `obj`.
-    Result<RawGenRef, AllocErr> addObj(void* obj) noexcept;
+    Result<SyGenOwner, AllocErr> addObj(void* obj) noexcept;
 };
 } // namespace internal
 
-struct GenPool::GenPoolImpl {
-    std::mutex mutex;
-    Allocator allocator;
-    /// The GenTypedPool* value type is allocated, guaranteeing pointer stablility through
-    /// allocating each element.
-    MapUnmanaged<const Type*, internal::GenTypedPool*> typedPools;
-};
 } // namespace sy
 
 #endif // SY_THREADING_GENERATION_GEN_POOL_INTERNAL_HPP_

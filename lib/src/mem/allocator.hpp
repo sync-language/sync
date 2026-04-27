@@ -7,7 +7,7 @@
 #include "../types/result/result.hpp"
 
 namespace sy {
-enum class AllocErr : int { OutOfMemory = 0 };
+enum class AllocErr : int { OutOfMemory = 1 };
 
 class Allocator;
 
@@ -85,7 +85,8 @@ class SY_API Allocator final {
         return ptr;
     }
 
-    template <typename T> Result<T*, AllocErr> allocAlignedArray(size_t len, size_t align) noexcept {
+    template <typename T>
+    Result<T*, AllocErr> allocAlignedArray(size_t len, size_t align) noexcept {
         const size_t actualAlign = alignof(T) > align ? alignof(T) : align;
         T* ptr = reinterpret_cast<T*>(this->allocImpl(sizeof(T) * len, actualAlign));
         if (ptr == nullptr) {
@@ -94,7 +95,9 @@ class SY_API Allocator final {
         return ptr;
     }
 
-    template <typename T> void freeObject(T* obj) noexcept { this->freeImpl(obj, sizeof(T), alignof(T)); }
+    template <typename T> void freeObject(T* obj) noexcept {
+        this->freeImpl(obj, sizeof(T), alignof(T));
+    }
 
     template <typename T> void freeArray(T* obj, size_t len) noexcept {
         this->freeImpl(obj, sizeof(T) * len, alignof(T));

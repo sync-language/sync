@@ -55,20 +55,17 @@ static_assert(offsetof(Type::ExtraInfo::Function, argTypes) ==
               offsetof(SyTypeInfoFunction, argTypes));
 static_assert(offsetof(Type::ExtraInfo::Function, argLen) == offsetof(SyTypeInfoFunction, argLen));
 
-// static_assert(sizeof(Type) == sizeof(SyType));
-// static_assert(alignof(Type) == alignof(SyType));
-// static_assert(offsetof(Type, sizeType) == offsetof(SyType, sizeType));
-// static_assert(offsetof(Type, alignType) == offsetof(SyType, alignType));
-// static_assert(offsetof(Type, name) == offsetof(SyType, name));
-// static_assert(offsetof(Type, destructor) == offsetof(SyType, destructor));
-// static_assert(offsetof(Type, copyConstructor) == offsetof(SyType, copyConstructor));
-// static_assert(offsetof(Type, equality) == offsetof(SyType, equality));
-// static_assert(offsetof(Type, hash) == offsetof(SyType, hash));
-// static_assert(offsetof(Type, compare) == offsetof(SyType, compare));
-// static_assert(offsetof(Type, tag) == offsetof(SyType, tag));
-// static_assert(offsetof(Type, extra) == offsetof(SyType, extra));
-// static_assert(offsetof(Type, constRef) == offsetof(SyType, constRef));
-// static_assert(offsetof(Type, mutRef) == offsetof(SyType, mutRef));
+static_assert(sizeof(Type) == sizeof(SyType));
+static_assert(alignof(Type) == alignof(SyType));
+static_assert(offsetof(Type, sizeType) == offsetof(SyType, sizeType));
+static_assert(offsetof(Type, alignType) == offsetof(SyType, alignType));
+static_assert(offsetof(Type, name) == offsetof(SyType, name));
+static_assert(offsetof(Type, destructor) == offsetof(SyType, destructor));
+static_assert(offsetof(Type, builtinTraits) == offsetof(SyType, builtinTraits));
+static_assert(offsetof(Type, tag) == offsetof(SyType, tag));
+static_assert(offsetof(Type, extra) == offsetof(SyType, extra));
+static_assert(offsetof(Type, constRef) == offsetof(SyType, constRef));
+static_assert(offsetof(Type, mutRef) == offsetof(SyType, mutRef));
 
 const Type* const sy::Type::TYPE_BOOL =
     Type::makeType<bool>("bool", Type::Tag::Bool, Type::ExtraInfo());
