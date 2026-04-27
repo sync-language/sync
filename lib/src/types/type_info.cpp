@@ -72,13 +72,14 @@ const Type* const sy::Type::TYPE_BOOL =
 
 const sy::Type* sy::Reflect<bool>::get() noexcept { return sy::Type::TYPE_BOOL; }
 
-static Function<void(void*)> TYPE_OPAQUE_PTR_DESTRUCTOR = [](void*) {};
+static Function<void(void*)> TYPE_OPAQUE_PTR_DESTRUCTOR = +[](void*) {};
 static const Type TYPE_OPAQUE_PTR_IMPL = sy::Type{sizeof(void*),
                                                   static_cast<uint16_t>(alignof(void*)),
                                                   "ptr",
                                                   Type::Tag::OpaquePointer,
                                                   {},
                                                   &TYPE_OPAQUE_PTR_DESTRUCTOR,
+                                                  nullptr,
                                                   nullptr,
                                                   nullptr};
 const Type* const sy::Type::TYPE_OPAQUE_PTR = &TYPE_OPAQUE_PTR_IMPL;

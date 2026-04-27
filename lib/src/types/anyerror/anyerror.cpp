@@ -305,17 +305,16 @@ const Type* makeExampleFallibleType() {
                               nullptr,
                               nullptr};
 
-    static const Type* copyArgTypes[2] = {&mutRefType, &constRefType};
-    static const RawFunction fallibleCopyFunction = {
-        "fallibleCopyExample",
-        "fallibleCopyExample",
-        nullptr,
-        copyArgTypes,
-        2,
-        SY_FUNCTION_MIN_ALIGN,
-        true,
-        FunctionType::C,
-        reinterpret_cast<const void*>(fallibleCopyExample)};
+    // static const Type* copyArgTypes[2] = {&mutRefType, &constRefType};
+    // static const RawFunction fallibleCopyFunction = {"fallibleCopyExample",
+    //                                                  "fallibleCopyExample",
+    //                                                  nullptr,
+    //                                                  copyArgTypes,
+    //                                                  2,
+    //                                                  SY_FUNCTION_MIN_ALIGN,
+    //                                                  true,
+    //                                                  FunctionType::C,
+    //                                                  reinterpret_cast<void*>(fallibleCopyExample)};
 
     static Function<void(void* dst, const void* src)> cloneFn = fallibleCopyExample;
 

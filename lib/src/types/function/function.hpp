@@ -5,6 +5,7 @@
 
 #include "../../core/core.h"
 #include "../../program/program_error.hpp"
+#include "../reflect_fwd.hpp"
 #include "../result/result.hpp"
 #include "../string/string_slice.hpp"
 #include "../task/task.hpp"
@@ -16,8 +17,6 @@ namespace sy {
 class Type;
 class ProgramRuntimeError;
 class RawFunction;
-
-template <typename T, typename Enable> struct Reflect;
 
 enum class FunctionType : int32_t {
     C = 0,
@@ -109,10 +108,10 @@ class RawFunction {
     /// Both for C functions and script functions. Given `tag` and `info`, the function will be
     /// correctly called. For C functions, this should be a function with the signature of
     /// `Function::c_function_t`.
-    const void* fptr;
+    void* fptr;
     /// Used only for the C++ (probably Rust and Zig) APIs to enable simpler usage. Can be nullptr
     /// most of the time.
-    const void* innerFn = nullptr;
+    void* innerFn = nullptr;
 };
 
 template <typename Sig> class Function;
@@ -124,14 +123,14 @@ template <typename Ret, typename... Args> class Function<Ret(Args...)> {
 
     Function(NormalFn fn) noexcept {
         initRaw();
-        raw_.fptr = reinterpret_cast<const void*>(&infallibleTrampoline);
-        raw_.innerFn = reinterpret_cast<const void*>(fn);
+        raw_.fptr = reinterpret_cast<void*>(&infallibleTrampoline);
+        raw_.innerFn = reinterpret_cast<void*>(fn);
     }
 
     Function(FallibleFn fn) noexcept {
         initRaw();
-        raw_.fptr = reinterpret_cast<const void*>(&fallibleTrampoline);
-        raw_.innerFn = reinterpret_cast<const void*>(fn);
+        raw_.fptr = reinterpret_cast<void*>(&fallibleTrampoline);
+        raw_.innerFn = reinterpret_cast<void*>(fn);
     }
 
     Result<Ret, ProgramError> call(Args... args) const noexcept {

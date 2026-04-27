@@ -592,7 +592,7 @@ TEST_SUITE("C 1 arg no return") {
                                   SY_FUNCTION_MIN_ALIGN,
                                   false,
                                   FunctionType::C,
-                                  reinterpret_cast<const void*>(&simpleFunc1Arg<int32_t, 56>)};
+                                  reinterpret_cast<void*>(&simpleFunc1Arg<int32_t, 56>)};
 
         RawFunction::CallArgs callArgs = func.startCall();
         int32_t arg = 56;

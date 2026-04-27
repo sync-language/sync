@@ -6,6 +6,7 @@
 #include "../../core/core.h"
 #include "../../mem/allocator.hpp"
 #include "../../program/program_error.hpp"
+#include "../../types/reflect_fwd.hpp"
 #include "../../types/result/result.hpp"
 #include "../../util/move_and_leak.hpp"
 #include <cstring>
@@ -21,11 +22,8 @@ struct GenTypedPool;
 struct GenPoolImpl;
 
 SY_API void ensureNoProgramError(int err);
-
-extern "C" {
-extern int sy_gen_pool_add(GenPool* self, void* obj, const sy::Type* objType, void* outGenRef);
-extern int sy_gen_owner_destroy(void* self);
-}
+SY_API int sy_gen_pool_add_impl(GenPool* self, void* obj, const sy::Type* objType, void* outGenRef);
+SY_API int sy_gen_owner_destroy_impl(void* self);
 } // namespace internal
 
 /// Generational reference pool, supporting atomic data access.
@@ -86,7 +84,7 @@ template <typename T> class GenRef {
     ~GenRef() noexcept = default;
 
   private:
-    template <typename T> friend class GenOwner;
+    template <typename U> friend class GenOwner;
     uint64_t gen_;
     const void* chunk_ = nullptr;
     uint32_t objectIndex_ = 0;
@@ -96,7 +94,7 @@ template <typename T> inline Result<GenOwner<T>, AllocErr> GenPool::add(T obj) n
     GenOwner<T> ref{};
     const sy::Type* typeOfObj = sy::Reflect<T>::get();
 
-    const int err = internal::sy_gen_pool_add(this, &obj, typeOfObj, &ref);
+    const int err = internal::sy_gen_pool_add_impl(this, &obj, typeOfObj, &ref);
     if (err == 0) {
         return ref;
     }
@@ -115,7 +113,8 @@ GenOwner<T>::GenOwner(GenOwner&& other) noexcept
 
 template <typename T> GenOwner<T>& GenOwner<T>::operator=(GenOwner&& other) noexcept {
     if (this != &other) {
-        internal::ensureNoProgramError(internal::sy_gen_owner_destroy(static_cast<void*>(this)));
+        internal::ensureNoProgramError(
+            internal::sy_gen_owner_destroy_impl(static_cast<void*>(this)));
         this->gen_ = other.gen_;
         this->chunk_ = other.chunk_;
         this->objectIndex_ = other.objectIndex_;
@@ -131,7 +130,7 @@ template <typename T> inline GenOwner<T>::~GenOwner() noexcept {
         return;
     }
 
-    internal::ensureNoProgramError(internal::sy_gen_owner_destroy(static_cast<void*>(this)));
+    internal::ensureNoProgramError(internal::sy_gen_owner_destroy_impl(static_cast<void*>(this)));
 
     this->gen_ = 0;
     this->chunk_ = nullptr;

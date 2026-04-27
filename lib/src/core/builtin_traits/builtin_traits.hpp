@@ -19,7 +19,7 @@ struct BuiltInCoherentTraits {
     Option<const Function<void(void* dst, void* src)>*> elementWiseAtomicMove;
 
     template <typename T> static const Function<void(void* dst, const void* src)>* makeClone() {
-        static Function<void(void* dst, const void* src)> func = [](void* dst, const void* src) {
+        static Function<void(void* dst, const void* src)> func = +[](void* dst, const void* src) {
             T* tDst = reinterpret_cast<T*>(dst);
             const T* tSrc = reinterpret_cast<const T*>(src);
             new (tDst) T(*tSrc);
@@ -29,8 +29,8 @@ struct BuiltInCoherentTraits {
 
     template <typename T>
     static const Function<bool(const void* lhs, const void* rhs)>* makeEqualityFunction() {
-        static Function<bool(const void* lhs, const void* rhs)> func = [](const void* lhs,
-                                                                          const void* rhs) -> bool {
+        static Function<bool(const void* lhs, const void* rhs)> func =
+            +[](const void* lhs, const void* rhs) -> bool {
             const T* tLhs = reinterpret_cast<const T*>(lhs);
             const T* tRhs = reinterpret_cast<const T*>(rhs);
             return *tLhs == *tRhs;
@@ -39,7 +39,7 @@ struct BuiltInCoherentTraits {
     }
 
     template <typename T> static const Function<size_t(const void* obj)>* makeHashFunction() {
-        static Function<size_t(const void* obj)> func = [](const void* obj) -> size_t {
+        static Function<size_t(const void* obj)> func = +[](const void* obj) -> size_t {
             const T* tObj = reinterpret_cast<const T*>(obj);
             std::hash<T> h;
             return h(*tObj);
@@ -50,7 +50,7 @@ struct BuiltInCoherentTraits {
     template <typename T>
     static Function<Ordering(const void* lhs, const void* rhs)>* makeCompareFunction() {
         static Function<Ordering(const void* lhs, const void* rhs)> func =
-            [](const void* lhs, const void* rhs) -> Ordering {
+            +[](const void* lhs, const void* rhs) -> Ordering {
             const T* tLhs = reinterpret_cast<const T*>(lhs);
             const T* tRhs = reinterpret_cast<const T*>(rhs);
             bool equal = (*tLhs) == (*tRhs);

@@ -9,6 +9,7 @@
 #include "function/function.hpp"
 #include "option/option.hpp"
 #include "ordering/ordering.hpp"
+#include "reflect_fwd.hpp"
 #include "string/string_slice.hpp"
 #include <new>
 #include <type_traits>
@@ -138,7 +139,7 @@ class SY_API Type {
                                      reinterpret_cast<const void*>(src));
     }
 
-    template <typename T> bool equalObj(const T* lhs, const T* rhs) const {
+    template <typename T> Result<bool, ProgramError> equalObj(const T* lhs, const T* rhs) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -146,14 +147,15 @@ class SY_API Type {
                                       reinterpret_cast<const void*>(rhs));
     }
 
-    template <typename T> size_t hashObj(const T* obj) const {
+    template <typename T> Result<size_t, ProgramError> hashObj(const T* obj) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
         return this->hashObjectImpl(reinterpret_cast<const void*>(obj));
     }
 
-    template <typename T> sy::Ordering compareObj(const T* lhs, const T* rhs) const {
+    template <typename T>
+    Result<Ordering, ProgramError> compareObj(const T* lhs, const T* rhs) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -165,8 +167,8 @@ class SY_API Type {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
-        return this->atomicCloneObjImpl(reinterpret_cast<void*>(dst),
-                                        reinterpret_cast<const void*>(src));
+        return this->elementWiseAtomicCloneObjImpl(reinterpret_cast<void*>(dst),
+                                                   reinterpret_cast<const void*>(src));
     }
 
     template <typename T>
@@ -175,7 +177,7 @@ class SY_API Type {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
         return this->elementWiseAtomicMoveObjImpl(reinterpret_cast<void*>(dst),
-                                                  reinterpret_cast<const void*>(src));
+                                                  reinterpret_cast<void*>(src));
     }
 
     static const Type* const TYPE_BOOL;
@@ -201,7 +203,7 @@ class SY_API Type {
 
   private:
     template <typename T> static Function<void(void*)>* makeDestructor() {
-        static Function<void(void*)> func = [](void* obj) {
+        static Function<void(void*)> func = +[](void* obj) {
             T* tObj = reinterpret_cast<T*>(obj);
             tObj->~T();
         };
@@ -289,13 +291,6 @@ class SY_API Type {
     Result<Ordering, ProgramError> compareObjectImpl(const void* self, const void* other) const;
     Result<void, ProgramError> elementWiseAtomicCloneObjImpl(void* dst, const void* src) const;
     Result<void, ProgramError> elementWiseAtomicMoveObjImpl(void* dst, void* src) const;
-};
-
-template <typename T, typename Enable = void> struct Reflect {
-    static const Type* get() noexcept {
-        static_assert(sizeof(T) == 0, "sy::Reflect must be specialized for this type");
-        return nullptr;
-    }
 };
 
 template <> struct SY_API Reflect<bool> {

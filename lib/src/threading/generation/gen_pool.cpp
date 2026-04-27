@@ -146,3 +146,14 @@ SY_API void sy::internal::ensureNoProgramError(int err) {
     sy_assert(err == 0, "Destructor should't have failed especially with C++ templates");
     (void)err;
 }
+
+SY_API int sy_gen_pool_add_impl(GenPool* self, void* obj, const sy::Type* objType,
+                                void* outGenRef) {
+    return static_cast<int>(sy_gen_pool_add(reinterpret_cast<SyGenPool*>(self), obj,
+                                            reinterpret_cast<const SyType*>(objType),
+                                            reinterpret_cast<SyGenOwner*>(outGenRef)));
+}
+
+SY_API int sy_gen_owner_destroy_impl(void* self) {
+    return static_cast<int>(sy_gen_owner_destroy(reinterpret_cast<SyGenOwner*>(self)));
+}
