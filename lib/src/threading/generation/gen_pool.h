@@ -22,7 +22,7 @@ typedef struct SyGenRef {
     /// PRIVATE: Internal only, not ABI stable.
     uint64_t gen_;
     /// PRIVATE: Internal only, not ABI stable.
-    const void* chunk_;
+    void* chunk_;
     /// PRIVATE: Internal only, not ABI stable.
     uint32_t objectIndex_;
 } SyGenRef;
@@ -41,9 +41,19 @@ SY_API SyAllocErr sy_gen_pool_init(SyAllocator allocator, SyGenPool* outGenPool)
 SY_API SyAllocErr sy_gen_pool_add(SyGenPool* self, void* obj, const SyType* objType,
                                   SyGenOwner* outGenOwner);
 
+SY_API void sy_gen_pool_destroy(SyGenPool* self);
+
 SY_API SyProgramError sy_gen_owner_destroy(SyGenOwner* self);
 
-SY_API SyGenRef sy_gen_owner_ref(const SyGenOwner* self);
+SY_API SyProgramError sy_gen_owner_load(const SyGenOwner* self, void* outObj);
+
+SY_API SyProgramError sy_gen_owner_store(SyGenOwner* self, void* obj);
+
+SY_API SyGenRef sy_gen_owner_ref(SyGenOwner* self);
+
+SY_API SyProgramError sy_gen_ref_load(const SyGenRef* self, void* outObj);
+
+SY_API SyProgramError sy_gen_ref_store(SyGenRef* self, void* obj);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -24,6 +24,10 @@ struct GenPoolImpl;
 SY_API void ensureNoProgramError(int err);
 SY_API int sy_gen_pool_add_impl(GenPool* self, void* obj, const sy::Type* objType, void* outGenRef);
 SY_API int sy_gen_owner_destroy_impl(void* self);
+SY_API int sy_gen_owner_load_impl(void* self, void* outObj);
+SY_API int sy_gen_ref_load_impl(void* self, void* outObj);
+SY_API int sy_gen_owner_store_impl(void* self, void* obj);
+SY_API int sy_gen_ref_store_impl(void* self, void* obj);
 } // namespace internal
 
 /// Generational reference pool, supporting atomic data access.
@@ -54,6 +58,7 @@ class GenPool {
 };
 
 template <typename T> class GenOwner {
+  public:
     GenOwner() = default;
 
     GenOwner(GenOwner&& other) noexcept;
@@ -66,7 +71,11 @@ template <typename T> class GenOwner {
 
     GenOwner& operator=(const GenOwner& other) = delete;
 
-    GenRef<T> ref() const noexcept;
+    Result<T, ProgramError> load() const noexcept;
+
+    Result<void, ProgramError> store(T obj) noexcept;
+
+    GenRef<T> ref() noexcept;
 
   private:
     friend class GenPool;
@@ -75,7 +84,11 @@ template <typename T> class GenOwner {
     uint32_t objectIndex_ = 0;
 };
 
+/// Explicitly read-only to prevent TOCTOU races for the generational reference while keeping it
+/// lock free. Kinda unavoidable.
+/// @tparam T
 template <typename T> class GenRef {
+  public:
     GenRef() = default;
     GenRef(const GenRef& other) = default;
     GenRef& operator=(const GenRef& other) = default;
@@ -83,10 +96,14 @@ template <typename T> class GenRef {
     GenRef& operator=(GenRef&& other) noexcept = default;
     ~GenRef() noexcept = default;
 
+    Result<T, ProgramError> load() const noexcept;
+
+    Result<void, ProgramError> store(T obj) noexcept;
+
   private:
     template <typename U> friend class GenOwner;
     uint64_t gen_;
-    const void* chunk_ = nullptr;
+    void* chunk_ = nullptr;
     uint32_t objectIndex_ = 0;
 };
 
@@ -137,12 +154,52 @@ template <typename T> inline GenOwner<T>::~GenOwner() noexcept {
     this->objectIndex_ = 0;
 }
 
-template <typename T> inline GenRef<T> GenOwner<T>::ref() const noexcept {
+template <typename T> inline Result<T, ProgramError> GenOwner<T>::load() const noexcept {
+    T out{};
+    const int err = internal::sy_gen_owner_load_impl(this, &out);
+    if (err == 0) {
+        return out;
+    }
+
+    return Error(static_cast<ProgramError>(err));
+}
+
+template <typename T> inline Result<void, ProgramError> GenOwner<T>::store(T obj) noexcept {
+    const int err = internal::sy_gen_owner_store_impl(this, &obj);
+    if (err == 0) {
+        return {};
+    }
+
+    internal::moveAndLeak(std::move(obj));
+    return Error(static_cast<ProgramError>(err));
+}
+
+template <typename T> inline GenRef<T> GenOwner<T>::ref() noexcept {
     GenRef<T> ref{};
     ref.gen_ = this->gen_;
     ref.chunk_ = this->chunk_;
     ref.objectIndex_ = this->objectIndex_;
     return ref;
+}
+
+template <typename T> inline Result<T, ProgramError> GenRef<T>::load() const noexcept {
+    T out{};
+    const int err = internal::sy_gen_ref_load_impl(this, &out);
+    if (err == 0) {
+        return out;
+    }
+
+    return Error(static_cast<ProgramError>(err));
+}
+
+template <typename T> inline Result<void, ProgramError> GenRef<T>::store(T obj) noexcept {
+    const int err = internal::sy_gen_ref_store_impl(this, &obj);
+    if (err == 0) {
+        return {};
+    }
+
+    internal::moveAndLeak(std::move(obj));
+    return Error(static_cast<ProgramError>(err));
 }
 
 } // namespace sy

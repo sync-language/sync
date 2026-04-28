@@ -51,6 +51,7 @@ static_assert(static_cast<int>(ProgramError::CompileSelfImport) ==
 static_assert(static_cast<int>(ProgramError::CompileUnknownType) ==
               SY_PROGRAM_ERROR_COMPILE_UNKNOWN_TYPE);
 static_assert(static_cast<int>(ProgramError::BufferTooSmall) == SY_PROGRAM_ERROR_BUFFER_TOO_SMALL);
+static_assert(static_cast<int>(ProgramError::GenRefStale) == SY_PROGRAM_ERROR_GEN_REF_STALE);
 
 sy::CallStack::CallStack(const RawFunction* const* inFunctions, size_t inLen)
     : _functions(inFunctions), _len(inLen) {

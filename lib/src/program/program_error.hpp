@@ -50,6 +50,7 @@ enum class ProgramError : int {
     CompileSelfImport = 19,
     CompileUnknownType = 20,
     BufferTooSmall = 21,
+    GenRefStale = 22,
 };
 
 using ProgramErrorReporter = void (*)(ProgramError errKind, const SourceFileLocation& where,

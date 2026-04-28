@@ -36,6 +36,8 @@ struct GenTypedPool {
         uint8_t* data = nullptr;
         /// Array of generation counts. Each index corresponds to a range of `data`.
         std::atomic<uint64_t>* generations = nullptr;
+        /// Array of seqlock counters. Each index corresponds to a range of `data`.
+        std::atomic<uint64_t>* seqlocks = nullptr;
         /// Array to track if a specific index actually has data. Only needs to be read/write when
         /// creating / destroying an entry or iterating. Is different than the generation count, as
         /// that will always increment on create / destroy.

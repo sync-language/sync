@@ -89,8 +89,9 @@ Result<SyGenOwner, AllocErr> sy::internal::GenTypedPool::addObj(void* obj) noexc
                       "Generation count exceeded 64 bit integer limit");
 
             chunk->hasData[index] = true;
+            chunk->seqlocks[index].store(0, std::memory_order_relaxed);
 
-            owner.gen_ = genCount;
+            owner.gen_ = genCount + 1;
             owner.chunk_ = reinterpret_cast<void*>(chunk);
             owner.objectIndex_ = index;
             this->lock.unlockExclusive();
@@ -99,6 +100,8 @@ Result<SyGenOwner, AllocErr> sy::internal::GenTypedPool::addObj(void* obj) noexc
     }
 
     sy_assert((this->chunksLen + 1) < MAX_CHUNK_COUNT, "Too many chunks");
+
+    // TODO deallocate the new pool if any allocations fails?
 
     {
         auto chunkRes = this->allocator.allocObject<Chunk>();
@@ -130,7 +133,7 @@ Result<SyGenOwner, AllocErr> sy::internal::GenTypedPool::addObj(void* obj) noexc
 
         newChunk->hasData[index] = true;
 
-        owner.gen_ = genCount;
+        owner.gen_ = genCount + 1;
         owner.chunk_ = reinterpret_cast<void*>(newChunk);
         owner.objectIndex_ = index;
     }
@@ -157,16 +160,28 @@ sy::internal::GenTypedPool::Chunk::allocateCapacity(Allocator alloc, size_t inCa
     }
     this->generations = generationsRes.value();
 
+    auto seqlocksRes = alloc.allocAlignedArray<std::atomic<uint64_t>>(inCapacity, dataAlign);
+    if (seqlocksRes.hasErr()) {
+        alloc.freeAlignedArray(this->data, dataSize * inCapacity, dataAlign);
+        alloc.freeAlignedArray(this->generations, inCapacity, dataAlign);
+        return Error(AllocErr::OutOfMemory);
+    }
+    this->seqlocks = seqlocksRes.value();
+
     auto hasDataRes = alloc.allocAlignedArray<bool>(inCapacity, dataAlign);
     if (hasDataRes.hasErr()) {
         alloc.freeAlignedArray(this->data, dataSize * inCapacity, dataAlign);
         alloc.freeAlignedArray(this->generations, inCapacity, dataAlign);
+        alloc.freeAlignedArray(this->seqlocks, inCapacity, dataAlign);
         return Error(AllocErr::OutOfMemory);
     }
     this->hasData = hasDataRes.value();
 
     for (size_t i = 0; i < inCapacity; i++) {
         this->generations[i].store(0, std::memory_order_relaxed);
+    }
+    for (size_t i = 0; i < inCapacity; i++) {
+        this->seqlocks[i].store(0, std::memory_order_relaxed);
     }
     for (size_t i = 0; i < inCapacity; i++) {
         this->hasData[i] = false;
