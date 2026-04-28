@@ -19,7 +19,7 @@ template <typename T> void moveAndLeak(T&& objToLeak) {
     static_assert(!std::is_lvalue_reference_v<U>,
                   "moveAndLeak requires an rvalue, so wrap with std::move(...)");
     alignas(U) uint8_t buf[sizeof(U)];
-    (void)::new (static_cast<void*>(buf)) U(std::move(objToLeak));
+    (void)::new (static_cast<void*>(buf)) U(std::forward(objToLeak));
 }
 } // namespace internal
 } // namespace sy
