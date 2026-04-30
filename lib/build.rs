@@ -23,6 +23,7 @@ fn main() {
         .file("src/threading/generation/gen_pool_internal.cpp")
         .file("src/types/type_info.cpp")
         .file("src/types/function/function.cpp")
+        .file("src/types/string/string_internal.cpp")
         .file("src/types/string/string_slice.cpp")
         .file("src/types/string/string.cpp")
         .file("src/types/string/atomic_string.cpp")

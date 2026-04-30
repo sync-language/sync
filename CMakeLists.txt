@@ -54,6 +54,7 @@ set(SYNC_LIB_SOURCES
     "lib/src/threading/generation/gen_pool_internal.cpp"
     "lib/src/types/type_info.cpp"
     "lib/src/types/function/function.cpp"
+    "lib/src/types/string/string_internal.cpp"
     "lib/src/types/string/string_slice.cpp"
     "lib/src/types/string/string.cpp"
     "lib/src/types/sync_obj/sync_obj.cpp"

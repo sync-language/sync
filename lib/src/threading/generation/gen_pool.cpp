@@ -145,16 +145,20 @@ SY_API SyProgramError sy_gen_owner_destroy(SyGenOwner* self) {
         return SY_PROGRAM_ERROR_GEN_REF_STALE;
     }
 
-    auto res = chunk->typedPoolParent->type->destroyObject(chunk->objAt(self->objectIndex_));
-    if (res.hasErr()) {
-        // TODO unconditionally invalidate self if destructor fails?
-        // probably to prevent calling again, and have the interpreter just indiscriminately free
-        // memory.
-        self->gen_ = 0;
-        self->chunk_ = nullptr;
-        self->objectIndex_ = 0;
-        chunk->typedPoolParent->lock.unlockExclusive();
-        return static_cast<SyProgramError>(res.err());
+    if (chunk->typedPoolParent->type->builtinTraits->elementWiseAtomicDestroy.hasValue()) {
+        auto res =
+            chunk->typedPoolParent->type->builtinTraits->elementWiseAtomicDestroy.value()->call(
+                chunk->objAt(self->objectIndex_));
+        if (res.hasErr()) {
+            // TODO unconditionally invalidate self if destructor fails?
+            // probably to prevent calling again, and have the interpreter just indiscriminately
+            // free memory.
+            self->gen_ = 0;
+            self->chunk_ = nullptr;
+            self->objectIndex_ = 0;
+            chunk->typedPoolParent->lock.unlockExclusive();
+            return static_cast<SyProgramError>(res.err());
+        }
     }
 
     chunk->hasData[self->objectIndex_] = false;

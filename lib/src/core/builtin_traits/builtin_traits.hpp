@@ -15,6 +15,7 @@ struct BuiltInCoherentTraits {
     Option<const Function<bool(const void* lhs, const void* rhs)>*> equal;
     Option<const Function<size_t(const void* obj)>*> hash;
     Option<const Function<Ordering(const void* lhs, const void* rhs)>*> compare;
+    Option<const Function<void(void* self)>*> elementWiseAtomicDestroy;
     Option<const Function<void(void* dst, const void* src)>*> elementWiseAtomicClone;
     Option<const Function<void(void* dst, void* src)>*> elementWiseAtomicMove;
 

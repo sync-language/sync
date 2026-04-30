@@ -1,9 +1,14 @@
 #include "string.h"
 #include "../../core/core_internal.h"
 #include "../../mem/allocator.hpp"
+#include "../../util/move_and_leak.hpp"
 #include "string.hpp"
+#include "string_internal.hpp"
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
+#include <new>
+#include <string_view>
 
 #if defined(__AVX512BW__)
 // _mm512_cmpeq_epi8_mask
@@ -47,13 +52,16 @@ static const SsoBuffer* asSso(const size_t* raw) { return reinterpret_cast<const
 
 static SsoBuffer* asSsoMut(size_t* raw) { return reinterpret_cast<SsoBuffer*>(raw); }
 
-static const AllocBuffer* asAlloc(const size_t* raw) { return reinterpret_cast<const AllocBuffer*>(raw); }
+static const AllocBuffer* asAlloc(const size_t* raw) {
+    return reinterpret_cast<const AllocBuffer*>(raw);
+}
 
 static AllocBuffer* asAllocMut(size_t* raw) { return reinterpret_cast<AllocBuffer*>(raw); }
 
 /// @param inCapacity will be rounded up to the nearest multiple of `STRING_ALLOC_ALIGN`.
 /// @return Non-zeroed memory
-sy::Result<char*, sy::AllocErr> sy::detail::mallocStringBuffer(size_t& inCapacity, sy::Allocator alloc) {
+sy::Result<char*, sy::AllocErr> sy::detail::mallocStringBuffer(size_t& inCapacity,
+                                                               sy::Allocator alloc) {
     const size_t remainder = inCapacity % STRING_ALLOC_ALIGN;
     if (remainder != 0) {
         inCapacity = inCapacity + (STRING_ALLOC_ALIGN - remainder);
@@ -65,9 +73,10 @@ void sy::detail::freeStringBuffer(char* buff, size_t inCapacity, sy::Allocator a
     alloc.freeAlignedArray<char>(buff, inCapacity, STRING_ALLOC_ALIGN);
 }
 
-/// Calling `memset` on the ENTIRE memory allocation could be expensive for massive strings, when setting their values
-/// to zero, as is expected of the SIMD operations on `String`, such as equality comparison. As a result, we only zero
-/// out the last bytes required of the SIMD element that will be read up to.
+/// Calling `memset` on the ENTIRE memory allocation could be expensive for massive strings, when
+/// setting their values to zero, as is expected of the SIMD operations on `String`, such as
+/// equality comparison. As a result, we only zero out the last bytes required of the SIMD element
+/// that will be read up to.
 /// @param buffer
 /// @param untouchedLength
 static void zeroSetLastSIMDElement(char* buffer, const size_t untouchedLength) {
@@ -82,7 +91,8 @@ static void zeroSetLastSIMDElement(char* buffer, const size_t untouchedLength) {
     }
 }
 
-sy::StringUnmanaged sy::detail::StringUtils::makeRaw(char*& buf, size_t length, size_t capacity, sy::Allocator alloc) {
+sy::StringUnmanaged sy::detail::StringUtils::makeRaw(char*& buf, size_t length, size_t capacity,
+                                                     sy::Allocator alloc) {
     StringUnmanaged self;
     self.len_ = length;
 
@@ -105,7 +115,9 @@ sy::StringUnmanaged sy::detail::StringUtils::makeRaw(char*& buf, size_t length, 
     return self;
 }
 
-sy::StringUnmanaged::~StringUnmanaged() noexcept { sy_assert_release(this->isSso(), "StringUnmanaged leaked memory"); }
+sy::StringUnmanaged::~StringUnmanaged() noexcept {
+    sy_assert_release(this->isSso(), "StringUnmanaged leaked memory");
+}
 
 void sy::StringUnmanaged::destroy(Allocator& alloc) noexcept {
     if (this->isSso())
@@ -140,13 +152,14 @@ void sy::StringUnmanaged::moveAssign(StringUnmanaged&& other, Allocator& alloc) 
     other.setSsoFlag();
 }
 
-sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::copyConstruct(const StringUnmanaged& other,
-                                                                                 Allocator& alloc) noexcept {
+sy::Result<sy::StringUnmanaged, sy::AllocErr>
+sy::StringUnmanaged::copyConstruct(const StringUnmanaged& other, Allocator& alloc) noexcept {
     sy::StringUnmanaged self;
     self.len_ = other.len_;
 
     if (other.isSso()) {
-        // This is the same as copying the SSO buffer manually, but with a linear loop, and less copies
+        // This is the same as copying the SSO buffer manually, but with a linear loop, and less
+        // copies
         for (size_t i = 0; i < 3; i++) {
             self.raw_[i] = other.raw_[i];
         }
@@ -186,12 +199,14 @@ sy::Result<void, sy::AllocErr> sy::StringUnmanaged::copyAssign(const StringUnman
             sy::detail::freeStringBuffer(heap->ptr, heap->capacity, alloc);
         }
         // All slices returned by a String object have the same alignment as `alignof(size_t)`.
-        // Furthermore all are at least 3 size_t's wide (even if the slice doesn't extend that long).
+        // Furthermore all are at least 3 size_t's wide (even if the slice doesn't extend that
+        // long).
         const size_t* asSizeTArr = reinterpret_cast<const size_t*>(otherSlice.data());
         for (size_t i = 0; i < 3; i++) {
             this->raw_[i] = asSizeTArr[i];
         }
-        // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting the flag bit
+        // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting
+        // the flag bit
         this->setSsoFlag();
         return {};
     }
@@ -230,8 +245,8 @@ sy::Result<void, sy::AllocErr> sy::StringUnmanaged::copyAssign(const StringUnman
     return {};
 }
 
-sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::copyConstructSlice(const StringSlice& slice,
-                                                                                      Allocator& alloc) noexcept {
+sy::Result<sy::StringUnmanaged, sy::AllocErr>
+sy::StringUnmanaged::copyConstructSlice(const StringSlice& slice, Allocator& alloc) noexcept {
     StringUnmanaged self;
     self.len_ = slice.len();
 
@@ -276,7 +291,8 @@ sy::Result<void, sy::AllocErr> sy::StringUnmanaged::copyAssignSlice(const String
         for (size_t i = 0; i < slice.len(); i++) {
             asSsoMut(this->raw_)->arr[i] = slice[i];
         }
-        // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting the flag bit
+        // We also set the flag to be as sso, as we want to avoid garbage data accidentally setting
+        // the flag bit
         this->setSsoFlag();
         return {};
     }
@@ -315,19 +331,20 @@ sy::Result<void, sy::AllocErr> sy::StringUnmanaged::copyAssignSlice(const String
     return {};
 }
 
-sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::copyConstructCStr(const char* str,
-                                                                                     Allocator& alloc) noexcept {
+sy::Result<sy::StringUnmanaged, sy::AllocErr>
+sy::StringUnmanaged::copyConstructCStr(const char* str, Allocator& alloc) noexcept {
     const size_t len = std::strlen(str);
     return StringUnmanaged::copyConstructSlice(StringSlice(str, len), alloc);
 }
 
-sy::Result<void, sy::AllocErr> sy::StringUnmanaged::copyAssignCStr(const char* str, Allocator& alloc) noexcept {
+sy::Result<void, sy::AllocErr> sy::StringUnmanaged::copyAssignCStr(const char* str,
+                                                                   Allocator& alloc) noexcept {
     const size_t len = std::strlen(str);
     return this->copyAssignSlice(StringSlice(str, len), alloc);
 }
 
-sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::fillConstruct(Allocator& alloc, size_t size,
-                                                                                 char toFill) {
+sy::Result<sy::StringUnmanaged, sy::AllocErr>
+sy::StringUnmanaged::fillConstruct(Allocator& alloc, size_t size, char toFill) {
     StringUnmanaged self;
     self.len_ = size;
 
@@ -358,7 +375,9 @@ sy::Result<sy::StringUnmanaged, sy::AllocErr> sy::StringUnmanaged::fillConstruct
     return self;
 }
 
-sy::StringSlice sy::StringUnmanaged::asSlice() const noexcept { return StringSlice(this->cstr(), this->len_); }
+sy::StringSlice sy::StringUnmanaged::asSlice() const noexcept {
+    return StringSlice(this->cstr(), this->len_);
+}
 
 const char* sy::StringUnmanaged::cstr() const noexcept {
     if (this->isSso()) {
@@ -376,7 +395,8 @@ char* sy::StringUnmanaged::data() noexcept {
 
 size_t sy::StringUnmanaged::hash() const noexcept { return this->asSlice().hash(); }
 
-sy::Result<void, sy::AllocErr> sy::StringUnmanaged::append(StringSlice slice, Allocator alloc) noexcept {
+sy::Result<void, sy::AllocErr> sy::StringUnmanaged::append(StringSlice slice,
+                                                           Allocator alloc) noexcept {
     size_t newCapacity = this->len_ + slice.len() + 1;
     if (!hasEnoughCapacity(newCapacity)) {
         auto res = detail::mallocStringBuffer(newCapacity, alloc);
@@ -440,7 +460,8 @@ sy::Result<sy::String, sy::AllocErr> sy::String::copyConstruct(const String& oth
     return String(result.takeValue(), alloc);
 }
 
-sy::String::String(String&& other) noexcept : inner_(std::move(other.inner_)), alloc_(other.alloc_) {}
+sy::String::String(String&& other) noexcept
+    : inner_(std::move(other.inner_)), alloc_(other.alloc_) {}
 
 sy::String& sy::String::operator=(const String& other) {
     auto res = this->copyAssign(other);
@@ -463,7 +484,8 @@ sy::String::String(const StringSlice& str) {
     new (&this->inner_) StringUnmanaged(std::move(res.takeValue()));
 }
 
-sy::Result<sy::String, sy::AllocErr> sy::String::copyConstructSlice(const StringSlice& str, Allocator alloc) {
+sy::Result<sy::String, sy::AllocErr> sy::String::copyConstructSlice(const StringSlice& str,
+                                                                    Allocator alloc) {
     auto result = StringUnmanaged::copyConstructSlice(str, alloc);
     if (result.hasErr()) {
         return Error(AllocErr::OutOfMemory);
@@ -491,6 +513,212 @@ sy::String& sy::String::operator=(const char* str) {
 
 sy::Result<void, sy::AllocErr> sy::String::append(StringSlice slice) noexcept {
     return this->inner_.append(slice, this->alloc_);
+}
+
+sy::AtomicString::~AtomicString() noexcept {
+    if (this->impl_ == nullptr)
+        return;
+
+    const size_t prevRefCount = this->impl_->refCount.fetch_sub(1);
+    if (prevRefCount == 1) {
+        Allocator alloc = this->impl_->allocator;
+        const size_t totalAllocationSize = this->impl_->allocationSizeFor(this->impl_->len);
+        alloc.freeAlignedArray(
+            reinterpret_cast<uint8_t*>(const_cast<internal::AtomicStringHeader*>(this->impl_)),
+            totalAllocationSize, ALLOC_CACHE_ALIGN);
+    }
+
+    this->impl_ = nullptr;
+}
+
+sy::AtomicString::AtomicString(const AtomicString& other) noexcept {
+    if (other.impl_ == nullptr)
+        return;
+
+    const size_t prevRefCount = other.impl_->refCount.fetch_add(1);
+    sy_assert(prevRefCount < (SIZE_MAX - 1), "ref count too big");
+    (void)prevRefCount;
+    this->impl_ = other.impl_;
+}
+
+sy::AtomicString& sy::AtomicString::operator=(const AtomicString& other) noexcept {
+    if (this != &other) {
+        if (this->impl_ != nullptr) {
+            const size_t prevRefCount = this->impl_->refCount.fetch_sub(1);
+            if (prevRefCount == 1) {
+                Allocator alloc = this->impl_->allocator;
+                const size_t totalAllocationSize = this->impl_->allocationSizeFor(this->impl_->len);
+                alloc.freeAlignedArray(reinterpret_cast<uint8_t*>(
+                                           const_cast<internal::AtomicStringHeader*>(this->impl_)),
+                                       totalAllocationSize, ALLOC_CACHE_ALIGN);
+            }
+        }
+
+        if (other.impl_ == nullptr) {
+            this->impl_ = nullptr;
+        } else {
+            const size_t prevRefCount = other.impl_->refCount.fetch_add(1);
+            sy_assert(prevRefCount < (SIZE_MAX - 1), "ref count too big");
+            (void)prevRefCount;
+            this->impl_ = other.impl_;
+        }
+    }
+
+    return *this;
+}
+
+sy::AtomicString::AtomicString(AtomicString&& other) noexcept : impl_(other.impl_) {
+    other.impl_ = nullptr;
+}
+
+sy::AtomicString& sy::AtomicString::operator=(AtomicString&& other) noexcept {
+    if (this != &other) {
+        if (this->impl_ != nullptr) {
+            const size_t prevRefCount = this->impl_->refCount.fetch_sub(1);
+            if (prevRefCount == 1) {
+                Allocator alloc = this->impl_->allocator;
+                const size_t totalAllocationSize = this->impl_->allocationSizeFor(this->impl_->len);
+                alloc.freeAlignedArray(reinterpret_cast<uint8_t*>(
+                                           const_cast<internal::AtomicStringHeader*>(this->impl_)),
+                                       totalAllocationSize, ALLOC_CACHE_ALIGN);
+            }
+        }
+
+        this->impl_ = other.impl_;
+        other.impl_ = nullptr;
+    }
+
+    return *this;
+}
+
+sy::Result<sy::AtomicString, sy::AllocErr> sy::AtomicString::init(StringSlice str,
+                                                                  Allocator alloc) noexcept {
+    if (str.len() == 0) {
+        return AtomicString();
+    }
+
+    const size_t totalAllocationSize = internal::AtomicStringHeader::allocationSizeFor(str.len());
+
+    auto res = alloc.allocAlignedArray<uint8_t>(totalAllocationSize, ALLOC_CACHE_ALIGN);
+    if (res.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    uint8_t* data = res.value();
+    internal::AtomicStringHeader* header = reinterpret_cast<internal::AtomicStringHeader*>(data);
+    new (header) internal::AtomicStringHeader(alloc);
+
+    // actually copy over the string.
+    memcpy(header->inlineString, str.data(), str.len());
+
+    // zero out the rest, setting null terminator and fun SIMD stuff.
+    const size_t byteStart = internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED + str.len();
+    for (size_t i = byteStart; i < totalAllocationSize; i++) {
+        data[i] = static_cast<uint8_t>('\0');
+    }
+
+    AtomicString out;
+    out.impl_ = header;
+    return out;
+}
+
+sy::AtomicString::AtomicString(StringSlice str, Allocator alloc) noexcept {
+    auto res = AtomicString::init(str, alloc);
+    sy_assert_release(res.hasValue(), "String allocation failed");
+    this->impl_ = res.value().impl_;
+    internal::moveAndLeak(std::move(res));
+}
+
+size_t sy::AtomicString::len() const noexcept {
+    if (this->impl_ == nullptr)
+        return 0;
+
+    return this->impl_->len;
+}
+
+sy::StringSlice sy::AtomicString::asSlice() const noexcept {
+    if (this->impl_ == nullptr)
+        return StringSlice();
+
+    return StringSlice(this->impl_->inlineString, this->impl_->len);
+}
+
+const char* sy::AtomicString::cstr() const noexcept {
+    if (this->impl_ == nullptr)
+        return nullptr;
+
+    return this->impl_->inlineString;
+}
+
+size_t sy::AtomicString::hash() const noexcept {
+    if (this->impl_ == nullptr) {
+        const std::string_view empty = "";
+        return std::hash<std::string_view>{}(empty);
+    }
+
+    if (this->impl_->hasHashStored.load(std::memory_order_acquire)) {
+        return this->impl_->hashCode.load(std::memory_order_relaxed);
+    }
+
+    const size_t hashCode = std::hash<std::string_view>{}(
+        std::string_view(this->impl_->inlineString, this->impl_->len));
+    const_cast<std::atomic<size_t>*>(&this->impl_->hashCode)
+        ->store(hashCode, std::memory_order_relaxed);
+    const_cast<std::atomic<bool>*>(&this->impl_->hasHashStored)
+        ->store(true, std::memory_order_release);
+    return hashCode;
+}
+
+sy::AtomicString::operator std::string_view() const noexcept {
+    StringSlice thisStr = this->asSlice();
+    return std::string_view(thisStr.data(), thisStr.len());
+}
+
+sy::Result<sy::AtomicString, sy::AllocErr>
+sy::AtomicString::concat(StringSlice str) const noexcept {
+    StringSlice thisStr = this->asSlice();
+
+    if ((thisStr.len() + str.len()) == 0) {
+        return AtomicString();
+    }
+
+    if (str.len() == 0) {
+        return *this; // copy construct
+    }
+
+    const size_t totalAllocationSize =
+        internal::AtomicStringHeader::allocationSizeFor(thisStr.len() + str.len());
+
+    auto res =
+        this->impl_->allocator.allocAlignedArray<uint8_t>(totalAllocationSize, ALLOC_CACHE_ALIGN);
+    if (res.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    uint8_t* data = res.value();
+    internal::AtomicStringHeader* header = reinterpret_cast<internal::AtomicStringHeader*>(data);
+    new (header) internal::AtomicStringHeader(this->impl_->allocator);
+
+    // copy over this string data
+    memcpy(header->inlineString, thisStr.data(), thisStr.len());
+    // copy over other string data
+    memcpy(header->inlineString + thisStr.len(), str.data(), str.len());
+
+    // zero out the rest, setting null terminator and fun SIMD stuff.
+    const size_t byteStart =
+        internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED + thisStr.len() + str.len();
+    for (size_t i = byteStart; i < totalAllocationSize; i++) {
+        data[i] = static_cast<uint8_t>('\0');
+    }
+
+    AtomicString out;
+    out.impl_ = header;
+    return out;
+}
+
+std::ostream& sy::operator<<(std::ostream& os, const AtomicString& s) {
+    StringSlice thisStr = s.asSlice();
+    return os.write(thisStr.data(), thisStr.len());
 }
 
 #if SYNC_LIB_WITH_TESTS
@@ -525,12 +753,16 @@ TEST_SUITE("const char* constructor") {
     }
 
     TEST_CASE("massive string") {
-        String s = String("12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012"
+        String s = String("123456789012345678901234567890123456789012345678901234567890123456789012"
+                          "34567890123456789012"
                           "34567890123456789012345678901234567890");
         CHECK_EQ(s.len(), 130);
-        CHECK_EQ(std::strcmp(s.cstr(), "1234567890123456789012345678901234567890123456789012345678901234567890123456789"
-                                       "012345678901234567890123456789012345678901234567890"),
-                 0);
+        CHECK_EQ(
+            std::strcmp(
+                s.cstr(),
+                "1234567890123456789012345678901234567890123456789012345678901234567890123456789"
+                "012345678901234567890123456789012345678901234567890"),
+            0);
     }
 }
 

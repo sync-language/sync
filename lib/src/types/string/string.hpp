@@ -6,7 +6,8 @@
 #include "../../core/core.h"
 #include "../../mem/allocator.hpp"
 #include "string_slice.hpp"
-#include <iostream>
+#include <iosfwd>
+#include <string_view>
 
 namespace sy {
 
@@ -25,8 +26,9 @@ class StringUtils {
 };
 } // namespace detail
 
-/// Dynamic, [Small String Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/)
-/// utf8 string class. It supports using a custom allocator.
+/// Dynamic, [Small String
+/// Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/) utf8 string class.
+/// It supports using a custom allocator.
 class SY_API StringUnmanaged final {
   public:
     StringUnmanaged() = default;
@@ -43,24 +45,27 @@ class SY_API StringUnmanaged final {
 
     StringUnmanaged(const StringUnmanaged&) = delete;
 
-    [[nodiscard]] static Result<StringUnmanaged, AllocErr> copyConstruct(const StringUnmanaged& other,
-                                                                         Allocator& alloc) noexcept;
+    [[nodiscard]] static Result<StringUnmanaged, AllocErr>
+    copyConstruct(const StringUnmanaged& other, Allocator& alloc) noexcept;
 
     StringUnmanaged& operator=(const StringUnmanaged& other) = delete;
 
-    [[nodiscard]] Result<void, AllocErr> copyAssign(const StringUnmanaged& other, Allocator& alloc) noexcept;
+    [[nodiscard]] Result<void, AllocErr> copyAssign(const StringUnmanaged& other,
+                                                    Allocator& alloc) noexcept;
 
-    [[nodiscard]] static Result<StringUnmanaged, AllocErr> copyConstructSlice(const StringSlice& slice,
-                                                                              Allocator& alloc) noexcept;
+    [[nodiscard]] static Result<StringUnmanaged, AllocErr>
+    copyConstructSlice(const StringSlice& slice, Allocator& alloc) noexcept;
 
-    [[nodiscard]] Result<void, AllocErr> copyAssignSlice(const StringSlice& slice, Allocator& alloc) noexcept;
+    [[nodiscard]] Result<void, AllocErr> copyAssignSlice(const StringSlice& slice,
+                                                         Allocator& alloc) noexcept;
 
-    [[nodiscard]] static Result<StringUnmanaged, AllocErr> copyConstructCStr(const char* str,
-                                                                             Allocator& alloc) noexcept;
+    [[nodiscard]] static Result<StringUnmanaged, AllocErr>
+    copyConstructCStr(const char* str, Allocator& alloc) noexcept;
 
     [[nodiscard]] Result<void, AllocErr> copyAssignCStr(const char* str, Allocator& alloc) noexcept;
 
-    [[nodiscard]] static Result<StringUnmanaged, AllocErr> fillConstruct(Allocator& alloc, size_t size, char toFill);
+    [[nodiscard]] static Result<StringUnmanaged, AllocErr> fillConstruct(Allocator& alloc,
+                                                                         size_t size, char toFill);
 
     /// Length in bytes, not utf8 characters or graphemes.
     [[nodiscard]] size_t len() const { return len_; }
@@ -93,9 +98,9 @@ class SY_API StringUnmanaged final {
     size_t raw_[3] = {0};
 };
 
-/// Dynamic, [Small String Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/)
-/// utf8 string class. It is a wrapper around `StringUnmanaged` that uses the default allocator.
-/// Is script compatible.
+/// Dynamic, [Small String
+/// Optimized](https://giodicanio.com/2023/04/26/cpp-small-string-optimization/) utf8 string class.
+/// It is a wrapper around `StringUnmanaged` that uses the default allocator. Is script compatible.
 class SY_API String final {
   public:
     String() = default;
@@ -118,7 +123,8 @@ class SY_API String final {
 
     String(const StringSlice& str);
 
-    [[nodiscard]] static Result<String, AllocErr> copyConstructSlice(const StringSlice& str, Allocator alloc);
+    [[nodiscard]] static Result<String, AllocErr> copyConstructSlice(const StringSlice& str,
+                                                                     Allocator alloc);
 
     String& operator=(const StringSlice& str);
 
@@ -156,6 +162,62 @@ template <> struct hash<sy::StringUnmanaged> {
 };
 template <> struct hash<sy::String> {
     size_t operator()(const sy::String& obj) { return obj.hash(); }
+};
+} // namespace std
+
+namespace sy {
+namespace internal {
+struct AtomicStringHeader;
+}
+
+class SY_API AtomicString {
+  public:
+    AtomicString() = default;
+
+    ~AtomicString() noexcept;
+
+    AtomicString(const AtomicString& other) noexcept;
+
+    AtomicString& operator=(const AtomicString& other) noexcept;
+
+    AtomicString(AtomicString&& other) noexcept;
+
+    AtomicString& operator=(AtomicString&& other) noexcept;
+
+    [[nodiscard]] static Result<AtomicString, AllocErr> init(StringSlice str,
+                                                             Allocator alloc = {}) noexcept;
+
+    /// Prefer calling `String::init()` for error handling correctness, as memory allocation CAN
+    /// fail.
+    /// @param str
+    /// @param alloc
+    [[nodiscard]] AtomicString(StringSlice str, Allocator alloc = {}) noexcept;
+
+    [[nodiscard]] size_t len() const noexcept;
+
+    [[nodiscard]] StringSlice asSlice() const noexcept;
+
+    [[nodiscard]] const char* cstr() const noexcept;
+
+    [[nodiscard]] size_t hash() const noexcept;
+
+    [[nodiscard]] operator StringSlice() const noexcept { return asSlice(); }
+
+    [[nodiscard]] operator std::string_view() const noexcept;
+
+    [[nodiscard]] Result<AtomicString, AllocErr> concat(StringSlice str) const noexcept;
+
+    friend std::ostream& operator<<(std::ostream& os, const AtomicString& s);
+
+  private:
+    friend struct internal::AtomicStringHeader;
+    const internal::AtomicStringHeader* impl_ = nullptr;
+};
+} // namespace sy
+
+namespace std {
+template <> struct hash<sy::AtomicString> {
+    size_t operator()(const sy::AtomicString& obj) { return obj.hash(); }
 };
 } // namespace std
 
