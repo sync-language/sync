@@ -25,7 +25,7 @@ struct alignas(ALLOC_CACHE_ALIGN) SourceTreeNode {
     /// @brief Uses `SourceFileKind` for variant access
     union Element {
         MapUnmanaged<StringSlice, SourceTreeNode*> directory;
-        Option<StringUnmanaged> syncSourceFile;
+        Option<String> syncSourceFile;
         uint8_t otherFile;
 
         Element() noexcept;
@@ -34,14 +34,16 @@ struct alignas(ALLOC_CACHE_ALIGN) SourceTreeNode {
 
     Allocator alloc;
     Option<SourceTreeNode*> parent;
-    StringUnmanaged name;
+    String name;
     SourceFileKind kind;
     Element elem;
 
     ~SourceTreeNode() noexcept;
 
-    static Result<SourceTreeNode*, AllocErr> init(Allocator inAlloc, Option<SourceTreeNode*> inParent,
-                                                  StringSlice inName, SourceFileKind inKind) noexcept;
+    static Result<SourceTreeNode*, AllocErr> init(Allocator inAlloc,
+                                                  Option<SourceTreeNode*> inParent,
+                                                  StringSlice inName,
+                                                  SourceFileKind inKind) noexcept;
 };
 #if defined(_MSC_VER)
 #pragma warning(pop)
@@ -60,7 +62,8 @@ struct SourceTree {
     /// @param absolutePath Absolute path to file, including for "remote" directories
     /// @param kind Whether directory, sync source code file, or other
     /// @return Either the node at that path already in the tree or a new node, or an error.
-    Result<SourceTreeNode*, SourceTreeErr> insert(StringSlice absolutePath, SourceFileKind kind) noexcept;
+    Result<SourceTreeNode*, SourceTreeErr> insert(StringSlice absolutePath,
+                                                  SourceFileKind kind) noexcept;
 };
 } // namespace sy
 

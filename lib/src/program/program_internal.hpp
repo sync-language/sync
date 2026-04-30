@@ -22,30 +22,31 @@ struct InterpreterFunctionScriptInfo {
     uint16_t stackSpaceRequired;
     size_t bytecodeCount;
     const Bytecode* bytecode;
-    /// When this script function is getting unwinded, it will unwind this array of slots in their specific order.
-    /// Valid for [0, `unwindLen`).
+    /// When this script function is getting unwinded, it will unwind this array of slots in their
+    /// specific order. Valid for [0, `unwindLen`).
     const int16_t* unwindSlots;
     /// Length of `unwindSlots`.
     uint16_t unwindLen;
 };
 
 struct ProgramModuleInternal {
-    StringUnmanaged name{};
+    String name{};
     SemVer version{};
     RawFunction* allFunctions = nullptr;
-    StringUnmanaged* allFunctionNames = nullptr;
-    StringUnmanaged* allFunctionQualifiedNames = nullptr;
+    String* allFunctionNames = nullptr;
+    String* allFunctionQualifiedNames = nullptr;
     InterpreterFunctionScriptInfo* allFunctionScriptInfo = nullptr;
     size_t allFunctionsLen = 0;
     Type* allTypes = nullptr;
-    StringUnmanaged* allTypeNames = nullptr;
-    StringUnmanaged* allTypeQualifiedNames = nullptr;
+    String* allTypeNames = nullptr;
+    String* allTypeQualifiedNames = nullptr;
     size_t allTypesLen = 0;
 
     /// Allocates all required memory for future operations, but the allocated
     /// arrays are left in an uninitialized state.
-    static Result<ProgramModuleInternal*, AllocErr> init(Allocator protAlloc, StringSlice name, SemVer version,
-                                                         size_t functionCount, size_t structCount);
+    static Result<ProgramModuleInternal*, AllocErr> init(Allocator protAlloc, StringSlice name,
+                                                         SemVer version, size_t functionCount,
+                                                         size_t structCount);
 
     Option<const RawFunction*> getFunctionByQualifiedName(StringSlice qualifiedName) const noexcept;
 };

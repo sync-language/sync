@@ -20,21 +20,31 @@ sy::Expression::~Expression() noexcept {
     }
 }
 
-static Result<size_t, AllocErr> getOrMakeDstVarIndex(StringSlice partial, DynArray<StackVariable>* variables,
-                                                     Option<size_t> dstVarIndex, Allocator alloc) noexcept {
+static Result<size_t, AllocErr> getOrMakeDstVarIndex(StringSlice partial,
+                                                     DynArray<StackVariable>* variables,
+                                                     Option<size_t> dstVarIndex,
+                                                     Allocator alloc) noexcept {
     if (dstVarIndex.hasValue()) {
         return dstVarIndex.value();
     }
 
-    // will use SSO, so won't fail
-    String tempName = String::copyConstructSlice("%", alloc).takeValue();
-    if (tempName.append(partial).hasErr()) {
+    auto tempRes = String::init("%", alloc);
+    if (tempRes.hasErr()) {
         return Error(AllocErr::OutOfMemory);
+    }
+
+    String tempName = tempRes.takeValue();
+    if (auto concatRes = tempName.concat(partial); concatRes.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    } else {
+        tempName = concatRes.takeValue();
     }
     char buf[24]{'\0'}; // more than enough
     std::to_chars(buf, buf + sizeof(buf), variables->len());
-    if (tempName.append(StringSlice(buf, std::strlen(buf))).hasErr()) {
+    if (auto concatRes = tempName.concat(StringSlice(buf, std::strlen(buf))); concatRes.hasErr()) {
         return Error(AllocErr::OutOfMemory);
+    } else {
+        tempName = concatRes.takeValue();
     }
 
     StackVariable variable{
@@ -51,7 +61,8 @@ static Result<size_t, AllocErr> getOrMakeDstVarIndex(StringSlice partial, DynArr
     return variables->len() - 1;
 }
 
-Result<Expression, ProgramError> sy::Expression::parse(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+Result<Expression, ProgramError> sy::Expression::parse(ParseInfo* parseInfo,
+                                                       DynArray<StackVariable>* variables,
                                                        Option<size_t> dstVarIndex) noexcept {
     Expression expr{};
 
@@ -59,7 +70,8 @@ Result<Expression, ProgramError> sy::Expression::parse(ParseInfo* parseInfo, Dyn
     case TokenType::TrueKeyword: {
         auto res = getOrMakeDstVarIndex("true", variables, dstVarIndex, parseInfo->alloc);
         if (res.hasErr()) {
-            parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
+            parseInfo->reportErr(ProgramError::OutOfMemory,
+                                 parseInfo->tokenIter.current().location(), "Out of memory");
             return Error(ProgramError::OutOfMemory);
         }
         expr.variableIndex = res.value();
@@ -69,7 +81,8 @@ Result<Expression, ProgramError> sy::Expression::parse(ParseInfo* parseInfo, Dyn
     case TokenType::FalseKeyword: {
         auto res = getOrMakeDstVarIndex("false", variables, dstVarIndex, parseInfo->alloc);
         if (res.hasErr()) {
-            parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
+            parseInfo->reportErr(ProgramError::OutOfMemory,
+                                 parseInfo->tokenIter.current().location(), "Out of memory");
             return Error(ProgramError::OutOfMemory);
         }
         expr.variableIndex = res.value();
@@ -77,8 +90,8 @@ Result<Expression, ProgramError> sy::Expression::parse(ParseInfo* parseInfo, Dyn
         expr.metadata.boolLit = false;
     } break;
     default:
-        parseInfo->reportErr(ProgramError::CompileExpression, parseInfo->tokenIter.current().location(),
-                             "Invalid expression");
+        parseInfo->reportErr(ProgramError::CompileExpression,
+                             parseInfo->tokenIter.current().location(), "Invalid expression");
         return Error(ProgramError::CompileExpression);
     }
 

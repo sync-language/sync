@@ -4,7 +4,7 @@
 
 using namespace sy;
 
-String sy::detail::IBaseParserNode::toString() const { return String(this->alloc_); }
+String sy::detail::IBaseParserNode::toString() const { return String(); }
 
 // force 8 byte alignment
 static constexpr size_t PARSER_NODE_ALIGN = alignof(uint64_t);
@@ -24,18 +24,21 @@ void sy::detail::IBaseParserNode::operator delete(void* self) noexcept {
     if (self == nullptr)
         return;
     IBaseParserNode* actualSelf = reinterpret_cast<IBaseParserNode*>(self);
-    actualSelf->alloc_.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_, PARSER_NODE_ALIGN);
+    actualSelf->alloc_.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_,
+                                        PARSER_NODE_ALIGN);
 }
 
 void sy::detail::IBaseParserNode::operator delete(void* self, Allocator inAlloc) noexcept {
     if (self == nullptr)
         return;
     IBaseParserNode* actualSelf = reinterpret_cast<IBaseParserNode*>(self);
-    inAlloc.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_, PARSER_NODE_ALIGN);
+    inAlloc.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_,
+                             PARSER_NODE_ALIGN);
 }
 
 Result<Option<IFunctionStatement*>, ProgramError>
-IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* variables, Scope* currentScope) {
+IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+                                   Scope* currentScope) {
     const Token token = parseInfo->tokenIter.current();
     switch (token.tag()) {
     case TokenType::RightBraceSymbol: {

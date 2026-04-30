@@ -21,7 +21,7 @@ size_t sy::internal::AtomicStringHeader::allocationSizeFor(size_t stringLength) 
     return sizeof(AtomicStringHeader) + nonInlineStringSize;
 }
 
-void sy::internal::AtomicStringHeader::atomicStringDestroy(AtomicString* self) noexcept {
+void sy::internal::AtomicStringHeader::atomicStringDestroy(String* self) noexcept {
     std::atomic<const internal::AtomicStringHeader*>* atomicImpl =
         const_cast<std::atomic<const internal::AtomicStringHeader*>*>(
             reinterpret_cast<const std::atomic<const internal::AtomicStringHeader*>*>(
@@ -65,8 +65,7 @@ void sy::internal::AtomicStringHeader::atomicStringDestroy(AtomicString* self) n
     }
 }
 
-void sy::internal::AtomicStringHeader::atomicStringClone(AtomicString* out,
-                                                         const AtomicString* src) noexcept {
+void sy::internal::AtomicStringHeader::atomicStringClone(String* out, const String* src) noexcept {
     std::atomic<const internal::AtomicStringHeader*>* atomicSrcImpl =
         const_cast<std::atomic<const internal::AtomicStringHeader*>*>(
             reinterpret_cast<const std::atomic<const internal::AtomicStringHeader*>*>(&src->impl_));
@@ -103,8 +102,8 @@ void sy::internal::AtomicStringHeader::atomicStringClone(AtomicString* out,
     }
 }
 
-void sy::internal::AtomicStringHeader::atomicStringSet(AtomicString* overwrite,
-                                                       const AtomicString* src) noexcept {
+void sy::internal::AtomicStringHeader::atomicStringSet(String* overwrite,
+                                                       const String* src) noexcept {
     std::atomic<const internal::AtomicStringHeader*>* atomicOverwriteImpl =
         const_cast<std::atomic<const internal::AtomicStringHeader*>*>(
             reinterpret_cast<const std::atomic<const internal::AtomicStringHeader*>*>(

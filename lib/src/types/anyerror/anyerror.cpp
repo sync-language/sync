@@ -11,7 +11,7 @@ using namespace sy;
 struct AnyError::Impl {
     Allocator alloc;
     // May be empty
-    StringUnmanaged message{};
+    String message{};
     Option<AnyError> cause{};
     // If has a value, so does `payloadType`
     Option<void*> payload{};
@@ -20,7 +20,6 @@ struct AnyError::Impl {
     // TODO stack trace and source location
 
     ~Impl() noexcept {
-        message.destroy(alloc);
         if (payload.hasValue()) {
             const Type* type = payloadType.value();
             type->destroyObject(payload.value());
@@ -46,7 +45,7 @@ Result<AnyError, AllocErr> sy::AnyError::init(Allocator alloc, StringSlice messa
         return Error(AllocErr::OutOfMemory);
     }
 
-    auto strRes = StringUnmanaged::copyConstructSlice(message, alloc);
+    auto strRes = String::init(message, alloc);
     if (strRes.hasErr()) {
         alloc.freeObject(implRes.value());
         return Error(AllocErr::OutOfMemory);
@@ -58,7 +57,6 @@ Result<AnyError, AllocErr> sy::AnyError::init(Allocator alloc, StringSlice messa
             alloc.allocAlignedArray<uint8_t>(payloadType->sizeType, payloadType->alignType);
         if (payloadRes.hasErr()) {
             alloc.freeObject(implRes.value());
-            strRes.value().destroy(alloc);
             return Error(AllocErr::OutOfMemory);
         }
         payloadMem = payloadRes.value();
@@ -69,7 +67,7 @@ Result<AnyError, AllocErr> sy::AnyError::init(Allocator alloc, StringSlice messa
     new (self) Impl();
     self->alloc = alloc;
     // new (&self->message) StringUnmanaged(strRes.takeValue());
-    self->message.moveAssign(strRes.takeValue(), alloc);
+    self->message = strRes.takeValue();
 
     if (payloadMem) {
         self->payload = payloadMem;
@@ -142,7 +140,7 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
         return Error(ProgramError::OutOfMemory);
     }
 
-    auto strRes = StringUnmanaged::copyConstruct(this->impl_->message, alloc);
+    auto strRes = String::init(this->impl_->message, alloc);
     if (strRes.hasErr()) {
         alloc.freeObject(implRes.value());
         return Error(ProgramError::OutOfMemory);
@@ -153,7 +151,6 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
         auto payloadRes = alloc.allocAlignedArray<uint8_t>(type->sizeType, type->alignType);
         if (payloadRes.hasErr()) {
             alloc.freeObject(implRes.value());
-            strRes.value().destroy(alloc);
             return Error(ProgramError::OutOfMemory);
         }
         payloadMem = payloadRes.value();
@@ -161,7 +158,6 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
         if (copyErr.hasErr()) {
             alloc.freeObject(implRes.value());
             alloc.freeAlignedArray(payloadRes.value(), type->sizeType, type->alignType);
-            strRes.value().destroy(alloc);
             return Error(copyErr.takeErr());
         }
     }
@@ -169,7 +165,7 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
     Impl* newErr = implRes.value();
     new (newErr) Impl();
     newErr->alloc = alloc;
-    new (&newErr->message) StringUnmanaged(strRes.takeValue());
+    new (&newErr->message) String(strRes.takeValue());
 
     if (payloadMem) {
         newErr->payload = payloadMem;

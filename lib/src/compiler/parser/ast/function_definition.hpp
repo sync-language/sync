@@ -16,16 +16,19 @@ class FunctionDefinitionNode : public IFunctionDefinition {
 
     virtual ~FunctionDefinitionNode() noexcept;
 
-    virtual Result<void, ProgramError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept override;
+    virtual Result<void, ProgramError> init(ParseInfo* parseInfo,
+                                            Scope* outerScope) noexcept override;
 
     virtual Result<FunctionBuilder, ProgramError> compile() const noexcept override;
 
     virtual StringSlice unqualifiedName() const noexcept override { return functionName; }
 
-    virtual StringSlice qualifiedName() const noexcept override { return functionQualifiedName.asSlice(); }
+    virtual StringSlice qualifiedName() const noexcept override {
+        return functionQualifiedName.asSlice();
+    }
 
     StringSlice functionName{};
-    StringUnmanaged functionQualifiedName{};
+    String functionQualifiedName{};
     DynArray<StackVariable> args{};
     Option<TypeResolutionInfo> retType{};
     DynArray<StackVariable> localVariables{};

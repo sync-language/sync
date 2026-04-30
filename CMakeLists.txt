@@ -90,7 +90,6 @@ set(SYNC_LIB_SOURCES
     "lib/src/compiler/parser/ast.cpp"
     "lib/src/program/program.cpp"
     "lib/src/program/program_error.cpp"
-    "lib/src/testing/child_process.cpp"
     "lib/src/testing/assert_handler.cpp"
 )
 

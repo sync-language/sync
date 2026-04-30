@@ -28,7 +28,7 @@ struct CompilerImpl {
 
 struct ModuleImpl {
     Allocator alloc;
-    StringUnmanaged name{};
+    String name{};
     SemVer version{};
     SourceTree sourceTree;
     SourceTreeNode* rootFile = nullptr;
@@ -262,19 +262,17 @@ compileModule(const ModuleImpl* mod, Allocator protAlloc, Allocator tempAlloc,
         size_t iter = 0;
         for (const auto astEntry : asts) {
             for (const IFunctionDefinition* func : astEntry.value.nonGenericFunctions) {
-                auto unqualifiedRes =
-                    StringUnmanaged::copyConstructSlice(func->unqualifiedName(), protAlloc);
+                auto unqualifiedRes = String::init(func->unqualifiedName(), protAlloc);
                 if (unqualifiedRes.hasErr())
                     return Error(ProgramError::OutOfMemory);
-                auto qualifiedRes =
-                    StringUnmanaged::copyConstructSlice(func->qualifiedName(), protAlloc);
+                auto qualifiedRes = String::init(func->qualifiedName(), protAlloc);
                 if (qualifiedRes.hasErr())
                     return Error(ProgramError::OutOfMemory);
 
                 new (&moduleInternal->allFunctionNames[iter])
-                    StringUnmanaged(std::move(unqualifiedRes.takeValue()));
+                    String(std::move(unqualifiedRes.takeValue()));
                 new (&moduleInternal->allFunctionQualifiedNames[iter])
-                    StringUnmanaged(std::move(qualifiedRes.takeValue()));
+                    String(std::move(qualifiedRes.takeValue()));
 
                 RawFunction _emptyFunc{};
                 moduleInternal->allFunctions[iter] = _emptyFunc;
@@ -376,9 +374,9 @@ Result<Program, ProgramError> sy::Compiler::compile(ProgramErrorReporter errRepo
     return Error(ProgramError::Unknown);
 }
 
-static Result<StringUnmanaged, ModuleErr> loadFileToString(Allocator& alloc, const fs::path& path) {
+static Result<String, ModuleErr> loadFileToString(Allocator& alloc, const fs::path& path) {
     std::ifstream sourceFile(path);
-    StringUnmanaged contents;
+    String contents;
     if (!sourceFile.is_open()) {
         return Error(ModuleErr::ErrorOpeningSourceFile);
     }
@@ -387,7 +385,7 @@ static Result<StringUnmanaged, ModuleErr> loadFileToString(Allocator& alloc, con
       // go to end
         sourceFile.seekg(0, std::ios::end);
         size_t fileSize = sourceFile.tellg();
-        auto contentResult = StringUnmanaged::fillConstruct(alloc, fileSize, '\0');
+        auto contentResult = String::fillConstruct(alloc, fileSize, '\0');
         if (contentResult.hasErr()) {
             return Error(ModuleErr::OutOfMemory);
         }
@@ -440,7 +438,7 @@ Result<void, ModuleErr> ModuleImpl::setRootFileFromDisk(StringSlice path) noexce
         sy_assert(this->rootFile->elem.syncSourceFile.hasValue() == false,
                   "Should not have contents in root file");
         new (&this->rootFile->elem.syncSourceFile)
-            Option<StringUnmanaged>(std::move(loadResult.takeValue()));
+            Option<String>(std::move(loadResult.takeValue()));
 
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "Filesystem error: " << e.what() << std::endl;
@@ -485,12 +483,12 @@ Result<void, ModuleErr> sy::ModuleImpl::setRootFileFromString(StringSlice absolu
         this->rootFile = treeInsertResult.value();
         sy_assert(this->rootFile->elem.syncSourceFile.hasValue() == false,
                   "Should not have contents in root file");
-        auto loadResult = StringUnmanaged::copyConstructSlice(fileContents, this->alloc);
+        auto loadResult = String::init(fileContents, this->alloc);
         if (loadResult.hasErr()) {
             return Error(ModuleErr::OutOfMemory);
         }
         new (&this->rootFile->elem.syncSourceFile)
-            Option<StringUnmanaged>(std::move(loadResult.takeValue()));
+            Option<String>(std::move(loadResult.takeValue()));
     } catch (const std::bad_alloc& e) {
         (void)e;
         return Error(ModuleErr::OutOfMemory);
@@ -513,7 +511,6 @@ Result<void, ModuleErr> ModuleImpl::addDependency(const Module* module) noexcept
 static void deleteModuleImpl(void* impl) noexcept {
     ModuleImpl* self = reinterpret_cast<ModuleImpl*>(impl);
     Allocator alloc = self->alloc;
-    self->name.destroy(alloc);
     self->~ModuleImpl();
     alloc.freeObject(self);
 }
@@ -585,12 +582,12 @@ Result<Module*, AllocErr> Module::create(Allocator& alloc, StringSlice inName,
         self = selfAllocResult.value();
 
         new (impl) ModuleImpl(alloc);
-        auto nameAllocResult = StringUnmanaged::copyConstructSlice(inName, alloc);
+        auto nameAllocResult = String::init(inName, alloc);
         if (nameAllocResult.hasErr()) {
             alloc.freeObject(impl);
             return Error(AllocErr::OutOfMemory);
         }
-        auto _ = new (&impl->name) StringUnmanaged(std::move(nameAllocResult.takeValue()));
+        auto _ = new (&impl->name) String(std::move(nameAllocResult.takeValue()));
         (void)_;
         impl->version = inVersion;
         new (&impl->sourceTree) SourceTree(alloc);

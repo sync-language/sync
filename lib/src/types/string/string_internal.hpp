@@ -9,7 +9,7 @@
 #include <atomic>
 
 namespace sy {
-class AtomicString;
+class String;
 
 namespace internal {
 struct AtomicStringHeader {
@@ -41,17 +41,17 @@ struct AtomicStringHeader {
 
     ///
     /// @param self
-    static void atomicStringDestroy(AtomicString* self) noexcept;
+    static void atomicStringDestroy(String* self) noexcept;
 
     ///
     /// @param out Assumes empty / stale, to write to the memory
     /// @param src The string to clone into `out` atomically.
-    static void atomicStringClone(AtomicString* out, const AtomicString* src) noexcept;
+    static void atomicStringClone(String* out, const String* src) noexcept;
 
     ///
     /// @param overwrite The string to overwrite. May contain data.
     /// @param src The string to write into `out` atomically.
-    static void atomicStringSet(AtomicString* overwrite, const AtomicString* src) noexcept;
+    static void atomicStringSet(String* overwrite, const String* src) noexcept;
 };
 } // namespace internal
 } // namespace sy

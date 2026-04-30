@@ -117,11 +117,11 @@ sy::ProgramModuleInternal::init(Allocator protAlloc, StringSlice name, SemVer ve
     self = res.value();
     new (self) ProgramModuleInternal();
 
-    auto nameCopyRes = StringUnmanaged::copyConstructSlice(name, protAlloc);
+    auto nameCopyRes = String::init(name, protAlloc);
     if (nameCopyRes.hasErr())
         return Error(AllocErr::OutOfMemory);
 
-    new (&self->name) StringUnmanaged(std::move(nameCopyRes.takeValue()));
+    new (&self->name) String(std::move(nameCopyRes.takeValue()));
     self->version = version;
 
     if (functionCount > 0) {
@@ -129,10 +129,10 @@ sy::ProgramModuleInternal::init(Allocator protAlloc, StringSlice name, SemVer ve
         auto funcMemRes = protAlloc.allocArray<RawFunction>(functionCount);
         if (funcMemRes.hasErr())
             return Error(AllocErr::OutOfMemory);
-        auto funcNameRes = protAlloc.allocArray<StringUnmanaged>(functionCount);
+        auto funcNameRes = protAlloc.allocArray<String>(functionCount);
         if (funcNameRes.hasErr())
             return Error(AllocErr::OutOfMemory);
-        auto funcQualifiedNameRes = protAlloc.allocArray<StringUnmanaged>(functionCount);
+        auto funcQualifiedNameRes = protAlloc.allocArray<String>(functionCount);
         if (funcQualifiedNameRes.hasErr())
             return Error(AllocErr::OutOfMemory);
         auto funcScriptInfoRes = protAlloc.allocArray<InterpreterFunctionScriptInfo>(functionCount);
@@ -150,10 +150,10 @@ sy::ProgramModuleInternal::init(Allocator protAlloc, StringSlice name, SemVer ve
         auto typeMemRes = protAlloc.allocArray<Type>(structCount);
         if (typeMemRes.hasErr())
             return Error(AllocErr::OutOfMemory);
-        auto typeNameRes = protAlloc.allocArray<StringUnmanaged>(structCount);
+        auto typeNameRes = protAlloc.allocArray<String>(structCount);
         if (typeNameRes.hasErr())
             return Error(AllocErr::OutOfMemory);
-        auto typeQualifiedNameRes = protAlloc.allocArray<StringUnmanaged>(structCount);
+        auto typeQualifiedNameRes = protAlloc.allocArray<String>(structCount);
         if (typeQualifiedNameRes.hasErr())
             return Error(AllocErr::OutOfMemory);
 
