@@ -10,6 +10,7 @@
 #include "option/option.hpp"
 #include "ordering/ordering.hpp"
 #include "reflect_fwd.hpp"
+#include "string/string.hpp"
 #include "string/string_slice.hpp"
 #include <new>
 #include <type_traits>
@@ -163,6 +164,13 @@ class SY_API Type {
                                        reinterpret_cast<const void*>(rhs));
     }
 
+    template <typename T> Result<void, ProgramError> elementWiseAtomicDestroyObj(T* dst) const {
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        }
+        return this->elementWiseAtomicDestroyObjImpl(reinterpret_cast<void*>(dst));
+    }
+
     template <typename T> Result<void, ProgramError> atomicCloneObj(T* dst, const T* src) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
@@ -289,6 +297,7 @@ class SY_API Type {
     Result<bool, ProgramError> equalObjectsImpl(const void* self, const void* other) const;
     Result<size_t, ProgramError> hashObjectImpl(const void* self) const;
     Result<Ordering, ProgramError> compareObjectImpl(const void* self, const void* other) const;
+    Result<void, ProgramError> elementWiseAtomicDestroyObjImpl(void* obj) const;
     Result<void, ProgramError> elementWiseAtomicCloneObjImpl(void* dst, const void* src) const;
     Result<void, ProgramError> elementWiseAtomicMoveObjImpl(void* dst, void* src) const;
 };
@@ -310,6 +319,10 @@ template <> struct SY_API Reflect<void*> {
 };
 
 template <> struct SY_API Reflect<const void*> {
+    static const Type* get() noexcept;
+};
+
+template <> struct SY_API Reflect<String> {
     static const Type* get() noexcept;
 };
 

@@ -173,7 +173,11 @@
 namespace sy {
 namespace internal {
 struct AtomicStringHeader;
-}
+struct Test_String;
+struct Test_StringBuilder;
+} // namespace internal
+
+class StringBuilder;
 
 class SY_API String {
   public:
@@ -210,12 +214,21 @@ class SY_API String {
 
     [[nodiscard]] operator std::string_view() const noexcept;
 
+    [[nodiscard]] bool operator==(const String& other) const noexcept;
+
+    [[nodiscard]] bool operator==(StringSlice other) const noexcept;
+
+    friend bool operator==(StringSlice lhs, const String& rhs) noexcept;
+
     [[nodiscard]] Result<String, AllocErr> concat(StringSlice str) const noexcept;
 
     friend std::ostream& operator<<(std::ostream& os, const String& s);
 
   private:
     friend struct internal::AtomicStringHeader;
+    friend class StringBuilder;
+    friend struct internal::Test_String;
+
     const internal::AtomicStringHeader* impl_ = nullptr;
 };
 } // namespace sy
@@ -225,5 +238,43 @@ template <> struct hash<sy::String> {
     size_t operator()(const sy::String& obj) { return obj.hash(); }
 };
 } // namespace std
+
+namespace sy {
+class SY_API StringBuilder {
+  public:
+    StringBuilder() = default;
+
+    ~StringBuilder() noexcept;
+
+    StringBuilder(const StringBuilder& other) noexcept = delete;
+
+    StringBuilder& operator=(const StringBuilder& other) noexcept = delete;
+
+    StringBuilder(StringBuilder&& other) noexcept;
+
+    StringBuilder& operator=(StringBuilder&& other) noexcept;
+
+    [[nodiscard]] static Result<StringBuilder, AllocErr> init(Allocator alloc = {}) noexcept;
+
+    [[nodiscard]] static Result<StringBuilder, AllocErr>
+    initWithCapacity(size_t inCapacity, Allocator alloc = {}) noexcept;
+
+    /// Invalidates `this`.
+    /// @return
+    [[nodiscard]] Result<String, AllocErr> build() noexcept;
+
+    [[nodiscard]] Result<void, AllocErr> write(StringSlice str) noexcept;
+
+  private:
+    friend struct internal::Test_StringBuilder;
+
+    internal::AtomicStringHeader* impl_ = nullptr;
+    /// The total amount of bytes allocated, minus
+    /// `internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED`.
+    /// Meaning the total allocated size is:
+    /// `fullAllocatedCapacity_ + internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED`.
+    size_t fullAllocatedCapacity_ = 0;
+};
+} // namespace sy
 
 #endif // SY_TYPES_STRING_STRING_HPP_

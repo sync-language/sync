@@ -146,9 +146,8 @@ SY_API SyProgramError sy_gen_owner_destroy(SyGenOwner* self) {
     }
 
     if (chunk->typedPoolParent->type->builtinTraits->elementWiseAtomicDestroy.hasValue()) {
-        auto res =
-            chunk->typedPoolParent->type->builtinTraits->elementWiseAtomicDestroy.value()->call(
-                chunk->objAt(self->objectIndex_));
+        auto res = chunk->typedPoolParent->type->elementWiseAtomicDestroyObj(
+            chunk->objAt(self->objectIndex_));
         if (res.hasErr()) {
             // TODO unconditionally invalidate self if destructor fails?
             // probably to prevent calling again, and have the interpreter just indiscriminately

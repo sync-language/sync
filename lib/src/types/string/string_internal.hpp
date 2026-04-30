@@ -28,7 +28,7 @@ struct AtomicStringHeader {
     /// String is immutable so the allocation capacity can be calculated from this.
     /// Does not include null terminator byte.
     size_t len = 0;
-    mutable std::atomic<size_t> refCount = 0;
+    mutable std::atomic<size_t> refCount = 1;
     /// Only valid if `hasHashedStore.load(...) == true`
     mutable Allocator allocator;
     std::atomic<size_t> hashCode = 0;

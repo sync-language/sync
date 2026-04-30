@@ -5,6 +5,7 @@
 #include "function/function.h"
 #include "function/function.hpp"
 #include "string/string.hpp"
+#include "string/string_internal.hpp"
 #include "string/string_slice.hpp"
 #include "type_info.hpp"
 #include <atomic>
@@ -270,6 +271,32 @@ Result<Ordering, ProgramError> sy::Type::compareObjectImpl(const void* self,
     return this->builtinTraits->compare.value()->call(self, other);
 }
 
+Result<void, ProgramError> sy::Type::elementWiseAtomicDestroyObjImpl(void* obj) const {
+    sy_assert(obj != nullptr, "Cannot atomically destroy null object");
+    sy_assert(this->builtinTraits->elementWiseAtomicDestroy.hasValue(),
+              "Cannot do element wise atomic destroy without a function");
+
+    switch (this->tag) {
+    case Tag::Bool:
+    case Tag::Int:
+    case Tag::Float:
+        return {};
+    case Tag::String: {
+        internal::AtomicStringHeader::atomicStringDestroy(reinterpret_cast<String*>(obj));
+    }
+    default:
+        break;
+    }
+
+    sy_assert(this->mutRef != nullptr, "Atomic destroy takes mutable reference");
+    sy_assert(this->mutRef->sizeType == sizeof(void*),
+              "Mutable reference types should be the same size as void*");
+    sy_assert(this->mutRef->alignType == alignof(void*),
+              "Mutable reference types should be the same align as void*");
+
+    return this->builtinTraits->elementWiseAtomicDestroy.value()->call(obj);
+}
+
 template <typename T> static void doAtomicCloneStd(void* dst, const void* src) {
     std::atomic<T>* atomicDst = reinterpret_cast<std::atomic<T>*>(dst);
     const std::atomic<T>* atomicSrc = reinterpret_cast<const std::atomic<T>*>(src);
@@ -328,9 +355,10 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicCloneObjImpl(void* dst,
             doAtomicCloneStd<int64_t>(dst, src);
         }
         return {};
-    // case Tag::String: {
-
-    // }
+    case Tag::String: {
+        internal::AtomicStringHeader::atomicStringClone(reinterpret_cast<String*>(dst),
+                                                        reinterpret_cast<const String*>(src));
+    }
     default:
         break;
     }
@@ -400,10 +428,11 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicMoveObjImpl(void* dst, voi
             doAtomicCloneStd<int64_t>(dst, src);
         }
         return {};
-    // TODO atomic string move
-    // case Tag::String: {
-
-    // }
+    case Tag::String: {
+        internal::AtomicStringHeader::atomicStringSet(
+            reinterpret_cast<String*>(dst),
+            reinterpret_cast<const String*>(const_cast<const void*>(src)));
+    }
     default:
         break;
     }

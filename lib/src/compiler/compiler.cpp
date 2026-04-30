@@ -375,27 +375,32 @@ Result<Program, ProgramError> sy::Compiler::compile(ProgramErrorReporter errRepo
 }
 
 static Result<String, ModuleErr> loadFileToString(Allocator& alloc, const fs::path& path) {
-    std::ifstream sourceFile(path);
-    String contents;
+    // TODO this sucks for so many reasons
+    // File TOCTOU, extra allocations, etc.
+
+    std::ifstream sourceFile(path, std::ios::binary);
     if (!sourceFile.is_open()) {
         return Error(ModuleErr::ErrorOpeningSourceFile);
     }
 
-    { // read file contents
-      // go to end
-        sourceFile.seekg(0, std::ios::end);
-        size_t fileSize = sourceFile.tellg();
-        auto contentResult = String::fillConstruct(alloc, fileSize, '\0');
-        if (contentResult.hasErr()) {
-            return Error(ModuleErr::OutOfMemory);
-        }
+    sourceFile.seekg(0, std::ios::end);
+    const size_t fileSize = sourceFile.tellg();
 
-        new (&contents) StringUnmanaged(std::move(contentResult.takeValue()));
-        sourceFile.seekg(0, std::ios::beg);         // back to beginning to read from
-        sourceFile.read(contents.data(), fileSize); // directly into string
+    auto bufRes = alloc.allocArray<char>(fileSize);
+    if (bufRes.hasErr()) {
+        return Error(ModuleErr::OutOfMemory);
+    }
+    char* buf = bufRes.value();
+    sourceFile.seekg(0, std::ios::beg); // back to beginning to read from
+    sourceFile.read(buf, fileSize);     // directly into string
+
+    auto contentsRes = String::init(StringSlice(buf, fileSize), alloc);
+    if (contentsRes.hasErr()) {
+        alloc.freeArray(buf, fileSize);
+        return Error(ModuleErr::OutOfMemory);
     }
 
-    return contents;
+    return contentsRes.takeValue();
 }
 
 Result<void, ModuleErr> ModuleImpl::setRootFileFromDisk(StringSlice path) noexcept {

@@ -4,11 +4,23 @@
 #include "../../util/move_and_leak.hpp"
 #include "string.hpp"
 #include "string_internal.hpp"
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <new>
 #include <string_view>
+
+static_assert(sizeof(sy::String) == sizeof(SyString));
+static_assert(alignof(sy::String) == alignof(SyString));
+// Must be size and align of a normal and atomic pointer for GenPool stuff
+static_assert(sizeof(sy::String) == sizeof(void*));
+static_assert(alignof(sy::String) == alignof(void*));
+static_assert(sizeof(sy::String) == sizeof(std::atomic<void*>));
+static_assert(alignof(sy::String) == alignof(std::atomic<void*>));
+
+static_assert(sizeof(sy::StringBuilder) == sizeof(SyStringBuilder));
+static_assert(alignof(sy::StringBuilder) == alignof(SyStringBuilder));
 
 // #if defined(__AVX512BW__)
 // // _mm512_cmpeq_epi8_mask
@@ -675,6 +687,23 @@ sy::String::operator std::string_view() const noexcept {
     return std::string_view(thisStr.data(), thisStr.len());
 }
 
+bool sy::String::operator==(const String& other) const noexcept {
+    // TODO simd all of this one
+    if (this->impl_ == other.impl_)
+        return true;
+
+    return this->asSlice() == other.asSlice();
+}
+
+bool sy::String::operator==(StringSlice other) const noexcept { return this->asSlice() == other; }
+
+bool sy::operator==(StringSlice lhs, const String& rhs) noexcept { return lhs == rhs.asSlice(); }
+
+std::ostream& sy::operator<<(std::ostream& os, const String& s) {
+    StringSlice thisStr = s.asSlice();
+    return os.write(thisStr.data(), thisStr.len());
+}
+
 sy::Result<sy::String, sy::AllocErr> sy::String::concat(StringSlice str) const noexcept {
     StringSlice thisStr = this->asSlice();
 
@@ -716,54 +745,310 @@ sy::Result<sy::String, sy::AllocErr> sy::String::concat(StringSlice str) const n
     return out;
 }
 
-std::ostream& sy::operator<<(std::ostream& os, const String& s) {
-    StringSlice thisStr = s.asSlice();
-    return os.write(thisStr.data(), thisStr.len());
+sy::StringBuilder::~StringBuilder() noexcept {
+    if (this->impl_ == nullptr)
+        return;
+
+    Allocator allocator = this->impl_->allocator;
+    allocator.freeAlignedArray(reinterpret_cast<uint8_t*>(this->impl_),
+                               this->fullAllocatedCapacity_ +
+                                   internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED,
+                               ALLOC_CACHE_ALIGN);
+    this->impl_ = nullptr;
 }
 
-#if SYNC_LIB_WITH_TESTS
-
-#include "../../doctest.h"
-
-using sy::String;
-using sy::StringSlice;
-
-TEST_CASE("Default constructor") {
-    String s;
-    CHECK_EQ(s.len(), 0);
+sy::StringBuilder::StringBuilder(StringBuilder&& other) noexcept
+    : impl_(other.impl_), fullAllocatedCapacity_(other.fullAllocatedCapacity_) {
+    other.impl_ = nullptr;
+    other.fullAllocatedCapacity_ = 0;
 }
 
-TEST_SUITE("const char* constructor") {
-    TEST_CASE("small") {
-        String s = String("hello");
-        CHECK_EQ(s.len(), 5);
-        CHECK_EQ(std::strcmp(s.cstr(), "hello"), 0);
+sy::StringBuilder& sy::StringBuilder::operator=(StringBuilder&& other) noexcept {
+    if (this != &other) {
+        if (this->impl_ != nullptr) {
+            Allocator allocator = this->impl_->allocator;
+            allocator.freeAlignedArray(
+                reinterpret_cast<uint8_t*>(this->impl_),
+                this->fullAllocatedCapacity_ +
+                    internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED,
+                ALLOC_CACHE_ALIGN);
+        }
+
+        this->impl_ = other.impl_;
+        this->fullAllocatedCapacity_ = other.fullAllocatedCapacity_;
+        other.impl_ = nullptr;
+        other.fullAllocatedCapacity_ = 0;
     }
 
-    TEST_CASE("max sso len 64 bit arch") {
-        String s = String("hello world how are you");
-        CHECK_EQ(s.len(), 23);
-        CHECK_EQ(std::strcmp(s.cstr(), "hello world how are you"), 0);
-    }
-
-    TEST_CASE("bigger than sso len") {
-        String s = String("hello world how are you today");
-        CHECK_EQ(s.len(), 29);
-        CHECK_EQ(std::strcmp(s.cstr(), "hello world how are you today"), 0);
-    }
-
-    TEST_CASE("massive string") {
-        String s = String("123456789012345678901234567890123456789012345678901234567890123456789012"
-                          "34567890123456789012"
-                          "34567890123456789012345678901234567890");
-        CHECK_EQ(s.len(), 130);
-        CHECK_EQ(
-            std::strcmp(
-                s.cstr(),
-                "1234567890123456789012345678901234567890123456789012345678901234567890123456789"
-                "012345678901234567890123456789012345678901234567890"),
-            0);
-    }
+    return *this;
 }
 
-#endif // SYNC_LIB_WITH_TESTS
+sy::Result<sy::StringBuilder, sy::AllocErr> sy::StringBuilder::init(Allocator alloc) noexcept {
+    return StringBuilder::initWithCapacity(0, alloc);
+}
+
+sy::Result<sy::StringBuilder, sy::AllocErr>
+sy::StringBuilder::initWithCapacity(size_t inCapacity, Allocator alloc) noexcept {
+    const size_t totalAllocationSize = internal::AtomicStringHeader::allocationSizeFor(inCapacity);
+
+    auto res = alloc.allocAlignedArray<uint8_t>(totalAllocationSize, ALLOC_CACHE_ALIGN);
+    if (res.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    uint8_t* data = res.value();
+    internal::AtomicStringHeader* header = reinterpret_cast<internal::AtomicStringHeader*>(data);
+    new (header) internal::AtomicStringHeader(alloc);
+
+    const size_t fullAllocatedStringCapacity =
+        totalAllocationSize - internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED;
+
+    const size_t byteStart = internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED;
+    for (size_t i = byteStart; i < totalAllocationSize; i++) {
+        data[i] = static_cast<uint8_t>('\0');
+    }
+
+    StringBuilder self;
+    self.impl_ = header;
+    self.fullAllocatedCapacity_ = fullAllocatedStringCapacity;
+    return self;
+}
+
+sy::Result<sy::String, sy::AllocErr> sy::StringBuilder::build() noexcept {
+    const size_t actualNeededAllocationSize =
+        internal::AtomicStringHeader::allocationSizeFor(this->impl_->len);
+    const size_t currentAllocationSize = internal::AtomicStringHeader::allocationSizeFor(
+        this->fullAllocatedCapacity_ + internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED);
+
+    String out;
+
+    if (actualNeededAllocationSize == currentAllocationSize) {
+        out.impl_ = this->impl_;
+        this->impl_ = nullptr;
+        return out;
+    }
+
+    auto res = this->impl_->allocator.allocAlignedArray<uint8_t>(actualNeededAllocationSize,
+                                                                 ALLOC_CACHE_ALIGN);
+    if (res.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    uint8_t* data = res.value();
+    internal::AtomicStringHeader* header = reinterpret_cast<internal::AtomicStringHeader*>(data);
+    new (header) internal::AtomicStringHeader(this->impl_->allocator);
+
+    // copy over this string data
+    memcpy(header->inlineString, this->impl_->inlineString, this->impl_->len);
+
+    const size_t byteStart =
+        internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED + this->impl_->len;
+    for (size_t i = byteStart; i < actualNeededAllocationSize; i++) {
+        data[i] = static_cast<uint8_t>('\0');
+    }
+
+    out.impl_ = header;
+    // let the StringBuilder destructor handle cleanup
+    return out;
+}
+
+sy::Result<void, sy::AllocErr> sy::StringBuilder::write(StringSlice str) noexcept {
+    if (str.len() == 0) {
+        return {};
+    }
+
+    if ((this->impl_->len + str.len() + 1) <= this->fullAllocatedCapacity_) {
+        memcpy(this->impl_->inlineString + this->impl_->len, str.data(), str.len());
+        this->impl_->inlineString[this->impl_->len + str.len()] = '\0';
+        return {};
+    }
+
+    Allocator allocator = this->impl_->allocator;
+
+    // over-allocate
+    const size_t totalAllocationSize =
+        internal::AtomicStringHeader::allocationSizeFor((this->impl_->len + str.len() + 1) * 2);
+
+    auto res = allocator.allocAlignedArray<uint8_t>(totalAllocationSize, ALLOC_CACHE_ALIGN);
+    if (res.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    uint8_t* data = res.value();
+    internal::AtomicStringHeader* header = reinterpret_cast<internal::AtomicStringHeader*>(data);
+    new (header) internal::AtomicStringHeader(allocator);
+    header->len = this->impl_->len + str.len();
+
+    // copy over this string data
+    memcpy(header->inlineString, this->impl_->inlineString, this->impl_->len);
+    // copy over other string data
+    memcpy(header->inlineString + this->impl_->len, str.data(), str.len());
+
+    // zero out the rest, setting null terminator and fun SIMD stuff.
+    const size_t byteStart =
+        internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED + this->impl_->len + str.len();
+    for (size_t i = byteStart; i < totalAllocationSize; i++) {
+        data[i] = static_cast<uint8_t>('\0');
+    }
+
+    allocator.freeAlignedArray(reinterpret_cast<uint8_t*>(this->impl_),
+                               this->fullAllocatedCapacity_ +
+                                   internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED,
+                               ALLOC_CACHE_ALIGN);
+    this->impl_ = header;
+    return {};
+}
+
+// #if SYNC_LIB_WITH_TESTS
+
+// #include "../../doctest.h"
+
+// using sy::String;
+// using sy::StringSlice;
+
+// TEST_CASE("Default constructor") {
+//     String s;
+//     CHECK_EQ(s.len(), 0);
+// }
+
+// TEST_SUITE("const char* constructor") {
+//     TEST_CASE("small") {
+//         String s = String("hello");
+//         CHECK_EQ(s.len(), 5);
+//         CHECK_EQ(std::strcmp(s.cstr(), "hello"), 0);
+//     }
+
+//     TEST_CASE("max sso len 64 bit arch") {
+//         String s = String("hello world how are you");
+//         CHECK_EQ(s.len(), 23);
+//         CHECK_EQ(std::strcmp(s.cstr(), "hello world how are you"), 0);
+//     }
+
+//     TEST_CASE("bigger than sso len") {
+//         String s = String("hello world how are you today");
+//         CHECK_EQ(s.len(), 29);
+//         CHECK_EQ(std::strcmp(s.cstr(), "hello world how are you today"), 0);
+//     }
+
+//     TEST_CASE("massive string") {
+//         String s =
+//         String("123456789012345678901234567890123456789012345678901234567890123456789012"
+//                           "34567890123456789012"
+//                           "34567890123456789012345678901234567890");
+//         CHECK_EQ(s.len(), 130);
+//         CHECK_EQ(
+//             std::strcmp(
+//                 s.cstr(),
+//                 "1234567890123456789012345678901234567890123456789012345678901234567890123456789"
+//                 "012345678901234567890123456789012345678901234567890"),
+//             0);
+//     }
+// }
+
+// #endif // SYNC_LIB_WITH_TESTS
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+SY_API SyAllocErr sy_string_init(SyStringSlice str, SyAllocator alloc, SyString* out) {
+    auto res = sy::String::init(sy::StringSlice(str.ptr, str.len),
+                                *reinterpret_cast<sy::Allocator*>(&alloc));
+    if (res.hasErr()) {
+        return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
+    }
+
+    sy::String s = res.takeValue();
+    *out = *reinterpret_cast<SyString*>(&s);
+    sy::internal::moveAndLeak(std::move(s));
+    return SyAllocErr::SY_ALLOC_ERR_NONE;
+}
+
+SY_API size_t sy_string_len(const SyString* self) {
+    return reinterpret_cast<const sy::String*>(self)->len();
+}
+
+SY_API SyStringSlice sy_string_as_slice(const SyString* self) {
+    sy::StringSlice s = reinterpret_cast<const sy::String*>(self)->asSlice();
+    return SyStringSlice{s.data(), s.len()};
+}
+
+SY_API const char* sy_string_cstr(const SyString* self) {
+    return reinterpret_cast<const sy::String*>(self)->cstr();
+}
+
+SY_API size_t sy_string_hash(const SyString* self) {
+    return reinterpret_cast<const sy::String*>(self)->hash();
+}
+
+SY_API bool sy_string_eq(const SyString* lhs, const SyString* rhs) {
+    return *reinterpret_cast<const sy::String*>(lhs) == *reinterpret_cast<const sy::String*>(rhs);
+}
+
+SY_API bool sy_string_eq_slice(const SyString* lhs, SyStringSlice rhs) {
+    return *reinterpret_cast<const sy::String*>(lhs) ==
+           *reinterpret_cast<const sy::StringSlice*>(&rhs);
+}
+
+SY_API SyAllocErr sy_string_concat(const SyString* self, SyStringSlice str, SyString* out) {
+    auto res = reinterpret_cast<const sy::String*>(self)->concat(sy::StringSlice(str.ptr, str.len));
+    if (res.hasErr()) {
+        return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
+    }
+
+    sy::String s = res.takeValue();
+    *out = *reinterpret_cast<SyString*>(&s);
+    sy::internal::moveAndLeak(std::move(s));
+    return SyAllocErr::SY_ALLOC_ERR_NONE;
+}
+
+SY_API SyAllocErr sy_string_builder_init(SyAllocator alloc, SyStringBuilder* out) {
+    auto res = sy::StringBuilder::init(*reinterpret_cast<sy::Allocator*>(&alloc));
+    if (res.hasErr()) {
+        return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
+    }
+
+    sy::StringBuilder s = res.takeValue();
+    *out = *reinterpret_cast<SyStringBuilder*>(&s);
+    sy::internal::moveAndLeak(std::move(s));
+    return SyAllocErr::SY_ALLOC_ERR_NONE;
+}
+
+SY_API SyAllocErr sy_string_builder_init_with_capacity(size_t inCapacity, SyAllocator alloc,
+                                                       SyStringBuilder* out) {
+    auto res =
+        sy::StringBuilder::initWithCapacity(inCapacity, *reinterpret_cast<sy::Allocator*>(&alloc));
+    if (res.hasErr()) {
+        return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
+    }
+
+    sy::StringBuilder s = res.takeValue();
+    *out = *reinterpret_cast<SyStringBuilder*>(&s);
+    sy::internal::moveAndLeak(std::move(s));
+    return SyAllocErr::SY_ALLOC_ERR_NONE;
+}
+
+SY_API SyAllocErr sy_string_builder_build(SyStringBuilder* self, SyString* out) {
+    auto res = reinterpret_cast<sy::StringBuilder*>(self)->build();
+    if (res.hasErr()) {
+        return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
+    }
+
+    sy::String s = res.takeValue();
+    *out = *reinterpret_cast<SyString*>(&s);
+    sy::internal::moveAndLeak(std::move(s));
+    return SyAllocErr::SY_ALLOC_ERR_NONE;
+}
+
+SY_API SyAllocErr sy_string_builder_write(SyStringBuilder* self, SyStringSlice str) {
+    auto res = reinterpret_cast<sy::StringBuilder*>(self)->write(sy::StringSlice(str.ptr, str.len));
+    if (res.hasErr()) {
+        return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
+    }
+
+    return SyAllocErr::SY_ALLOC_ERR_NONE;
+}
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
