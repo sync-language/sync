@@ -314,7 +314,7 @@ const Type* makeExampleFallibleType() {
 
     static Function<void(void* dst, const void* src)> cloneFn = fallibleCopyExample;
 
-    static BuiltInCoherentTraits coherent{&cloneFn, {}, {}, {}, {}, {}};
+    static BuiltInCoherentTraits coherent{&cloneFn, {}, {}, {}, {}, {}, {}};
 
     static Type exampleFallibleType = {sizeof(Example),
                                        static_cast<uint16_t>(alignof(Example)),

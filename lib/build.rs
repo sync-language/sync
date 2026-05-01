@@ -22,6 +22,7 @@ fn main() {
         .file("src/threading/generation/gen_pool.cpp")
         .file("src/threading/generation/gen_pool_internal.cpp")
         .file("src/types/type_info.cpp")
+        .file("src/types/primitive_reflect_types.cpp")
         .file("src/types/function/function.cpp")
         .file("src/types/string/string_internal.cpp")
         .file("src/types/string/string_slice.cpp")

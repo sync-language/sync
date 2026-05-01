@@ -183,6 +183,7 @@ set(SYNC_LIB_TESTS_SOURCES
     "../lib/src/threading/locks/locks_internal.cpp"
     "../lib/src/threading/locks/rwlock.cpp"
     "../lib/src/types/type_info.cpp"
+    "../lib/src/types/primitive_reflect_types.cpp"
     "../lib/src/types/function/function.cpp"
     "../lib/src/types/string/string_internal.cpp"
     "../lib/src/types/string/string_slice.cpp"

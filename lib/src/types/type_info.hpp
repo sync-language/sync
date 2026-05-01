@@ -12,6 +12,7 @@
 #include "reflect_fwd.hpp"
 #include "string/string.hpp"
 #include "string/string_slice.hpp"
+#include <atomic>
 #include <new>
 #include <type_traits>
 #include <utility>
@@ -125,56 +126,74 @@ class SY_API Type {
         return actualType;
     }
 
+    template <typename T>
+    static constexpr Type makeRefType(StringSlice refName, bool isMutable,
+                                      const Type* underlyingType);
+
     template <typename T> Result<void, ProgramError> destroyObject(T* obj) const {
-        if constexpr (!std::is_same<T, void>::value) {
-            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        if (!std::is_constant_evaluated()) {
+            if constexpr (!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
         }
         return this->destroyObjectImpl(reinterpret_cast<void*>(obj));
     }
 
     template <typename T> Result<void, ProgramError> cloneObj(T* dst, const T* src) const {
-        if constexpr (!std::is_same<T, void>::value) {
-            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        if (!std::is_constant_evaluated()) {
+            if constexpr (!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
         }
         return this->cloneObjectImpl(reinterpret_cast<void*>(dst),
                                      reinterpret_cast<const void*>(src));
     }
 
     template <typename T> Result<bool, ProgramError> equalObj(const T* lhs, const T* rhs) const {
-        if constexpr (!std::is_same<T, void>::value) {
-            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        if (!std::is_constant_evaluated()) {
+            if constexpr (!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
         }
         return this->equalObjectsImpl(reinterpret_cast<const void*>(lhs),
                                       reinterpret_cast<const void*>(rhs));
     }
 
     template <typename T> Result<size_t, ProgramError> hashObj(const T* obj) const {
-        if constexpr (!std::is_same<T, void>::value) {
-            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        if (!std::is_constant_evaluated()) {
+            if constexpr (!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
         }
         return this->hashObjectImpl(reinterpret_cast<const void*>(obj));
     }
 
     template <typename T>
     Result<Ordering, ProgramError> compareObj(const T* lhs, const T* rhs) const {
-        if constexpr (!std::is_same<T, void>::value) {
-            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        if (!std::is_constant_evaluated()) {
+            if constexpr (!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
         }
         return this->compareObjectImpl(reinterpret_cast<const void*>(lhs),
                                        reinterpret_cast<const void*>(rhs));
     }
 
     template <typename T> Result<void, ProgramError> elementWiseAtomicDestroyObj(T* dst) const {
-        if constexpr (!std::is_same<T, void>::value) {
-            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        if (!std::is_constant_evaluated()) {
+            if constexpr (!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
         }
         return this->elementWiseAtomicDestroyObjImpl(reinterpret_cast<void*>(dst));
     }
 
     template <typename T>
     Result<void, ProgramError> elementWiseAtomicLoadObj(T* dst, const T* src) const {
-        if constexpr (!std::is_same<T, void>::value) {
-            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        if (!std::is_constant_evaluated()) {
+            if constexpr (!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
         }
         return this->elementWiseAtomicLoadObjImpl(reinterpret_cast<void*>(dst),
                                                   reinterpret_cast<const void*>(src));
@@ -182,8 +201,10 @@ class SY_API Type {
 
     template <typename T>
     Result<void, ProgramError> elementWiseAtomicStoreObj(T* dst, const T* src) const {
-        if constexpr (!std::is_same<T, void>::value) {
-            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+        if (!std::is_constant_evaluated()) {
+            if constexpr (!std::is_same<T, void>::value) {
+                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
+            }
         }
         return this->elementWiseAtomicStoreObjImpl(reinterpret_cast<void*>(dst),
                                                    reinterpret_cast<const void*>(src));
@@ -326,6 +347,82 @@ template <> struct SY_API Reflect<const void*> {
 template <> struct SY_API Reflect<String> {
     static constexpr const Type* get() noexcept { return &sy::internal::TYPE_STRING; }
 };
+
+namespace internal {
+constexpr static sy::Function<void(void*)> EMPTY_DESTRUCTOR = +[](void*) {};
+constexpr static decltype(sy::BuiltInCoherentTraits::clone) PTR_BUILTIN_COHERENT_CLONE =
+    sy::BuiltInCoherentTraits::makeClone<void*>();
+constexpr static decltype(sy::BuiltInCoherentTraits::equal) PTR_BUILTIN_COHERENT_EQUALITY =
+    sy::BuiltInCoherentTraits::makeEqualityFunction<void*>();
+constexpr static decltype(sy::BuiltInCoherentTraits::hash) PTR_BUILTIN_COHERENT_HASH =
+    sy::BuiltInCoherentTraits::makeHashFunction<void*>();
+constexpr static decltype(sy::BuiltInCoherentTraits::compare) PTR_BUILTIN_COHERENT_COMPARE =
+    sy::BuiltInCoherentTraits::makeCompareFunction<void*>();
+constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicDestroy)
+    PTR_ELEMENT_WISE_ATOMIC_DESTROY = &EMPTY_DESTRUCTOR;
+constexpr static Function<void(void* dst, const void* src)>
+    PTR_ELEMENT_WISE_ATOMIC_SHALLOW_CLONE_IMPL = +[](void* dst, const void* src) {
+        std::atomic<void*>* atomicDst = reinterpret_cast<std::atomic<void*>*>(dst);
+        const std::atomic<void*>* atomicSrc = reinterpret_cast<const std::atomic<void*>*>(src);
+        void* temp = atomicSrc->load(std::memory_order_relaxed);
+        atomicDst->store(temp, std::memory_order_relaxed);
+    };
+
+constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicLoad)
+    PTR_ELEMENT_WISE_ATOMIC_LOAD = &PTR_ELEMENT_WISE_ATOMIC_SHALLOW_CLONE_IMPL;
+constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicStore)
+    PTR_ELEMENT_WISE_ATOMIC_STORE = &PTR_ELEMENT_WISE_ATOMIC_SHALLOW_CLONE_IMPL;
+constexpr static sy::BuiltInCoherentTraits PTR_BUILTIN_TRAITS = {
+    .clone = PTR_BUILTIN_COHERENT_CLONE,
+    .equal = PTR_BUILTIN_COHERENT_EQUALITY,
+    .hash = PTR_BUILTIN_COHERENT_HASH,
+    .compare = PTR_BUILTIN_COHERENT_COMPARE,
+    .elementWiseAtomicDestroy = PTR_ELEMENT_WISE_ATOMIC_DESTROY,
+    .elementWiseAtomicLoad = PTR_ELEMENT_WISE_ATOMIC_LOAD,
+    .elementWiseAtomicStore = PTR_ELEMENT_WISE_ATOMIC_STORE};
+} // namespace internal
+
+template <typename T>
+constexpr Type Type::makeRefType(StringSlice refName, bool isMutable, const Type* childType) {
+    const Type t = {
+        .sizeType = sizeof(void*),
+        .alignType = static_cast<uint16_t>(alignof(void*)),
+        .name = refName,
+        .tag = Type::Tag::Reference,
+        .extra = Type::ExtraInfo(Type::ExtraInfo::Reference{isMutable, childType}),
+        .destructor = +[](void*) {},
+        .builtinTraits = &internal::PTR_BUILTIN_TRAITS,
+        .constRef = nullptr,
+        .mutRef = nullptr,
+    };
+    return t;
+}
+
+namespace internal {
+template <typename T> struct ReflectImpl {
+    static constexpr const Type* get() noexcept { return sy::Reflect<T>::get(); }
+
+    static const Type* constRef() noexcept {
+        if constexpr (requires { sy::Reflect<T>::constRef(); }) {
+            return sy::Reflect<T>::constRef();
+        } else {
+            static sy::Type t = sy::Type::makeRefType<T>(StringSlice("Sync_Reflect_ConstRef"),
+                                                         false, sy::Reflect<T>::get());
+            return &t;
+        }
+    }
+
+    static const Type* mutRef() noexcept {
+        if constexpr (requires { sy::Reflect<T>::mutRef(); }) {
+            return sy::Reflect<T>::mutRef();
+        } else {
+            static sy::Type t = sy::Type::makeRefType<T>(StringSlice("Sync_Reflect_MutRef"), true,
+                                                         sy::Reflect<T>::get());
+            return &t;
+        }
+    }
+};
+} // namespace internal
 
 } // namespace sy
 
