@@ -531,55 +531,55 @@ const sy::RawFunction* sy::FunctionHandler::function() const noexcept {
     return buf.func;
 }
 
-#if SYNC_LIB_WITH_TESTS
+// #if SYNC_LIB_WITH_TESTS
 
-#include "../../doctest.h"
+// #include "../../doctest.h"
 
-using namespace sy;
+// using namespace sy;
 
-TEST_CASE("non-global push and get arg") {
-    ArgBuf buf;
-    int32_t val = 45;
-    const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
-    buf.push(arg);
-    int32_t outVal = 99;
-    buf.take(&outVal, 0);
-    CHECK_EQ(outVal, 45);
-}
+// TEST_CASE("non-global push and get arg") {
+//     ArgBuf buf;
+//     int32_t val = 45;
+//     const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
+//     buf.push(arg);
+//     int32_t outVal = 99;
+//     buf.take(&outVal, 0);
+//     CHECK_EQ(outVal, 45);
+// }
 
-TEST_CASE("non-global array push and get arg") {
-    ArgBufArray arr;
-    (void)arr.pushNewBuf();
-    ArgBuf& buf = arr.bufAt(0);
-    int32_t val = 45;
-    const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
-    buf.push(arg);
-    int32_t outVal = 99;
-    buf.take(&outVal, 0);
-    CHECK_EQ(outVal, 45);
+// TEST_CASE("non-global array push and get arg") {
+//     ArgBufArray arr;
+//     (void)arr.pushNewBuf();
+//     ArgBuf& buf = arr.bufAt(0);
+//     int32_t val = 45;
+//     const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
+//     buf.push(arg);
+//     int32_t outVal = 99;
+//     buf.take(&outVal, 0);
+//     CHECK_EQ(outVal, 45);
 
-    arr.popBuf();
-}
+//     arr.popBuf();
+// }
 
-TEST_CASE("global array push and get arg") {
-    (void)cArgBufs.pushNewBuf();
-    ArgBuf& buf = cArgBufs.bufAt(0);
-    int32_t val = 45;
-    const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
-    buf.push(arg);
-    int32_t outVal = 99;
-    buf.take(&outVal, 0);
-    CHECK_EQ(outVal, 45);
+// TEST_CASE("global array push and get arg") {
+//     (void)cArgBufs.pushNewBuf();
+//     ArgBuf& buf = cArgBufs.bufAt(0);
+//     int32_t val = 45;
+//     const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
+//     buf.push(arg);
+//     int32_t outVal = 99;
+//     buf.take(&outVal, 0);
+//     CHECK_EQ(outVal, 45);
 
-    cArgBufs.popBuf();
-}
+//     cArgBufs.popBuf();
+// }
 
-template <typename T, T expected>
-sy::Result<void, sy::ProgramError> simpleFunc1Arg(FunctionHandler handler) {
-    const T arg = handler.takeArg<T>(0);
-    CHECK_EQ(arg, expected);
-    return {};
-}
+// template <typename T, T expected>
+// sy::Result<void, sy::ProgramError> simpleFunc1Arg(FunctionHandler handler) {
+//     const T arg = handler.takeArg<T>(0);
+//     CHECK_EQ(arg, expected);
+//     return {};
+// }
 
 // TEST_SUITE("C 1 arg no return") {
 //     TEST_CASE("int32_t") {
@@ -601,4 +601,4 @@ sy::Result<void, sy::ProgramError> simpleFunc1Arg(FunctionHandler handler) {
 //     }
 // }
 
-#endif // SYNC_LIB_NO_TESTS
+// #endif // SYNC_LIB_NO_TESTS

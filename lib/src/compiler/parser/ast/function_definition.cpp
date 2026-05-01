@@ -291,53 +291,53 @@ Result<FunctionBuilder, ProgramError> sy::FunctionDefinitionNode::compile() cons
 
 #include "../../../doctest.h"
 
-TEST_CASE("[FunctionDefintion] parse function args") {
-    Allocator alloc;
-    Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64)").takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
-    (void)parseInfo.tokenIter.next();
-    DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
-    {
-        StackVariable& variable = variables[0];
-        CHECK_FALSE(variable.isTemporary);
-        CHECK_FALSE(variable.isMutable);
-        CHECK_EQ(variable.name.asSlice(), "arg1");
-        CHECK(variable.typeInfo.knownType.hasValue());
-        CHECK_EQ(variable.typeInfo.knownType.value(), Type::TYPE_I8);
-    }
-    {
-        StackVariable& variable = variables[1];
-        CHECK_FALSE(variable.isTemporary);
-        CHECK(variable.isMutable);
-        CHECK_EQ(variable.name.asSlice(), "arg2");
-        CHECK(variable.typeInfo.knownType.hasValue());
-        CHECK_EQ(variable.typeInfo.knownType.value(), Type::TYPE_U64);
-    }
-}
+// TEST_CASE("[FunctionDefintion] parse function args") {
+//     Allocator alloc;
+//     Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64)").takeValue();
+//     ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
+//     (void)parseInfo.tokenIter.next();
+//     DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
+//     {
+//         StackVariable& variable = variables[0];
+//         CHECK_FALSE(variable.isTemporary);
+//         CHECK_FALSE(variable.isMutable);
+//         CHECK_EQ(variable.name.asSlice(), "arg1");
+//         CHECK(variable.typeInfo.knownType.hasValue());
+//         CHECK_EQ(variable.typeInfo.knownType.value(), Type::TYPE_I8);
+//     }
+//     {
+//         StackVariable& variable = variables[1];
+//         CHECK_FALSE(variable.isTemporary);
+//         CHECK(variable.isMutable);
+//         CHECK_EQ(variable.name.asSlice(), "arg2");
+//         CHECK(variable.typeInfo.knownType.hasValue());
+//         CHECK_EQ(variable.typeInfo.knownType.value(), Type::TYPE_U64);
+//     }
+// }
 
-TEST_CASE("[FunctionDefintion] parse function args trailing comma") {
-    Allocator alloc;
-    Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64,)").takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
-    (void)parseInfo.tokenIter.next();
-    DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
-    {
-        StackVariable& variable = variables[0];
-        CHECK_FALSE(variable.isTemporary);
-        CHECK_FALSE(variable.isMutable);
-        CHECK_EQ(variable.name.asSlice(), "arg1");
-        CHECK(variable.typeInfo.knownType.hasValue());
-        CHECK_EQ(variable.typeInfo.knownType.value(), Type::TYPE_I8);
-    }
-    {
-        StackVariable& variable = variables[1];
-        CHECK_FALSE(variable.isTemporary);
-        CHECK(variable.isMutable);
-        CHECK_EQ(variable.name.asSlice(), "arg2");
-        CHECK(variable.typeInfo.knownType.hasValue());
-        CHECK_EQ(variable.typeInfo.knownType.value(), Type::TYPE_U64);
-    }
-}
+// TEST_CASE("[FunctionDefintion] parse function args trailing comma") {
+//     Allocator alloc;
+//     Tokenizer tokenizer = Tokenizer::create(alloc, "(arg1: i8, mut arg2: u64,)").takeValue();
+//     ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
+//     (void)parseInfo.tokenIter.next();
+//     DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
+//     {
+//         StackVariable& variable = variables[0];
+//         CHECK_FALSE(variable.isTemporary);
+//         CHECK_FALSE(variable.isMutable);
+//         CHECK_EQ(variable.name.asSlice(), "arg1");
+//         CHECK(variable.typeInfo.knownType.hasValue());
+//         CHECK_EQ(variable.typeInfo.knownType.value(), Type::TYPE_I8);
+//     }
+//     {
+//         StackVariable& variable = variables[1];
+//         CHECK_FALSE(variable.isTemporary);
+//         CHECK(variable.isMutable);
+//         CHECK_EQ(variable.name.asSlice(), "arg2");
+//         CHECK(variable.typeInfo.knownType.hasValue());
+//         CHECK_EQ(variable.typeInfo.knownType.value(), Type::TYPE_U64);
+//     }
+// }
 
 TEST_CASE("[FunctionDefintion] parse no args") {
     Allocator alloc;

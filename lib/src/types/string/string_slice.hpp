@@ -4,6 +4,7 @@
 #define SY_TYPES_STRING_STRING_SLICE_HPP_
 
 #include "../../core/core.h"
+#include <compare>
 #include <iosfwd>
 #include <memory> // some header for hash
 #include <string_view>

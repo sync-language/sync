@@ -14,6 +14,7 @@
 #include "string/string_slice.hpp"
 #include <atomic>
 #include <new>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -210,19 +211,6 @@ class SY_API Type {
                                                    reinterpret_cast<const void*>(src));
     }
 
-    static const Type* const TYPE_I8;
-    static const Type* const TYPE_I16;
-    static const Type* const TYPE_I32;
-    static const Type* const TYPE_I64;
-    static const Type* const TYPE_U8;
-    static const Type* const TYPE_U16;
-    static const Type* const TYPE_U32;
-    static const Type* const TYPE_U64;
-    static const Type* const TYPE_F32;
-    static const Type* const TYPE_F64;
-    // static const Type* const TYPE_CHAR;
-    static const Type* const TYPE_STRING_SLICE;
-
   private:
     template <typename T> static Function<void(void*)>* makeDestructor() {
         static Function<void(void*)> func = +[](void* obj) {
@@ -318,34 +306,180 @@ class SY_API Type {
 
 namespace internal {
 extern constinit sy::Type TYPE_BOOL;
+extern constinit sy::Type TYPE_BOOL_CONST_REF;
+extern constinit sy::Type TYPE_BOOL_MUT_REF;
+
+extern constinit sy::Type TYPE_I8;
+extern constinit sy::Type TYPE_I8_CONST_REF;
+extern constinit sy::Type TYPE_I8_MUT_REF;
+
+extern constinit sy::Type TYPE_I16;
+extern constinit sy::Type TYPE_I16_CONST_REF;
+extern constinit sy::Type TYPE_I16_MUT_REF;
+
+extern constinit sy::Type TYPE_I32;
+extern constinit sy::Type TYPE_I32_CONST_REF;
+extern constinit sy::Type TYPE_I32_MUT_REF;
+
+extern constinit sy::Type TYPE_I64;
+extern constinit sy::Type TYPE_I64_CONST_REF;
+extern constinit sy::Type TYPE_I64_MUT_REF;
+
+extern constinit sy::Type TYPE_U8;
+extern constinit sy::Type TYPE_U8_CONST_REF;
+extern constinit sy::Type TYPE_U8_MUT_REF;
+
+extern constinit sy::Type TYPE_U16;
+extern constinit sy::Type TYPE_U16_CONST_REF;
+extern constinit sy::Type TYPE_U16_MUT_REF;
+
+extern constinit sy::Type TYPE_U32;
+extern constinit sy::Type TYPE_U32_CONST_REF;
+extern constinit sy::Type TYPE_U32_MUT_REF;
+
+extern constinit sy::Type TYPE_U64;
+extern constinit sy::Type TYPE_U64_CONST_REF;
+extern constinit sy::Type TYPE_U64_MUT_REF;
+
 extern constinit sy::Type TYPE_USIZE;
+extern constinit sy::Type TYPE_USIZE_CONST_REF;
+extern constinit sy::Type TYPE_USIZE_MUT_REF;
+
+extern constinit sy::Type TYPE_F32;
+extern constinit sy::Type TYPE_F32_CONST_REF;
+extern constinit sy::Type TYPE_F32_MUT_REF;
+
+extern constinit sy::Type TYPE_F64;
+extern constinit sy::Type TYPE_F64_CONST_REF;
+extern constinit sy::Type TYPE_F64_MUT_REF;
+
 extern constinit sy::Type TYPE_ORDERING;
-extern constinit sy::Type TYPE_OPAQUE_PTR;
+extern constinit sy::Type TYPE_ORDERING_CONST_REF;
+extern constinit sy::Type TYPE_ORDERING_MUT_REF;
+
+extern constinit sy::Type TYPE_STRING_SLICE;
+extern constinit sy::Type TYPE_STRING_SLICE_CONST_REF;
+extern constinit sy::Type TYPE_STRING_SLICE_MUT_REF;
+
 extern constinit sy::Type TYPE_STRING;
+extern constinit sy::Type TYPE_STRING_CONST_REF;
+extern constinit sy::Type TYPE_STRING_MUT_REF;
+
+extern constinit sy::Type TYPE_OPAQUE_PTR;
 } // namespace internal
 
 template <> struct SY_API Reflect<bool> {
     static constexpr const Type* get() noexcept { return &sy::internal::TYPE_BOOL; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_BOOL_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_BOOL_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<int8_t> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_I8; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_I8_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_I8_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<int16_t> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_I16; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_I16_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_I16_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<int32_t> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_I32; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_I32_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_I32_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<int64_t> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_I64; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_I64_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_I64_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<uint8_t> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_U8; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_U8_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_U8_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<uint16_t> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_U16; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_U16_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_U16_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<uint32_t> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_U32; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_U32_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_U32_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<uint64_t> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_U64; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_U64_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_U64_MUT_REF; }
 };
 
 template <> struct SY_API Reflect<size_t> {
     static constexpr const Type* get() noexcept { return &sy::internal::TYPE_USIZE; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_USIZE_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_USIZE_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<float> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_F32; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_F32_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_F32_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<double> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_F64; }
+    static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_F64_CONST_REF; }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_F64_MUT_REF; }
 };
 
 template <> struct SY_API Reflect<Ordering> {
     static constexpr const Type* get() noexcept { return &sy::internal::TYPE_ORDERING; }
+    static constexpr const Type* constRef() noexcept {
+        return &sy::internal::TYPE_ORDERING_CONST_REF;
+    }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_ORDERING_MUT_REF; }
 };
 
-template <> struct SY_API Reflect<void*> {
-    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_OPAQUE_PTR; }
-};
-
-template <> struct SY_API Reflect<const void*> {
-    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_OPAQUE_PTR; }
+template <> struct SY_API Reflect<StringSlice> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_STRING_SLICE; }
+    static constexpr const Type* constRef() noexcept {
+        return &sy::internal::TYPE_STRING_SLICE_CONST_REF;
+    }
+    static constexpr const Type* mutRef() noexcept {
+        return &sy::internal::TYPE_STRING_SLICE_MUT_REF;
+    }
 };
 
 template <> struct SY_API Reflect<String> {
     static constexpr const Type* get() noexcept { return &sy::internal::TYPE_STRING; }
+    static constexpr const Type* constRef() noexcept {
+        return &sy::internal::TYPE_STRING_CONST_REF;
+    }
+    static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_STRING_MUT_REF; }
+};
+
+template <> struct SY_API Reflect<std::string_view> : Reflect<StringSlice> {};
+
+template <> struct SY_API Reflect<void*> {
+    // should have ref types?
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_OPAQUE_PTR; }
+    static constexpr const Type* constRef() noexcept { return nullptr; }
+    static constexpr const Type* mutRef() noexcept { return nullptr; }
+};
+
+template <> struct SY_API Reflect<const void*> {
+    // should have ref types?
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_OPAQUE_PTR; }
+    static constexpr const Type* constRef() noexcept { return nullptr; }
+    static constexpr const Type* mutRef() noexcept { return nullptr; }
 };
 
 namespace internal {

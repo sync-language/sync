@@ -3,51 +3,62 @@
 #include "parser.hpp"
 
 using namespace sy;
+using sy::internal::ReflectImpl;
 
 static Option<TypeResolutionInfo> tryParseNormalType(const TokenIter* tokenIter) noexcept {
     const Token current = tokenIter->current();
     switch (current.tag()) {
     case TokenType::BoolPrimitive: {
-        auto t = sy::Reflect<bool>::get();
+        auto t = ReflectImpl<bool>::get();
         return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::I8Primitive: {
-        return TypeResolutionInfo{Type::TYPE_I8->name, Type::TYPE_I8};
+        auto t = ReflectImpl<int8_t>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::I16Primitive: {
-        return TypeResolutionInfo{Type::TYPE_I16->name, Type::TYPE_I16};
+        auto t = ReflectImpl<int16_t>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::I32Primitive: {
-        return TypeResolutionInfo{Type::TYPE_I32->name, Type::TYPE_I32};
+        auto t = ReflectImpl<int32_t>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::I64Primitive: {
-        return TypeResolutionInfo{Type::TYPE_I64->name, Type::TYPE_I64};
+        auto t = ReflectImpl<int64_t>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::U8Primitive: {
-        return TypeResolutionInfo{Type::TYPE_U8->name, Type::TYPE_U8};
+        auto t = ReflectImpl<uint8_t>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::U16Primitive: {
-        return TypeResolutionInfo{Type::TYPE_U16->name, Type::TYPE_U16};
+        auto t = ReflectImpl<uint16_t>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::U32Primitive: {
-        return TypeResolutionInfo{Type::TYPE_U32->name, Type::TYPE_U32};
+        auto t = ReflectImpl<uint32_t>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::U64Primitive: {
-        return TypeResolutionInfo{Type::TYPE_U64->name, Type::TYPE_U64};
+        auto t = ReflectImpl<uint64_t>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::USizePrimitive: {
-        auto t = sy::Reflect<size_t>::get();
+        auto t = ReflectImpl<size_t>::get();
         return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::F32Primitive: {
-        return TypeResolutionInfo{Type::TYPE_F32->name, Type::TYPE_F32};
+        auto t = ReflectImpl<float>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::F64Primitive: {
-        return TypeResolutionInfo{Type::TYPE_F64->name, Type::TYPE_F64};
+        auto t = ReflectImpl<double>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     // TODO char and str? str is reference type though?
     case TokenType::StringPrimitive: {
-        auto t = sy::Reflect<sy::String>::get();
+        auto t = ReflectImpl<sy::String>::get();
         return TypeResolutionInfo{t->name, t};
     } break;
     default: {

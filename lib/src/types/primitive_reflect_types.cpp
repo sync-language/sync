@@ -4,6 +4,7 @@
 #include "../core/builtin_traits/builtin_traits.hpp"
 #include "function/function.hpp"
 #include "option/option.hpp"
+#include "ordering/ordering.hpp"
 #include "reflect_fwd.hpp"
 #include "string/string.hpp"
 #include "string/string_internal.hpp"
@@ -14,6 +15,8 @@ using sy::BuiltInCoherentTraits;
 using sy::Function;
 using sy::Type;
 
+namespace sy {
+namespace internal {
 template <typename T> static void doAtomicCloneStd(void* dst, const void* src) {
     std::atomic<T>* atomicDst = reinterpret_cast<std::atomic<T>*>(dst);
     const std::atomic<T>* atomicSrc = reinterpret_cast<const std::atomic<T>*>(src);
@@ -21,42 +24,36 @@ template <typename T> static void doAtomicCloneStd(void* dst, const void* src) {
     atomicDst->store(temp, std::memory_order_relaxed);
 }
 
-static constexpr sy::Function<void(void*)> EMPTY_DESTRUCTOR = +[](void*) {};
-
-constexpr static decltype(sy::BuiltInCoherentTraits::clone) BOOL_BUILTIN_COHERENT_CLONE =
-    sy::BuiltInCoherentTraits::makeClone<bool>();
-constexpr static decltype(sy::BuiltInCoherentTraits::equal) BOOL_BUILTIN_COHERENT_EQUALITY =
-    sy::BuiltInCoherentTraits::makeEqualityFunction<bool>();
-constexpr static decltype(sy::BuiltInCoherentTraits::hash) BOOL_BUILTIN_COHERENT_HASH =
-    sy::BuiltInCoherentTraits::makeHashFunction<bool>();
-constexpr static decltype(sy::BuiltInCoherentTraits::compare) BOOL_BUILTIN_COHERENT_COMPARE =
-    sy::BuiltInCoherentTraits::makeCompareFunction<bool>();
-constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicDestroy)
-    BOOL_ELEMENT_WISE_ATOMIC_DESTROY = &EMPTY_DESTRUCTOR;
-constexpr static Function<void(void* dst, const void* src)> BOOL_ELEMENT_WISE_ATOMIC_LOAD_IMPL =
-    doAtomicCloneStd<bool>;
+constexpr static Function<void(void* dst, const void* src)>
+    BUILTIN_COHERENT_1_BYTE_ATOMIC_CLONE_IMPL = doAtomicCloneStd<uint8_t>;
 constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicLoad)
-    BOOL_ELEMENT_WISE_ATOMIC_LOAD = &BOOL_ELEMENT_WISE_ATOMIC_LOAD_IMPL;
-constexpr static Function<void(void* dst, const void* src)> BOOL_ELEMENT_WISE_ATOMIC_STORE_IMPL =
-    doAtomicCloneStd<bool>;
-constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicStore)
-    BOOL_ELEMENT_WISE_ATOMIC_STORE = &BOOL_ELEMENT_WISE_ATOMIC_STORE_IMPL;
+    BUILTIN_COHERENT_1_BYTE_ATOMIC_CLONE = &BUILTIN_COHERENT_1_BYTE_ATOMIC_CLONE_IMPL;
+constexpr static Function<void(void* dst, const void* src)>
+    BUILTIN_COHERENT_2_BYTE_ATOMIC_CLONE_IMPL = doAtomicCloneStd<uint16_t>;
+constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicLoad)
+    BUILTIN_COHERENT_2_BYTE_ATOMIC_CLONE = &BUILTIN_COHERENT_2_BYTE_ATOMIC_CLONE_IMPL;
+constexpr static Function<void(void* dst, const void* src)>
+    BUILTIN_COHERENT_4_BYTE_ATOMIC_CLONE_IMPL = doAtomicCloneStd<uint32_t>;
+constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicLoad)
+    BUILTIN_COHERENT_4_BYTE_ATOMIC_CLONE = &BUILTIN_COHERENT_4_BYTE_ATOMIC_CLONE_IMPL;
+constexpr static Function<void(void* dst, const void* src)>
+    BUILTIN_COHERENT_8_BYTE_ATOMIC_CLONE_IMPL = doAtomicCloneStd<uint64_t>;
+constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicLoad)
+    BUILTIN_COHERENT_8_BYTE_ATOMIC_CLONE = &BUILTIN_COHERENT_8_BYTE_ATOMIC_CLONE_IMPL;
+
+#pragma region Bool
+
 constexpr static sy::BuiltInCoherentTraits BOOL_BUILTIN_TRAITS = {
-    .clone = BOOL_BUILTIN_COHERENT_CLONE,
-    .equal = BOOL_BUILTIN_COHERENT_EQUALITY,
-    .hash = BOOL_BUILTIN_COHERENT_HASH,
-    .compare = BOOL_BUILTIN_COHERENT_COMPARE,
-    .elementWiseAtomicDestroy = BOOL_ELEMENT_WISE_ATOMIC_DESTROY,
-    .elementWiseAtomicLoad = BOOL_ELEMENT_WISE_ATOMIC_LOAD,
-    .elementWiseAtomicStore = BOOL_ELEMENT_WISE_ATOMIC_STORE};
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<uint8_t>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<uint8_t>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<bool>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<bool>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_1_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_1_BYTE_ATOMIC_CLONE};
 
-namespace sy {
-namespace internal {
-constinit extern sy::Type TYPE_BOOL;
-} // namespace internal
-} // namespace sy
-
-constinit static sy::Type BOOL_CONST_REF_TYPE = {
+constinit sy::Type TYPE_BOOL_CONST_REF = {
     sizeof(const bool*),
     static_cast<decltype(sy::Type::alignType)>(alignof(const bool*)),
     sy::StringSlice("*bool"),
@@ -68,7 +65,7 @@ constinit static sy::Type BOOL_CONST_REF_TYPE = {
     nullptr,
 };
 
-constinit static sy::Type BOOL_MUT_REF_TYPE = {
+constinit sy::Type TYPE_BOOL_MUT_REF = {
     sizeof(bool*),
     static_cast<decltype(sy::Type::alignType)>(alignof(bool*)),
     sy::StringSlice("*mut bool"),
@@ -80,8 +77,6 @@ constinit static sy::Type BOOL_MUT_REF_TYPE = {
     nullptr,
 };
 
-namespace sy {
-namespace internal {
 constinit sy::Type TYPE_BOOL = {
     .sizeType = sizeof(bool),
     .alignType = static_cast<uint16_t>(alignof(bool)),
@@ -90,77 +85,397 @@ constinit sy::Type TYPE_BOOL = {
     .extra = Type::ExtraInfo(),
     .destructor = &EMPTY_DESTRUCTOR,
     .builtinTraits = &BOOL_BUILTIN_TRAITS,
-    .constRef = &BOOL_CONST_REF_TYPE,
-    .mutRef = &BOOL_MUT_REF_TYPE,
+    .constRef = &TYPE_BOOL_CONST_REF,
+    .mutRef = &TYPE_BOOL_MUT_REF,
 };
-}
-} // namespace sy
 
-namespace sy {
-namespace internal {
-constinit sy::Type TYPE_OPAQUE_PTR = Type{sizeof(void*),
-                                          static_cast<uint16_t>(alignof(void*)),
-                                          "ptr",
-                                          Type::Tag::OpaquePointer,
-                                          {},
-                                          &EMPTY_DESTRUCTOR,
-                                          nullptr,
-                                          nullptr,
-                                          nullptr};
-}
-} // namespace sy
+#pragma endregion
 
-const Type* const sy::Type::TYPE_I8 =
-    Type::makeType<int8_t>("i8", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 8}));
-const Type* const sy::Type::TYPE_I16 =
-    Type::makeType<int16_t>("i16", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 16}));
-const Type* const sy::Type::TYPE_I32 =
-    Type::makeType<int32_t>("i32", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 32}));
-const Type* const sy::Type::TYPE_I64 =
-    Type::makeType<int64_t>("i64", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{true, 64}));
-const Type* const sy::Type::TYPE_U8 =
-    Type::makeType<uint8_t>("u8", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 8}));
-const Type* const sy::Type::TYPE_U16 = Type::makeType<uint16_t>(
-    "u16", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 16}));
-const Type* const sy::Type::TYPE_U32 = Type::makeType<uint32_t>(
-    "u32", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 32}));
-const Type* const sy::Type::TYPE_U64 = Type::makeType<uint64_t>(
-    "u64", Type::Tag::Int, Type::ExtraInfo(Type::ExtraInfo::Int{false, 64}));
+#pragma region Integers
 
-constexpr static decltype(sy::BuiltInCoherentTraits::clone) USIZE_BUILTIN_COHERENT_CLONE =
-    sy::BuiltInCoherentTraits::makeClone<size_t>();
-constexpr static decltype(sy::BuiltInCoherentTraits::equal) USIZE_BUILTIN_COHERENT_EQUALITY =
-    sy::BuiltInCoherentTraits::makeEqualityFunction<size_t>();
-constexpr static decltype(sy::BuiltInCoherentTraits::hash) USIZE_BUILTIN_COHERENT_HASH =
-    sy::BuiltInCoherentTraits::makeHashFunction<size_t>();
-constexpr static decltype(sy::BuiltInCoherentTraits::compare) USIZE_BUILTIN_COHERENT_COMPARE =
-    sy::BuiltInCoherentTraits::makeCompareFunction<size_t>();
-constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicDestroy)
-    USIZE_ELEMENT_WISE_ATOMIC_DESTROY = &EMPTY_DESTRUCTOR;
+constexpr static sy::BuiltInCoherentTraits U8_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<uint8_t>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<uint8_t>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<uint8_t>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<uint8_t>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_1_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_1_BYTE_ATOMIC_CLONE};
+
+constinit sy::Type TYPE_U8_CONST_REF = {
+    sizeof(const uint8_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const uint8_t*)),
+    sy::StringSlice("*u8"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_U8}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_U8_MUT_REF = {
+    sizeof(uint8_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(uint8_t*)),
+    sy::StringSlice("*mut u8"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_U8}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_U8 = {
+    .sizeType = sizeof(uint8_t),
+    .alignType = static_cast<uint16_t>(alignof(uint8_t)),
+    .name = "u8",
+    .tag = Type::Tag::Int,
+    .extra = Type::ExtraInfo(Type::ExtraInfo::Int{false, 8}),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &U8_BUILTIN_TRAITS,
+    .constRef = &TYPE_U8_CONST_REF,
+    .mutRef = &TYPE_U8_MUT_REF,
+};
+
+constexpr static sy::BuiltInCoherentTraits I8_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<uint8_t>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<uint8_t>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<int8_t>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<int8_t>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_1_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_1_BYTE_ATOMIC_CLONE};
+
+constinit sy::Type TYPE_I8_CONST_REF = {
+    sizeof(const int8_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const int8_t*)),
+    sy::StringSlice("*i8"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_I8}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_I8_MUT_REF = {
+    sizeof(int8_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(int8_t*)),
+    sy::StringSlice("*mut i8"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_I8}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_I8 = {
+    .sizeType = sizeof(int8_t),
+    .alignType = static_cast<uint16_t>(alignof(int8_t)),
+    .name = "i8",
+    .tag = Type::Tag::Int,
+    .extra = Type::ExtraInfo(Type::ExtraInfo::Int{true, 8}),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &I8_BUILTIN_TRAITS,
+    .constRef = &TYPE_I8_CONST_REF,
+    .mutRef = &TYPE_I8_MUT_REF,
+};
+
+constexpr static sy::BuiltInCoherentTraits U16_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<uint16_t>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<uint16_t>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<uint16_t>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<uint16_t>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_2_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_2_BYTE_ATOMIC_CLONE};
+
+constinit sy::Type TYPE_U16_CONST_REF = {
+    sizeof(const uint16_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const uint16_t*)),
+    sy::StringSlice("*u16"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_U16}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_U16_MUT_REF = {
+    sizeof(uint16_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(uint16_t*)),
+    sy::StringSlice("*mut u16"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_U16}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_U16 = {
+    .sizeType = sizeof(uint16_t),
+    .alignType = static_cast<uint16_t>(alignof(uint16_t)),
+    .name = "u16",
+    .tag = Type::Tag::Int,
+    .extra = Type::ExtraInfo(Type::ExtraInfo::Int{false, 16}),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &U16_BUILTIN_TRAITS,
+    .constRef = &TYPE_U16_CONST_REF,
+    .mutRef = &TYPE_U16_MUT_REF,
+};
+
+constexpr static sy::BuiltInCoherentTraits I16_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<uint16_t>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<uint16_t>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<int16_t>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<int16_t>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_2_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_2_BYTE_ATOMIC_CLONE};
+
+constinit sy::Type TYPE_I16_CONST_REF = {
+    sizeof(const int16_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const int16_t*)),
+    sy::StringSlice("*i16"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_I16}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_I16_MUT_REF = {
+    sizeof(int16_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(int16_t*)),
+    sy::StringSlice("*mut i16"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_I16}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_I16 = {
+    .sizeType = sizeof(int16_t),
+    .alignType = static_cast<uint16_t>(alignof(int16_t)),
+    .name = "i16",
+    .tag = Type::Tag::Int,
+    .extra = Type::ExtraInfo(Type::ExtraInfo::Int{true, 16}),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &I16_BUILTIN_TRAITS,
+    .constRef = &TYPE_I16_CONST_REF,
+    .mutRef = &TYPE_I16_MUT_REF,
+};
+
+constexpr static sy::BuiltInCoherentTraits U32_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<uint32_t>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<uint32_t>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<uint32_t>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<uint32_t>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_4_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_4_BYTE_ATOMIC_CLONE};
+
+constinit sy::Type TYPE_U32_CONST_REF = {
+    sizeof(const uint32_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const uint32_t*)),
+    sy::StringSlice("*u32"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_U32}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_U32_MUT_REF = {
+    sizeof(uint32_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(uint32_t*)),
+    sy::StringSlice("*mut u32"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_U32}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_U32 = {
+    .sizeType = sizeof(uint32_t),
+    .alignType = static_cast<uint16_t>(alignof(uint32_t)),
+    .name = "u32",
+    .tag = Type::Tag::Int,
+    .extra = Type::ExtraInfo(Type::ExtraInfo::Int{false, 32}),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &U32_BUILTIN_TRAITS,
+    .constRef = &TYPE_U32_CONST_REF,
+    .mutRef = &TYPE_U32_MUT_REF,
+};
+
+constexpr static sy::BuiltInCoherentTraits I32_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<uint32_t>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<uint32_t>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<int32_t>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<int32_t>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_4_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_4_BYTE_ATOMIC_CLONE};
+
+constinit sy::Type TYPE_I32_CONST_REF = {
+    sizeof(const int32_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const int32_t*)),
+    sy::StringSlice("*i32"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_I32}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_I32_MUT_REF = {
+    sizeof(int32_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(int32_t*)),
+    sy::StringSlice("*mut i32"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_I32}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_I32 = {
+    .sizeType = sizeof(int32_t),
+    .alignType = static_cast<uint16_t>(alignof(int32_t)),
+    .name = "i32",
+    .tag = Type::Tag::Int,
+    .extra = Type::ExtraInfo(Type::ExtraInfo::Int{true, 32}),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &I32_BUILTIN_TRAITS,
+    .constRef = &TYPE_I32_CONST_REF,
+    .mutRef = &TYPE_I32_MUT_REF,
+};
+
+constexpr static sy::BuiltInCoherentTraits U64_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<uint64_t>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<uint64_t>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<uint64_t>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<uint64_t>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_8_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_8_BYTE_ATOMIC_CLONE};
+
+constinit sy::Type TYPE_U64_CONST_REF = {
+    sizeof(const uint64_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const uint64_t*)),
+    sy::StringSlice("*u64"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_U64}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_U64_MUT_REF = {
+    sizeof(uint64_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(uint64_t*)),
+    sy::StringSlice("*mut u64"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_U64}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_U64 = {
+    .sizeType = sizeof(uint64_t),
+    .alignType = static_cast<uint16_t>(alignof(uint64_t)),
+    .name = "u64",
+    .tag = Type::Tag::Int,
+    .extra = Type::ExtraInfo(Type::ExtraInfo::Int{false, 64}),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &U64_BUILTIN_TRAITS,
+    .constRef = &TYPE_U64_CONST_REF,
+    .mutRef = &TYPE_U64_MUT_REF,
+};
+
+constexpr static sy::BuiltInCoherentTraits I64_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<uint64_t>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<uint64_t>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<int64_t>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<int64_t>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_8_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_8_BYTE_ATOMIC_CLONE};
+
+constinit sy::Type TYPE_I64_CONST_REF = {
+    sizeof(const int64_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const int64_t*)),
+    sy::StringSlice("*i64"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_I64}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_I64_MUT_REF = {
+    sizeof(int64_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(int64_t*)),
+    sy::StringSlice("*mut i64"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_I64}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_I64 = {
+    .sizeType = sizeof(int64_t),
+    .alignType = static_cast<uint16_t>(alignof(int64_t)),
+    .name = "i64",
+    .tag = Type::Tag::Int,
+    .extra = Type::ExtraInfo(Type::ExtraInfo::Int{true, 64}),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &I64_BUILTIN_TRAITS,
+    .constRef = &TYPE_I64_CONST_REF,
+    .mutRef = &TYPE_I64_MUT_REF,
+};
+
 constexpr static Function<void(void* dst, const void* src)> USIZE_ELEMENT_WISE_ATOMIC_LOAD_IMPL =
     doAtomicCloneStd<size_t>;
-constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicLoad)
-    USIZE_ELEMENT_WISE_ATOMIC_LOAD = &USIZE_ELEMENT_WISE_ATOMIC_LOAD_IMPL;
 constexpr static Function<void(void* dst, const void* src)> USIZE_ELEMENT_WISE_ATOMIC_STORE_IMPL =
     doAtomicCloneStd<size_t>;
-constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicStore)
-    USIZE_ELEMENT_WISE_ATOMIC_STORE = &USIZE_ELEMENT_WISE_ATOMIC_STORE_IMPL;
+
 constexpr static sy::BuiltInCoherentTraits USIZE_BUILTIN_TRAITS = {
-    .clone = USIZE_BUILTIN_COHERENT_CLONE,
-    .equal = USIZE_BUILTIN_COHERENT_EQUALITY,
-    .hash = USIZE_BUILTIN_COHERENT_HASH,
-    .compare = USIZE_BUILTIN_COHERENT_COMPARE,
-    .elementWiseAtomicDestroy = USIZE_ELEMENT_WISE_ATOMIC_DESTROY,
-    .elementWiseAtomicLoad = USIZE_ELEMENT_WISE_ATOMIC_LOAD,
-    .elementWiseAtomicStore = USIZE_ELEMENT_WISE_ATOMIC_STORE};
+    .clone = sy::BuiltInCoherentTraits::makeClone<size_t>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<size_t>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<size_t>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<size_t>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = &USIZE_ELEMENT_WISE_ATOMIC_LOAD_IMPL,
+    .elementWiseAtomicStore = &USIZE_ELEMENT_WISE_ATOMIC_STORE_IMPL};
 
-namespace sy {
-namespace internal {
-constinit extern sy::Type TYPE_USIZE;
-} // namespace internal
-} // namespace sy
-
-constinit static sy::Type USIZE_CONST_REF_TYPE = {
+constinit sy::Type TYPE_USIZE_CONST_REF = {
     sizeof(const size_t*),
     static_cast<decltype(sy::Type::alignType)>(alignof(const size_t*)),
     sy::StringSlice("*usize"),
@@ -172,7 +487,7 @@ constinit static sy::Type USIZE_CONST_REF_TYPE = {
     nullptr,
 };
 
-constinit static sy::Type USIZE_MUT_REF_TYPE = {
+constinit sy::Type TYPE_USIZE_MUT_REF = {
     sizeof(size_t*),
     static_cast<decltype(sy::Type::alignType)>(alignof(size_t*)),
     sy::StringSlice("*mut usize"),
@@ -184,8 +499,6 @@ constinit static sy::Type USIZE_MUT_REF_TYPE = {
     nullptr,
 };
 
-namespace sy {
-namespace internal {
 constinit sy::Type TYPE_USIZE = {
     .sizeType = sizeof(size_t),
     .alignType = static_cast<uint16_t>(alignof(size_t)),
@@ -194,33 +507,195 @@ constinit sy::Type TYPE_USIZE = {
     .extra = Type::ExtraInfo(Type::ExtraInfo::Int{false, sizeof(size_t) * 8}),
     .destructor = &EMPTY_DESTRUCTOR,
     .builtinTraits = &USIZE_BUILTIN_TRAITS,
-    .constRef = &USIZE_CONST_REF_TYPE,
-    .mutRef = &USIZE_MUT_REF_TYPE,
+    .constRef = &TYPE_USIZE_CONST_REF,
+    .mutRef = &TYPE_USIZE_MUT_REF,
 };
-}
-} // namespace sy
 
-#pragma region Float
+#pragma endregion
 
-const Type* const sy::Type::TYPE_F32 =
-    Type::makeType<float>("f32", Type::Tag::Float, Type::ExtraInfo(Type::ExtraInfo::Float{32}));
-const Type* const sy::Type::TYPE_F64 =
-    Type::makeType<double>("f64", Type::Tag::Float, Type::ExtraInfo(Type::ExtraInfo::Float{64}));
+#pragma region Floats
+
+constexpr static sy::BuiltInCoherentTraits F32_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<float>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<float>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<float>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<float>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_4_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_4_BYTE_ATOMIC_CLONE};
+
+constinit sy::Type TYPE_F32_CONST_REF = {
+    sizeof(const float*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const float*)),
+    sy::StringSlice("*f32"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_F32}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_F32_MUT_REF = {
+    sizeof(int64_t*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(int64_t*)),
+    sy::StringSlice("*mut f32"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_F32}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_F32 = {
+    .sizeType = sizeof(float),
+    .alignType = static_cast<uint16_t>(alignof(float)),
+    .name = "i64",
+    .tag = Type::Tag::Float,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Float{32}),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &F32_BUILTIN_TRAITS,
+    .constRef = &TYPE_F32_CONST_REF,
+    .mutRef = &TYPE_F32_MUT_REF,
+};
+
+constexpr static sy::BuiltInCoherentTraits F64_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<double>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<double>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<double>(),
+    .compare = sy::BuiltInCoherentTraits::makeCompareFunction<double>(),
+    .elementWiseAtomicDestroy = &sy::internal::EMPTY_DESTRUCTOR,
+    .elementWiseAtomicLoad = sy::internal::BUILTIN_COHERENT_8_BYTE_ATOMIC_CLONE,
+    .elementWiseAtomicStore = sy::internal::BUILTIN_COHERENT_8_BYTE_ATOMIC_CLONE};
+
+constinit sy::Type TYPE_F64_CONST_REF = {
+    sizeof(const double*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const double*)),
+    sy::StringSlice("*f64"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_F64}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_F64_MUT_REF = {
+    sizeof(double*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(double*)),
+    sy::StringSlice("*mut f64"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_F64}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_F64 = {
+    .sizeType = sizeof(double),
+    .alignType = static_cast<uint16_t>(alignof(double)),
+    .name = "f64",
+    .tag = Type::Tag::Float,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Float{64}),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &F64_BUILTIN_TRAITS,
+    .constRef = &TYPE_F64_CONST_REF,
+    .mutRef = &TYPE_F64_MUT_REF,
+};
+
+#pragma endregion
+
+#pragma region Ordering
+
+constinit sy::Type TYPE_ORDERING_CONST_REF = {
+    sizeof(const sy::Ordering*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const sy::Ordering*)),
+    sy::StringSlice("*Ordering"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_ORDERING}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_ORDERING_MUT_REF = {
+    sizeof(sy::Ordering*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(sy::Ordering*)),
+    sy::StringSlice("*mut Ordering"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_ORDERING}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_ORDERING = {
+    .sizeType = sizeof(sy::Ordering),
+    .alignType = static_cast<uint16_t>(alignof(sy::Ordering)),
+    .name = "Ordering",
+    .tag = Type::Tag::Ordering,
+    .extra = Type::ExtraInfo(),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &I32_BUILTIN_TRAITS,
+    .constRef = &TYPE_ORDERING_CONST_REF,
+    .mutRef = &TYPE_ORDERING_MUT_REF,
+};
 
 #pragma endregion
 
 #pragma region String
 
-// const Type* const sy::Type::TYPE_CHAR = nullptr;
-const Type* const sy::Type::TYPE_STRING_SLICE =
-    Type::makeType<sy::StringSlice>("str", Type::Tag::StringSlice, Type::ExtraInfo());
+constexpr static sy::BuiltInCoherentTraits STRING_SLICE_BUILTIN_TRAITS = {
+    // conserve generated template functions where possible
+    .clone = sy::BuiltInCoherentTraits::makeClone<sy::StringSlice>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<sy::StringSlice>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<sy::StringSlice>(),
+    .compare = {},
+    .elementWiseAtomicDestroy = {},
+    .elementWiseAtomicLoad = {},
+    .elementWiseAtomicStore = {}};
 
-constexpr static decltype(sy::BuiltInCoherentTraits::clone) STRING_BUILTIN_COHERENT_CLONE =
-    sy::BuiltInCoherentTraits::makeClone<sy::String>();
-constexpr static decltype(sy::BuiltInCoherentTraits::equal) STRING_BUILTIN_COHERENT_EQUALITY =
-    sy::BuiltInCoherentTraits::makeEqualityFunction<sy::String>();
-constexpr static decltype(sy::BuiltInCoherentTraits::hash) STRING_BUILTIN_COHERENT_HASH =
-    sy::BuiltInCoherentTraits::makeHashFunction<sy::String>();
+constinit sy::Type TYPE_STRING_SLICE_CONST_REF = {
+    sizeof(const sy::StringSlice*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const sy::StringSlice*)),
+    sy::StringSlice("*const str"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_STRING_SLICE}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_STRING_SLICE_MUT_REF = {
+    sizeof(sy::StringSlice*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(sy::StringSlice*)),
+    sy::StringSlice("*mut str"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_STRING_SLICE}),
+    &EMPTY_DESTRUCTOR,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+
+constinit sy::Type TYPE_STRING_SLICE = {
+    .sizeType = sizeof(sy::StringSlice),
+    .alignType = static_cast<uint16_t>(alignof(sy::StringSlice)),
+    .name = "str",
+    .tag = Type::Tag::StringSlice,
+    .extra = Type::ExtraInfo(),
+    .destructor = &EMPTY_DESTRUCTOR,
+    .builtinTraits = &STRING_SLICE_BUILTIN_TRAITS,
+    .constRef = &TYPE_STRING_SLICE_CONST_REF,
+    .mutRef = &TYPE_STRING_SLICE_MUT_REF,
+};
 
 constexpr static sy::Function<void(void* self)> STRING_BUILTIN_COHERENT_ATOMIC_DESTROY_FN =
     +[](void* self) {
@@ -249,10 +724,13 @@ constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicStore)
     STRING_BUILTIN_COHERENT_ATOMIC_STORE = &STRING_BUILTIN_COHERENT_ATOMIC_STORE_FN;
 
 constexpr static sy::BuiltInCoherentTraits STRING_BUILTIN_COHERENT_TRAITS = {
-    STRING_BUILTIN_COHERENT_CLONE,          STRING_BUILTIN_COHERENT_EQUALITY,
-    STRING_BUILTIN_COHERENT_HASH,           {},
-    STRING_BUILTIN_COHERENT_ATOMIC_DESTROY, STRING_BUILTIN_COHERENT_ATOMIC_LOAD,
-    STRING_BUILTIN_COHERENT_ATOMIC_STORE,
+    .clone = sy::BuiltInCoherentTraits::makeClone<sy::String>(),
+    .equal = sy::BuiltInCoherentTraits::makeEqualityFunction<sy::String>(),
+    .hash = sy::BuiltInCoherentTraits::makeHashFunction<sy::String>(),
+    .compare = {},
+    .elementWiseAtomicDestroy = STRING_BUILTIN_COHERENT_ATOMIC_DESTROY,
+    .elementWiseAtomicLoad = STRING_BUILTIN_COHERENT_ATOMIC_LOAD,
+    .elementWiseAtomicStore = STRING_BUILTIN_COHERENT_ATOMIC_STORE,
 };
 
 constexpr static sy::Function<void(void* self)> STRING_DESTRUCTOR_FN = +[](void* self) {
@@ -272,13 +750,7 @@ constexpr static sy::BuiltInCoherentTraits STRING_REF_BUILTIN_COHERENT_TRAITS = 
     STRING_REF_BUILTIN_COHERENT_CLONE, STRING_REF_BUILTIN_COHERENT_EQUALITY, {}, {}, {}, {}, {},
 };
 
-namespace sy {
-namespace internal {
-constinit extern sy::Type TYPE_STRING;
-} // namespace internal
-} // namespace sy
-
-constinit static sy::Type STRING_CONST_REF_TYPE = {
+constinit sy::Type TYPE_STRING_CONST_REF = {
     sizeof(const sy::String*),
     static_cast<decltype(sy::Type::alignType)>(alignof(const sy::String*)),
     sy::StringSlice("*String"),
@@ -290,7 +762,7 @@ constinit static sy::Type STRING_CONST_REF_TYPE = {
     nullptr,
 };
 
-constinit static sy::Type STRING_MUT_REF_TYPE = {
+constinit sy::Type TYPE_STRING_MUT_REF = {
     sizeof(sy::String*),
     static_cast<decltype(sy::Type::alignType)>(alignof(sy::String*)),
     sy::StringSlice("*mut String"),
@@ -302,8 +774,6 @@ constinit static sy::Type STRING_MUT_REF_TYPE = {
     nullptr,
 };
 
-namespace sy {
-namespace internal {
 constinit sy::Type TYPE_STRING = {
     sizeof(sy::String),
     static_cast<decltype(sy::Type::alignType)>(alignof(sy::String)),
@@ -312,107 +782,48 @@ constinit sy::Type TYPE_STRING = {
     sy::Type::ExtraInfo(),
     &STRING_DESTRUCTOR_FN,
     &STRING_BUILTIN_COHERENT_TRAITS,
-    &STRING_CONST_REF_TYPE,
-    &STRING_MUT_REF_TYPE,
+    &TYPE_STRING_CONST_REF,
+    &TYPE_STRING_MUT_REF,
 };
-}
-} // namespace sy
 
 #pragma endregion
 
-constexpr static decltype(sy::BuiltInCoherentTraits::clone) ORDERING_BUILTIN_COHERENT_CLONE =
-    sy::BuiltInCoherentTraits::makeClone<sy::Ordering>();
-constexpr static decltype(sy::BuiltInCoherentTraits::equal) ORDERING_BUILTIN_COHERENT_EQUALITY =
-    sy::BuiltInCoherentTraits::makeEqualityFunction<sy::Ordering>();
-constexpr static decltype(sy::BuiltInCoherentTraits::hash) ORDERING_BUILTIN_COHERENT_HASH =
-    sy::BuiltInCoherentTraits::makeHashFunction<sy::Ordering>();
-constexpr static decltype(sy::BuiltInCoherentTraits::compare) ORDERING_BUILTIN_COHERENT_COMPARE =
-    sy::BuiltInCoherentTraits::makeCompareFunction<int32_t>();
-constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicDestroy)
-    ORDERING_ELEMENT_WISE_ATOMIC_DESTROY = &EMPTY_DESTRUCTOR;
-constexpr static Function<void(void* dst, const void* src)> ORDERING_ELEMENT_WISE_ATOMIC_LOAD_IMPL =
-    doAtomicCloneStd<int32_t>;
-constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicLoad)
-    ORDERING_ELEMENT_WISE_ATOMIC_LOAD = &ORDERING_ELEMENT_WISE_ATOMIC_LOAD_IMPL;
-constexpr static Function<void(void* dst, const void* src)>
-    ORDERING_ELEMENT_WISE_ATOMIC_STORE_IMPL = doAtomicCloneStd<int32_t>;
-constexpr static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicStore)
-    ORDERING_ELEMENT_WISE_ATOMIC_STORE = &ORDERING_ELEMENT_WISE_ATOMIC_STORE_IMPL;
-constexpr static sy::BuiltInCoherentTraits ORDERING_BUILTIN_TRAITS = {
-    .clone = ORDERING_BUILTIN_COHERENT_CLONE,
-    .equal = ORDERING_BUILTIN_COHERENT_EQUALITY,
-    .hash = ORDERING_BUILTIN_COHERENT_HASH,
-    .compare = ORDERING_BUILTIN_COHERENT_COMPARE,
-    .elementWiseAtomicDestroy = ORDERING_ELEMENT_WISE_ATOMIC_DESTROY,
-    .elementWiseAtomicLoad = ORDERING_ELEMENT_WISE_ATOMIC_LOAD,
-    .elementWiseAtomicStore = ORDERING_ELEMENT_WISE_ATOMIC_STORE};
-
-namespace sy {
-namespace internal {
-constinit extern sy::Type TYPE_ORDERING;
 } // namespace internal
 } // namespace sy
 
-constinit static sy::Type ORDERING_CONST_REF_TYPE = {
-    sizeof(const sy::Ordering*),
-    static_cast<decltype(sy::Type::alignType)>(alignof(const sy::Ordering*)),
-    sy::StringSlice("*Ordering"),
-    sy::Type::Tag::Reference,
-    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &sy::internal::TYPE_ORDERING}),
-    &EMPTY_DESTRUCTOR,
-    nullptr,
-    nullptr,
-    nullptr,
-};
-
-constinit static sy::Type ORDERING_MUT_REF_TYPE = {
-    sizeof(sy::Ordering*),
-    static_cast<decltype(sy::Type::alignType)>(alignof(sy::Ordering*)),
-    sy::StringSlice("*mut Ordering"),
-    sy::Type::Tag::Reference,
-    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &sy::internal::TYPE_ORDERING}),
-    &EMPTY_DESTRUCTOR,
-    nullptr,
-    nullptr,
-    nullptr,
-};
-
 namespace sy {
 namespace internal {
-constinit sy::Type TYPE_ORDERING = {
-    .sizeType = sizeof(sy::Ordering),
-    .alignType = static_cast<uint16_t>(alignof(sy::Ordering)),
-    .name = "Ordering",
-    .tag = Type::Tag::Ordering,
-    .extra = Type::ExtraInfo(),
-    .destructor = &EMPTY_DESTRUCTOR,
-    .builtinTraits = &ORDERING_BUILTIN_TRAITS,
-    .constRef = &ORDERING_CONST_REF_TYPE,
-    .mutRef = &ORDERING_MUT_REF_TYPE,
-};
+constinit sy::Type TYPE_OPAQUE_PTR = Type{sizeof(void*),
+                                          static_cast<uint16_t>(alignof(void*)),
+                                          "ptr",
+                                          Type::Tag::OpaquePointer,
+                                          {},
+                                          &EMPTY_DESTRUCTOR,
+                                          nullptr,
+                                          nullptr,
+                                          nullptr};
 }
-
 } // namespace sy
 
 extern "C" {
 SY_API constinit const sy::Type* SY_TYPE_BOOL = &sy::internal::TYPE_BOOL;
 
-SY_API const sy::Type* SY_TYPE_I8 = Type::TYPE_I8;
-SY_API const sy::Type* SY_TYPE_I16 = Type::TYPE_I16;
-SY_API const sy::Type* SY_TYPE_I32 = Type::TYPE_I32;
-SY_API const sy::Type* SY_TYPE_I64 = Type::TYPE_I64;
-SY_API const sy::Type* SY_TYPE_U8 = Type::TYPE_U8;
-SY_API const sy::Type* SY_TYPE_U16 = Type::TYPE_U16;
-SY_API const sy::Type* SY_TYPE_U32 = Type::TYPE_U32;
-SY_API const sy::Type* SY_TYPE_U64 = Type::TYPE_U64;
+SY_API constinit const sy::Type* SY_TYPE_I8 = &sy::internal::TYPE_I8;
+SY_API constinit const sy::Type* SY_TYPE_I16 = &sy::internal::TYPE_I16;
+SY_API constinit const sy::Type* SY_TYPE_I32 = &sy::internal::TYPE_I32;
+SY_API constinit const sy::Type* SY_TYPE_I64 = &sy::internal::TYPE_I64;
+SY_API constinit const sy::Type* SY_TYPE_U8 = &sy::internal::TYPE_U8;
+SY_API constinit const sy::Type* SY_TYPE_U16 = &sy::internal::TYPE_U16;
+SY_API constinit const sy::Type* SY_TYPE_U32 = &sy::internal::TYPE_U32;
+SY_API constinit const sy::Type* SY_TYPE_U64 = &sy::internal::TYPE_U64;
 SY_API constinit const sy::Type* SY_TYPE_USIZE = &sy::internal::TYPE_USIZE;
 
-SY_API const sy::Type* SY_TYPE_F32 = Type::TYPE_F32;
-SY_API const sy::Type* SY_TYPE_F64 = Type::TYPE_F64;
+SY_API constinit const sy::Type* SY_TYPE_F32 = &sy::internal::TYPE_F32;
+SY_API constinit const sy::Type* SY_TYPE_F64 = &sy::internal::TYPE_F64;
 
 // SY_API const SyType* SY_TYPE_CHAR           = reinterpret_cast<const SyType*>(Type::TYPE_CHAR);
+SY_API constinit const sy::Type* SY_TYPE_STRING_SLICE = &sy::internal::TYPE_STRING_SLICE;
 SY_API constinit const sy::Type* SY_TYPE_STRING = &sy::internal::TYPE_STRING;
-SY_API const sy::Type* SY_TYPE_STRING_SLICE = Type::TYPE_STRING_SLICE;
 
 SY_API constinit const sy::Type* SY_TYPE_ORDERING = &sy::internal::TYPE_ORDERING;
 }
