@@ -620,6 +620,7 @@ sy::Result<sy::String, sy::AllocErr> sy::String::init(StringSlice str, Allocator
     uint8_t* data = res.value();
     internal::AtomicStringHeader* header = reinterpret_cast<internal::AtomicStringHeader*>(data);
     new (header) internal::AtomicStringHeader(alloc);
+    header->len = str.len();
 
     // actually copy over the string.
     memcpy(header->inlineString, str.data(), str.len());
@@ -699,11 +700,6 @@ bool sy::String::operator==(StringSlice other) const noexcept { return this->asS
 
 bool sy::operator==(StringSlice lhs, const String& rhs) noexcept { return lhs == rhs.asSlice(); }
 
-std::ostream& sy::operator<<(std::ostream& os, const String& s) {
-    StringSlice thisStr = s.asSlice();
-    return os.write(thisStr.data(), thisStr.len());
-}
-
 sy::Result<sy::String, sy::AllocErr> sy::String::concat(StringSlice str) const noexcept {
     StringSlice thisStr = this->asSlice();
 
@@ -727,6 +723,7 @@ sy::Result<sy::String, sy::AllocErr> sy::String::concat(StringSlice str) const n
     uint8_t* data = res.value();
     internal::AtomicStringHeader* header = reinterpret_cast<internal::AtomicStringHeader*>(data);
     new (header) internal::AtomicStringHeader(this->impl_->allocator);
+    header->len = thisStr.len() + str.len();
 
     // copy over this string data
     memcpy(header->inlineString, thisStr.data(), thisStr.len());
@@ -735,7 +732,7 @@ sy::Result<sy::String, sy::AllocErr> sy::String::concat(StringSlice str) const n
 
     // zero out the rest, setting null terminator and fun SIMD stuff.
     const size_t byteStart =
-        internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED + thisStr.len() + str.len();
+        internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED + header->len;
     for (size_t i = byteStart; i < totalAllocationSize; i++) {
         data[i] = static_cast<uint8_t>('\0');
     }
@@ -743,6 +740,11 @@ sy::Result<sy::String, sy::AllocErr> sy::String::concat(StringSlice str) const n
     String out;
     out.impl_ = header;
     return out;
+}
+
+std::ostream& sy::operator<<(std::ostream& os, const String& s) {
+    StringSlice thisStr = s.asSlice();
+    return os.write(thisStr.data(), thisStr.len());
 }
 
 sy::StringBuilder::~StringBuilder() noexcept {
@@ -815,10 +817,16 @@ sy::StringBuilder::initWithCapacity(size_t inCapacity, Allocator alloc) noexcept
 }
 
 sy::Result<sy::String, sy::AllocErr> sy::StringBuilder::build() noexcept {
+    if (this->impl_->len == 0) {
+        return String();
+    }
+
     const size_t actualNeededAllocationSize =
         internal::AtomicStringHeader::allocationSizeFor(this->impl_->len);
+    // subtract one cause capacity already reserves for null terminator
     const size_t currentAllocationSize = internal::AtomicStringHeader::allocationSizeFor(
-        this->fullAllocatedCapacity_ + internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED);
+        this->fullAllocatedCapacity_ + internal::AtomicStringHeader::HEADER_NON_STRING_BYTES_USED -
+        1);
 
     String out;
 
@@ -837,6 +845,7 @@ sy::Result<sy::String, sy::AllocErr> sy::StringBuilder::build() noexcept {
     uint8_t* data = res.value();
     internal::AtomicStringHeader* header = reinterpret_cast<internal::AtomicStringHeader*>(data);
     new (header) internal::AtomicStringHeader(this->impl_->allocator);
+    header->len = this->impl_->len;
 
     // copy over this string data
     memcpy(header->inlineString, this->impl_->inlineString, this->impl_->len);
@@ -860,6 +869,7 @@ sy::Result<void, sy::AllocErr> sy::StringBuilder::write(StringSlice str) noexcep
     if ((this->impl_->len + str.len() + 1) <= this->fullAllocatedCapacity_) {
         memcpy(this->impl_->inlineString + this->impl_->len, str.data(), str.len());
         this->impl_->inlineString[this->impl_->len + str.len()] = '\0';
+        this->impl_->len += str.len();
         return {};
     }
 
