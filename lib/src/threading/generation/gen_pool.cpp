@@ -186,7 +186,7 @@ SY_API SyProgramError sy_gen_owner_store(SyGenOwner* self, void* obj) {
     }
 
     auto* typedPool = chunk->typedPoolParent;
-    sy_assert(typedPool->type->builtinTraits->elementWiseAtomicMove.hasValue(),
+    sy_assert(typedPool->type->builtinTraits->elementWiseAtomicStore.hasValue(),
               "Needs elementWiseAtomicMove()");
 
     auto& seq = chunk->seqlocks[self->objectIndex_];
@@ -209,7 +209,7 @@ SY_API SyProgramError sy_gen_owner_store(SyGenOwner* self, void* obj) {
 
     void* slot = chunk->objAt(self->objectIndex_);
     auto elementWiseAtomicMoveRes =
-        typedPool->type->builtinTraits->elementWiseAtomicMove.value()->call(slot, obj);
+        typedPool->type->builtinTraits->elementWiseAtomicStore.value()->call(slot, obj);
 
     // make even to mark that done writing
     seq.fetch_add(1, std::memory_order_release);
@@ -242,7 +242,7 @@ SY_API SyProgramError sy_gen_ref_load(const SyGenRef* self, void* outObj) {
     sy_assert(self->objectIndex_ < chunk->capacity, "Invalid object index");
 
     auto* typedPool = chunk->typedPoolParent;
-    sy_assert(typedPool->type->builtinTraits->elementWiseAtomicClone.hasValue(),
+    sy_assert(typedPool->type->builtinTraits->elementWiseAtomicLoad.hasValue(),
               "Needs elementWiseAtomicClone()");
 
     auto& seq = chunk->seqlocks[self->objectIndex_];
@@ -258,7 +258,7 @@ SY_API SyProgramError sy_gen_ref_load(const SyGenRef* self, void* outObj) {
         }
 
         auto cloneRes =
-            typedPool->type->builtinTraits->elementWiseAtomicClone.value()->call(outObj, slot);
+            typedPool->type->builtinTraits->elementWiseAtomicLoad.value()->call(outObj, slot);
 
         // if it changed someone wrote, so re-clone
         if (seq.load(std::memory_order_acquire) != seqBefore) {

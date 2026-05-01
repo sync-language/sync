@@ -16,8 +16,8 @@ struct BuiltInCoherentTraits {
     Option<const Function<size_t(const void* obj)>*> hash;
     Option<const Function<Ordering(const void* lhs, const void* rhs)>*> compare;
     Option<const Function<void(void* self)>*> elementWiseAtomicDestroy;
-    Option<const Function<void(void* dst, const void* src)>*> elementWiseAtomicClone;
-    Option<const Function<void(void* dst, void* src)>*> elementWiseAtomicMove;
+    Option<const Function<void(void* dst, const void* src)>*> elementWiseAtomicLoad;
+    Option<const Function<void(void* dst, const void* src)>*> elementWiseAtomicStore;
 
     template <typename T> static const Function<void(void* dst, const void* src)>* makeClone() {
         static Function<void(void* dst, const void* src)> func = +[](void* dst, const void* src) {

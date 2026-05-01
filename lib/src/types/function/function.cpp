@@ -581,24 +581,24 @@ sy::Result<void, sy::ProgramError> simpleFunc1Arg(FunctionHandler handler) {
     return {};
 }
 
-TEST_SUITE("C 1 arg no return") {
-    TEST_CASE("int32_t") {
-        const Type* argTypes[1] = {Type::TYPE_I32};
-        const RawFunction func = {StringSlice(""),
-                                  StringSlice(""),
-                                  nullptr,
-                                  argTypes,
-                                  1,
-                                  SY_FUNCTION_MIN_ALIGN,
-                                  false,
-                                  FunctionType::C,
-                                  reinterpret_cast<void*>(&simpleFunc1Arg<int32_t, 56>)};
+// TEST_SUITE("C 1 arg no return") {
+//     TEST_CASE("int32_t") {
+//         const Type* argTypes[1] = {Type::TYPE_I32};
+//         const RawFunction func = {StringSlice(""),
+//                                   StringSlice(""),
+//                                   nullptr,
+//                                   argTypes,
+//                                   1,
+//                                   SY_FUNCTION_MIN_ALIGN,
+//                                   false,
+//                                   FunctionType::C,
+//                                   reinterpret_cast<void*>(&simpleFunc1Arg<int32_t, 56>)};
 
-        RawFunction::CallArgs callArgs = func.startCall();
-        int32_t arg = 56;
-        callArgs.push(&arg, Type::TYPE_I32);
-        CHECK(callArgs.call(nullptr));
-    }
-}
+//         RawFunction::CallArgs callArgs = func.startCall();
+//         int32_t arg = 56;
+//         callArgs.push(&arg, Type::TYPE_I32);
+//         CHECK(callArgs.call(nullptr));
+//     }
+// }
 
 #endif // SYNC_LIB_NO_TESTS

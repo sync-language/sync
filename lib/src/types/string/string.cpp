@@ -1,7 +1,11 @@
 #include "string.h"
+#include "../../core/builtin_traits/builtin_traits.hpp"
 #include "../../core/core_internal.h"
 #include "../../mem/allocator.hpp"
 #include "../../util/move_and_leak.hpp"
+#include "../function/function.hpp"
+#include "../option/option.hpp"
+#include "../type_info.hpp"
 #include "string.hpp"
 #include "string_internal.hpp"
 #include <atomic>
@@ -909,53 +913,104 @@ sy::Result<void, sy::AllocErr> sy::StringBuilder::write(StringSlice str) noexcep
     return {};
 }
 
-// #if SYNC_LIB_WITH_TESTS
+static decltype(sy::BuiltInCoherentTraits::clone) STRING_BUILTIN_COHERENT_CLONE =
+    sy::BuiltInCoherentTraits::makeClone<sy::String>();
+static decltype(sy::BuiltInCoherentTraits::equal) STRING_BUILTIN_COHERENT_EQUALITY =
+    sy::BuiltInCoherentTraits::makeEqualityFunction<sy::String>();
+static decltype(sy::BuiltInCoherentTraits::hash) STRING_BUILTIN_COHERENT_HASH =
+    sy::BuiltInCoherentTraits::makeHashFunction<sy::String>();
 
-// #include "../../doctest.h"
+static sy::Function<void(void* self)> STRING_BUILTIN_COHERENT_ATOMIC_DESTROY_FN = +[](void* self) {
+    sy::String* tSelf = reinterpret_cast<sy::String*>(self);
+    sy::internal::AtomicStringHeader::atomicStringDestroy(tSelf);
+};
+static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicDestroy)
+    STRING_BUILTIN_COHERENT_ATOMIC_DESTROY = &STRING_BUILTIN_COHERENT_ATOMIC_DESTROY_FN;
 
-// using sy::String;
-// using sy::StringSlice;
+static sy::Function<void(void* dst, const void* src)> STRING_BUILTIN_COHERENT_ATOMIC_LOAD_FN =
+    +[](void* out, const void* src) {
+        sy::String* tDst = reinterpret_cast<sy::String*>(out);
+        const sy::String* tSrc = reinterpret_cast<const sy::String*>(src);
+        sy::internal::AtomicStringHeader::atomicStringClone(tDst, tSrc);
+    };
+static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicLoad)
+    STRING_BUILTIN_COHERENT_ATOMIC_LOAD = &STRING_BUILTIN_COHERENT_ATOMIC_LOAD_FN;
 
-// TEST_CASE("Default constructor") {
-//     String s;
-//     CHECK_EQ(s.len(), 0);
-// }
+static sy::Function<void(void* dst, const void* src)> STRING_BUILTIN_COHERENT_ATOMIC_STORE_FN =
+    +[](void* overwrite, const void* src) {
+        sy::String* tDst = reinterpret_cast<sy::String*>(overwrite);
+        const sy::String* tSrc = reinterpret_cast<const sy::String*>(src);
+        sy::internal::AtomicStringHeader::atomicStringSet(tDst, tSrc);
+    };
+static decltype(sy::BuiltInCoherentTraits::elementWiseAtomicStore)
+    STRING_BUILTIN_COHERENT_ATOMIC_STORE = &STRING_BUILTIN_COHERENT_ATOMIC_STORE_FN;
 
-// TEST_SUITE("const char* constructor") {
-//     TEST_CASE("small") {
-//         String s = String("hello");
-//         CHECK_EQ(s.len(), 5);
-//         CHECK_EQ(std::strcmp(s.cstr(), "hello"), 0);
-//     }
+static sy::BuiltInCoherentTraits STRING_BUILTIN_COHERENT_TRAITS = {
+    STRING_BUILTIN_COHERENT_CLONE,          STRING_BUILTIN_COHERENT_EQUALITY,
+    STRING_BUILTIN_COHERENT_HASH,           {},
+    STRING_BUILTIN_COHERENT_ATOMIC_DESTROY, STRING_BUILTIN_COHERENT_ATOMIC_LOAD,
+    STRING_BUILTIN_COHERENT_ATOMIC_STORE,
+};
 
-//     TEST_CASE("max sso len 64 bit arch") {
-//         String s = String("hello world how are you");
-//         CHECK_EQ(s.len(), 23);
-//         CHECK_EQ(std::strcmp(s.cstr(), "hello world how are you"), 0);
-//     }
+static sy::Function<void(void* self)> STRING_DESTRUCTOR_FN = +[](void* self) {
+    sy::String* tSelf = reinterpret_cast<sy::String*>(self);
+    tSelf->~String();
+};
 
-//     TEST_CASE("bigger than sso len") {
-//         String s = String("hello world how are you today");
-//         CHECK_EQ(s.len(), 29);
-//         CHECK_EQ(std::strcmp(s.cstr(), "hello world how are you today"), 0);
-//     }
+static sy::Function<void(void* self)> STRING_REF_EMPTY_DESTRUCTOR = +[](void* self) { (void)self; };
 
-//     TEST_CASE("massive string") {
-//         String s =
-//         String("123456789012345678901234567890123456789012345678901234567890123456789012"
-//                           "34567890123456789012"
-//                           "34567890123456789012345678901234567890");
-//         CHECK_EQ(s.len(), 130);
-//         CHECK_EQ(
-//             std::strcmp(
-//                 s.cstr(),
-//                 "1234567890123456789012345678901234567890123456789012345678901234567890123456789"
-//                 "012345678901234567890123456789012345678901234567890"),
-//             0);
-//     }
-// }
+static decltype(sy::BuiltInCoherentTraits::clone) STRING_REF_BUILTIN_COHERENT_CLONE =
+    sy::BuiltInCoherentTraits::makeClone<sy::String*>();
+static decltype(sy::BuiltInCoherentTraits::equal) STRING_REF_BUILTIN_COHERENT_EQUALITY =
+    sy::BuiltInCoherentTraits::makeEqualityFunction<sy::String*>();
 
-// #endif // SYNC_LIB_WITH_TESTS
+static sy::BuiltInCoherentTraits STRING_REF_BUILTIN_COHERENT_TRAITS = {
+    STRING_REF_BUILTIN_COHERENT_CLONE, STRING_REF_BUILTIN_COHERENT_EQUALITY, {}, {}, {}, {}, {},
+};
+
+static sy::Type STRING_TYPE;
+
+static sy::Type STRING_CONST_REF_TYPE = {
+    sizeof(const sy::String*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(const sy::String*)),
+    sy::StringSlice("*String"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{false, &STRING_TYPE}),
+    &STRING_REF_EMPTY_DESTRUCTOR,
+    &STRING_REF_BUILTIN_COHERENT_TRAITS,
+    nullptr,
+    nullptr,
+};
+
+static sy::Type STRING_MUT_REF_TYPE = {
+    sizeof(sy::String*),
+    static_cast<decltype(sy::Type::alignType)>(alignof(sy::String*)),
+    sy::StringSlice("*mut String"),
+    sy::Type::Tag::Reference,
+    sy::Type::ExtraInfo(sy::Type::ExtraInfo::Reference{true, &STRING_TYPE}),
+    &STRING_REF_EMPTY_DESTRUCTOR,
+    &STRING_REF_BUILTIN_COHERENT_TRAITS,
+    nullptr,
+    nullptr,
+};
+
+namespace sy {
+namespace internal {
+sy::Type STRING_TYPE = {
+    sizeof(sy::String),
+    static_cast<decltype(sy::Type::alignType)>(alignof(sy::String)),
+    sy::StringSlice("String"),
+    sy::Type::Tag::String,
+    sy::Type::ExtraInfo(),
+    &STRING_DESTRUCTOR_FN,
+    &STRING_BUILTIN_COHERENT_TRAITS,
+    &STRING_CONST_REF_TYPE,
+    &STRING_MUT_REF_TYPE,
+};
+}
+} // namespace sy
+
+const sy::Type* sy::Reflect<sy::String>::get() noexcept { return &sy::internal::STRING_TYPE; }
 
 #ifdef __cplusplus
 extern "C" {

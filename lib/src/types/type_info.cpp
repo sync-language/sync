@@ -126,6 +126,13 @@ const Type* const sy::Type::TYPE_F64 =
 // const Type* const sy::Type::TYPE_CHAR = nullptr;
 const Type* const sy::Type::TYPE_STRING_SLICE =
     Type::makeType<sy::StringSlice>("str", Type::Tag::StringSlice, Type::ExtraInfo());
+
+namespace sy {
+namespace internal {
+extern sy::Type STRING_TYPE;
+}
+} // namespace sy
+
 const Type* const sy::Type::TYPE_STRING =
     Type::makeType<sy::String>("String", Type::Tag::String, Type::ExtraInfo());
 
@@ -153,7 +160,7 @@ SY_API const SyType* SY_TYPE_F32 = reinterpret_cast<const SyType*>(Type::TYPE_F3
 SY_API const SyType* SY_TYPE_F64 = reinterpret_cast<const SyType*>(Type::TYPE_F64);
 
 // SY_API const SyType* SY_TYPE_CHAR           = reinterpret_cast<const SyType*>(Type::TYPE_CHAR);
-SY_API const SyType* SY_TYPE_STRING = reinterpret_cast<const SyType*>(Type::TYPE_STRING);
+SY_API const SyType* SY_TYPE_STRING = reinterpret_cast<const SyType*>(&sy::internal::STRING_TYPE);
 SY_API const SyType* SY_TYPE_STRING_SLICE =
     reinterpret_cast<const SyType*>(Type::TYPE_STRING_SLICE);
 
@@ -304,11 +311,11 @@ template <typename T> static void doAtomicCloneStd(void* dst, const void* src) {
     atomicDst->store(temp, std::memory_order_relaxed);
 }
 
-Result<void, ProgramError> sy::Type::elementWiseAtomicCloneObjImpl(void* dst,
-                                                                   const void* src) const {
+Result<void, ProgramError> sy::Type::elementWiseAtomicLoadObjImpl(void* dst,
+                                                                  const void* src) const {
     sy_assert(dst != nullptr, "Cannot copy to null object");
     sy_assert(src != nullptr, "Cannot copy from null object");
-    sy_assert(this->builtinTraits->elementWiseAtomicClone.hasValue(),
+    sy_assert(this->builtinTraits->elementWiseAtomicLoad.hasValue(),
               "Cannot perform atomic clone without an atomic clone function");
 
     switch (this->tag) {
@@ -374,13 +381,14 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicCloneObjImpl(void* dst,
     sy_assert(this->constRef->alignType == alignof(void*),
               "Const reference types should be the same align as void*");
 
-    return this->builtinTraits->elementWiseAtomicClone.value()->call(dst, src);
+    return this->builtinTraits->elementWiseAtomicLoad.value()->call(dst, src);
 }
 
-Result<void, ProgramError> sy::Type::elementWiseAtomicMoveObjImpl(void* dst, void* src) const {
+Result<void, ProgramError> sy::Type::elementWiseAtomicStoreObjImpl(void* dst,
+                                                                   const void* src) const {
     sy_assert(dst != nullptr, "Cannot move to null object");
     sy_assert(src != nullptr, "Cannot move from null object");
-    sy_assert(this->builtinTraits->elementWiseAtomicMove.hasValue(),
+    sy_assert(this->builtinTraits->elementWiseAtomicStore.hasValue(),
               "Cannot perform atomic move without an atomic move function");
 
     switch (this->tag) {
@@ -437,13 +445,18 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicMoveObjImpl(void* dst, voi
         break;
     }
 
-    sy_assert(this->mutRef != nullptr, "Atomic move takes mutable references");
+    sy_assert(this->mutRef != nullptr, "Atomic store takes mutable reference");
     sy_assert(this->mutRef->sizeType == sizeof(void*),
               "Mutable reference types should be the same size as void*");
     sy_assert(this->mutRef->alignType == alignof(void*),
               "Mutable reference types should be the same align as void*");
+    sy_assert(this->constRef != nullptr, "Atomic store takes const reference");
+    sy_assert(this->constRef->sizeType == sizeof(void*),
+              "Const reference types should be the same size as void*");
+    sy_assert(this->constRef->alignType == alignof(void*),
+              "Const reference types should be the same align as void*");
 
-    return this->builtinTraits->elementWiseAtomicMove.value()->call(dst, src);
+    return this->builtinTraits->elementWiseAtomicStore.value()->call(dst, src);
 }
 
 #if SYNC_LIB_WITH_TESTS

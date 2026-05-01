@@ -5,6 +5,7 @@
 
 #include "../../core/core.h"
 #include "../../mem/allocator.hpp"
+#include "../reflect_fwd.hpp"
 #include "string_slice.hpp"
 #include <iosfwd>
 #include <string_view>
@@ -230,6 +231,10 @@ class SY_API String {
     friend struct internal::Test_String;
 
     const internal::AtomicStringHeader* impl_ = nullptr;
+};
+
+template <> struct SY_API Reflect<String> {
+    static const Type* get() noexcept;
 };
 } // namespace sy
 

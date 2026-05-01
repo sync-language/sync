@@ -171,7 +171,8 @@ class SY_API Type {
         return this->elementWiseAtomicDestroyObjImpl(reinterpret_cast<void*>(dst));
     }
 
-    template <typename T> Result<void, ProgramError> atomicCloneObj(T* dst, const T* src) const {
+    template <typename T>
+    Result<void, ProgramError> elementWiseAtomicLoadObj(T* dst, const T* src) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -180,12 +181,12 @@ class SY_API Type {
     }
 
     template <typename T>
-    Result<void, ProgramError> elementWiseAtomicMoveObj(T* dst, T* src) const {
+    Result<void, ProgramError> elementWiseAtomicStoreObj(T* dst, const T* src) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
         return this->elementWiseAtomicMoveObjImpl(reinterpret_cast<void*>(dst),
-                                                  reinterpret_cast<void*>(src));
+                                                  reinterpret_cast<const void*>(src));
     }
 
     static const Type* const TYPE_BOOL;
@@ -298,8 +299,8 @@ class SY_API Type {
     Result<size_t, ProgramError> hashObjectImpl(const void* self) const;
     Result<Ordering, ProgramError> compareObjectImpl(const void* self, const void* other) const;
     Result<void, ProgramError> elementWiseAtomicDestroyObjImpl(void* obj) const;
-    Result<void, ProgramError> elementWiseAtomicCloneObjImpl(void* dst, const void* src) const;
-    Result<void, ProgramError> elementWiseAtomicMoveObjImpl(void* dst, void* src) const;
+    Result<void, ProgramError> elementWiseAtomicLoadObjImpl(void* dst, const void* src) const;
+    Result<void, ProgramError> elementWiseAtomicStoreObjImpl(void* dst, const void* src) const;
 };
 
 template <> struct SY_API Reflect<bool> {
@@ -319,10 +320,6 @@ template <> struct SY_API Reflect<void*> {
 };
 
 template <> struct SY_API Reflect<const void*> {
-    static const Type* get() noexcept;
-};
-
-template <> struct SY_API Reflect<String> {
     static const Type* get() noexcept;
 };
 
