@@ -8,7 +8,8 @@ static Option<TypeResolutionInfo> tryParseNormalType(const TokenIter* tokenIter)
     const Token current = tokenIter->current();
     switch (current.tag()) {
     case TokenType::BoolPrimitive: {
-        return TypeResolutionInfo{Type::TYPE_BOOL->name, Type::TYPE_BOOL};
+        auto t = sy::Reflect<bool>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::I8Primitive: {
         return TypeResolutionInfo{Type::TYPE_I8->name, Type::TYPE_I8};
@@ -35,7 +36,8 @@ static Option<TypeResolutionInfo> tryParseNormalType(const TokenIter* tokenIter)
         return TypeResolutionInfo{Type::TYPE_U64->name, Type::TYPE_U64};
     } break;
     case TokenType::USizePrimitive: {
-        return TypeResolutionInfo{Type::TYPE_USIZE->name, Type::TYPE_USIZE};
+        auto t = sy::Reflect<size_t>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::F32Primitive: {
         return TypeResolutionInfo{Type::TYPE_F32->name, Type::TYPE_F32};
@@ -45,7 +47,8 @@ static Option<TypeResolutionInfo> tryParseNormalType(const TokenIter* tokenIter)
     } break;
     // TODO char and str? str is reference type though?
     case TokenType::StringPrimitive: {
-        return TypeResolutionInfo{Type::TYPE_STRING->name, Type::TYPE_STRING};
+        auto t = sy::Reflect<sy::String>::get();
+        return TypeResolutionInfo{t->name, t};
     } break;
     default: {
         return {};
@@ -53,7 +56,8 @@ static Option<TypeResolutionInfo> tryParseNormalType(const TokenIter* tokenIter)
     }
 }
 
-Result<TypeResolutionInfo, TypeResolutionInfo::Err> sy::TypeResolutionInfo::parse(ParseInfo* parseInfo) noexcept {
+Result<TypeResolutionInfo, TypeResolutionInfo::Err>
+sy::TypeResolutionInfo::parse(ParseInfo* parseInfo) noexcept {
     if (auto normalParse = tryParseNormalType(&parseInfo->tokenIter); normalParse.hasValue()) {
         return normalParse.take();
     }
@@ -90,7 +94,8 @@ static Result<void, ProgramError> parsePointer(ParseInfo* parseInfo, ParsedType*
     return {};
 }
 
-static Result<void, ProgramError> parseLifetimePointer(ParseInfo* parseInfo, ParsedType* parsedType) {
+static Result<void, ProgramError> parseLifetimePointer(ParseInfo* parseInfo,
+                                                       ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Pointer;
 
@@ -98,7 +103,8 @@ static Result<void, ProgramError> parseLifetimePointer(ParseInfo* parseInfo, Par
     if (auto next = parseInfo->tokenIter.peek(); next.has_value()) {
         TokenType nextToken = next.value().tag();
         if (nextToken != TokenType::Identifier) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+            parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                 parseInfo->tokenIter.current().location(),
                                  "Expected identifier for lifetime annotated pointer"); //
             return Error(ProgramError::CompileUnknownType);
         }
@@ -149,7 +155,8 @@ static Result<void, ProgramError> parseLifetimeSlice(ParseInfo* parseInfo, Parse
     if (auto next = parseInfo->tokenIter.peek(); next.has_value()) {
         TokenType nextToken = next.value().tag();
         if (nextToken != TokenType::Identifier) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+            parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                 parseInfo->tokenIter.current().location(),
                                  "Expected identifier for lifetime annotated pointer"); //
             return Error(ProgramError::CompileUnknownType);
         }
@@ -200,7 +207,8 @@ static Result<void, ProgramError> parseLifetimeDyn(ParseInfo* parseInfo, ParsedT
     if (auto next = parseInfo->tokenIter.peek(); next.has_value()) {
         TokenType nextToken = next.value().tag();
         if (nextToken != TokenType::Identifier) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+            parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                 parseInfo->tokenIter.current().location(),
                                  "Expected identifier for lifetime annotated pointer");
             return Error(ProgramError::CompileUnknownType);
         }
@@ -259,13 +267,14 @@ static Result<void, ProgramError> parseStaticArray(ParseInfo* parseInfo, ParsedT
     node.tag = ParsedTypeTag::StaticArray;
 
     if (parseInfo->tokenIter.next().has_value() == false) {
-        parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+        parseInfo->reportErr(ProgramError::CompileUnknownType,
+                             parseInfo->tokenIter.current().location(),
                              "Expected expression for static array size, not end of file");
         return Error(ProgramError::CompileUnknownType);
     }
 
-    // This gets added BEFORE the static array node, but is a child of the static array node to maintain correct
-    // ordering.
+    // This gets added BEFORE the static array node, but is a child of the static array node to
+    // maintain correct ordering.
     uint16_t sizeNodeIndex = UINT16_MAX;
 
     { // size of the array
@@ -282,7 +291,8 @@ static Result<void, ProgramError> parseStaticArray(ParseInfo* parseInfo, ParsedT
         } break;
 
         default:
-            parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+            parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                 parseInfo->tokenIter.current().location(),
                                  "Expected number literal for array size");
             return Error(ProgramError::CompileUnknownType);
         }
@@ -298,13 +308,15 @@ static Result<void, ProgramError> parseStaticArray(ParseInfo* parseInfo, ParsedT
 
     { // need ']' character
         if (parseInfo->tokenIter.next().has_value() == false) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+            parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                 parseInfo->tokenIter.current().location(),
                                  "Expected ']' for static array type, not end of file");
             return Error(ProgramError::CompileUnknownType);
         }
         const TokenType current = parseInfo->tokenIter.current().tag();
         if (current != TokenType::RightBracketSymbol) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+            parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                 parseInfo->tokenIter.current().location(),
                                  "Expected ']' for static array type");
             return Error(ProgramError::CompileUnknownType);
         }
@@ -313,17 +325,20 @@ static Result<void, ProgramError> parseStaticArray(ParseInfo* parseInfo, ParsedT
     return {};
 }
 
-static Result<void, ProgramError> parseConcreteLifetime(ParseInfo* parseInfo, ParsedType* parsedType) {
+static Result<void, ProgramError> parseConcreteLifetime(ParseInfo* parseInfo,
+                                                        ParsedType* parsedType) {
     // next must be identifier for valid lifetime pointer
     if (parseInfo->tokenIter.next().has_value() == false) {
-        parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+        parseInfo->reportErr(ProgramError::CompileUnknownType,
+                             parseInfo->tokenIter.current().location(),
                              "Expected identifier for concrete lifetime, not end of file");
         return Error(ProgramError::CompileUnknownType);
     }
 
     TokenType token = parseInfo->tokenIter.current().tag();
     if (token != TokenType::Identifier) {
-        parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+        parseInfo->reportErr(ProgramError::CompileUnknownType,
+                             parseInfo->tokenIter.current().location(),
                              "Expected identifier for concrete lifetime");
         return Error(ProgramError::CompileUnknownType);
     }
@@ -337,7 +352,8 @@ static Result<void, ProgramError> parseErrorUnion(ParseInfo* parseInfo, ParsedTy
     { // validate not already found error union
         const ParsedTypeNode& rootNode = parsedType->nodes[parsedType->rootNode];
         if (rootNode.tag == ParsedTypeTag::ErrorUnion) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+            parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                 parseInfo->tokenIter.current().location(),
                                  "Cannot chain error unions");
             return Error(ProgramError::CompileUnknownType);
         }
@@ -395,7 +411,8 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
         }
 
         // Try to parse named types (identifiers / primitives) explicitly
-        if (parsePhase == TypeParsePhase::CollectPrefixOrGetNamed || parsePhase == TypeParsePhase::GetNamedOnly) {
+        if (parsePhase == TypeParsePhase::CollectPrefixOrGetNamed ||
+            parsePhase == TypeParsePhase::GetNamedOnly) {
             TokenType currentToken = parseInfo->tokenIter.current().tag();
             switch (currentToken) {
             case TokenType::Identifier:
@@ -427,11 +444,13 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
 
                 if (genericStackDepth > 0) {
                     if (currentGenericContext->currentArgRoot == UINT16_MAX) {
-                        currentGenericContext->currentArgRoot = static_cast<uint16_t>(parsedType.nodes.len() - 1);
+                        currentGenericContext->currentArgRoot =
+                            static_cast<uint16_t>(parsedType.nodes.len() - 1);
                     } else {
                         if (prevNodeIndex.hasValue()) {
                             ParsedTypeNode& prevNode = parsedType.nodes[prevNodeIndex.value()];
-                            if (prevNode.childrenIndices.push(static_cast<uint16_t>(parsedType.nodes.len() - 1))
+                            if (prevNode.childrenIndices
+                                    .push(static_cast<uint16_t>(parsedType.nodes.len() - 1))
                                     .hasErr()) {
                                 return Error(ProgramError::OutOfMemory);
                             }
@@ -463,7 +482,8 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
 
             default:
                 if (parsePhase == TypeParsePhase::GetNamedOnly) {
-                    parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+                    parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                         parseInfo->tokenIter.current().location(),
                                          "Expected identifier or primitive");
                     return Error(ProgramError::CompileUnknownType);
                 }
@@ -586,8 +606,9 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
 
             case TokenType::LeftParenthesesSymbol: { // generic
                 if (genericStackDepth >= MAX_GENERIC_TYPE_DEPTH) {
-                    parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
-                                         "Generic nesting depth exceeds maximum (maybe malicious code)");
+                    parseInfo->reportErr(
+                        ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+                        "Generic nesting depth exceeds maximum (maybe malicious code)");
                     return Error(ProgramError::CompileUnknownType);
                 }
 
@@ -598,7 +619,8 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                 genericStackDepth += 1;
 
                 if (parseInfo->tokenIter.next().has_value() == false) {
-                    parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+                    parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                         parseInfo->tokenIter.current().location(),
                                          "Expected generic argument or ')', not EOF");
                     return Error(ProgramError::CompileUnknownType);
                 }
@@ -616,7 +638,8 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                 } break;
 
                 case TokenType::NumberLiteral: {
-                    if (parsedType.nodes[currentGenericContext->parentNode].tag == ParsedTypeTag::Tuple) {
+                    if (parsedType.nodes[currentGenericContext->parentNode].tag ==
+                        ParsedTypeTag::Tuple) {
                         parseInfo->reportErr(ProgramError::CompileUnknownType,
                                              parseInfo->tokenIter.current().location(),
                                              "Tuple may not contain number literals");
@@ -635,9 +658,10 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                     }
 
                     if (parseInfo->tokenIter.next().has_value() == false) {
-                        parseInfo->reportErr(ProgramError::CompileUnknownType,
-                                             parseInfo->tokenIter.current().location(),
-                                             "Expected ',' or ')' after generic argument, not end of file");
+                        parseInfo->reportErr(
+                            ProgramError::CompileUnknownType,
+                            parseInfo->tokenIter.current().location(),
+                            "Expected ',' or ')' after generic argument, not end of file");
                         return Error(ProgramError::CompileUnknownType);
                     }
                     continue;
@@ -651,7 +675,8 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
             default: {
                 if (genericStackDepth > 0) {
                     TokenType token = parseInfo->tokenIter.current().tag();
-                    if (token == TokenType::CommaSymbol || token == TokenType::RightParenthesesSymbol) {
+                    if (token == TokenType::CommaSymbol ||
+                        token == TokenType::RightParenthesesSymbol) {
                         // done generic arg
                         if (currentGenericContext->currentArgRoot != UINT16_MAX) {
                             if (parsedType.nodes[currentGenericContext->parentNode]
@@ -663,9 +688,10 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
 
                         if (token == TokenType::CommaSymbol) {
                             if (parseInfo->tokenIter.next().has_value() == false) {
-                                parseInfo->reportErr(ProgramError::CompileUnknownType,
-                                                     parseInfo->tokenIter.current().location(),
-                                                     "Expected generic argument after ',', not end of file");
+                                parseInfo->reportErr(
+                                    ProgramError::CompileUnknownType,
+                                    parseInfo->tokenIter.current().location(),
+                                    "Expected generic argument after ',', not end of file");
                                 return Error(ProgramError::CompileUnknownType);
                             }
 
@@ -689,7 +715,8 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                                 if (parseInfo->tokenIter.next().has_value() == false) {
                                     parseInfo->reportErr(ProgramError::CompileUnknownType,
                                                          parseInfo->tokenIter.current().location(),
-                                                         "Expected ',' or ')' after generic argument, not end of file");
+                                                         "Expected ',' or ')' after generic "
+                                                         "argument, not end of file");
                                     return Error(ProgramError::CompileUnknownType);
                                 }
                             } else {
@@ -709,7 +736,8 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                     parsePhase = TypeParsePhase::DoneParse;
                 }
 
-                // parseInfo->reportErr(ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+                // parseInfo->reportErr(ProgramError::CompileUnknownType,
+                // parseInfo->tokenIter.current().location(),
                 //                      "Expected concrete lifetime, error union, or generic args");
                 // return Error(ProgramError::CompileUnknownType);
             }

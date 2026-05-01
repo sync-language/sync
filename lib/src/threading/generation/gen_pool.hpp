@@ -20,14 +20,9 @@ template <typename T> class GenRef;
 namespace internal {
 struct GenTypedPool;
 struct GenPoolImpl;
-
-SY_API void ensureNoProgramError(int err);
-SY_API int sy_gen_pool_add_impl(GenPool* self, void* obj, const sy::Type* objType, void* outGenRef);
-SY_API int sy_gen_owner_destroy_impl(void* self);
-SY_API int sy_gen_owner_load_impl(void* self, void* outObj);
-SY_API int sy_gen_ref_load_impl(void* self, void* outObj);
-SY_API int sy_gen_owner_store_impl(void* self, void* obj);
-SY_API int sy_gen_ref_store_impl(void* self, void* obj);
+struct Test_GenPool;
+struct Test_GenOwner;
+struct Test_GenRef;
 } // namespace internal
 
 /// Generational reference pool, supporting atomic data access.
@@ -53,6 +48,7 @@ class GenPool {
 
   private:
     friend struct internal::GenTypedPool;
+    friend struct internal::Test_GenPool;
 
     internal::GenPoolImpl* impl_ = nullptr;
 };
@@ -79,6 +75,8 @@ template <typename T> class GenOwner {
 
   private:
     friend class GenPool;
+    friend struct internal::Test_GenOwner;
+
     uint64_t gen_;
     void* chunk_ = nullptr;
     uint32_t objectIndex_ = 0;
@@ -102,10 +100,22 @@ template <typename T> class GenRef {
 
   private:
     template <typename U> friend class GenOwner;
+    friend struct internal::Test_GenRef;
+
     uint64_t gen_;
     void* chunk_ = nullptr;
     uint32_t objectIndex_ = 0;
 };
+
+namespace internal {
+SY_API void ensureNoProgramError(int err);
+SY_API int sy_gen_pool_add_impl(GenPool* self, void* obj, const sy::Type* objType, void* outGenRef);
+SY_API int sy_gen_owner_destroy_impl(void* self);
+SY_API int sy_gen_owner_load_impl(void* self, void* outObj);
+SY_API int sy_gen_ref_load_impl(void* self, void* outObj);
+SY_API int sy_gen_owner_store_impl(void* self, void* obj);
+SY_API int sy_gen_ref_store_impl(void* self, void* obj);
+} // namespace internal
 
 template <typename T> inline Result<GenOwner<T>, AllocErr> GenPool::add(T obj) noexcept {
     GenOwner<T> ref{};

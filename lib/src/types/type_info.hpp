@@ -176,8 +176,8 @@ class SY_API Type {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
-        return this->elementWiseAtomicCloneObjImpl(reinterpret_cast<void*>(dst),
-                                                   reinterpret_cast<const void*>(src));
+        return this->elementWiseAtomicLoadObjImpl(reinterpret_cast<void*>(dst),
+                                                  reinterpret_cast<const void*>(src));
     }
 
     template <typename T>
@@ -185,11 +185,10 @@ class SY_API Type {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
-        return this->elementWiseAtomicMoveObjImpl(reinterpret_cast<void*>(dst),
-                                                  reinterpret_cast<const void*>(src));
+        return this->elementWiseAtomicStoreObjImpl(reinterpret_cast<void*>(dst),
+                                                   reinterpret_cast<const void*>(src));
     }
 
-    static const Type* const TYPE_BOOL;
     static const Type* const TYPE_I8;
     static const Type* const TYPE_I16;
     static const Type* const TYPE_I32;
@@ -198,17 +197,10 @@ class SY_API Type {
     static const Type* const TYPE_U16;
     static const Type* const TYPE_U32;
     static const Type* const TYPE_U64;
-    static const Type* const TYPE_USIZE;
     static const Type* const TYPE_F32;
     static const Type* const TYPE_F64;
     // static const Type* const TYPE_CHAR;
     static const Type* const TYPE_STRING_SLICE;
-    static const Type* const TYPE_STRING;
-    static const Type* const TYPE_ORDERING;
-    /// Pointer-sized, pointer-aligned opaque payload. Used for type-erased trait fn arguments
-    /// (e.g. `Function<void(void*, const void*)>`) where the actual element type is supplied
-    /// implicitly by the surrounding `Type`.
-    static const Type* const TYPE_OPAQUE_PTR;
 
   private:
     template <typename T> static Function<void(void*)>* makeDestructor() {
@@ -303,24 +295,36 @@ class SY_API Type {
     Result<void, ProgramError> elementWiseAtomicStoreObjImpl(void* dst, const void* src) const;
 };
 
+namespace internal {
+extern constinit sy::Type TYPE_BOOL;
+extern constinit sy::Type TYPE_USIZE;
+extern constinit sy::Type TYPE_ORDERING;
+extern constinit sy::Type TYPE_OPAQUE_PTR;
+extern constinit sy::Type TYPE_STRING;
+} // namespace internal
+
 template <> struct SY_API Reflect<bool> {
-    static const Type* get() noexcept;
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_BOOL; }
 };
 
 template <> struct SY_API Reflect<size_t> {
-    static const Type* get() noexcept;
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_USIZE; }
 };
 
 template <> struct SY_API Reflect<Ordering> {
-    static const Type* get() noexcept;
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_ORDERING; }
 };
 
 template <> struct SY_API Reflect<void*> {
-    static const Type* get() noexcept;
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_OPAQUE_PTR; }
 };
 
 template <> struct SY_API Reflect<const void*> {
-    static const Type* get() noexcept;
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_OPAQUE_PTR; }
+};
+
+template <> struct SY_API Reflect<String> {
+    static constexpr const Type* get() noexcept { return &sy::internal::TYPE_STRING; }
 };
 
 } // namespace sy

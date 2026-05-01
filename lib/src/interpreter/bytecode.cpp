@@ -18,7 +18,7 @@ void sy::Bytecode::assertOpCodeMatch(OpCode actual, OpCode expected) {
 const sy::Type* sy::scalarTypeFromTag(ScalarTag tag) {
     switch (tag) {
     case ScalarTag::Bool:
-        return sy::Type::TYPE_BOOL;
+        return sy::Reflect<bool>::get();
     case ScalarTag::I8:
         return sy::Type::TYPE_I8;
     case ScalarTag::I16:
@@ -36,7 +36,7 @@ const sy::Type* sy::scalarTypeFromTag(ScalarTag tag) {
     case ScalarTag::U64:
         return sy::Type::TYPE_U64;
     case ScalarTag::USize:
-        return sy::Type::TYPE_USIZE;
+        return sy::Reflect<size_t>::get();
     case ScalarTag::F32:
         return sy::Type::TYPE_F32;
     case ScalarTag::F64:

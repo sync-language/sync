@@ -36,7 +36,7 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_TSAN)
         )
     else()
         set_target_properties(${TEST_NAME} PROPERTIES
-            CXX_STANDARD 17
+            CXX_STANDARD 20
             CXX_STANDARD_REQUIRED YES
         )
     endif()
@@ -246,7 +246,7 @@ if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
     add_test(NAME SyncLibTests_ThreadSanitizer COMMAND SyncLibTests_ThreadSanitizer)
 endif()
 
-add_executable(NewTests "lib/test_main.cpp" "lib/unit_tests/rwlock.cpp" "lib/unit_tests/string.cpp")
+add_executable(NewTests "lib/test_main.cpp" "lib/unit_tests/rwlock.cpp" "lib/unit_tests/string.cpp" "lib/unit_tests/gen_pool.cpp")
 target_link_libraries(NewTests PRIVATE sync::sync)
 target_include_directories(NewTests PRIVATE "../lib/src" "lib")
 if(SYNC_DISABLE_ASAN_TESTS)

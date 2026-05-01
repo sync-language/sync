@@ -11,12 +11,12 @@
 namespace sy {
 class SY_API StringSlice {
   public:
-    StringSlice() = default;
+    constexpr StringSlice() = default;
 
-    StringSlice(const StringSlice&) = default;
-    StringSlice& operator=(const StringSlice&) = default;
-    StringSlice(StringSlice&&) = default;
-    StringSlice& operator=(StringSlice&&) = default;
+    constexpr StringSlice(const StringSlice&) = default;
+    constexpr StringSlice& operator=(const StringSlice&) = default;
+    constexpr StringSlice(StringSlice&&) = default;
+    constexpr StringSlice& operator=(StringSlice&&) = default;
 
     template <size_t N> constexpr StringSlice(char const (&inStr)[N]) : _ptr(inStr), _len(N - 1) {}
 

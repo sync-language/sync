@@ -176,6 +176,7 @@ namespace internal {
 struct AtomicStringHeader;
 struct Test_String;
 struct Test_StringBuilder;
+
 } // namespace internal
 
 class StringBuilder;
@@ -231,10 +232,6 @@ class SY_API String {
     friend struct internal::Test_String;
 
     const internal::AtomicStringHeader* impl_ = nullptr;
-};
-
-template <> struct SY_API Reflect<String> {
-    static const Type* get() noexcept;
 };
 } // namespace sy
 

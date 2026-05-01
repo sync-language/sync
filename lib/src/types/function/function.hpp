@@ -121,20 +121,20 @@ template <typename Ret, typename... Args> class Function<Ret(Args...)> {
     using NormalFn = Ret (*)(Args...);
     using FallibleFn = Result<Ret, ProgramError> (*)(Args...);
 
-    Function(NormalFn fn) noexcept {
-        initRaw();
-        raw_.fptr = reinterpret_cast<void*>(&infallibleTrampoline);
-        raw_.innerFn = reinterpret_cast<void*>(fn);
-    }
+    constexpr Function(NormalFn fn) noexcept
+        : name_("externFn"), qualifiedName_("externFn"), returnType_(returnTypeOf()),
+          argsTypes_(argsTypesOf()), argsLen_(static_cast<uint16_t>(sizeof...(Args))),
+          alignment_(SY_FUNCTION_MIN_ALIGN), comptimeSafe_(true), tag_(FunctionType::C),
+          fptr_(&infallibleTrampoline), innerFn_(fn) {}
 
-    Function(FallibleFn fn) noexcept {
-        initRaw();
-        raw_.fptr = reinterpret_cast<void*>(&fallibleTrampoline);
-        raw_.innerFn = reinterpret_cast<void*>(fn);
-    }
+    constexpr Function(FallibleFn fn) noexcept
+        : name_("externFn"), qualifiedName_("externFn"), returnType_(returnTypeOf()),
+          argsTypes_(argsTypesOf()), argsLen_(static_cast<uint16_t>(sizeof...(Args))),
+          alignment_(SY_FUNCTION_MIN_ALIGN), comptimeSafe_(true), tag_(FunctionType::C),
+          fptr_(&fallibleTrampoline), innerFn_(fn) {}
 
     Result<Ret, ProgramError> call(Args... args) const noexcept {
-        RawFunction::CallArgs callArgs = raw_.startCall();
+        RawFunction::CallArgs callArgs = reinterpret_cast<const RawFunction*>(this)->startCall();
         const bool pushedAll =
             (... && callArgs.push(const_cast<void*>(static_cast<const void*>(&args)),
                                   Reflect<Args>::get()));
@@ -153,34 +153,43 @@ template <typename Ret, typename... Args> class Function<Ret(Args...)> {
         }
     }
 
-    const RawFunction* raw() const noexcept { return &raw_; }
-
-    RawFunction* rawMut() noexcept { return &raw_; }
-
   private:
-    void initRaw() noexcept {
-        raw_.name = StringSlice("externFn");
-        raw_.qualifiedName = StringSlice("externFn");
+    using TrampolineFn = Result<void, ProgramError> (*)(FunctionHandler);
+
+    union Fptr {
+        TrampolineFn cFn;
+        void* scriptFn;
+        constexpr Fptr() noexcept : scriptFn(nullptr) {}
+        constexpr Fptr(TrampolineFn t) noexcept : cFn(t) {}
+    };
+
+    union InnerFn {
+        NormalFn normalFn;
+        FallibleFn fallibleFn;
+        void* scriptData;
+        constexpr InnerFn() noexcept : scriptData(nullptr) {}
+        constexpr InnerFn(NormalFn n) noexcept : normalFn(n) {}
+        constexpr InnerFn(FallibleFn f) noexcept : fallibleFn(f) {}
+    };
+
+    static constexpr const Type* returnTypeOf() noexcept {
         if constexpr (std::is_void_v<Ret>) {
-            raw_.returnType = nullptr;
+            return nullptr;
         } else {
-            raw_.returnType = Reflect<Ret>::get();
+            return Reflect<Ret>::get();
         }
-        raw_.argsTypes = getArgsTypes();
-        raw_.argsLen = static_cast<uint16_t>(sizeof...(Args));
-        raw_.alignment = SY_FUNCTION_MIN_ALIGN;
-        raw_.comptimeSafe = true;
-        raw_.tag = FunctionType::C;
     }
 
-    static const Type** getArgsTypes() noexcept {
-        if constexpr (sizeof...(Args) > 0) {
-            static const Type* arr[sizeof...(Args)] = {Reflect<Args>::get()...};
-            return arr;
-        } else {
+    static constexpr const Type* const* argsTypesOf() noexcept {
+        if constexpr (sizeof...(Args) == 0) {
             return nullptr;
+        } else {
+            return ARGS_ARR_;
         }
     }
+
+    inline static const Type* const ARGS_ARR_[(sizeof...(Args) > 0 ? sizeof...(Args) : 1)] = {
+        Reflect<Args>::get()...};
 
     static Result<void, ProgramError> infallibleTrampoline(FunctionHandler h) noexcept {
         return invokeInfallible(h, std::index_sequence_for<Args...>{});
@@ -221,7 +230,16 @@ template <typename Ret, typename... Args> class Function<Ret(Args...)> {
         }
     }
 
-    RawFunction raw_{};
+    StringSlice name_;
+    StringSlice qualifiedName_;
+    const Type* returnType_;
+    const Type* const* argsTypes_;
+    uint16_t argsLen_;
+    uint16_t alignment_;
+    bool comptimeSafe_;
+    FunctionType tag_;
+    Fptr fptr_;
+    InnerFn innerFn_;
 };
 } // namespace sy
 

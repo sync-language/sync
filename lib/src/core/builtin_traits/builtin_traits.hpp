@@ -19,51 +19,64 @@ struct BuiltInCoherentTraits {
     Option<const Function<void(void* dst, const void* src)>*> elementWiseAtomicLoad;
     Option<const Function<void(void* dst, const void* src)>*> elementWiseAtomicStore;
 
-    template <typename T> static const Function<void(void* dst, const void* src)>* makeClone() {
-        static Function<void(void* dst, const void* src)> func = +[](void* dst, const void* src) {
+    template <typename T>
+    static constexpr Function<void(void* dst, const void* src)> CLONE_FN_OF =
+        +[](void* dst, const void* src) {
             T* tDst = reinterpret_cast<T*>(dst);
             const T* tSrc = reinterpret_cast<const T*>(src);
             new (tDst) T(*tSrc);
         };
-        return &func;
+
+    template <typename T>
+    static constexpr Function<bool(const void* lhs, const void* rhs)> EQUAL_FN_OF =
+        +[](const void* lhs, const void* rhs) -> bool {
+        const T* tLhs = reinterpret_cast<const T*>(lhs);
+        const T* tRhs = reinterpret_cast<const T*>(rhs);
+        return *tLhs == *tRhs;
+    };
+
+    template <typename T>
+    static constexpr Function<size_t(const void* obj)> HASH_FN_OF = +[](const void* obj) -> size_t {
+        const T* tObj = reinterpret_cast<const T*>(obj);
+        std::hash<T> h;
+        return h(*tObj);
+    };
+
+    template <typename T>
+    static constexpr Function<Ordering(const void* lhs, const void* rhs)> COMPARE_FN_OF =
+        +[](const void* lhs, const void* rhs) -> Ordering {
+        const T* tLhs = reinterpret_cast<const T*>(lhs);
+        const T* tRhs = reinterpret_cast<const T*>(rhs);
+        bool eq = (*tLhs) == (*tRhs);
+        if (eq) {
+            return Ordering::Equal;
+        } else if ((*tLhs) < (*tRhs)) {
+            return Ordering::Less;
+        } else {
+            return Ordering::Greater;
+        }
+    };
+
+    template <typename T>
+    static constexpr const Function<void(void* dst, const void* src)>* makeClone() noexcept {
+        return &CLONE_FN_OF<T>;
     }
 
     template <typename T>
-    static const Function<bool(const void* lhs, const void* rhs)>* makeEqualityFunction() {
-        static Function<bool(const void* lhs, const void* rhs)> func =
-            +[](const void* lhs, const void* rhs) -> bool {
-            const T* tLhs = reinterpret_cast<const T*>(lhs);
-            const T* tRhs = reinterpret_cast<const T*>(rhs);
-            return *tLhs == *tRhs;
-        };
-        return &func;
-    }
-
-    template <typename T> static const Function<size_t(const void* obj)>* makeHashFunction() {
-        static Function<size_t(const void* obj)> func = +[](const void* obj) -> size_t {
-            const T* tObj = reinterpret_cast<const T*>(obj);
-            std::hash<T> h;
-            return h(*tObj);
-        };
-        return &func;
+    static constexpr const Function<bool(const void* lhs, const void* rhs)>*
+    makeEqualityFunction() noexcept {
+        return &EQUAL_FN_OF<T>;
     }
 
     template <typename T>
-    static Function<Ordering(const void* lhs, const void* rhs)>* makeCompareFunction() {
-        static Function<Ordering(const void* lhs, const void* rhs)> func =
-            +[](const void* lhs, const void* rhs) -> Ordering {
-            const T* tLhs = reinterpret_cast<const T*>(lhs);
-            const T* tRhs = reinterpret_cast<const T*>(rhs);
-            bool equal = (*tLhs) == (*tRhs);
-            if (equal) {
-                return Ordering::Equal;
-            } else if ((*tLhs) < (*tRhs)) {
-                return Ordering::Less;
-            } else {
-                return Ordering::Greater;
-            }
-        };
-        return &func;
+    static constexpr const Function<size_t(const void* obj)>* makeHashFunction() noexcept {
+        return &HASH_FN_OF<T>;
+    }
+
+    template <typename T>
+    static constexpr const Function<Ordering(const void* lhs, const void* rhs)>*
+    makeCompareFunction() noexcept {
+        return &COMPARE_FN_OF<T>;
     }
 };
 

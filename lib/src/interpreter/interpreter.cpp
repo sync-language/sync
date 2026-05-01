@@ -434,7 +434,7 @@ static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode) {
 
     Stack& activeStack = Stack::getActiveStack();
     const Type* srcType = activeStack.typeAt(operands.src);
-    sy_assert(srcType == Type::TYPE_BOOL, "Can only conditionally jump on boolean types");
+    sy_assert(srcType == Reflect<bool>::get(), "Can only conditionally jump on boolean types");
     (void)srcType;
 
     if (*activeStack.frameValueAt<bool>(operands.src) == false) {
