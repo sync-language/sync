@@ -228,16 +228,16 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicLoadObjImpl(void* dst,
             switch (this->extra.intInfo.bits) {
             case 8: {
                 doAtomicCloneStd<int8_t>(dst, src);
-            }
+            } break;
             case 16: {
                 doAtomicCloneStd<int16_t>(dst, src);
-            }
+            } break;
             case 32: {
                 doAtomicCloneStd<int32_t>(dst, src);
-            }
+            } break;
             case 64: {
                 doAtomicCloneStd<int64_t>(dst, src);
-            }
+            } break;
             default:
                 break;
             }
@@ -245,16 +245,16 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicLoadObjImpl(void* dst,
             switch (this->extra.intInfo.bits) {
             case 8: {
                 doAtomicCloneStd<uint8_t>(dst, src);
-            }
+            } break;
             case 16: {
                 doAtomicCloneStd<uint16_t>(dst, src);
-            }
+            } break;
             case 32: {
                 doAtomicCloneStd<uint32_t>(dst, src);
-            }
+            } break;
             case 64: {
                 doAtomicCloneStd<uint64_t>(dst, src);
-            }
+            } break;
             default:
                 break;
             }
