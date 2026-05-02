@@ -155,7 +155,7 @@ TEST_CASE_FIXTURE(Test_String, "[sy::String] inline sized string") {
     String s = String::init(StringSlice(buf)).takeValue();
     auto header = Test_String::header(s);
     REQUIRE_NE(header, nullptr); // did allocate memory
-    REQUIRE_EQ(s.len(), internal::AtomicStringHeader::HEADER_INLINE_STRING_SIZE - 1);
+    REQUIRE_EQ(s.len(), 22);
     REQUIRE_EQ(s.asSlice(), "hello to this world!@!");
     REQUIRE_NE(s.cstr(), nullptr);
     REQUIRE_EQ(s, "hello to this world!@!");
@@ -171,7 +171,7 @@ TEST_CASE_FIXTURE(Test_String, "[sy::String] inline sized string copy") {
     auto s1header = Test_String::header(s1);
     auto s2header = Test_String::header(s2);
     REQUIRE_NE(s2header, nullptr); // did allocate memory
-    REQUIRE_EQ(s2.len(), internal::AtomicStringHeader::HEADER_INLINE_STRING_SIZE - 1);
+    REQUIRE_EQ(s2.len(), 22);
     REQUIRE_EQ(s2.asSlice(), "hello to this world!@!");
     REQUIRE_NE(s2.cstr(), nullptr);
     REQUIRE_EQ(s2, "hello to this world!@!");
