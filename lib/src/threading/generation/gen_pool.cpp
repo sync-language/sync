@@ -52,6 +52,7 @@ sy::GenPool::~GenPool() noexcept {
             entry.value->~GenTypedPool();
             alloc.freeObject(entry.value);
         }
+        this->impl_->typedPools.destroy(alloc);
     }
     this->impl_->~GenPoolImpl();
     alloc.freeObject(this->impl_);
@@ -306,11 +307,11 @@ SY_API int sy::internal::sy_gen_owner_destroy_impl(void* self) {
     return static_cast<int>(sy_gen_owner_destroy(reinterpret_cast<SyGenOwner*>(self)));
 }
 
-SY_API int sy::internal::sy_gen_owner_load_impl(void* self, void* outObj) {
+SY_API int sy::internal::sy_gen_owner_load_impl(const void* self, void* outObj) {
     return static_cast<int>(sy_gen_ref_load(reinterpret_cast<const SyGenRef*>(self), outObj));
 }
 
-SY_API int sy::internal::sy_gen_ref_load_impl(void* self, void* outObj) {
+SY_API int sy::internal::sy_gen_ref_load_impl(const void* self, void* outObj) {
     return static_cast<int>(sy_gen_ref_load(reinterpret_cast<const SyGenRef*>(self), outObj));
 }
 

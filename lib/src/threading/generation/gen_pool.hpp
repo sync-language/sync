@@ -111,8 +111,8 @@ namespace internal {
 SY_API void ensureNoProgramError(int err);
 SY_API int sy_gen_pool_add_impl(GenPool* self, void* obj, const sy::Type* objType, void* outGenRef);
 SY_API int sy_gen_owner_destroy_impl(void* self);
-SY_API int sy_gen_owner_load_impl(void* self, void* outObj);
-SY_API int sy_gen_ref_load_impl(void* self, void* outObj);
+SY_API int sy_gen_owner_load_impl(const void* self, void* outObj);
+SY_API int sy_gen_ref_load_impl(const void* self, void* outObj);
 SY_API int sy_gen_owner_store_impl(void* self, void* obj);
 SY_API int sy_gen_ref_store_impl(void* self, void* obj);
 } // namespace internal
@@ -123,10 +123,10 @@ template <typename T> inline Result<GenOwner<T>, AllocErr> GenPool::add(T obj) n
 
     const int err = internal::sy_gen_pool_add_impl(this, &obj, typeOfObj, &ref);
     if (err == 0) {
+        internal::moveAndLeak(std::move(obj));
         return ref;
     }
 
-    internal::moveAndLeak(std::move(obj));
     return Error(static_cast<AllocErr>(err));
 }
 
@@ -166,7 +166,7 @@ template <typename T> inline GenOwner<T>::~GenOwner() noexcept {
 
 template <typename T> inline Result<T, ProgramError> GenOwner<T>::load() const noexcept {
     T out{};
-    const int err = internal::sy_gen_owner_load_impl(this, &out);
+    const int err = internal::sy_gen_owner_load_impl(static_cast<const void*>(this), &out);
     if (err == 0) {
         return out;
     }
@@ -175,7 +175,7 @@ template <typename T> inline Result<T, ProgramError> GenOwner<T>::load() const n
 }
 
 template <typename T> inline Result<void, ProgramError> GenOwner<T>::store(T obj) noexcept {
-    const int err = internal::sy_gen_owner_store_impl(this, &obj);
+    const int err = internal::sy_gen_owner_store_impl(static_cast<void*>(this), &obj);
     if (err == 0) {
         return {};
     }
@@ -194,7 +194,7 @@ template <typename T> inline GenRef<T> GenOwner<T>::ref() noexcept {
 
 template <typename T> inline Result<T, ProgramError> GenRef<T>::load() const noexcept {
     T out{};
-    const int err = internal::sy_gen_ref_load_impl(this, &out);
+    const int err = internal::sy_gen_ref_load_impl(static_cast<const void*>(this), &out);
     if (err == 0) {
         return out;
     }
@@ -203,7 +203,7 @@ template <typename T> inline Result<T, ProgramError> GenRef<T>::load() const noe
 }
 
 template <typename T> inline Result<void, ProgramError> GenRef<T>::store(T obj) noexcept {
-    const int err = internal::sy_gen_ref_store_impl(this, &obj);
+    const int err = internal::sy_gen_ref_store_impl(static_cast<void*>(this), &obj);
     if (err == 0) {
         return {};
     }
