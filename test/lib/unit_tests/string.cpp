@@ -151,7 +151,7 @@ TEST_CASE_FIXTURE(Test_String, "[sy::String] small cache hash") {
 }
 
 TEST_CASE_FIXTURE(Test_String, "[sy::String] inline sized string") {
-    char buf[internal::AtomicStringHeader::HEADER_INLINE_STRING_SIZE] = "hello to this world!@!";
+    char buf[] = "hello to this world!@!";
     String s = String::init(StringSlice(buf)).takeValue();
     auto header = Test_String::header(s);
     REQUIRE_NE(header, nullptr); // did allocate memory
@@ -165,7 +165,7 @@ TEST_CASE_FIXTURE(Test_String, "[sy::String] inline sized string") {
 }
 
 TEST_CASE_FIXTURE(Test_String, "[sy::String] inline sized string copy") {
-    char buf[internal::AtomicStringHeader::HEADER_INLINE_STRING_SIZE] = "hello to this world!@!";
+    char buf[] = "hello to this world!@!";
     String s1 = String::init(StringSlice(buf)).takeValue();
     String s2 = s1;
     auto s1header = Test_String::header(s1);
@@ -183,7 +183,7 @@ TEST_CASE_FIXTURE(Test_String, "[sy::String] inline sized string copy") {
 }
 
 TEST_CASE_FIXTURE(Test_String, "[sy::String] inline sized cache hash") {
-    char buf[internal::AtomicStringHeader::HEADER_INLINE_STRING_SIZE] = "hello to this world!@!";
+    char buf[] = "hello to this world!@!";
     String s = String::init(StringSlice(buf)).takeValue();
     auto header = Test_String::header(s);
 
