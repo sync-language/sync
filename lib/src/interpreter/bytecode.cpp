@@ -37,7 +37,7 @@ const sy::Type* sy::scalarTypeFromTag(ScalarTag tag) {
     case ScalarTag::U64:
         return ReflectImpl<uint64_t>::get();
     case ScalarTag::USize:
-        return ReflectImpl<size_t>::get();
+        return &sy::internal::TYPE_USIZE;
     case ScalarTag::F32:
         return ReflectImpl<float>::get();
     case ScalarTag::F64:

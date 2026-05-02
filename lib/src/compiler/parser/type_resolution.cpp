@@ -45,7 +45,7 @@ static Option<TypeResolutionInfo> tryParseNormalType(const TokenIter* tokenIter)
         return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::USizePrimitive: {
-        auto t = ReflectImpl<size_t>::get();
+        auto t = &sy::internal::TYPE_USIZE;
         return TypeResolutionInfo{t->name, t};
     } break;
     case TokenType::F32Primitive: {

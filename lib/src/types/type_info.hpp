@@ -126,11 +126,10 @@ class SY_API Type {
                                       const Type* underlyingType);
 
     template <typename T> Result<void, ProgramError> destroyObject(T* obj) const {
-        if (!std::is_constant_evaluated()) {
-            if constexpr (!std::is_same<T, void>::value) {
-                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
-            }
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
+
         return this->destroyObjectImpl(reinterpret_cast<void*>(obj));
     }
 
@@ -145,62 +144,56 @@ class SY_API Type {
     }
 
     template <typename T> Result<bool, ProgramError> equalObj(const T* lhs, const T* rhs) const {
-        if (!std::is_constant_evaluated()) {
-            if constexpr (!std::is_same<T, void>::value) {
-                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
-            }
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
+
         return this->equalObjectsImpl(reinterpret_cast<const void*>(lhs),
                                       reinterpret_cast<const void*>(rhs));
     }
 
     template <typename T> Result<size_t, ProgramError> hashObj(const T* obj) const {
-        if (!std::is_constant_evaluated()) {
-            if constexpr (!std::is_same<T, void>::value) {
-                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
-            }
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
+
         return this->hashObjectImpl(reinterpret_cast<const void*>(obj));
     }
 
     template <typename T>
     Result<Ordering, ProgramError> compareObj(const T* lhs, const T* rhs) const {
-        if (!std::is_constant_evaluated()) {
-            if constexpr (!std::is_same<T, void>::value) {
-                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
-            }
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
+
         return this->compareObjectImpl(reinterpret_cast<const void*>(lhs),
                                        reinterpret_cast<const void*>(rhs));
     }
 
     template <typename T> Result<void, ProgramError> elementWiseAtomicDestroyObj(T* dst) const {
-        if (!std::is_constant_evaluated()) {
-            if constexpr (!std::is_same<T, void>::value) {
-                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
-            }
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
+
         return this->elementWiseAtomicDestroyObjImpl(reinterpret_cast<void*>(dst));
     }
 
     template <typename T>
     Result<void, ProgramError> elementWiseAtomicLoadObj(T* dst, const T* src) const {
-        if (!std::is_constant_evaluated()) {
-            if constexpr (!std::is_same<T, void>::value) {
-                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
-            }
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
+
         return this->elementWiseAtomicLoadObjImpl(reinterpret_cast<void*>(dst),
                                                   reinterpret_cast<const void*>(src));
     }
 
     template <typename T>
     Result<void, ProgramError> elementWiseAtomicStoreObj(T* dst, const T* src) const {
-        if (!std::is_constant_evaluated()) {
-            if constexpr (!std::is_same<T, void>::value) {
-                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
-            }
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
+
         return this->elementWiseAtomicStoreObjImpl(reinterpret_cast<void*>(dst),
                                                    reinterpret_cast<const void*>(src));
     }
@@ -335,7 +328,10 @@ template <> struct SY_API Reflect<uint64_t> {
     static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_U64_MUT_REF; }
 };
 
-template <> struct SY_API Reflect<size_t> {
+template <typename T>
+struct SY_API
+    Reflect<T, std::enable_if_t<std::is_same_v<T, size_t> && !std::is_same_v<size_t, uint64_t>>> {
+    // Windows :(
     static constexpr const Type* get() noexcept { return &sy::internal::TYPE_USIZE; }
     static constexpr const Type* constRef() noexcept { return &sy::internal::TYPE_USIZE_CONST_REF; }
     static constexpr const Type* mutRef() noexcept { return &sy::internal::TYPE_USIZE_MUT_REF; }
