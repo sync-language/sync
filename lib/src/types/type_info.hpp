@@ -122,12 +122,6 @@ class SY_API Type {
     const Type* mutRef;
 
     template <typename T>
-    static const Type* makeType(StringSlice inName, Tag inTag, ExtraInfo inExtra) {
-        static const Type* actualType = createType<T>(inName, inTag, inExtra);
-        return actualType;
-    }
-
-    template <typename T>
     static constexpr Type makeRefType(StringSlice refName, bool isMutable,
                                       const Type* underlyingType);
 
@@ -212,87 +206,6 @@ class SY_API Type {
     }
 
   private:
-    template <typename T> static Function<void(void*)>* makeDestructor() {
-        static Function<void(void*)> func = +[](void* obj) {
-            T* tObj = reinterpret_cast<T*>(obj);
-            tObj->~T();
-        };
-        return &func;
-    }
-
-    template <typename T>
-    static const Type* createType(StringSlice inName, Tag inTag, ExtraInfo inExtra) {
-        static Type concreteType = {
-            sizeof(T),                         // sizeType
-            static_cast<uint16_t>(alignof(T)), // alignType
-            inName,                            // name
-            inTag,                             // tag
-            inExtra,                           // extra
-            nullptr,                           // destructor
-            {},                                // builtin traits
-            nullptr,                           // constRef
-            nullptr                            // mutRef
-        };
-
-        const ExtraInfo::Reference constRefInfo = {false, &concreteType};
-        const ExtraInfo::Reference mutRefInfo = {true, &concreteType};
-
-        const ExtraInfo constRefExtra{constRefInfo};
-        const ExtraInfo mutRefExtra{mutRefInfo};
-
-        static Type constRefType = {sizeof(const T*),
-                                    static_cast<uint16_t>(alignof(const T*)),
-                                    "ConstRef",
-                                    Tag::Reference,
-                                    constRefExtra,
-                                    nullptr,
-                                    {},
-                                    nullptr,
-                                    nullptr};
-
-        static Type mutRefType = {sizeof(T*),  static_cast<uint16_t>(alignof(T*)),
-                                  "MutRef",    Tag::Reference,
-                                  mutRefExtra, nullptr,
-                                  {},          nullptr,
-                                  nullptr};
-
-        concreteType.constRef = &constRefType;
-        concreteType.mutRef = &mutRefType;
-
-        // TODO is this smart?
-        constRefType.constRef = &constRefType;
-        constRefType.mutRef = &mutRefType;
-        mutRefType.constRef = &constRefType;
-        mutRefType.mutRef = &mutRefType;
-
-        concreteType.destructor = makeDestructor<T>();
-
-        static BuiltInCoherentTraits coherentTraits;
-
-        if constexpr (std::is_copy_constructible_v<T>) {
-            coherentTraits.clone = BuiltInCoherentTraits::makeClone<T>();
-        }
-
-        // Equality
-        if constexpr (detail::has_operator_equal<T>::value) {
-            coherentTraits.equal = BuiltInCoherentTraits::makeEqualityFunction<T>();
-        }
-
-        // Hash
-        if constexpr (detail::is_std_hashable<T>::value) {
-            coherentTraits.hash = BuiltInCoherentTraits::makeHashFunction<T>();
-        }
-
-        // Ordering
-        if constexpr (detail::has_less_than<T>::value) {
-            coherentTraits.compare = BuiltInCoherentTraits::makeCompareFunction<T>();
-        }
-
-        concreteType.builtinTraits = &coherentTraits;
-
-        return &concreteType;
-    }
-
     void assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const;
     Result<void, ProgramError> destroyObjectImpl(void* obj) const;
     Result<void, ProgramError> cloneObjectImpl(void* dst, const void* src) const;
