@@ -108,6 +108,8 @@ size_t sy::StringSlice::hash() const {
     return h(sv);
 }
 
-std::ostream& sy::operator<<(std::ostream& os, const StringSlice& s) {
-    return os.write(s._ptr, s._len);
+namespace sy {
+std::ostream& operator<<(std::ostream& os, const sy::StringSlice& s) {
+    return os.write(s._ptr, static_cast<std::streamsize>(s._len));
 }
+} // namespace sy
