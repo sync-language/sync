@@ -238,9 +238,8 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicLoadObjImpl(void* dst,
             case 64: {
                 doAtomicCloneStd<int64_t>(dst, src);
             }
-            default: {
-                sync_unreachable();
-            }
+            default:
+                break;
             }
         } else {
             switch (this->extra.intInfo.bits) {
@@ -256,9 +255,8 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicLoadObjImpl(void* dst,
             case 64: {
                 doAtomicCloneStd<uint64_t>(dst, src);
             }
-            default: {
-                sync_unreachable();
-            }
+            default:
+                break;
             }
         }
         return {};
@@ -270,9 +268,8 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicLoadObjImpl(void* dst,
         case 64: {
             doAtomicCloneStd<int64_t>(dst, src);
         } break;
-        default: {
-            sync_unreachable();
-        }
+        default:
+            break;
         }
         return {};
     case Tag::String: {
@@ -324,9 +321,8 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicStoreObjImpl(void* dst,
             case 64: {
                 doAtomicCloneStd<int64_t>(dst, src);
             } break;
-            default: {
-                sync_unreachable();
-            }
+            default:
+                break;
             }
         } else {
             switch (this->extra.intInfo.bits) {
@@ -342,9 +338,8 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicStoreObjImpl(void* dst,
             case 64: {
                 doAtomicCloneStd<uint64_t>(dst, src);
             } break;
-            default: {
-                sync_unreachable();
-            }
+            default:
+                break;
             }
         }
         return {};
@@ -356,9 +351,8 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicStoreObjImpl(void* dst,
         case 64: {
             doAtomicCloneStd<int64_t>(dst, src);
         } break;
-        default: {
-            sync_unreachable();
-        }
+        default:
+            break;
         }
         return {};
     case Tag::String: {

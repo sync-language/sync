@@ -134,11 +134,10 @@ class SY_API Type {
     }
 
     template <typename T> Result<void, ProgramError> cloneObj(T* dst, const T* src) const {
-        if (!std::is_constant_evaluated()) {
-            if constexpr (!std::is_same<T, void>::value) {
-                this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
-            }
+        if constexpr (!std::is_same<T, void>::value) {
+            this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
+
         return this->cloneObjectImpl(reinterpret_cast<void*>(dst),
                                      reinterpret_cast<const void*>(src));
     }
