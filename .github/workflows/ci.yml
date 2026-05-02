@@ -370,8 +370,10 @@ jobs:
         run: |
           set +e
 
-          PROMPT_HEADER=$(cat <<'PROMPT_END'
+          PROMPT=$(cat <<'PROMPT_END'
           You are reviewing a diff for the Sync Programming Language C++ library: an embeddable language runtime for host applications in C, C++, Rust, or Zig, focused on scriptable multithreading.
+
+          The diff to review is in the attached file diff.txt. Treat it as the complete change set.
 
           This is a one-shot review. There is no user to respond to. Your final message must contain exactly these four sections and nothing else:
 
@@ -382,7 +384,7 @@ jobs:
 
           Cite file:line for each finding. Write "None found" for empty sections. Any other output is a failure. Do not ask questions. Do not request approval. Do not request next steps. Do not propose to apply the diff.
 
-          You may use Read, Glob, or Grep to look up header files referenced by the diff if you need additional context. The complete diff is provided inline below — do not attempt to Read diff.txt or page through it.
+          You may use Read, Glob, or Grep to look up header files referenced by the diff if you need additional context. Do not attempt to Read or page through diff.txt — its contents are already attached.
 
           Constraints (do not flag these as issues):
           - No C++ exceptions (-fno-exceptions is intentional)
@@ -402,22 +404,9 @@ jobs:
           - Standard library alternatives
           - Naming, formatting, or generic C++ best practices
 
-          Diff to review:
-
-          ===== BEGIN DIFF =====
+          Output the four sections now and stop.
           PROMPT_END
           )
-
-          PROMPT_FOOTER=$(cat <<'PROMPT_END'
-          ===== END DIFF =====
-
-          End of diff. Output the four sections now and stop.
-          PROMPT_END
-          )
-
-          PROMPT="$PROMPT_HEADER
-          $(cat diff.txt)
-          $PROMPT_FOOTER"
 
           timeout --preserve-status --signal=TERM --kill-after=30s 1140 \
             docker run --rm --name "$CONTAINER_NAME" \
@@ -437,7 +426,8 @@ jobs:
               ghcr.io/anomalyco/opencode:latest \
               run \
                 "$PROMPT" \
-              --model ollama/qwen3.6:27b \
+                --file /workspace/diff.txt \
+                --model ollama/qwen3.6:27b \
             2>&1 | tee llm-analysis-raw.md
           EXIT=${PIPESTATUS[0]}
           echo "opencode exit code: $EXIT"
