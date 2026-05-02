@@ -20,11 +20,9 @@ SourceTreeNode::~SourceTreeNode() noexcept {
         }
         this->elem.directory.destroy(this->alloc);
     } break;
-    // case SourceFileKind::SyncSourceFile: {
-    //     if (this->elem.syncSourceFile.hasValue()) {
-    //         this->elem.syncSourceFile.value().destroy(this->alloc);
-    //     }
-    // } break;
+    case SourceFileKind::SyncSourceFile: {
+        this->elem.syncSourceFile.~Option<String>();
+    } break;
     default:
         break;
     }
