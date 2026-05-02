@@ -702,7 +702,9 @@ bool sy::String::operator==(const String& other) const noexcept {
 
 bool sy::String::operator==(StringSlice other) const noexcept { return this->asSlice() == other; }
 
-bool sy::operator==(StringSlice lhs, const String& rhs) noexcept { return lhs == rhs.asSlice(); }
+namespace sy {
+bool operator==(StringSlice lhs, const String& rhs) noexcept { return lhs == rhs.asSlice(); }
+} // namespace sy
 
 sy::Result<sy::String, sy::AllocErr> sy::String::concat(StringSlice str) const noexcept {
     StringSlice thisStr = this->asSlice();
@@ -746,10 +748,12 @@ sy::Result<sy::String, sy::AllocErr> sy::String::concat(StringSlice str) const n
     return out;
 }
 
-std::ostream& sy::operator<<(std::ostream& os, const String& s) {
+namespace sy {
+std::ostream& operator<<(std::ostream& os, const String& s) {
     StringSlice thisStr = s.asSlice();
     return os.write(thisStr.data(), thisStr.len());
 }
+} // namespace sy
 
 sy::StringBuilder::~StringBuilder() noexcept {
     if (this->impl_ == nullptr)
