@@ -30,7 +30,7 @@ RUN cmake --build build_rel -j4
 
 # LSan doesn't work in Docker/qemu
 ENV ASAN_OPTIONS="detect_leaks=0:abort_on_error=1"
-RUN --network=none ctest --test-dir build_asan --output-on-failure 
+RUN --network=none ctest --test-dir build_asan --output-on-failure
 RUN --network=none ctest --test-dir build_rel --output-on-failure
 
 RUN mkdir -p reports/ubuntu_docker

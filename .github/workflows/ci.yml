@@ -46,6 +46,11 @@ jobs:
           path: ${{ env.WORK_DIR }}/repo
           clean: true
 
+      - name: Make Coverage Directories
+        run: |
+          mkdir -p ./reports/linux_x64/
+          mkdir -p ./reports/linux_x64/html/
+
       - name: Run Ubuntu VirtCI tests
         working-directory: ${{ env.WORK_DIR }}/repo
         run: virtci run test/virtci/ubuntu_x64.yml
