@@ -54,6 +54,7 @@ internal::GenTypedPool::~GenTypedPool() noexcept {
         allocator.freeAlignedArray(chunk->data, chunk->capacity * this->type->sizeType,
                                    this->dataAllocationAlign());
         allocator.freeAlignedArray(chunk->generations, chunk->capacity, ALLOC_CACHE_ALIGN);
+        allocator.freeAlignedArray(chunk->seqlocks, chunk->capacity, ALLOC_CACHE_ALIGN);
         allocator.freeAlignedArray(chunk->hasData, chunk->capacity, ALLOC_CACHE_ALIGN);
         chunk->freedList.destroy(this->allocator);
         allocator.freeObject(chunk);
