@@ -26,7 +26,7 @@ ubuntu-x64:
       offline: true
 
     - name: Configure CMake ASan
-      run: cmake -S . -B build_asan_cov --preset linux-debug-cov-tsan
+      run: cmake -S . -B build_asan_cov --preset linux-debug-cov-asan
 
     - name: Build CMake ASan
       run: cmake --build build_asan_cov
@@ -35,13 +35,15 @@ ubuntu-x64:
       run: ctest --test-dir build_asan_cov --output-on-failure
 
     - name: Configure CMake TSan
-      run: cmake -S . -B build_tsan_cov --preset linux-debug-cov-tsan
+      run: cmake -S . -B build_tsan --preset linux-dev-tsan
 
     - name: Build CMake TSan
-      run: cmake --build build_tsan_cov
+      run: cmake --build build_tsan
 
     - name: Run CTest TSan
-      run: ctest --test-dir build_tsan_cov --output-on-failure
+      run: |
+        setarch $(uname -m) -R ./build_tsan/test/NewTests
+        ctest --test-dir build_tsan --output-on-failure
 
     - name: Configure CMake Release
       run: cmake -S . -B build_rel  -DCMAKE_BUILD_TYPE=Release -DSYNC_LIB_WITH_TESTS=ON -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON -DSYNC_LIB_ASAN=OFF -DSYNC_LIB_TSAN=OFF -DSYNC_LIB_CODE_COVERAGE=ON
@@ -55,11 +57,10 @@ ubuntu-x64:
     - name: LCOV Capture
       run: |
         lcov --capture --directory build_asan_cov --output-file reports/linux_x64/coverage_asan.info --branch-coverage --ignore-errors negative,negative,inconsistent,inconsistent,mismatch,mismatch,gcov,gcov --exclude '*/doctest.h'
-        lcov --capture --directory build_tsan_cov --output-file reports/linux_x64/coverage_tsan.info --branch-coverage --ignore-errors negative,negative,inconsistent,inconsistent,mismatch,mismatch,gcov,gcov --exclude '*/doctest.h'
         lcov --capture --directory build_rel --output-file reports/linux_x64/coverage_rel.info --branch-coverage --ignore-errors negative,negative,inconsistent,inconsistent,mismatch,mismatch,gcov,gcov --exclude '*/doctest.h'
 
     - name: LCOV Merge
-      run: lcov -a reports/linux_x64/coverage_asan.info reports/linux_x64/coverage_tsan.info -a reports/linux_x64/coverage_rel.info --output-file reports/linux_x64/coverage.info --branch-coverage --rc no_exception_branch=1 --ignore-errors inconsistent,inconsistent,corrupt,corrupt,mismatch,mismatch
+      run: lcov -a reports/linux_x64/coverage_asan.info -a reports/linux_x64/coverage_rel.info --output-file reports/linux_x64/coverage.info --branch-coverage --rc no_exception_branch=1 --ignore-errors inconsistent,inconsistent,corrupt,corrupt,mismatch,mismatch
 
     - name: LCOV HTML
       run: genhtml reports/linux_x64/coverage.info --branch-coverage --output-directory reports/linux_x64/html --ignore-errors inconsistent,inconsistent,corrupt,corrupt
