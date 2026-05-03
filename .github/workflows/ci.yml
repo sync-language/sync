@@ -55,6 +55,13 @@ jobs:
         working-directory: ${{ env.WORK_DIR }}/repo
         run: virtci run test/virtci/ubuntu_x64.yml
 
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v6
+        with:
+          name: Linux-x64-Coverage-Report
+          path: ${{ env.WORK_DIR }}/reports/linux_x64
+          retention-days: 8
+
   test-ubuntu-arm64:
     needs: gate
     if: always() && (needs.gate.result == 'success' || needs.gate.result == 'skipped')
