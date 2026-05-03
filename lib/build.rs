@@ -18,7 +18,7 @@ fn main() {
         .file("src/threading/sync_queue.cpp")
         .file("src/threading/sync_obj_val.cpp")
         .file("src/threading/locks/locks_internal.cpp")
-        .file("src/threading/locks/rwloc.cpp")
+        .file("src/threading/locks/rwlock.cpp")
         .file("src/threading/generation/gen_pool.cpp")
         .file("src/threading/generation/gen_pool_internal.cpp")
         .file("src/types/type_info.cpp")

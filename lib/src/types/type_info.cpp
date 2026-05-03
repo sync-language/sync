@@ -84,7 +84,9 @@ void sy::Type::assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) c
 
 Result<void, ProgramError> sy::Type::destroyObjectImpl(void* obj) const {
     sy_assert(obj != nullptr, "Cannot destroy null object");
-    sy_assert(this->destructor != nullptr, "All objects must have destructors");
+    if (this->destructor == nullptr) {
+        return {};
+    }
 
     switch (this->tag) {
     case Tag::Bool:
@@ -188,8 +190,9 @@ Result<Ordering, ProgramError> sy::Type::compareObjectImpl(const void* self,
 
 Result<void, ProgramError> sy::Type::elementWiseAtomicDestroyObjImpl(void* obj) const {
     sy_assert(obj != nullptr, "Cannot atomically destroy null object");
-    sy_assert(this->builtinTraits->elementWiseAtomicDestroy.hasValue(),
-              "Cannot do element wise atomic destroy without a function");
+    if (this->builtinTraits->elementWiseAtomicDestroy.hasValue() == false) {
+        return {};
+    }
 
     switch (this->tag) {
     case Tag::Bool:

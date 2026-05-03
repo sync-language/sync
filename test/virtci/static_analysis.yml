@@ -1,33 +1,34 @@
 cppcheck-x64:
   image: ubuntu-server-x64
-  cpus: 2
-  memory: 6G
+  cpus: 4
+  memory: 8G
   steps:
     - name: Copy source code to VM
       copy:
         from: ./
         to: vm:~/
 
-    - name: Install cppcheck
+    - name: Install cppcheck, cmake, python3
       run: |
         sudo apt-get update
-        sudo apt-get install -y cppcheck
+        sudo apt-get install -y cppcheck cmake build-essential python3
 
     - name: Go offline for security
       offline: true
 
+    - name: Configure CMake For compile_commands.json
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
     - name: Run cppcheck analysis
       run: |
-        cppcheck --enable=all --inconclusive --xml --xml-version=2 \
+        cppcheck \
+          --project=build/compile_commands.json \
+          --enable=warning,style,performance,portability \
           --suppress=missingIncludeSystem \
-          ~/ 2> ~/cppcheck-report.xml || true
-      continue_on_error: true
-
-    - name: Generate text report
-      run: |
-        cppcheck --enable=all --inconclusive \
-          --suppress=missingIncludeSystem \
-          ~/ 2> ~/cppcheck-report.txt || true
+          -j $(nproc) \
+          --xml --xml-version=2 \
+          2> cppcheck-report.xml || true
       continue_on_error: true
 
     - name: Copy XML report to host
@@ -35,15 +36,10 @@ cppcheck-x64:
         from: vm:~/cppcheck-report.xml
         to: ./build/cppcheck-report.xml
 
-    - name: Copy text report to host
-      copy:
-        from: vm:~/cppcheck-report.txt
-        to: ./build/cppcheck-report.txt
-
     - name: Display results summary
       run: |
         echo "=== Cppcheck Analysis Summary ==="
-        grep -E "<error " ~/cppcheck-report.xml | wc -l
+        grep -E "<error " $HOME/cppcheck-report.xml | wc -l
         echo "issues found. Reports copied to host."
       continue_on_error: true
 

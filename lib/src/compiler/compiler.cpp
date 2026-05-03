@@ -395,8 +395,8 @@ static Result<String, ModuleErr> loadFileToString(Allocator& alloc, const fs::pa
     sourceFile.read(buf, fileSize);     // directly into string
 
     auto contentsRes = String::init(StringSlice(buf, fileSize), alloc);
+    alloc.freeArray(buf, fileSize);
     if (contentsRes.hasErr()) {
-        alloc.freeArray(buf, fileSize);
         return Error(ModuleErr::OutOfMemory);
     }
 

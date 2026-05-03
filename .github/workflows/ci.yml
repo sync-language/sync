@@ -286,16 +286,30 @@ jobs:
         if: always()
         working-directory: ${{ env.WORK_DIR }}/repo
         run: |
-          if [ -f build/cppcheck-report.txt ]; then
-            grep -E "error|warning|style|performance|portability" build/cppcheck-report.txt | head -20 | while IFS= read -r line; do
-              echo "::warning::cppcheck: $line"
-            done || true
+          if [ -f build/cppcheck-report.xml ]; then
+            python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          import os
 
-            if [ -f build/cppcheck-report.xml ]; then
-              ISSUE_COUNT=$(grep -c "<error " build/cppcheck-report.xml || true)
-              ISSUE_COUNT=${ISSUE_COUNT:-0}
-              echo "CPPCHECK_ISSUES=$ISSUE_COUNT" >> $GITHUB_ENV
-            fi
+          count = 0
+          try:
+              tree = ET.parse('build/cppcheck-report.xml')
+              errors = tree.findall('.//error')
+              count = len(errors)
+              for e in errors[:20]:
+                  sev = e.get('severity', '')
+                  msg = e.get('msg', '')
+                  eid = e.get('id', '')
+                  loc = e.find('location')
+                  fp = loc.get('file', '?') if loc is not None else '?'
+                  ln = loc.get('line', '?') if loc is not None else '?'
+                  print(f"::warning::cppcheck: [{fp}:{ln}]: ({sev}) {msg} [{eid}]")
+          except Exception as ex:
+              print(f"::warning::cppcheck: failed to parse XML: {ex}")
+
+          with open(os.environ['GITHUB_ENV'], 'a') as fh:
+              fh.write(f"CPPCHECK_ISSUES={count}\n")
+          PY
           fi
 
       - name: Post Summary
@@ -322,7 +336,6 @@ jobs:
           path: |
             ${{ env.WORK_DIR }}/repo/build/clang-tidy-report.txt
             ${{ env.WORK_DIR }}/repo/build/cppcheck-report.xml
-            ${{ env.WORK_DIR }}/repo/build/cppcheck-report.txt
 
   sync-llm-analysis:
     needs: gate
@@ -424,7 +437,6 @@ jobs:
               -e XDG_DATA_HOME=/tmp/.local/share \
               -e OPENCODE_CONFIG_CONTENT \
               ghcr.io/anomalyco/opencode:latest \
-              --print-logs --log-level INFO \
               run \
                 "$PROMPT" \
                 --file /workspace/diff.txt \
