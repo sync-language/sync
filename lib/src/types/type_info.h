@@ -3,6 +3,7 @@
 #ifndef SY_TYPES_TYPE_H_
 #define SY_TYPES_TYPE_H_
 
+#include "../core/builtin_traits/builtin_traits.h"
 #include "../core/core.h"
 #include "string/string_slice.h"
 
@@ -19,56 +20,76 @@ typedef enum SyTypeTag {
     SyTypeTagFloat = 2,
     /// Maps to a singular `SyType` instance.
     // SyTypeTagChar = 3,
-    /// Maps to a singular `SyType` instance. Is an owned string. For string references, see `SyTypeTagStringSlice`.
+    /// Pointer-sized, pointer-aligned opaque payload. Used for type-erased trait fn arguments
+    /// where the actual element type is supplied implicitly by the surrounding `SyType`.
+    SyTypeTagOpaquePointer = 3,
+    /// Maps to a singular `SyType` instance. Is an owned string. For string references, see
+    /// `SyTypeTagStringSlice`.
     SyTypeTagString = 4,
     /// Maps to a singular `SyType` instance.
     SyTypeTagStringSlice = 5,
     /// Maps to a singular `SyType` instance.
     SyTypeTagOrdering = 6,
-    /// Maps to effectively infinite `SyType` instances, depending on the references type and mutability.
+    /// Maps to effectively infinite `SyType` instances, depending on the references type and
+    /// mutability.
     SyTypeTagReference = 7,
-    /// Maps to effectively infinite `SyType` instances, depending on the type of each array element,
-    /// and size of array. Holds ownership over the values. For dynamic arrays, see `SyTypeTagDynamicArray`.
+    /// Maps to effectively infinite `SyType` instances, depending on the type of each array
+    /// element,
+    /// and size of array. Holds ownership over the values. For dynamic arrays, see
+    /// `SyTypeTagDynamicArray`.
     /// For array references, see `SyTypeTagSlice`.
     SyTypeTagArray = 8,
-    /// Maps to effectively infinite `SyType` instances, depending on the type of each array element.
+    /// Maps to effectively infinite `SyType` instances, depending on the type of each array
+    /// element.
     /// For array references, see `SyTypeTagSlice`. For static arrays, see `SyTypeTagArray`.
     SyTypeTagDynamicArray = 9,
     /// Maps to effectively infinite `SyType` instances, depending on the type of each set element.
     /// Holds ownership over the values.
-    /// Maps to effectively infinite `SyType` instances, depending on the type of each array element, and mutability.
+    /// Maps to effectively infinite `SyType` instances, depending on the type of each array
+    /// element, and mutability.
     SyTypeTagSlice = 10,
     SyTypeTagSet = 11,
     /// Maps to effectively infinite `SyType` instances, depending on the type of keys and values.
     /// Holds ownership over the keys and values.
     SyTypeTagMap = 12,
-    /// Maps to effectively infinite `SyType` instances, depending on the type of the optional value.
-    /// Can perform special optimizations for types with an "invalid" state. These types are references, slices,
-    /// function pointers, and the sync pointer types,which aren't allowed to be nulled. Weak sync pointers may
+    /// Maps to effectively infinite `SyType` instances, depending on the type of the optional
+    /// value.
+    /// Can perform special optimizations for types with an "invalid" state. These types are
+    /// references, slices,
+    /// function pointers, and the sync pointer types,which aren't allowed to be nulled. Weak sync
+    /// pointers may
     /// appear null when invalidated, but they still hold a valid pointer to the freed object.
     SyTypeTagOption = 13,
-    /// Maps to effectively infinite `SyType` instances, depending on the optional type of the error value.
-    /// TODO For the error type, look into other really good error types, such as anyhow and thiserror for Rust.
+    /// Maps to effectively infinite `SyType` instances, depending on the optional type of the error
+    /// value.
+    /// TODO For the error type, look into other really good error types, such as anyhow and
+    /// thiserror for Rust.
     /// Having stack traces in error may be really smart
     /// https://docs.rs/anyhow/latest/anyhow/ https://github.com/dtolnay/thiserror
     SyTypeTagError = 14,
-    /// Maps to effectively infinite `SyType` instances, depending on the type of the ok value and the error value.
+    /// Maps to effectively infinite `SyType` instances, depending on the type of the ok value and
+    /// the error value.
     /// Holds ownership over the values.
     SyTypeTagResult = 15,
-    /// Maps to a few `SyType` instances, depending on the type of each component for the integer and float types,
+    /// Maps to a few `SyType` instances, depending on the type of each component for the integer
+    /// and float types,
     /// along with the dimensions, being `2`, `3`, or `4`. These can map to GLSL types.
     SyTypeTagVector = 16,
-    /// Maps to a few `SyType` instances, depending on the `32` or `64` bit floats, along with the X and Y dimensions,
+    /// Maps to a few `SyType` instances, depending on the `32` or `64` bit floats, along with the X
+    /// and Y dimensions,
     /// each of which can be `2`, `3`, or `4`. These can map to GLSL types.
     /// TODO figure out column vs row major
     SyTypeTagMatrix = 17,
-    /// Maps to effectively infinite `SyType` instances, depending on the return type and argument types.
+    /// Maps to effectively infinite `SyType` instances, depending on the return type and argument
+    /// types.
     /// Is a function pointer. Doesn't handle member binding.
     SyTypeTagFunction = 18,
-    /// Maps to effectively infinite `SyType` instances, depending on the object type, and whether it's
+    /// Maps to effectively infinite `SyType` instances, depending on the object type, and whether
+    /// it's
     /// single ownership, shared ownership, or weak referencing.
     SyTypeTagSync = 19,
-    /// Maps to effectively infinite `SyType` instances, depending on the struct name (and relevant namespacing),
+    /// Maps to effectively infinite `SyType` instances, depending on the struct name (and relevant
+    /// namespacing),
     /// it's members, and various other factors.
     SyTypeTagStruct = 20,
 
@@ -119,20 +140,13 @@ typedef struct SyType {
     /// Alignment of the type in bytes. Alignment beyond UINT16_MAX is unsupported.
     uint16_t alignType;
     SyStringSlice name;
-    /// Can be NULL.
-    const SyFunction* destructor;
-    /// Can be NULL.
-    const SyFunction* copyConstructor;
-    /// Can be NULL.
-    const SyFunction* equality;
-    /// Can be NULL.
-    const SyFunction* hash;
-    /// Can be NULL.
-    const SyFunction* compare;
     /// Used as a tagged union with the payload being `extra`.
     SyTypeTag tag;
     /// Used as a tagged union, with the tags being `tag`.
     SyTypeExtraInfo extra;
+    /// Can be NULL.
+    const SyFunction* destructor;
+    const SyBuiltInCoherentTraits* builtinTraits;
     const SyType* constRef;
     const SyType* mutRef;
 } SyType;

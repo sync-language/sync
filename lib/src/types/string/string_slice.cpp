@@ -1,6 +1,7 @@
 #include "string_slice.h"
 #include "../../core/core_internal.h"
 #include "string_slice.hpp"
+#include <iostream>
 #include <string_view>
 
 using sy::StringSlice;
@@ -31,7 +32,8 @@ bool sliceValidUtf8(const sy::StringSlice slice) {
             if (i + 1 >= len) {
                 return false;
             }
-            if ((static_cast<uint8_t>(str[i + 1]) & trailingBytesBitmask) != trailingBytesCodePoint) {
+            if ((static_cast<uint8_t>(str[i + 1]) & trailingBytesBitmask) !=
+                trailingBytesCodePoint) {
                 return false;
             }
             i += 2;
@@ -39,10 +41,12 @@ bool sliceValidUtf8(const sy::StringSlice slice) {
             if (i + 2 >= len) {
                 return false;
             }
-            if ((static_cast<uint8_t>(str[i + 1]) & trailingBytesBitmask) != trailingBytesCodePoint) {
+            if ((static_cast<uint8_t>(str[i + 1]) & trailingBytesBitmask) !=
+                trailingBytesCodePoint) {
                 return false;
             }
-            if ((static_cast<uint8_t>(str[i + 2]) & trailingBytesBitmask) != trailingBytesCodePoint) {
+            if ((static_cast<uint8_t>(str[i + 2]) & trailingBytesBitmask) !=
+                trailingBytesCodePoint) {
                 return false;
             }
             i += 3;
@@ -50,13 +54,16 @@ bool sliceValidUtf8(const sy::StringSlice slice) {
             if (i + 3 >= len) {
                 return false;
             }
-            if ((static_cast<uint8_t>(str[i + 1]) & trailingBytesBitmask) != trailingBytesCodePoint) {
+            if ((static_cast<uint8_t>(str[i + 1]) & trailingBytesBitmask) !=
+                trailingBytesCodePoint) {
                 return false;
             }
-            if ((static_cast<uint8_t>(str[i + 2]) & trailingBytesBitmask) != trailingBytesCodePoint) {
+            if ((static_cast<uint8_t>(str[i + 2]) & trailingBytesBitmask) !=
+                trailingBytesCodePoint) {
                 return false;
             }
-            if ((static_cast<uint8_t>(str[i + 3]) & trailingBytesBitmask) != trailingBytesCodePoint) {
+            if ((static_cast<uint8_t>(str[i + 3]) & trailingBytesBitmask) !=
+                trailingBytesCodePoint) {
                 return false;
             }
             i += 4;
@@ -100,3 +107,9 @@ size_t sy::StringSlice::hash() const {
     std::hash<std::string_view> h;
     return h(sv);
 }
+
+namespace sy {
+std::ostream& operator<<(std::ostream& os, const sy::StringSlice& s) {
+    return os.write(s._ptr, static_cast<std::streamsize>(s._len));
+}
+} // namespace sy

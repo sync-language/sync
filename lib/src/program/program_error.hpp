@@ -28,32 +28,33 @@ struct SourceFileLocation {
         : source(inSource), bytePos(inBytePos), location(inSource, inBytePos) {}
 };
 
-enum class ProgramError {
-    Unknown = 0,
-    OutOfMemory = 1,
-    CompileSourceFileTooBig,
-    CompileNegativeToUnsignedIntConversion,
-    CompileUnsignedOutsideIntRangeConversion,
-    CompileFloatOutsideIntRangeConversion,
-    CompileDecimalNumberLiteral,
-    CompileCharNumberLiteral,
-    CompileTooManyCharsInCharLiteral,
-    CompileUnsupportedChar,
-    CompileEscapeSequence,
-    CompileFunctionSignature,
-    CompileFunctionStatement,
-    CompileExpression,
-    CompileStatement,
-    CompileSymbol,
-    CompileCircularModuleDependency,
-    CompileModuleDependencyGraph,
-    CompileSelfImport,
-    CompileUnknownType,
-    BufferTooSmall,
+enum class ProgramError : int {
+    Unknown = 1,
+    OutOfMemory = 2,
+    CompileSourceFileTooBig = 3,
+    CompileNegativeToUnsignedIntConversion = 4,
+    CompileUnsignedOutsideIntRangeConversion = 5,
+    CompileFloatOutsideIntRangeConversion = 6,
+    CompileDecimalNumberLiteral = 7,
+    CompileCharNumberLiteral = 8,
+    CompileTooManyCharsInCharLiteral = 9,
+    CompileUnsupportedChar = 10,
+    CompileEscapeSequence = 11,
+    CompileFunctionSignature = 12,
+    CompileFunctionStatement = 13,
+    CompileExpression = 14,
+    CompileStatement = 15,
+    CompileSymbol = 16,
+    CompileCircularModuleDependency = 17,
+    CompileModuleDependencyGraph = 18,
+    CompileSelfImport = 19,
+    CompileUnknownType = 20,
+    BufferTooSmall = 21,
+    GenRefStale = 22,
 };
 
-using ProgramErrorReporter = void (*)(ProgramError errKind, const SourceFileLocation& where, StringSlice msg,
-                                      void* arg);
+using ProgramErrorReporter = void (*)(ProgramError errKind, const SourceFileLocation& where,
+                                      StringSlice msg, void* arg);
 
 /// @brief This class handles all fatal errors within Sync, for both runtime
 /// and compile time. Runtime and compile time errors are treated the same due

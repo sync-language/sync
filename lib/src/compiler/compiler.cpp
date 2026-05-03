@@ -12,6 +12,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 
 using namespace sy;
 namespace fs = std::filesystem;
@@ -27,7 +28,7 @@ struct CompilerImpl {
 
 struct ModuleImpl {
     Allocator alloc;
-    StringUnmanaged name{};
+    String name{};
     SemVer version{};
     SourceTree sourceTree;
     SourceTreeNode* rootFile = nullptr;
@@ -37,7 +38,8 @@ struct ModuleImpl {
 
     Result<void, ModuleErr> setRootFileFromDisk(StringSlice path) noexcept;
 
-    Result<void, ModuleErr> setRootFileFromString(StringSlice absolutePath, StringSlice fileContents) noexcept;
+    Result<void, ModuleErr> setRootFileFromString(StringSlice absolutePath,
+                                                  StringSlice fileContents) noexcept;
 
     Result<void, ModuleErr> addDependency(const Module* module) noexcept;
 };
@@ -162,7 +164,8 @@ Result<Module*, AllocErr> sy::Compiler::addOrGetModule(StringSlice name, SemVer 
                 return Error(AllocErr::OutOfMemory);
             }
 
-            auto versionsInsertResult = self->versions.insert(self->alloc, name, std::move(versions));
+            auto versionsInsertResult =
+                self->versions.insert(self->alloc, name, std::move(versions));
             if (versionsInsertResult.hasErr()) {
                 freeMod();
                 versions.destroy(self->alloc);
@@ -185,7 +188,8 @@ Result<Module*, AllocErr> sy::Compiler::addOrGetModule(StringSlice name, SemVer 
         return Error(AllocErr::OutOfMemory);
     }
 
-    sy_assert(moduleInsertResult.value().hasValue() == false, "Module version not added to versions list correctly");
+    sy_assert(moduleInsertResult.value().hasValue() == false,
+              "Module version not added to versions list correctly");
     return mod;
 }
 
@@ -215,9 +219,9 @@ getCompileOrder(Allocator alloc, const MapUnmanaged<ModuleVersion, Module*>& mod
     return res.takeValue();
 }
 
-static Result<ProgramModuleInternal*, ProgramError> compileModule(const ModuleImpl* mod, Allocator protAlloc,
-                                                                  Allocator tempAlloc, ProgramErrorReporter errReporter,
-                                                                  void* errReporterArg) {
+static Result<ProgramModuleInternal*, ProgramError>
+compileModule(const ModuleImpl* mod, Allocator protAlloc, Allocator tempAlloc,
+              ProgramErrorReporter errReporter, void* errReporterArg) {
     MapUnmanaged<const SourceTreeNode*, FileAst> asts;
     DynArray<const SourceTreeNode*> nodesToProcess(tempAlloc);
     (void)nodesToProcess;
@@ -246,8 +250,8 @@ static Result<ProgramModuleInternal*, ProgramError> compileModule(const ModuleIm
             structCount += astEntry.value.nonGenericStructs.len();
         }
 
-        auto res =
-            ProgramModuleInternal::init(protAlloc, mod->name.asSlice(), mod->version, functionCount, structCount);
+        auto res = ProgramModuleInternal::init(protAlloc, mod->name.asSlice(), mod->version,
+                                               functionCount, structCount);
         if (res.hasErr()) {
             return Error(ProgramError::OutOfMemory);
         }
@@ -258,20 +262,22 @@ static Result<ProgramModuleInternal*, ProgramError> compileModule(const ModuleIm
         size_t iter = 0;
         for (const auto astEntry : asts) {
             for (const IFunctionDefinition* func : astEntry.value.nonGenericFunctions) {
-                auto unqualifiedRes = StringUnmanaged::copyConstructSlice(func->unqualifiedName(), protAlloc);
+                auto unqualifiedRes = String::init(func->unqualifiedName(), protAlloc);
                 if (unqualifiedRes.hasErr())
                     return Error(ProgramError::OutOfMemory);
-                auto qualifiedRes = StringUnmanaged::copyConstructSlice(func->qualifiedName(), protAlloc);
+                auto qualifiedRes = String::init(func->qualifiedName(), protAlloc);
                 if (qualifiedRes.hasErr())
                     return Error(ProgramError::OutOfMemory);
 
-                new (&moduleInternal->allFunctionNames[iter]) StringUnmanaged(std::move(unqualifiedRes.takeValue()));
+                new (&moduleInternal->allFunctionNames[iter])
+                    String(std::move(unqualifiedRes.takeValue()));
                 new (&moduleInternal->allFunctionQualifiedNames[iter])
-                    StringUnmanaged(std::move(qualifiedRes.takeValue()));
+                    String(std::move(qualifiedRes.takeValue()));
 
                 RawFunction _emptyFunc{};
                 moduleInternal->allFunctions[iter] = _emptyFunc;
-                moduleInternal->allFunctions[iter].name = moduleInternal->allFunctionNames[iter].asSlice();
+                moduleInternal->allFunctions[iter].name =
+                    moduleInternal->allFunctionNames[iter].asSlice();
                 moduleInternal->allFunctions[iter].qualifiedName =
                     moduleInternal->allFunctionQualifiedNames[iter].asSlice();
 
@@ -290,12 +296,14 @@ static Result<ProgramModuleInternal*, ProgramError> compileModule(const ModuleIm
 static_assert(sizeof(Module) == sizeof(ModuleImpl*));
 static_assert(sizeof(ProgramModule) == sizeof(ProgramModuleInternal*));
 
-static Result<void, ProgramError> compileModules(ProgramInternal* programInternal, Allocator tempAlloc,
-                                                 const MapUnmanaged<ModuleVersion, Module*>& modules,
-                                                 ProgramErrorReporter errReporter, void* errReporterArg) noexcept {
+static Result<void, ProgramError>
+compileModules(ProgramInternal* programInternal, Allocator tempAlloc,
+               const MapUnmanaged<ModuleVersion, Module*>& modules,
+               ProgramErrorReporter errReporter, void* errReporterArg) noexcept {
 
     { // allocate memory for all modules
-        auto modAllocRes = programInternal->protAlloc.asAllocator().allocArray<ProgramModule>(modules.len());
+        auto modAllocRes =
+            programInternal->protAlloc.asAllocator().allocArray<ProgramModule>(modules.len());
         if (modAllocRes.hasErr()) {
             return Error(ProgramError::OutOfMemory);
         }
@@ -314,15 +322,16 @@ static Result<void, ProgramError> compileModules(ProgramInternal* programInterna
     for (const Module* mod : compileOrder) {
         // compile module
         const ModuleImpl* asImpl = *reinterpret_cast<const ModuleImpl* const*>(mod);
-        auto moduleCompileResult =
-            compileModule(asImpl, programInternal->protAlloc.asAllocator(), tempAlloc, errReporter, errReporterArg);
+        auto moduleCompileResult = compileModule(asImpl, programInternal->protAlloc.asAllocator(),
+                                                 tempAlloc, errReporter, errReporterArg);
         if (moduleCompileResult.hasErr()) {
             return Error(moduleCompileResult.takeErr());
         }
 
         ProgramModuleInternal* innerMem = moduleCompileResult.takeValue();
         ProgramModule* programModule = &programInternal->allModules[index];
-        ProgramModuleInternal** programModuleInternal = reinterpret_cast<ProgramModuleInternal**>(programModule);
+        ProgramModuleInternal** programModuleInternal =
+            reinterpret_cast<ProgramModuleInternal**>(programModule);
         *programModuleInternal = innerMem;
 
         index += 1;
@@ -353,7 +362,8 @@ Result<Program, ProgramError> sy::Compiler::compile(ProgramErrorReporter errRepo
     }
 
     const CompilerImpl* self = reinterpret_cast<const CompilerImpl*>(this->inner_);
-    if (auto compErr = compileModules(programInternal, self->alloc, self->modules, errReporter, errReporterArg);
+    if (auto compErr = compileModules(programInternal, self->alloc, self->modules, errReporter,
+                                      errReporterArg);
         compErr.hasErr()) {
         return Error(compErr.takeErr());
     }
@@ -364,28 +374,33 @@ Result<Program, ProgramError> sy::Compiler::compile(ProgramErrorReporter errRepo
     return Error(ProgramError::Unknown);
 }
 
-static Result<StringUnmanaged, ModuleErr> loadFileToString(Allocator& alloc, const fs::path& path) {
-    std::ifstream sourceFile(path);
-    StringUnmanaged contents;
+static Result<String, ModuleErr> loadFileToString(Allocator& alloc, const fs::path& path) {
+    // TODO this sucks for so many reasons
+    // File TOCTOU, extra allocations, etc.
+
+    std::ifstream sourceFile(path, std::ios::binary);
     if (!sourceFile.is_open()) {
         return Error(ModuleErr::ErrorOpeningSourceFile);
     }
 
-    { // read file contents
-      // go to end
-        sourceFile.seekg(0, std::ios::end);
-        size_t fileSize = sourceFile.tellg();
-        auto contentResult = StringUnmanaged::fillConstruct(alloc, fileSize, '\0');
-        if (contentResult.hasErr()) {
-            return Error(ModuleErr::OutOfMemory);
-        }
+    sourceFile.seekg(0, std::ios::end);
+    const size_t fileSize = sourceFile.tellg();
 
-        new (&contents) StringUnmanaged(std::move(contentResult.takeValue()));
-        sourceFile.seekg(0, std::ios::beg);         // back to beginning to read from
-        sourceFile.read(contents.data(), fileSize); // directly into string
+    auto bufRes = alloc.allocArray<char>(fileSize);
+    if (bufRes.hasErr()) {
+        return Error(ModuleErr::OutOfMemory);
+    }
+    char* buf = bufRes.value();
+    sourceFile.seekg(0, std::ios::beg); // back to beginning to read from
+    sourceFile.read(buf, fileSize);     // directly into string
+
+    auto contentsRes = String::init(StringSlice(buf, fileSize), alloc);
+    alloc.freeArray(buf, fileSize);
+    if (contentsRes.hasErr()) {
+        return Error(ModuleErr::OutOfMemory);
     }
 
-    return contents;
+    return contentsRes.takeValue();
 }
 
 Result<void, ModuleErr> ModuleImpl::setRootFileFromDisk(StringSlice path) noexcept {
@@ -405,8 +420,8 @@ Result<void, ModuleErr> ModuleImpl::setRootFileFromDisk(StringSlice path) noexce
         }
 
         std::string u8absolute = absolute.string();
-        auto treeInsertResult =
-            this->sourceTree.insert(StringSlice(u8absolute.data(), u8absolute.size()), SourceFileKind::SyncSourceFile);
+        auto treeInsertResult = this->sourceTree.insert(
+            StringSlice(u8absolute.data(), u8absolute.size()), SourceFileKind::SyncSourceFile);
         if (treeInsertResult.hasErr()) {
             SourceTreeErr err = treeInsertResult.err();
             switch (err) {
@@ -425,8 +440,10 @@ Result<void, ModuleErr> ModuleImpl::setRootFileFromDisk(StringSlice path) noexce
             return Error(loadResult.err());
         }
 
-        sy_assert(this->rootFile->elem.syncSourceFile.hasValue() == false, "Should not have contents in root file");
-        new (&this->rootFile->elem.syncSourceFile) Option<StringUnmanaged>(std::move(loadResult.takeValue()));
+        sy_assert(this->rootFile->elem.syncSourceFile.hasValue() == false,
+                  "Should not have contents in root file");
+        new (&this->rootFile->elem.syncSourceFile)
+            Option<String>(std::move(loadResult.takeValue()));
 
     } catch (const std::filesystem::filesystem_error& e) {
         std::cerr << "Filesystem error: " << e.what() << std::endl;
@@ -445,7 +462,8 @@ Result<void, ModuleErr> sy::ModuleImpl::setRootFileFromString(StringSlice absolu
     try {
         static const std::filesystem::path syncExtension = ".sync";
 
-        const std::filesystem::path absolute(absolutePath.data(), absolutePath.data() + absolutePath.len());
+        const std::filesystem::path absolute(absolutePath.data(),
+                                             absolutePath.data() + absolutePath.len());
         if (absolute.extension() != syncExtension) {
             return Error(ModuleErr::FileNotSyncSource);
         }
@@ -454,8 +472,8 @@ Result<void, ModuleErr> sy::ModuleImpl::setRootFileFromString(StringSlice absolu
         }
 
         std::string u8absolute = absolute.string();
-        auto treeInsertResult =
-            this->sourceTree.insert(StringSlice(u8absolute.data(), u8absolute.size()), SourceFileKind::SyncSourceFile);
+        auto treeInsertResult = this->sourceTree.insert(
+            StringSlice(u8absolute.data(), u8absolute.size()), SourceFileKind::SyncSourceFile);
         if (treeInsertResult.hasErr()) {
             SourceTreeErr err = treeInsertResult.err();
             switch (err) {
@@ -468,12 +486,14 @@ Result<void, ModuleErr> sy::ModuleImpl::setRootFileFromString(StringSlice absolu
         }
 
         this->rootFile = treeInsertResult.value();
-        sy_assert(this->rootFile->elem.syncSourceFile.hasValue() == false, "Should not have contents in root file");
-        auto loadResult = StringUnmanaged::copyConstructSlice(fileContents, this->alloc);
+        sy_assert(this->rootFile->elem.syncSourceFile.hasValue() == false,
+                  "Should not have contents in root file");
+        auto loadResult = String::init(fileContents, this->alloc);
         if (loadResult.hasErr()) {
             return Error(ModuleErr::OutOfMemory);
         }
-        new (&this->rootFile->elem.syncSourceFile) Option<StringUnmanaged>(std::move(loadResult.takeValue()));
+        new (&this->rootFile->elem.syncSourceFile)
+            Option<String>(std::move(loadResult.takeValue()));
     } catch (const std::bad_alloc& e) {
         (void)e;
         return Error(ModuleErr::OutOfMemory);
@@ -496,7 +516,6 @@ Result<void, ModuleErr> ModuleImpl::addDependency(const Module* module) noexcept
 static void deleteModuleImpl(void* impl) noexcept {
     ModuleImpl* self = reinterpret_cast<ModuleImpl*>(impl);
     Allocator alloc = self->alloc;
-    self->name.destroy(alloc);
     self->~ModuleImpl();
     alloc.freeObject(self);
 }
@@ -523,16 +542,22 @@ Module& sy::Module::operator=(Module&& other) noexcept {
     return *this;
 }
 
-StringSlice sy::Module::name() const { return reinterpret_cast<const ModuleImpl*>(this->inner_)->name.asSlice(); }
+StringSlice sy::Module::name() const {
+    return reinterpret_cast<const ModuleImpl*>(this->inner_)->name.asSlice();
+}
 
-SemVer sy::Module::version() const { return reinterpret_cast<const ModuleImpl*>(this->inner_)->version; }
+SemVer sy::Module::version() const {
+    return reinterpret_cast<const ModuleImpl*>(this->inner_)->version;
+}
 
 Result<void, ModuleErr> sy::Module::setRootFileFromDisk(StringSlice path) noexcept {
     return reinterpret_cast<ModuleImpl*>(this->inner_)->setRootFileFromDisk(path);
 }
 
-Result<void, ModuleErr> sy::Module::setRootFileFromString(StringSlice absolutePath, StringSlice fileContents) noexcept {
-    return reinterpret_cast<ModuleImpl*>(this->inner_)->setRootFileFromString(absolutePath, fileContents);
+Result<void, ModuleErr> sy::Module::setRootFileFromString(StringSlice absolutePath,
+                                                          StringSlice fileContents) noexcept {
+    return reinterpret_cast<ModuleImpl*>(this->inner_)
+        ->setRootFileFromString(absolutePath, fileContents);
 }
 
 Result<void, ModuleErr> sy::Module::addDependency(const Module* module) noexcept {
@@ -543,7 +568,8 @@ const MapUnmanaged<StringSlice, const Module*>& sy::Module::dependencies() const
     return reinterpret_cast<const ModuleImpl*>(this->inner_)->dependencies;
 }
 
-Result<Module*, AllocErr> Module::create(Allocator& alloc, StringSlice inName, SemVer inVersion) noexcept {
+Result<Module*, AllocErr> Module::create(Allocator& alloc, StringSlice inName,
+                                         SemVer inVersion) noexcept {
     Module* self;
     ModuleImpl* impl;
     {
@@ -561,12 +587,12 @@ Result<Module*, AllocErr> Module::create(Allocator& alloc, StringSlice inName, S
         self = selfAllocResult.value();
 
         new (impl) ModuleImpl(alloc);
-        auto nameAllocResult = StringUnmanaged::copyConstructSlice(inName, alloc);
+        auto nameAllocResult = String::init(inName, alloc);
         if (nameAllocResult.hasErr()) {
             alloc.freeObject(impl);
             return Error(AllocErr::OutOfMemory);
         }
-        auto _ = new (&impl->name) StringUnmanaged(std::move(nameAllocResult.takeValue()));
+        auto _ = new (&impl->name) String(std::move(nameAllocResult.takeValue()));
         (void)_;
         impl->version = inVersion;
         new (&impl->sourceTree) SourceTree(alloc);

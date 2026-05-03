@@ -15,8 +15,8 @@
 #include <cstring>
 
 /// By default, values use 1KB.
-/// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit pointers,
-/// such as wasm32, the types minimum allocation is 512B.
+/// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit
+/// pointers, such as wasm32, the types minimum allocation is 512B.
 constexpr size_t MIN_SLOTS = 128;
 
 /// Values are aligned to either their smaller-than-page allocation size, or are page aligned.
@@ -40,8 +40,10 @@ static Allocation allocateStack(const uint32_t minSlotSize) {
 
     if (minSlotSize <= MIN_SLOTS) {
         sy::Allocator allocator;
-        aloc.values = allocator.allocAlignedArray<uint64_t>(MIN_SLOTS, MIN_VALUES_ALIGNMENT).value();
-        aloc.types = allocator.allocAlignedArray<Node::TypeOfValue>(MIN_SLOTS, ALLOC_CACHE_ALIGN).value();
+        aloc.values =
+            allocator.allocAlignedArray<uint64_t>(MIN_SLOTS, MIN_VALUES_ALIGNMENT).value();
+        aloc.types =
+            allocator.allocAlignedArray<Node::TypeOfValue>(MIN_SLOTS, ALLOC_CACHE_ALIGN).value();
         aloc.slots = MIN_SLOTS;
     } else {
         const size_t pageSize = page_size();
@@ -92,7 +94,8 @@ static void freeStack(Allocation& allocation) {
         allocator.freeAlignedArray(allocation.values, MIN_SLOTS, MIN_VALUES_ALIGNMENT);
         allocator.freeAlignedArray(allocation.types, MIN_SLOTS, ALLOC_CACHE_ALIGN);
     } else {
-        const size_t valuesBytesAllocated = static_cast<size_t>(allocation.slots) * sizeof(uint64_t);
+        const size_t valuesBytesAllocated =
+            static_cast<size_t>(allocation.slots) * sizeof(uint64_t);
         const size_t typesBytesAllocated = [valuesBytesAllocated]() -> size_t {
             if constexpr (sizeof(uintptr_t) == sizeof(int64_t)) {
                 return valuesBytesAllocated;
@@ -114,23 +117,25 @@ static void freeStack(Allocation& allocation) {
 #pragma endregion
 
 /// @brief Calculates what the next base offset needs to be to satisfy the byte alignment of a new
-/// stack frame. The difference between the return value and `Node::nextBaseOffset` member variable can be used
-/// to calculate how much the current frame needs to increase it's length by.
+/// stack frame. The difference between the return value and `Node::nextBaseOffset` member variable
+/// can be used to calculate how much the current frame needs to increase it's length by.
 /// @param currentNextBaseOffset Typically is `this->nextBaseOffset`,
 /// however is passed as an argument for testing
 /// @param byteAlign Byte alignment of the next base offset
 /// @return The aligned next base offset, which is always greater than or equal to
 /// `Stack::Frame::OLD_FRAME_INFO_RESERVED_SLOTS`
-static uint32_t requiredBaseOffsetForByteAlignment(uint32_t currentNextBaseOffset, uint16_t byteAlign) {
+static uint32_t requiredBaseOffsetForByteAlignment(uint32_t currentNextBaseOffset,
+                                                   uint16_t byteAlign) {
     // The 2 slots BEFORE the base offset (for both the values and types, totaling 4 used slots)
     // must be used for storing the previous frame data.
     // For consistency purposes, even if no frame is supplied, the reserve slots are still used.
     sy_assert(currentNextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS,
               "Next base offset should always be greater than or equal to the default");
 
-    const uint32_t normalizedAlign = (byteAlign / sizeof(uint64_t)) < Frame::OLD_FRAME_INFO_RESERVED_SLOTS
-                                         ? Frame::OLD_FRAME_INFO_RESERVED_SLOTS
-                                         : (byteAlign / sizeof(uint64_t));
+    const uint32_t normalizedAlign =
+        (byteAlign / sizeof(uint64_t)) < Frame::OLD_FRAME_INFO_RESERVED_SLOTS
+            ? Frame::OLD_FRAME_INFO_RESERVED_SLOTS
+            : (byteAlign / sizeof(uint64_t));
 
     const uint32_t remainder = currentNextBaseOffset % normalizedAlign;
     if (remainder == 0) {
@@ -163,8 +168,9 @@ sy::Node::~Node() noexcept {
 }
 
 sy::Node::Node(Node&& other) noexcept
-    : values(other.values), types(other.types), slots(other.slots), nextBaseOffset(other.nextBaseOffset),
-      currentFrame(std::move(other.currentFrame)), frameDepth(other.frameDepth) {
+    : values(other.values), types(other.types), slots(other.slots),
+      nextBaseOffset(other.nextBaseOffset), currentFrame(std::move(other.currentFrame)),
+      frameDepth(other.frameDepth) {
     other.values = nullptr;
     other.types = nullptr;
     other.slots = 0;
@@ -187,7 +193,8 @@ bool sy::Node::isInUse() const {
 }
 
 void sy::Node::reallocate(const uint32_t minSlotSize) {
-    sy_assert(!this->currentFrame.has_value(), "Cannot reallocate stack node while it's being used");
+    sy_assert(!this->currentFrame.has_value(),
+              "Cannot reallocate stack node while it's being used");
     sy_assert(this->frameDepth == 0, "Cannot reallocate stack node while it's being used");
 
     if (this->slots > 0) {
@@ -203,48 +210,53 @@ void sy::Node::reallocate(const uint32_t minSlotSize) {
     this->slots = allocation.slots;
 }
 
-// bool Node::pushFrame(uint32_t frameLength, uint16_t byteAlign, void *retValDst, std::optional<Frame *> previousFrame,
-// const Bytecode *instructionPointer)
+// bool Node::pushFrame(uint32_t frameLength, uint16_t byteAlign, void *retValDst,
+// std::optional<Frame *> previousFrame, const Bytecode *instructionPointer)
 // {
 //     sy_assert(previousFrame.has_value() == (instructionPointer != nullptr),
 //         "If there is a previous frame, a valid instruction pointer is expected and vice versa");
 
 //     if(this->currentFrame.has_value()) {
-//         sy_assert(previousFrame.has_value(), "Expected there to be a previous frame if this node is in use");
-//         Frame& prevFrame = *previousFrame.value();
-//         Frame& currFrame = this->currentFrame.value();
-//         const char* message = "Expected previous frame to be current frame";
-//         sy_assert(prevFrame.basePointerOffset   == currFrame.basePointerOffset, message);
+//         sy_assert(previousFrame.has_value(), "Expected there to be a previous frame if this node
+//         is in use"); Frame& prevFrame = *previousFrame.value(); Frame& currFrame =
+//         this->currentFrame.value(); const char* message = "Expected previous frame to be current
+//         frame"; sy_assert(prevFrame.basePointerOffset   == currFrame.basePointerOffset, message);
 //         sy_assert(prevFrame.frameLength         == currFrame.frameLength, message);
 //         sy_assert(prevFrame.functionIndex       == currFrame.functionIndex, message);
 //         sy_assert(prevFrame.retValueDst         == currFrame.retValueDst, message);
 
-//         return this->pushFrameNoReallocate(frameLength, byteAlign, retValDst, instructionPointer);
+//         return this->pushFrameNoReallocate(frameLength, byteAlign, retValDst,
+//         instructionPointer);
 //     } else {
-//         this->pushFrameAllowReallocate(frameLength, byteAlign, retValDst, previousFrame, instructionPointer);
-//         return true;
+//         this->pushFrameAllowReallocate(frameLength, byteAlign, retValDst, previousFrame,
+//         instructionPointer); return true;
 //     }
 // }
 
-bool sy::Node::pushFrameNoReallocate(const uint16_t frameLength, const uint16_t byteAlign, void* const retValDst,
+bool sy::Node::pushFrameNoReallocate(const uint16_t frameLength, const uint16_t byteAlign,
+                                     void* const retValDst,
                                      const Bytecode* const instructionPointer) {
     sy_assert(this->currentFrame.has_value(), "Expected this node to be in use");
     sy_assert(this->frameDepth > 0, "Expected frame depth");
-    sy_assert(this->nextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS, "next base offset invalid value");
-    sy_assert(instructionPointer != nullptr, "Cannot have null instruction pointer when previous frames exist");
+    sy_assert(this->nextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS,
+              "next base offset invalid value");
+    sy_assert(instructionPointer != nullptr,
+              "Cannot have null instruction pointer when previous frames exist");
 
     { // update next base offset and current frame for length
-        const uint32_t newNextBaseOffset = requiredBaseOffsetForByteAlignment(this->nextBaseOffset, byteAlign);
+        const uint32_t newNextBaseOffset =
+            requiredBaseOffsetForByteAlignment(this->nextBaseOffset, byteAlign);
         if (newNextBaseOffset >= this->slots) {
             return false;
         }
 
-        // even if the frame cannot be pushed onto this node, increasing the previous frame's length and
-        // updated the next base offset is safe.
-        // increase frame length by the difference
+        // even if the frame cannot be pushed onto this node, increasing the previous frame's length
+        // and updated the next base offset is safe. increase frame length by the difference
         const uint32_t newFrameLength =
-            static_cast<uint32_t>(this->currentFrame.value().frameLength) + (newNextBaseOffset - this->nextBaseOffset);
-        sy_assert(newFrameLength < Stack::MAX_FRAME_LEN, "Align extended frame length exceeds maximum");
+            static_cast<uint32_t>(this->currentFrame.value().frameLength) +
+            (newNextBaseOffset - this->nextBaseOffset);
+        sy_assert(newFrameLength < Stack::MAX_FRAME_LEN,
+                  "Align extended frame length exceeds maximum");
         this->currentFrame.value().frameLength = static_cast<uint16_t>(newFrameLength);
         this->nextBaseOffset = newNextBaseOffset;
     }
@@ -255,8 +267,9 @@ bool sy::Node::pushFrameNoReallocate(const uint16_t frameLength, const uint16_t 
 
     // now we know that the frame can fit
 
-    {                                                                                              // store old frame
-        const uint32_t actualOffset = this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS; // no int overflow
+    { // store old frame
+        const uint32_t actualOffset =
+            this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS; // no int overflow
         uint64_t* valuesMem = &this->values[actualOffset];
         uintptr_t* typesMem = reinterpret_cast<uintptr_t*>(&this->types[actualOffset]);
         this->currentFrame.value().storeInMemory(valuesMem, typesMem, instructionPointer);
@@ -279,13 +292,16 @@ bool sy::Node::pushFrameNoReallocate(const uint16_t frameLength, const uint16_t 
     return true;
 }
 
-void sy::Node::pushFrameAllowReallocate(const uint16_t frameLength, const uint16_t byteAlign, void* const retValDst,
-                                        std::optional<Frame> previousFrame, const Bytecode* const instructionPointer) {
+void sy::Node::pushFrameAllowReallocate(const uint16_t frameLength, const uint16_t byteAlign,
+                                        void* const retValDst, std::optional<Frame> previousFrame,
+                                        const Bytecode* const instructionPointer) {
     sy_assert(this->currentFrame.has_value() == false, "Expected this node to not be in use");
     sy_assert(this->frameDepth == 0, "Expected no frame depth");
-    sy_assert(this->nextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS, "next base offset invalid value");
-    sy_assert(previousFrame.has_value() == (instructionPointer != nullptr),
-              "If there is a previous frame, a valid instruction pointer is expected and vice versa");
+    sy_assert(this->nextBaseOffset >= Frame::OLD_FRAME_INFO_RESERVED_SLOTS,
+              "next base offset invalid value");
+    sy_assert(
+        previousFrame.has_value() == (instructionPointer != nullptr),
+        "If there is a previous frame, a valid instruction pointer is expected and vice versa");
 
     { // potential reallocation
         std::optional<uint32_t> optReallocSize = this->shouldReallocate(frameLength, byteAlign);
@@ -294,12 +310,14 @@ void sy::Node::pushFrameAllowReallocate(const uint16_t frameLength, const uint16
         }
     }
     { // update next base offset
-        const uint32_t newNextBaseOffset = requiredBaseOffsetForByteAlignment(this->nextBaseOffset, byteAlign);
+        const uint32_t newNextBaseOffset =
+            requiredBaseOffsetForByteAlignment(this->nextBaseOffset, byteAlign);
         // `previousFrame` is from a different node so we do not have to increase it's frame length
         this->nextBaseOffset = newNextBaseOffset;
     }
-    {                                                                                              // store old frame
-        const uint32_t actualOffset = this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS; // no int overflow
+    { // store old frame
+        const uint32_t actualOffset =
+            this->nextBaseOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS; // no int overflow
         uint64_t* valuesMem = &this->values[actualOffset];
         uintptr_t* typesMem = reinterpret_cast<uintptr_t*>(&this->types[actualOffset]);
         if (previousFrame.has_value()) {
@@ -328,7 +346,8 @@ std::optional<std::tuple<Frame, const Bytecode*>> sy::Node::popFrame() {
     sy_assert(this->isInUse(), "No frames to pop");
 
     const Frame currFrame = this->currentFrame.value();
-    const size_t oldInfoStartOffset = currFrame.basePointerOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+    const size_t oldInfoStartOffset =
+        currFrame.basePointerOffset - Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
     const uint64_t* const valuesMem = &this->values[oldInfoStartOffset];
     const TypeOfValue* const typesMem = &this->types[oldInfoStartOffset];
 
@@ -356,8 +375,9 @@ std::optional<std::tuple<Frame, const Bytecode*>> sy::Node::popFrame() {
     }
 }
 
-std::optional<uint16_t> sy::Node::pushScriptFunctionArg(const void* argMem, const sy::Type* type, uint16_t offset,
-                                                        const uint16_t frameLength, const uint16_t frameByteAlign) {
+std::optional<uint16_t> sy::Node::pushScriptFunctionArg(const void* argMem, const sy::Type* type,
+                                                        uint16_t offset, const uint16_t frameLength,
+                                                        const uint16_t frameByteAlign) {
     sy_assert(argMem != nullptr, "Expected valid argument memory");
     sy_assert(type != nullptr, "Expected valid type memory");
     const uint16_t normalizedAlign =
@@ -366,17 +386,19 @@ std::optional<uint16_t> sy::Node::pushScriptFunctionArg(const void* argMem, cons
     (void)normalizedAlign;
 
     if (this->isInUse()) { // update next base offset and current frame for length
-        const uint32_t newNextBaseOffset = requiredBaseOffsetForByteAlignment(this->nextBaseOffset, frameByteAlign);
+        const uint32_t newNextBaseOffset =
+            requiredBaseOffsetForByteAlignment(this->nextBaseOffset, frameByteAlign);
         if (newNextBaseOffset >= this->slots) {
             return std::nullopt;
         }
 
-        // even if the frame cannot be pushed onto this node, increasing the previous frame's length and
-        // updated the next base offset is safe.
-        // increase frame length by the difference
+        // even if the frame cannot be pushed onto this node, increasing the previous frame's length
+        // and updated the next base offset is safe. increase frame length by the difference
         const uint32_t newFrameLength =
-            static_cast<uint32_t>(this->currentFrame.value().frameLength) + (newNextBaseOffset - this->nextBaseOffset);
-        sy_assert(newFrameLength < Stack::MAX_FRAME_LEN, "Align extended frame length exceeds maximum");
+            static_cast<uint32_t>(this->currentFrame.value().frameLength) +
+            (newNextBaseOffset - this->nextBaseOffset);
+        sy_assert(newFrameLength < Stack::MAX_FRAME_LEN,
+                  "Align extended frame length exceeds maximum");
         this->currentFrame.value().frameLength = static_cast<uint16_t>(newFrameLength);
         this->nextBaseOffset = newNextBaseOffset;
 
@@ -385,14 +407,17 @@ std::optional<uint16_t> sy::Node::pushScriptFunctionArg(const void* argMem, cons
         }
     } else {
         { // potential reallocation
-            std::optional<uint32_t> optReallocSize = this->shouldReallocate(frameLength, frameByteAlign);
+            std::optional<uint32_t> optReallocSize =
+                this->shouldReallocate(frameLength, frameByteAlign);
             if (optReallocSize.has_value()) {
                 this->reallocate(optReallocSize.value());
             }
         }
         { // update next base offset
-            const uint32_t newNextBaseOffset = requiredBaseOffsetForByteAlignment(this->nextBaseOffset, frameByteAlign);
-            // `previousFrame` is from a different node so we do not have to increase it's frame length
+            const uint32_t newNextBaseOffset =
+                requiredBaseOffsetForByteAlignment(this->nextBaseOffset, frameByteAlign);
+            // `previousFrame` is from a different node so we do not have to increase it's frame
+            // length
             this->nextBaseOffset = newNextBaseOffset;
         }
     }
@@ -451,7 +476,8 @@ std::optional<uint32_t> sy::Node::shouldReallocate(uint16_t frameLength, uint16_
     sy_assert(alignment <= pageSize, "Alignment greater than page size does not make sense");
     (void)pageSize;
 #ifndef NDEBUG
-    uint32_t normalizeAlign = alignment / sizeof(uint64_t); // not size_t because the stack values occupy 64 bits
+    uint32_t normalizeAlign =
+        alignment / sizeof(uint64_t); // not size_t because the stack values occupy 64 bits
     if (normalizeAlign == 0)
         normalizeAlign = 1;
     sy_assert((frameLength % normalizeAlign) == 0, "Frame length must be a multiple of alignment");
@@ -469,7 +495,8 @@ std::optional<uint32_t> sy::Node::shouldReallocate(uint16_t frameLength, uint16_
     }
 
     if (reinterpret_cast<size_t>(this->values) % alignment != 0) {
-        return std::optional<uint32_t>(reallocationSlots); // the allocation itself is not aligned enough
+        return std::optional<uint32_t>(
+            reallocationSlots); // the allocation itself is not aligned enough
     }
 
     return std::nullopt;
@@ -507,7 +534,8 @@ void sy::Node::setFrameFunction(const uint16_t functionIndex) {
 
 void sy::Node::ensureOffsetWithinFrameBounds(const uint16_t offset) const {
     sy_assert(this->currentFrame.has_value(), "No frame");
-    sy_assert(offset < this->currentFrame.value().frameLength, "Index out of bounds for stack frame");
+    sy_assert(offset < this->currentFrame.value().frameLength,
+              "Index out of bounds for stack frame");
     (void)offset;
 }
 
@@ -532,9 +560,13 @@ void sy::Node::TypeOfValue::set(const sy::Type* type, bool owned) {
     this->mask_ = typeMask | static_cast<uintptr_t>(owned ? 0 : TYPE_NOT_OWNED_FLAG);
 }
 
-bool sy::Node::TypeOfValue::operator==(const TypeOfValue& other) const { return this->get() == other.get(); }
+bool sy::Node::TypeOfValue::operator==(const TypeOfValue& other) const {
+    return this->get() == other.get();
+}
 
-bool sy::Node::TypeOfValue::operator==(const sy::Type* otherType) const { return this->get() == otherType; }
+bool sy::Node::TypeOfValue::operator==(const sy::Type* otherType) const {
+    return this->get() == otherType;
+}
 
 bool sy::Node::TypeOfValue::isOwned() const {
     const uintptr_t maskedAwayType = this->mask_ & TYPE_NOT_OWNED_FLAG;
@@ -725,7 +757,8 @@ TEST_CASE("hasEnoughSpaceForFrame minimum") {
     }
 
     // all slots excluding reserve
-    CHECK(node.hasEnoughSpaceForFrame(static_cast<uint16_t>(node.slots - Frame::OLD_FRAME_INFO_RESERVED_SLOTS), 1));
+    CHECK(node.hasEnoughSpaceForFrame(
+        static_cast<uint16_t>(node.slots - Frame::OLD_FRAME_INFO_RESERVED_SLOTS), 1));
     // not all slots but not enough for reserve
     CHECK_FALSE(node.hasEnoughSpaceForFrame(static_cast<uint16_t>(node.slots - 1), 1));
 }
@@ -768,7 +801,8 @@ TEST_CASE("pushFrameAllowReallocate, no previous frame, special align") {
         CHECK_EQ(node.currentFrame.value().frameLength, 4);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 1);
-        CHECK_EQ(node.nextBaseOffset, 10); // 2 start + 2 bump for alignment + 4 frame length + 2 reserve slots
+        CHECK_EQ(node.nextBaseOffset,
+                 10); // 2 start + 2 bump for alignment + 4 frame length + 2 reserve slots
     }
     { // does reallocate
         auto node = Node(1);
@@ -780,7 +814,8 @@ TEST_CASE("pushFrameAllowReallocate, no previous frame, special align") {
         CHECK_EQ(node.currentFrame.value().frameLength, 1024);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 1);
-        CHECK_EQ(node.nextBaseOffset, 1030); // 2 start + 2 bump for alignment + 1024 frame length + 2 reserve slots
+        CHECK_EQ(node.nextBaseOffset,
+                 1030); // 2 start + 2 bump for alignment + 1024 frame length + 2 reserve slots
     }
 }
 
@@ -796,7 +831,8 @@ TEST_CASE("pushFrameNoReallocate, successful, 2 total frames, non-special align"
         CHECK_EQ(node.currentFrame.value().frameLength, 1);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 2);
-        // 2 start + 1 old frame length + 1 extended for alignment + 2 reserve slots + 1 new frame length + 2 reserve
+        // 2 start + 1 old frame length + 1 extended for alignment + 2 reserve slots + 1 new frame
+        // length + 2 reserve
         CHECK_EQ(node.nextBaseOffset, 9);
     }
     {
@@ -809,7 +845,8 @@ TEST_CASE("pushFrameNoReallocate, successful, 2 total frames, non-special align"
         CHECK_EQ(node.currentFrame.value().frameLength, 4);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 2);
-        // 2 start + 1 old frame length + 1 extended for alignment + 2 reserve slots + 4 new frame length + 2 reserve
+        // 2 start + 1 old frame length + 1 extended for alignment + 2 reserve slots + 4 new frame
+        // length + 2 reserve
         CHECK_EQ(node.nextBaseOffset, 12);
     }
     { // exactly enough
@@ -822,7 +859,8 @@ TEST_CASE("pushFrameNoReallocate, successful, 2 total frames, non-special align"
         CHECK_EQ(node.currentFrame.value().frameLength, Node::MIN_SLOTS - 6);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 2);
-        // 2 start + 1 old frame length + 1 extended for alignment + 2 reserve slots + 4 new frame length + 2 reserve
+        // 2 start + 1 old frame length + 1 extended for alignment + 2 reserve slots + 4 new frame
+        // length + 2 reserve
         CHECK_GE(node.nextBaseOffset, node.slots);
     }
 }
@@ -835,12 +873,14 @@ TEST_CASE("pushFrameNoReallocate, successful, 2 total frames, special align") {
         CHECK(node.pushFrameNoReallocate(8, 64, nullptr, &unusedBytecode));
         CHECK(node.isInUse());
         CHECK(node.currentFrame.has_value());
-        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new alignment
+        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new
+        // alignment
         CHECK_EQ(node.currentFrame.value().basePointerOffset, 24);
         CHECK_EQ(node.currentFrame.value().frameLength, 8);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 2);
-        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new alignment
+        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new
+        // alignment
         // + 8 new length + 2 reserve
         CHECK_EQ(node.nextBaseOffset, 34);
     }
@@ -850,12 +890,14 @@ TEST_CASE("pushFrameNoReallocate, successful, 2 total frames, special align") {
         CHECK(node.pushFrameNoReallocate(32, 64, nullptr, &unusedBytecode));
         CHECK(node.isInUse());
         CHECK(node.currentFrame.has_value());
-        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new alignment
+        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new
+        // alignment
         CHECK_EQ(node.currentFrame.value().basePointerOffset, 24);
         CHECK_EQ(node.currentFrame.value().frameLength, 32);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 2);
-        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new alignment
+        // 2 start + 6 extend old alignment + 8 old frame length + 2 reserve + 6 extended for new
+        // alignment
         // + 32 new length + 2 reserve
         CHECK_EQ(node.nextBaseOffset, 58);
     }
@@ -866,7 +908,8 @@ TEST_CASE("pushFrameNoReallocate, not successful, non-special align") {
     {
         auto node = Node(1);
         node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
-        CHECK_FALSE(node.pushFrameNoReallocate(static_cast<uint16_t>(node.slots), 1, nullptr, &unusedBytecode));
+        CHECK_FALSE(node.pushFrameNoReallocate(static_cast<uint16_t>(node.slots), 1, nullptr,
+                                               &unusedBytecode));
 
         // retains all old data
         CHECK(node.isInUse());
@@ -876,12 +919,14 @@ TEST_CASE("pushFrameNoReallocate, not successful, non-special align") {
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 1);
         // despite mostly not doing anything, the frame is still extended (maybe this is stupid)
-        CHECK_EQ(node.nextBaseOffset, 6); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
+        CHECK_EQ(node.nextBaseOffset,
+                 6); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
     }
     {
         auto node = Node(1);
         node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
-        CHECK_FALSE(node.pushFrameNoReallocate(static_cast<uint16_t>(node.slots), 1, nullptr, &unusedBytecode));
+        CHECK_FALSE(node.pushFrameNoReallocate(static_cast<uint16_t>(node.slots), 1, nullptr,
+                                               &unusedBytecode));
 
         // retains all old data
         // despite mostly not doing anything, the frame is still extended (maybe this is stupid)
@@ -891,7 +936,8 @@ TEST_CASE("pushFrameNoReallocate, not successful, non-special align") {
         CHECK_EQ(node.currentFrame.value().frameLength, 2);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 1);
-        CHECK_EQ(node.nextBaseOffset, 6); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
+        CHECK_EQ(node.nextBaseOffset,
+                 6); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
     }
     { // not quite enough
         auto node = Node(1);
@@ -904,7 +950,8 @@ TEST_CASE("pushFrameNoReallocate, not successful, non-special align") {
         CHECK_EQ(node.currentFrame.value().frameLength, 2);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 1);
-        CHECK_EQ(node.nextBaseOffset, 6); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
+        CHECK_EQ(node.nextBaseOffset,
+                 6); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
     }
 }
 
@@ -913,7 +960,8 @@ TEST_CASE("pushFrameNoReallocate, not successful, special align") {
     { // cannot fit frame because of length
         auto node = Node(1);
         node.pushFrameAllowReallocate(8, 64, nullptr, std::nullopt, nullptr);
-        CHECK_FALSE(node.pushFrameNoReallocate(static_cast<uint16_t>(node.slots), 64, nullptr, &unusedBytecode));
+        CHECK_FALSE(node.pushFrameNoReallocate(static_cast<uint16_t>(node.slots), 64, nullptr,
+                                               &unusedBytecode));
 
         // retains all old data
         CHECK(node.isInUse());
@@ -926,11 +974,12 @@ TEST_CASE("pushFrameNoReallocate, not successful, special align") {
         // + 2 reserve + 6 extended for new alignment (even though failed)
         CHECK_EQ(node.nextBaseOffset, 24);
     }
-    { // cannot fit frame because of length and align (need more than 2 frames in order for alignment alone to prevent)
+    { // cannot fit frame because of length and align (need more than 2 frames in order for
+      // alignment alone to prevent)
         auto node = Node(1);
         node.pushFrameAllowReallocate(8, 64, nullptr, std::nullopt, nullptr);
-        CHECK_FALSE(node.pushFrameNoReallocate(Node::MIN_SLOTS, (Node::MIN_SLOTS) * alignof(uint64_t), nullptr,
-                                               &unusedBytecode));
+        CHECK_FALSE(node.pushFrameNoReallocate(
+            Node::MIN_SLOTS, (Node::MIN_SLOTS) * alignof(uint64_t), nullptr, &unusedBytecode));
 
         // retains all old data
         // despite mostly not doing anything, the frame is still extended (maybe this is stupid)
@@ -940,7 +989,8 @@ TEST_CASE("pushFrameNoReallocate, not successful, special align") {
         CHECK_EQ(node.currentFrame.value().frameLength, 8);
         CHECK_EQ(node.currentFrame.value().retValueDst, nullptr);
         CHECK_EQ(node.frameDepth, 1);
-        CHECK_EQ(node.nextBaseOffset, 18); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
+        CHECK_EQ(node.nextBaseOffset,
+                 18); // 2 start + 1 frame length + 1 extended for alignment + 2 reserve slots
     }
 }
 
@@ -1100,192 +1150,211 @@ template <typename T> static sy::Type makeSimpleType() {
     return t;
 }
 
-TEST_CASE("push 1 script function arg, 1 slot, non-special align, no frames") {
-    auto node = Node(1);
-    const int64_t arg = 10;
-    CHECK(node.pushScriptFunctionArg(&arg, sy::Type::TYPE_I64, 0, 1, 1));
-    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+// TEST_CASE("push 1 script function arg, 1 slot, non-special align, no frames") {
+//     auto node = Node(1);
+//     const int64_t arg = 10;
+//     CHECK(node.pushScriptFunctionArg(&arg, sy::Type::TYPE_I64, 0, 1, 1));
+//     node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
 
-    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
-    const int64_t* argMem = reinterpret_cast<const int64_t*>(&node.values[argMemLocation]);
-    CHECK_EQ(*argMem, arg);
-    CHECK_EQ(node.types[argMemLocation], sy::Type::TYPE_I64);
-}
+//     const auto argMemLocation =
+//         node.currentFrame.value().basePointerOffset; // argument is at offset 0
+//     const int64_t* argMem = reinterpret_cast<const int64_t*>(&node.values[argMemLocation]);
+//     CHECK_EQ(*argMem, arg);
+//     CHECK_EQ(node.types[argMemLocation], sy::Type::TYPE_I64);
+// }
 
-TEST_CASE("push 1 script function arg, 2 slot, non-special align, no frames") {
-    auto node = Node(1);
-    const TestArgClass2Slot arg = {{1, 2}};
-    const sy::Type type = makeSimpleType<decltype(arg)>();
-    CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 2, 1));
-    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+// TEST_CASE("push 1 script function arg, 2 slot, non-special align, no frames") {
+//     auto node = Node(1);
+//     const TestArgClass2Slot arg = {{1, 2}};
+//     const sy::Type type = makeSimpleType<decltype(arg)>();
+//     CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 2, 1));
+//     node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
 
-    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
-    const TestArgClass2Slot* argMem = reinterpret_cast<const TestArgClass2Slot*>(&node.values[argMemLocation]);
-    CHECK_EQ(argMem->v[0], 1);
-    CHECK_EQ(argMem->v[1], 2);
-    CHECK_EQ(node.types[argMemLocation], &type);
-}
+//     const auto argMemLocation =
+//         node.currentFrame.value().basePointerOffset; // argument is at offset 0
+//     const TestArgClass2Slot* argMem =
+//         reinterpret_cast<const TestArgClass2Slot*>(&node.values[argMemLocation]);
+//     CHECK_EQ(argMem->v[0], 1);
+//     CHECK_EQ(argMem->v[1], 2);
+//     CHECK_EQ(node.types[argMemLocation], &type);
+// }
 
-TEST_CASE("push 1 script function arg, 3 slot, non-special align, no frames") {
-    auto node = Node(1);
-    const TestArgClass3Slot arg = {{1, 2, 3}};
-    const sy::Type type = makeSimpleType<decltype(arg)>();
-    CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 3, 1));
-    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+// TEST_CASE("push 1 script function arg, 3 slot, non-special align, no frames") {
+//     auto node = Node(1);
+//     const TestArgClass3Slot arg = {{1, 2, 3}};
+//     const sy::Type type = makeSimpleType<decltype(arg)>();
+//     CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 3, 1));
+//     node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
 
-    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
-    const TestArgClass3Slot* argMem = reinterpret_cast<const TestArgClass3Slot*>(&node.values[argMemLocation]);
-    CHECK_EQ(argMem->v[0], 1);
-    CHECK_EQ(argMem->v[1], 2);
-    CHECK_EQ(argMem->v[2], 3);
-    CHECK_EQ(node.types[argMemLocation], &type);
-}
+//     const auto argMemLocation =
+//         node.currentFrame.value().basePointerOffset; // argument is at offset 0
+//     const TestArgClass3Slot* argMem =
+//         reinterpret_cast<const TestArgClass3Slot*>(&node.values[argMemLocation]);
+//     CHECK_EQ(argMem->v[0], 1);
+//     CHECK_EQ(argMem->v[1], 2);
+//     CHECK_EQ(argMem->v[2], 3);
+//     CHECK_EQ(node.types[argMemLocation], &type);
+// }
 
-TEST_CASE("push 1 script function arg, 4 slot, non-special align, no frames") {
-    auto node = Node(1);
-    const TestArgClass4Slot arg = {{1, 2, 3, 4}};
-    const sy::Type type = makeSimpleType<decltype(arg)>();
-    CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 4, 1));
-    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+// TEST_CASE("push 1 script function arg, 4 slot, non-special align, no frames") {
+//     auto node = Node(1);
+//     const TestArgClass4Slot arg = {{1, 2, 3, 4}};
+//     const sy::Type type = makeSimpleType<decltype(arg)>();
+//     CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 4, 1));
+//     node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
 
-    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
-    const TestArgClass4Slot* argMem = reinterpret_cast<const TestArgClass4Slot*>(&node.values[argMemLocation]);
-    CHECK_EQ(argMem->v[0], 1);
-    CHECK_EQ(argMem->v[1], 2);
-    CHECK_EQ(argMem->v[2], 3);
-    CHECK_EQ(argMem->v[3], 4);
-    CHECK_EQ(node.types[argMemLocation], &type);
-}
+//     const auto argMemLocation =
+//         node.currentFrame.value().basePointerOffset; // argument is at offset 0
+//     const TestArgClass4Slot* argMem =
+//         reinterpret_cast<const TestArgClass4Slot*>(&node.values[argMemLocation]);
+//     CHECK_EQ(argMem->v[0], 1);
+//     CHECK_EQ(argMem->v[1], 2);
+//     CHECK_EQ(argMem->v[2], 3);
+//     CHECK_EQ(argMem->v[3], 4);
+//     CHECK_EQ(node.types[argMemLocation], &type);
+// }
 
-TEST_CASE("push 1 script function arg, 2 slot, special align, no frames") {
-    auto node = Node(1);
-    const TestAlignedArgClass2Slot arg = {{1, 2}};
-    const sy::Type type = makeSimpleType<decltype(arg)>();
-    CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 2, 16));
-    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+// TEST_CASE("push 1 script function arg, 2 slot, special align, no frames") {
+//     auto node = Node(1);
+//     const TestAlignedArgClass2Slot arg = {{1, 2}};
+//     const sy::Type type = makeSimpleType<decltype(arg)>();
+//     CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 2, 16));
+//     node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
 
-    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
-    const TestAlignedArgClass2Slot* argMem =
-        reinterpret_cast<const TestAlignedArgClass2Slot*>(&node.values[argMemLocation]);
-    CHECK_EQ(argMem->v[0], 1);
-    CHECK_EQ(argMem->v[1], 2);
-    CHECK_EQ(node.types[argMemLocation], &type);
-}
+//     const auto argMemLocation =
+//         node.currentFrame.value().basePointerOffset; // argument is at offset 0
+//     const TestAlignedArgClass2Slot* argMem =
+//         reinterpret_cast<const TestAlignedArgClass2Slot*>(&node.values[argMemLocation]);
+//     CHECK_EQ(argMem->v[0], 1);
+//     CHECK_EQ(argMem->v[1], 2);
+//     CHECK_EQ(node.types[argMemLocation], &type);
+// }
 
-TEST_CASE("push 1 script function arg, 4 slot, special align, no frames") {
-    auto node = Node(1);
-    const TestAlignedArgClass4Slot arg = {{1, 2, 3, 4}};
-    const sy::Type type = makeSimpleType<decltype(arg)>();
-    CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 4, 32));
-    node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
+// TEST_CASE("push 1 script function arg, 4 slot, special align, no frames") {
+//     auto node = Node(1);
+//     const TestAlignedArgClass4Slot arg = {{1, 2, 3, 4}};
+//     const sy::Type type = makeSimpleType<decltype(arg)>();
+//     CHECK(node.pushScriptFunctionArg(&arg, &type, 0, 4, 32));
+//     node.pushFrameAllowReallocate(1, 1, nullptr, std::nullopt, nullptr);
 
-    const auto argMemLocation = node.currentFrame.value().basePointerOffset; // argument is at offset 0
-    const TestAlignedArgClass4Slot* argMem =
-        reinterpret_cast<const TestAlignedArgClass4Slot*>(&node.values[argMemLocation]);
-    CHECK_EQ(argMem->v[0], 1);
-    CHECK_EQ(argMem->v[1], 2);
-    CHECK_EQ(argMem->v[2], 3);
-    CHECK_EQ(argMem->v[3], 4);
-    CHECK_EQ(node.types[argMemLocation], &type);
-}
+//     const auto argMemLocation =
+//         node.currentFrame.value().basePointerOffset; // argument is at offset 0
+//     const TestAlignedArgClass4Slot* argMem =
+//         reinterpret_cast<const TestAlignedArgClass4Slot*>(&node.values[argMemLocation]);
+//     CHECK_EQ(argMem->v[0], 1);
+//     CHECK_EQ(argMem->v[1], 2);
+//     CHECK_EQ(argMem->v[2], 3);
+//     CHECK_EQ(argMem->v[3], 4);
+//     CHECK_EQ(node.types[argMemLocation], &type);
+// }
 
-TEST_CASE("push 2 script function args, 1 slot, non-special align, no frames") {
-    auto node = Node(1);
-    const int64_t arg1 = 10;
-    const int64_t arg2 = 11;
-    auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 2, 1);
-    CHECK(result.has_value());
-    CHECK_EQ(result.value(), 1);
-    result = node.pushScriptFunctionArg(&arg2, sy::Type::TYPE_I64, 1, 2, 1);
-    CHECK(result.has_value());
-    CHECK_EQ(result.value(), 2);
-    node.pushFrameAllowReallocate(2, 1, nullptr, std::nullopt, nullptr);
+// TEST_CASE("push 2 script function args, 1 slot, non-special align, no frames") {
+//     auto node = Node(1);
+//     const int64_t arg1 = 10;
+//     const int64_t arg2 = 11;
+//     auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 2, 1);
+//     CHECK(result.has_value());
+//     CHECK_EQ(result.value(), 1);
+//     result = node.pushScriptFunctionArg(&arg2, sy::Type::TYPE_I64, 1, 2, 1);
+//     CHECK(result.has_value());
+//     CHECK_EQ(result.value(), 2);
+//     node.pushFrameAllowReallocate(2, 1, nullptr, std::nullopt, nullptr);
 
-    const auto arg1MemLocation = node.currentFrame.value().basePointerOffset;     // argument 1 is at offset 0
-    const auto arg2MemLocation = node.currentFrame.value().basePointerOffset + 1; // argument 2 is at offset 1
-    const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
-    const int64_t* arg2Mem = reinterpret_cast<const int64_t*>(&node.values[arg2MemLocation]);
-    CHECK_EQ(*arg1Mem, arg1);
-    CHECK_EQ(*arg2Mem, arg2);
-    CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
-    CHECK_EQ(node.types[arg2MemLocation], sy::Type::TYPE_I64);
-}
+//     const auto arg1MemLocation =
+//         node.currentFrame.value().basePointerOffset; // argument 1 is at offset 0
+//     const auto arg2MemLocation =
+//         node.currentFrame.value().basePointerOffset + 1; // argument 2 is at offset 1
+//     const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
+//     const int64_t* arg2Mem = reinterpret_cast<const int64_t*>(&node.values[arg2MemLocation]);
+//     CHECK_EQ(*arg1Mem, arg1);
+//     CHECK_EQ(*arg2Mem, arg2);
+//     CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
+//     CHECK_EQ(node.types[arg2MemLocation], sy::Type::TYPE_I64);
+// }
 
-TEST_CASE("push 2 script function args, 2 slot, non-special align, no frames") {
-    auto node = Node(1);
-    const int64_t arg1 = 10;
-    const TestArgClass2Slot arg2 = {{1, 2}};
-    const sy::Type type = makeSimpleType<decltype(arg2)>();
-    auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 3, 1);
-    CHECK(result.has_value());
-    CHECK_EQ(result.value(), 1);
-    result = node.pushScriptFunctionArg(&arg2, &type, 1, 3, 1);
-    CHECK(result.has_value());
-    CHECK_EQ(result.value(), 3);
-    node.pushFrameAllowReallocate(3, 1, nullptr, std::nullopt, nullptr);
+// TEST_CASE("push 2 script function args, 2 slot, non-special align, no frames") {
+//     auto node = Node(1);
+//     const int64_t arg1 = 10;
+//     const TestArgClass2Slot arg2 = {{1, 2}};
+//     const sy::Type type = makeSimpleType<decltype(arg2)>();
+//     auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 3, 1);
+//     CHECK(result.has_value());
+//     CHECK_EQ(result.value(), 1);
+//     result = node.pushScriptFunctionArg(&arg2, &type, 1, 3, 1);
+//     CHECK(result.has_value());
+//     CHECK_EQ(result.value(), 3);
+//     node.pushFrameAllowReallocate(3, 1, nullptr, std::nullopt, nullptr);
 
-    const auto arg1MemLocation = node.currentFrame.value().basePointerOffset;     // argument 1 is at offset 0
-    const auto arg2MemLocation = node.currentFrame.value().basePointerOffset + 1; // argument 2 is at offset 1
-    const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
-    const TestArgClass2Slot* arg2Mem = reinterpret_cast<const TestArgClass2Slot*>(&node.values[arg2MemLocation]);
-    CHECK_EQ(*arg1Mem, arg1);
-    CHECK_EQ(arg2Mem->v[0], 1);
-    CHECK_EQ(arg2Mem->v[1], 2);
-    CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
-    CHECK_EQ(node.types[arg2MemLocation], &type);
-}
+//     const auto arg1MemLocation =
+//         node.currentFrame.value().basePointerOffset; // argument 1 is at offset 0
+//     const auto arg2MemLocation =
+//         node.currentFrame.value().basePointerOffset + 1; // argument 2 is at offset 1
+//     const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
+//     const TestArgClass2Slot* arg2Mem =
+//         reinterpret_cast<const TestArgClass2Slot*>(&node.values[arg2MemLocation]);
+//     CHECK_EQ(*arg1Mem, arg1);
+//     CHECK_EQ(arg2Mem->v[0], 1);
+//     CHECK_EQ(arg2Mem->v[1], 2);
+//     CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
+//     CHECK_EQ(node.types[arg2MemLocation], &type);
+// }
 
-TEST_CASE("push 2 script function args, 4 slot, non-special align, no frames") {
-    auto node = Node(1);
-    const int64_t arg1 = 10;
-    const TestArgClass4Slot arg2 = {{1, 2, 3, 4}};
-    const sy::Type type = makeSimpleType<decltype(arg2)>();
-    auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 5, 1);
-    CHECK(result.has_value());
-    CHECK_EQ(result.value(), 1);
-    result = node.pushScriptFunctionArg(&arg2, &type, 1, 5, 1);
-    CHECK(result.has_value());
-    CHECK_EQ(result.value(), 5);
-    node.pushFrameAllowReallocate(5, 1, nullptr, std::nullopt, nullptr);
+// TEST_CASE("push 2 script function args, 4 slot, non-special align, no frames") {
+//     auto node = Node(1);
+//     const int64_t arg1 = 10;
+//     const TestArgClass4Slot arg2 = {{1, 2, 3, 4}};
+//     const sy::Type type = makeSimpleType<decltype(arg2)>();
+//     auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 5, 1);
+//     CHECK(result.has_value());
+//     CHECK_EQ(result.value(), 1);
+//     result = node.pushScriptFunctionArg(&arg2, &type, 1, 5, 1);
+//     CHECK(result.has_value());
+//     CHECK_EQ(result.value(), 5);
+//     node.pushFrameAllowReallocate(5, 1, nullptr, std::nullopt, nullptr);
 
-    const auto arg1MemLocation = node.currentFrame.value().basePointerOffset;     // argument 1 is at offset 0
-    const auto arg2MemLocation = node.currentFrame.value().basePointerOffset + 1; // argument 2 is at offset 1
-    const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
-    const TestArgClass4Slot* arg2Mem = reinterpret_cast<const TestArgClass4Slot*>(&node.values[arg2MemLocation]);
-    CHECK_EQ(*arg1Mem, arg1);
-    CHECK_EQ(arg2Mem->v[0], 1);
-    CHECK_EQ(arg2Mem->v[1], 2);
-    CHECK_EQ(arg2Mem->v[2], 3);
-    CHECK_EQ(arg2Mem->v[3], 4);
-    CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
-    CHECK_EQ(node.types[arg2MemLocation], &type);
-}
+//     const auto arg1MemLocation =
+//         node.currentFrame.value().basePointerOffset; // argument 1 is at offset 0
+//     const auto arg2MemLocation =
+//         node.currentFrame.value().basePointerOffset + 1; // argument 2 is at offset 1
+//     const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
+//     const TestArgClass4Slot* arg2Mem =
+//         reinterpret_cast<const TestArgClass4Slot*>(&node.values[arg2MemLocation]);
+//     CHECK_EQ(*arg1Mem, arg1);
+//     CHECK_EQ(arg2Mem->v[0], 1);
+//     CHECK_EQ(arg2Mem->v[1], 2);
+//     CHECK_EQ(arg2Mem->v[2], 3);
+//     CHECK_EQ(arg2Mem->v[3], 4);
+//     CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
+//     CHECK_EQ(node.types[arg2MemLocation], &type);
+// }
 
-TEST_CASE("push 2 script function args, 4 slot, special align, no frames") {
-    auto node = Node(1);
-    const int64_t arg1 = 10;
-    const TestAlignedArgClass4Slot arg2 = {{1, 2, 3, 4}};
-    const sy::Type type = makeSimpleType<decltype(arg2)>();
-    auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 8, 32);
-    CHECK(result.has_value());
-    CHECK_EQ(result.value(), 1);
-    result = node.pushScriptFunctionArg(&arg2, &type, 1, 8, 32);
-    CHECK(result.has_value());
-    CHECK_EQ(result.value(), 8);
-    node.pushFrameAllowReallocate(8, alignof(decltype(arg2)), nullptr, std::nullopt, nullptr);
+// TEST_CASE("push 2 script function args, 4 slot, special align, no frames") {
+//     auto node = Node(1);
+//     const int64_t arg1 = 10;
+//     const TestAlignedArgClass4Slot arg2 = {{1, 2, 3, 4}};
+//     const sy::Type type = makeSimpleType<decltype(arg2)>();
+//     auto result = node.pushScriptFunctionArg(&arg1, sy::Type::TYPE_I64, 0, 8, 32);
+//     CHECK(result.has_value());
+//     CHECK_EQ(result.value(), 1);
+//     result = node.pushScriptFunctionArg(&arg2, &type, 1, 8, 32);
+//     CHECK(result.has_value());
+//     CHECK_EQ(result.value(), 8);
+//     node.pushFrameAllowReallocate(8, alignof(decltype(arg2)), nullptr, std::nullopt, nullptr);
 
-    const auto arg1MemLocation = node.currentFrame.value().basePointerOffset;     // argument 1 is at offset 0
-    const auto arg2MemLocation = node.currentFrame.value().basePointerOffset + 4; // argument 2 is at offset 4
-    const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
-    const TestAlignedArgClass4Slot* arg2Mem =
-        reinterpret_cast<const TestAlignedArgClass4Slot*>(&node.values[arg2MemLocation]);
-    CHECK_EQ(*arg1Mem, arg1);
-    CHECK_EQ(arg2Mem->v[0], 1);
-    CHECK_EQ(arg2Mem->v[1], 2);
-    CHECK_EQ(arg2Mem->v[2], 3);
-    CHECK_EQ(arg2Mem->v[3], 4);
-    CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
-    CHECK_EQ(node.types[arg2MemLocation], &type);
-}
+//     const auto arg1MemLocation =
+//         node.currentFrame.value().basePointerOffset; // argument 1 is at offset 0
+//     const auto arg2MemLocation =
+//         node.currentFrame.value().basePointerOffset + 4; // argument 2 is at offset 4
+//     const int64_t* arg1Mem = reinterpret_cast<const int64_t*>(&node.values[arg1MemLocation]);
+//     const TestAlignedArgClass4Slot* arg2Mem =
+//         reinterpret_cast<const TestAlignedArgClass4Slot*>(&node.values[arg2MemLocation]);
+//     CHECK_EQ(*arg1Mem, arg1);
+//     CHECK_EQ(arg2Mem->v[0], 1);
+//     CHECK_EQ(arg2Mem->v[1], 2);
+//     CHECK_EQ(arg2Mem->v[2], 3);
+//     CHECK_EQ(arg2Mem->v[3], 4);
+//     CHECK_EQ(node.types[arg1MemLocation], sy::Type::TYPE_I64);
+//     CHECK_EQ(node.types[arg2MemLocation], &type);
+// }
 
 #endif

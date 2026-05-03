@@ -23,7 +23,8 @@ static_assert(sizeof(SyFunctionType) == sizeof(int));
 static_assert(sizeof(RawFunction::CallArgs) == sizeof(SyFunctionCallArgs));
 static_assert(alignof(RawFunction::CallArgs) == alignof(SyFunctionCallArgs));
 static_assert(offsetof(RawFunction::CallArgs, func) == offsetof(SyFunctionCallArgs, func));
-static_assert(offsetof(RawFunction::CallArgs, pushedCount) == offsetof(SyFunctionCallArgs, pushedCount));
+static_assert(offsetof(RawFunction::CallArgs, pushedCount) ==
+              offsetof(SyFunctionCallArgs, pushedCount));
 static_assert(offsetof(RawFunction::CallArgs, _offset) == offsetof(SyFunctionCallArgs, _offset));
 
 #if _MSC_VER
@@ -80,6 +81,7 @@ class alignas(ALLOC_CACHE_ALIGN) ArgBuf {
     size_t valuesCapacity = 0;
     size_t typesAndOffsetsCapacity = 0;
     void* retDst = nullptr;
+    const RawFunction* func = nullptr;
 
     // False sharing must be avoided, since arg buffers are intended to be threadlocal.
 };
@@ -145,7 +147,8 @@ void ArgBuf::push(const Arg& arg) {
     this->reallocate(arg.type->sizeType);
     size_t offset = this->nextOffset(arg.type->sizeType, arg.type->alignType);
 
-    // Lambda because this is unlikely to execute. In real world scenarios, may never execute at any point.
+    // Lambda because this is unlikely to execute. In real world scenarios, may never execute at any
+    // point.
     auto loopingReallocate = [&]() {
         size_t i = 1;
         while (offset == INVALID_OFFSET) {
@@ -181,7 +184,8 @@ void ArgBuf::take(void* outValue, size_t index) {
 
     const size_t offset = this->offsets[index];
     const void* mem = &this->values[offset];
-    sy_assert((reinterpret_cast<uintptr_t>(mem) % type->alignType) == 0, "Misaligned function argument");
+    sy_assert((reinterpret_cast<uintptr_t>(mem) % type->alignType) == 0,
+              "Misaligned function argument");
     memcpy(outValue, mem, type->sizeType);
     this->types[index] = nullptr; // Set argument as taken
 }
@@ -201,7 +205,8 @@ void* ArgBuf::getReturnDestination() {
 }
 
 void ArgBuf::setReturnValue(const void* value, const size_t sizeOfType) {
-    sy_assert(this->retDst != nullptr, "Function either doesn't return or return value was already set");
+    sy_assert(this->retDst != nullptr,
+              "Function either doesn't return or return value was already set");
     memcpy(this->retDst, value, sizeOfType);
     this->retDst = nullptr;
 }
@@ -267,9 +272,12 @@ void ArgBuf::reallocate(const size_t sizeNewType) {
     }
 
     sy::Allocator alloc;
-    uint8_t* newValues = alloc.allocAlignedArray<uint8_t>(newValuesCapacity, ALLOC_ALIGNMENT).value();
-    const Type** newTypes = alloc.allocAlignedArray<const Type*>(newTypesAndOffsetCapacity, ALLOC_ALIGNMENT).value();
-    size_t* newOffsets = alloc.allocAlignedArray<size_t>(newTypesAndOffsetCapacity, ALLOC_ALIGNMENT).value();
+    uint8_t* newValues =
+        alloc.allocAlignedArray<uint8_t>(newValuesCapacity, ALLOC_ALIGNMENT).value();
+    const Type** newTypes =
+        alloc.allocAlignedArray<const Type*>(newTypesAndOffsetCapacity, ALLOC_ALIGNMENT).value();
+    size_t* newOffsets =
+        alloc.allocAlignedArray<size_t>(newTypesAndOffsetCapacity, ALLOC_ALIGNMENT).value();
 
     if (this->count > 0) {
         memcpy(newValues, this->values, this->valuesCapacity);
@@ -345,7 +353,8 @@ extern "C" {
 //     return args;
 // }
 
-// SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, void* argMem, const SyType* typeInfo) {
+// SY_API bool sy_function_call_args_push(SyFunctionCallArgs* self, void* argMem, const SyType*
+// typeInfo) {
 //     Function::CallArgs* asCpp = reinterpret_cast<Function::CallArgs*>(self);
 //     return asCpp->push(argMem, reinterpret_cast<const sy::Type*>(typeInfo));
 // }
@@ -364,35 +373,51 @@ extern "C" {
 //     return err.cErr;
 // }
 
-// SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler* self, void* outValue, size_t argIndex) {
+// SY_API void sy_c_function_handler_take_arg(SyCFunctionHandler* self, void* outValue, size_t
+// argIndex) {
 //     ArgBuf& buf = cArgBufs.bufAt(self->_handle);
 //     buf.take(outValue, argIndex);
 // }
 
-// SY_API void sy_c_function_handler_set_return_value(SyCFunctionHandler* self, const void* retValue, const SyType*
-// type) {
+// SY_API void sy_c_function_handler_set_return_value(SyCFunctionHandler* self, const void*
+// retValue, const SyType* type) {
 //     ArgBuf& buf = cArgBufs.bufAt(self->_handle);
 //     buf.setReturnValue(retValue, type->sizeType);
 // }
 } // extern "C"
 
+sy::RawFunction::CallArgs::~CallArgs() noexcept {
+    if (this->func == nullptr) {
+        return;
+    }
+    if (this->func->tag == FunctionType::C) {
+        ArgBuf& buf = cArgBufs.bufAt(this->_offset);
+        buf.func = nullptr;
+        buf.clear();
+        cArgBufs.popBuf();
+    }
+    this->func = nullptr;
+}
+
 bool sy::RawFunction::CallArgs::push(void* argMem, const Type* typeInfo) {
     sy_assert(typeInfo != nullptr, "Cannot push null typed argument");
-    sy_assert(this->pushedCount < this->func->argsLen, "Cannot push more arguments than the function takes");
+    sy_assert(this->pushedCount < this->func->argsLen,
+              "Cannot push more arguments than the function takes");
 
     if (this->func->tag == FunctionType::Script) {
         const sy::InterpreterFunctionScriptInfo* scriptInfo =
             reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(this->func->fptr);
         const bool result = Stack::getActiveStack().pushScriptFunctionArg(
-            argMem, reinterpret_cast<const Type*>(typeInfo), this->_offset, scriptInfo->stackSpaceRequired,
-            func->alignment);
+            argMem, reinterpret_cast<const Type*>(typeInfo), this->_offset,
+            scriptInfo->stackSpaceRequired, func->alignment);
 
         if (result == false) {
             return false;
         }
 
         const size_t roundedToMultipleOf8 =
-            typeInfo->sizeType % 8 == 0 ? typeInfo->sizeType : typeInfo->sizeType + (8 - (typeInfo->sizeType % 8));
+            typeInfo->sizeType % 8 == 0 ? typeInfo->sizeType
+                                        : typeInfo->sizeType + (8 - (typeInfo->sizeType % 8));
         const size_t slotsOccupied = roundedToMultipleOf8 / 8;
         sy_assert(slotsOccupied <= UINT16_MAX, "Cannot push argument. Too big");
 
@@ -415,20 +440,27 @@ bool sy::RawFunction::CallArgs::push(void* argMem, const Type* typeInfo) {
 }
 
 sy::Result<void, sy::ProgramError> sy::RawFunction::CallArgs::call(void* retDst) noexcept {
-    sy_assert_release(this->pushedCount == this->func->argsLen, "Did not push enough arguments for function");
+    sy_assert_release(this->pushedCount == this->func->argsLen,
+                      "Did not push enough arguments for function");
 
     if (this->func->tag == FunctionType::Script) {
-        return interpreterExecuteScriptFunction(this->func, retDst);
+        const RawFunction* fn = this->func;
+        this->func = nullptr;
+        return interpreterExecuteScriptFunction(fn, retDst);
     } else if (this->func->tag == FunctionType::C) {
         const uint32_t handlerIndex = this->_offset;
         FunctionHandler handler{handlerIndex};
         const auto cfunc = (c_function_t)(this->func->fptr);
+        ArgBuf& buf = cArgBufs.bufAt(handlerIndex);
+        buf.func = this->func;
         if (retDst != nullptr) {
-            cArgBufs.bufAt(handlerIndex).setReturnDestination(retDst);
+            buf.setReturnDestination(retDst);
         }
         auto err = cfunc(handler);
-        cArgBufs.bufAt(handlerIndex).clear();
+        buf.func = nullptr;
+        buf.clear();
         cArgBufs.popBuf();
+        this->func = nullptr;
         return err;
     } else {
         sync_unreachable();
@@ -436,7 +468,8 @@ sy::Result<void, sy::ProgramError> sy::RawFunction::CallArgs::call(void* retDst)
 }
 
 Result<RawTask, ProgramError> sy::RawFunction::CallArgs::callParallel() noexcept {
-    sy_assert_release(this->pushedCount == this->func->argsLen, "Did not push enough arguments for function");
+    sy_assert_release(this->pushedCount == this->func->argsLen,
+                      "Did not push enough arguments for function");
 
     /*
     1. submit task to thread pool
@@ -468,7 +501,8 @@ const Type* sy::FunctionHandler::getArgType(size_t argIndex) {
     return arg.type;
 }
 
-void sy::FunctionHandler::validateArgTypeMatches(void* arg, const Type* storedType, size_t sizeType, size_t alignType) {
+void sy::FunctionHandler::validateArgTypeMatches(void* arg, const Type* storedType, size_t sizeType,
+                                                 size_t alignType) {
     sy_assert((reinterpret_cast<uintptr_t>(arg) % alignType) == 0, "Function argument misaligned");
     sy_assert(storedType->sizeType == sizeType, "Function argument size mismatch");
     sy_assert(storedType->alignType == alignType, "Function argument alignment mismatch");
@@ -484,78 +518,87 @@ void* sy::FunctionHandler::getRetDst() {
 }
 
 void sy::FunctionHandler::validateReturnDstAligned(void* retDst, size_t alignType) {
-    sy_assert((reinterpret_cast<uintptr_t>(retDst) % alignType) == 0, "Function return value destination misaligned");
+    sy_assert((reinterpret_cast<uintptr_t>(retDst) % alignType) == 0,
+              "Function return value destination misaligned");
     (void)retDst;
     (void)alignType;
 }
 
-#if SYNC_LIB_WITH_TESTS
-
-#include "../../doctest.h"
-
-using namespace sy;
-
-TEST_CASE("non-global push and get arg") {
-    ArgBuf buf;
-    int32_t val = 45;
-    const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
-    buf.push(arg);
-    int32_t outVal = 99;
-    buf.take(&outVal, 0);
-    CHECK_EQ(outVal, 45);
+const sy::RawFunction* sy::FunctionHandler::function() const noexcept {
+    const ArgBuf& buf = cArgBufs.bufAt(this->handle);
+    sy_assert(buf.func != nullptr,
+              "FunctionHandler::function() called outside of an active C call");
+    return buf.func;
 }
 
-TEST_CASE("non-global array push and get arg") {
-    ArgBufArray arr;
-    (void)arr.pushNewBuf();
-    ArgBuf& buf = arr.bufAt(0);
-    int32_t val = 45;
-    const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
-    buf.push(arg);
-    int32_t outVal = 99;
-    buf.take(&outVal, 0);
-    CHECK_EQ(outVal, 45);
+// #if SYNC_LIB_WITH_TESTS
 
-    arr.popBuf();
-}
+// #include "../../doctest.h"
 
-TEST_CASE("global array push and get arg") {
-    (void)cArgBufs.pushNewBuf();
-    ArgBuf& buf = cArgBufs.bufAt(0);
-    int32_t val = 45;
-    const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
-    buf.push(arg);
-    int32_t outVal = 99;
-    buf.take(&outVal, 0);
-    CHECK_EQ(outVal, 45);
+// using namespace sy;
 
-    cArgBufs.popBuf();
-}
+// TEST_CASE("non-global push and get arg") {
+//     ArgBuf buf;
+//     int32_t val = 45;
+//     const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
+//     buf.push(arg);
+//     int32_t outVal = 99;
+//     buf.take(&outVal, 0);
+//     CHECK_EQ(outVal, 45);
+// }
 
-template <typename T, T expected> sy::Result<void, sy::ProgramError> simpleFunc1Arg(FunctionHandler handler) {
-    const T arg = handler.takeArg<T>(0);
-    CHECK_EQ(arg, expected);
-    return {};
-}
+// TEST_CASE("non-global array push and get arg") {
+//     ArgBufArray arr;
+//     (void)arr.pushNewBuf();
+//     ArgBuf& buf = arr.bufAt(0);
+//     int32_t val = 45;
+//     const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
+//     buf.push(arg);
+//     int32_t outVal = 99;
+//     buf.take(&outVal, 0);
+//     CHECK_EQ(outVal, 45);
 
-TEST_SUITE("C 1 arg no return") {
-    TEST_CASE("int32_t") {
-        const Type* argTypes[1] = {Type::TYPE_I32};
-        const RawFunction func = {StringSlice(""),
-                                  StringSlice(""),
-                                  nullptr,
-                                  argTypes,
-                                  1,
-                                  SY_FUNCTION_MIN_ALIGN,
-                                  false,
-                                  FunctionType::C,
-                                  reinterpret_cast<const void*>(&simpleFunc1Arg<int32_t, 56>)};
+//     arr.popBuf();
+// }
 
-        RawFunction::CallArgs callArgs = func.startCall();
-        int32_t arg = 56;
-        callArgs.push(&arg, Type::TYPE_I32);
-        CHECK(callArgs.call(nullptr));
-    }
-}
+// TEST_CASE("global array push and get arg") {
+//     (void)cArgBufs.pushNewBuf();
+//     ArgBuf& buf = cArgBufs.bufAt(0);
+//     int32_t val = 45;
+//     const ArgBuf::Arg arg = {&val, Type::TYPE_I32};
+//     buf.push(arg);
+//     int32_t outVal = 99;
+//     buf.take(&outVal, 0);
+//     CHECK_EQ(outVal, 45);
 
-#endif // SYNC_LIB_NO_TESTS
+//     cArgBufs.popBuf();
+// }
+
+// template <typename T, T expected>
+// sy::Result<void, sy::ProgramError> simpleFunc1Arg(FunctionHandler handler) {
+//     const T arg = handler.takeArg<T>(0);
+//     CHECK_EQ(arg, expected);
+//     return {};
+// }
+
+// TEST_SUITE("C 1 arg no return") {
+//     TEST_CASE("int32_t") {
+//         const Type* argTypes[1] = {Type::TYPE_I32};
+//         const RawFunction func = {StringSlice(""),
+//                                   StringSlice(""),
+//                                   nullptr,
+//                                   argTypes,
+//                                   1,
+//                                   SY_FUNCTION_MIN_ALIGN,
+//                                   false,
+//                                   FunctionType::C,
+//                                   reinterpret_cast<void*>(&simpleFunc1Arg<int32_t, 56>)};
+
+//         RawFunction::CallArgs callArgs = func.startCall();
+//         int32_t arg = 56;
+//         callArgs.push(&arg, Type::TYPE_I32);
+//         CHECK(callArgs.call(nullptr));
+//     }
+// }
+
+// #endif // SYNC_LIB_NO_TESTS

@@ -3,6 +3,7 @@
 #include "../types/type_info.hpp"
 
 using namespace sy;
+using sy::internal::ReflectImpl;
 
 OpCode sy::Bytecode::getOpcode() const {
     // This is safe.
@@ -18,29 +19,29 @@ void sy::Bytecode::assertOpCodeMatch(OpCode actual, OpCode expected) {
 const sy::Type* sy::scalarTypeFromTag(ScalarTag tag) {
     switch (tag) {
     case ScalarTag::Bool:
-        return sy::Type::TYPE_BOOL;
+        return ReflectImpl<bool>::get();
     case ScalarTag::I8:
-        return sy::Type::TYPE_I8;
+        return ReflectImpl<int8_t>::get();
     case ScalarTag::I16:
-        return sy::Type::TYPE_I16;
+        return ReflectImpl<int16_t>::get();
     case ScalarTag::I32:
-        return sy::Type::TYPE_I32;
+        return ReflectImpl<int32_t>::get();
     case ScalarTag::I64:
-        return sy::Type::TYPE_I64;
+        return ReflectImpl<int64_t>::get();
     case ScalarTag::U8:
-        return sy::Type::TYPE_U8;
+        return ReflectImpl<uint8_t>::get();
     case ScalarTag::U16:
-        return sy::Type::TYPE_U16;
+        return ReflectImpl<uint16_t>::get();
     case ScalarTag::U32:
-        return sy::Type::TYPE_U32;
+        return ReflectImpl<uint32_t>::get();
     case ScalarTag::U64:
-        return sy::Type::TYPE_U64;
+        return ReflectImpl<uint64_t>::get();
     case ScalarTag::USize:
-        return sy::Type::TYPE_USIZE;
+        return &sy::internal::TYPE_USIZE;
     case ScalarTag::F32:
-        return sy::Type::TYPE_F32;
+        return ReflectImpl<float>::get();
     case ScalarTag::F64:
-        return sy::Type::TYPE_F64;
+        return ReflectImpl<double>::get();
     }
     sync_unreachable();
 }

@@ -11,7 +11,6 @@ namespace fs = std::filesystem;
 SourceTreeNode::Element::Element() noexcept {}
 
 SourceTreeNode::~SourceTreeNode() noexcept {
-    this->name.destroy(this->alloc);
     switch (this->kind) {
     case SourceFileKind::Directory: {
         for (auto entry : this->elem.directory) {
@@ -22,17 +21,17 @@ SourceTreeNode::~SourceTreeNode() noexcept {
         this->elem.directory.destroy(this->alloc);
     } break;
     case SourceFileKind::SyncSourceFile: {
-        if (this->elem.syncSourceFile.hasValue()) {
-            this->elem.syncSourceFile.value().destroy(this->alloc);
-        }
+        this->elem.syncSourceFile.~Option<String>();
     } break;
     default:
         break;
     }
 }
 
-Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option<SourceTreeNode*> inParent,
-                                                       StringSlice inName, sy::SourceFileKind inKind) noexcept {
+Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc,
+                                                       Option<SourceTreeNode*> inParent,
+                                                       StringSlice inName,
+                                                       sy::SourceFileKind inKind) noexcept {
     SourceTreeNode* newNode;
     {
         auto newNodeResult = inAlloc.allocObject<SourceTreeNode>();
@@ -40,18 +39,18 @@ Result<SourceTreeNode*, AllocErr> SourceTreeNode::init(Allocator inAlloc, Option
             return Error(AllocErr::OutOfMemory);
         }
         newNode = newNodeResult.value();
-        new (newNode) SourceTreeNode{inAlloc, inParent, StringUnmanaged(), inKind, {}};
+        new (newNode) SourceTreeNode{inAlloc, inParent, String(), inKind, {}};
         new (&newNode->elem.directory) MapUnmanaged<StringSlice, SourceTreeNode*>();
     }
 
     {
-        auto nameRes = StringUnmanaged::copyConstructSlice(inName, inAlloc);
+        auto nameRes = String::init(inName, inAlloc);
         if (nameRes.hasErr()) {
             newNode->~SourceTreeNode();
             inAlloc.freeObject(newNode);
             return Error(AllocErr::OutOfMemory);
         }
-        new (&newNode->name) StringUnmanaged(std::move(nameRes.takeValue()));
+        new (&newNode->name) String(std::move(nameRes.takeValue()));
     }
 
     return newNode;
@@ -92,8 +91,9 @@ Result<SourceTreeNode*, SourceTreeErr> SourceTree::insert(sy::StringSlice absolu
                 return *path.begin();
             }();
             std::string root = rootDir.string();
-            auto rootRes = SourceTreeNode::init(this->alloc, nullptr, StringSlice(root.c_str(), root.size()),
-                                                SourceFileKind::Directory);
+            auto rootRes =
+                SourceTreeNode::init(this->alloc, nullptr, StringSlice(root.c_str(), root.size()),
+                                     SourceFileKind::Directory);
             if (rootRes.hasErr()) {
                 return Error(SourceTreeErr::OutOfMemory);
             }
@@ -143,7 +143,8 @@ Result<SourceTreeNode*, SourceTreeErr> SourceTree::insert(sy::StringSlice absolu
                     return Error(SourceTreeErr::OutOfMemory);
                 }
                 SourceTreeNode* newNode = nodeResult.value();
-                auto insertResult = current->elem.directory.insert(current->alloc, newNode->name.asSlice(), newNode);
+                auto insertResult = current->elem.directory.insert(
+                    current->alloc, newNode->name.asSlice(), newNode);
                 return newNode;
             } else {
                 if (findResult.hasValue()) {
@@ -151,12 +152,14 @@ Result<SourceTreeNode*, SourceTreeErr> SourceTree::insert(sy::StringSlice absolu
                     continue;
                 }
 
-                auto nodeResult = SourceTreeNode::init(this->alloc, current, entrySlice, SourceFileKind::Directory);
+                auto nodeResult = SourceTreeNode::init(this->alloc, current, entrySlice,
+                                                       SourceFileKind::Directory);
                 if (nodeResult.hasErr()) {
                     return Error(SourceTreeErr::OutOfMemory);
                 }
                 SourceTreeNode* newNode = nodeResult.value();
-                auto insertResult = current->elem.directory.insert(current->alloc, newNode->name.asSlice(), newNode);
+                auto insertResult = current->elem.directory.insert(
+                    current->alloc, newNode->name.asSlice(), newNode);
                 current = newNode;
             }
 
@@ -213,7 +216,8 @@ TEST_CASE("multiple directories without ending slash") {
     {
         Allocator alloc;
         SourceTree tree(alloc);
-        SourceTreeNode* node = tree.insert("/thing/example/stuff", SourceFileKind::Directory).value();
+        SourceTreeNode* node =
+            tree.insert("/thing/example/stuff", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "stuff");
         SourceTreeNode* parentExample = node->parent.value();
         CHECK_EQ(parentExample->name.asSlice(), "example");
@@ -228,7 +232,8 @@ TEST_CASE("multiple directories without ending slash") {
     {
         Allocator alloc;
         SourceTree tree(alloc);
-        SourceTreeNode* node = tree.insert("\\thing\\example\\stuff", SourceFileKind::Directory).value();
+        SourceTreeNode* node =
+            tree.insert("\\thing\\example\\stuff", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "stuff");
         SourceTreeNode* parentExample = node->parent.value();
         CHECK_EQ(parentExample->name.asSlice(), "example");
@@ -246,7 +251,8 @@ TEST_CASE("multiple directories with ending slash") {
     {
         Allocator alloc;
         SourceTree tree(alloc);
-        SourceTreeNode* node = tree.insert("/thing/example/stuff/", SourceFileKind::Directory).value();
+        SourceTreeNode* node =
+            tree.insert("/thing/example/stuff/", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "stuff");
         SourceTreeNode* parentExample = node->parent.value();
         CHECK_EQ(parentExample->name.asSlice(), "example");
@@ -261,7 +267,8 @@ TEST_CASE("multiple directories with ending slash") {
     {
         Allocator alloc;
         SourceTree tree(alloc);
-        SourceTreeNode* node = tree.insert("\\thing\\example\\stuff\\", SourceFileKind::Directory).value();
+        SourceTreeNode* node =
+            tree.insert("\\thing\\example\\stuff\\", SourceFileKind::Directory).value();
         CHECK_EQ(node->name.asSlice(), "stuff");
         SourceTreeNode* parentExample = node->parent.value();
         CHECK_EQ(parentExample->name.asSlice(), "example");
@@ -291,10 +298,12 @@ TEST_CASE("source code file") {
 TEST_CASE("two files same directory") {
     Allocator alloc;
     SourceTree tree(alloc);
-    SourceTreeNode* node1 = tree.insert("example/file1.sync", SourceFileKind::SyncSourceFile).value();
+    SourceTreeNode* node1 =
+        tree.insert("example/file1.sync", SourceFileKind::SyncSourceFile).value();
     CHECK_EQ(node1->name.asSlice(), "file1.sync");
     CHECK_EQ(node1->kind, SourceFileKind::SyncSourceFile);
-    SourceTreeNode* node2 = tree.insert("example/file2.sync", SourceFileKind::SyncSourceFile).value();
+    SourceTreeNode* node2 =
+        tree.insert("example/file2.sync", SourceFileKind::SyncSourceFile).value();
     CHECK_EQ(node2->name.asSlice(), "file2.sync");
     CHECK_EQ(node2->kind, SourceFileKind::SyncSourceFile);
     SourceTreeNode* parent1 = node1->parent.value();

@@ -45,7 +45,8 @@ class SY_API Compiler final {
     /// @return If the module described by `name` and `version` already exists,
     /// returns that one, otherwise returns a new module. May fail with an
     /// out of memory error.
-    [[nodiscard]] Result<Module*, AllocErr> addOrGetModule(StringSlice name, SemVer version) noexcept;
+    [[nodiscard]] Result<Module*, AllocErr> addOrGetModule(StringSlice name,
+                                                           SemVer version) noexcept;
 
     [[nodiscard]] Result<DynArray<const Module*>, AllocErr> allModules() const noexcept;
 
@@ -105,7 +106,8 @@ class SY_API Module final {
 
     Module() : inner_(nullptr) {}
 
-    static Result<Module*, AllocErr> create(Allocator& alloc, StringSlice inName, SemVer inVersion) noexcept;
+    static Result<Module*, AllocErr> create(Allocator& alloc, StringSlice inName,
+                                            SemVer inVersion) noexcept;
 
     void* inner_;
 };

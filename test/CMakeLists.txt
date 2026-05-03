@@ -36,7 +36,7 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_TSAN)
         )
     else()
         set_target_properties(${TEST_NAME} PROPERTIES
-            CXX_STANDARD 17
+            CXX_STANDARD 20
             CXX_STANDARD_REQUIRED YES
         )
     endif()
@@ -183,7 +183,9 @@ set(SYNC_LIB_TESTS_SOURCES
     "../lib/src/threading/locks/locks_internal.cpp"
     "../lib/src/threading/locks/rwlock.cpp"
     "../lib/src/types/type_info.cpp"
+    "../lib/src/types/primitive_reflect_types.cpp"
     "../lib/src/types/function/function.cpp"
+    "../lib/src/types/string/string_internal.cpp"
     "../lib/src/types/string/string_slice.cpp"
     "../lib/src/types/string/string.cpp"
     "../lib/src/types/sync_obj/sync_obj.cpp"
@@ -219,7 +221,6 @@ set(SYNC_LIB_TESTS_SOURCES
     "../lib/src/compiler/parser/ast.cpp"
     "../lib/src/program/program.cpp"
     "../lib/src/program/program_error.cpp"
-    "../lib/src/testing/child_process.cpp"
     "../lib/src/testing/assert_handler.cpp"
 
     "../lib/test/test_runner.cpp"
@@ -246,12 +247,8 @@ if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
     add_test(NAME SyncLibTests_ThreadSanitizer COMMAND SyncLibTests_ThreadSanitizer)
 endif()
 
-add_executable(NewTests "lib/test_main.cpp" "lib/unit_tests/rwlock.cpp")
+add_executable(NewTests "lib/test_main.cpp" "lib/unit_tests/rwlock.cpp" "lib/unit_tests/string.cpp" "lib/unit_tests/gen_pool.cpp")
 target_link_libraries(NewTests PRIVATE sync::sync)
 target_include_directories(NewTests PRIVATE "../lib/src" "lib")
-if(SYNC_DISABLE_ASAN_TESTS)
-    add_sync_test_flags(NewTests FALSE ${SYNC_LIB_TSAN})
-else()
-    add_sync_test_flags(NewTests TRUE FALSE)
-endif()
+add_sync_test_flags(NewTests ${SYNC_LIB_ASAN} ${SYNC_LIB_TSAN})
 add_test(NAME NewTests COMMAND NewTests)

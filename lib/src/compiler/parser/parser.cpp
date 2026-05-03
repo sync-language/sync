@@ -10,7 +10,8 @@ namespace sy {
 extern ProgramErrorReporter defaultErrReporter;
 }
 
-Error<ProgramError> sy::ParseInfo::reportErr(ProgramError errKind, uint32_t inBytePos, StringSlice msg) const noexcept {
+Error<ProgramError> sy::ParseInfo::reportErr(ProgramError errKind, uint32_t inBytePos,
+                                             StringSlice msg) const noexcept {
     SourceFileLocation asFileLocation = SourceFileLocation(this->tokenIter.source(), inBytePos);
     asFileLocation.fileName = this->moduleName;
     if (this->errReporter)
@@ -31,14 +32,16 @@ sy::FileAst::~FileAst() noexcept {
 }
 
 Result<Option<IFunctionStatement*>, ProgramError>
-sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables, Scope* currentScope) noexcept {
+sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables,
+                   Scope* currentScope) noexcept {
     const TokenType tokenType = parseInfo->tokenIter.current().tag();
     if (tokenType == TokenType::RightBraceSymbol) {
         return Option<IFunctionStatement*>(); // no more nodes
     }
 
     auto makeOutOfMemory = [parseInfo]() {
-        parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(), "Out of memory");
+        parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(),
+                             "Out of memory");
         return Error(ProgramError::OutOfMemory);
     };
 
@@ -55,14 +58,16 @@ sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables
         return Option<IFunctionStatement*>(node);
     } break;
     default:
-        parseInfo->reportErr(ProgramError::CompileFunctionStatement, parseInfo->tokenIter.current().location(),
+        parseInfo->reportErr(ProgramError::CompileFunctionStatement,
+                             parseInfo->tokenIter.current().location(),
                              "Unknown token for start of statement");
         return Error(ProgramError::CompileFunctionStatement);
     }
 }
 
 Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNode* fileSource,
-                                            ProgramErrorReporter errReporter, void* errReporterArg) noexcept {
+                                            ProgramErrorReporter errReporter,
+                                            void* errReporterArg) noexcept {
     sy_assert(fileSource->kind == SourceFileKind::SyncSourceFile, "Expected Sync source code file");
 
     if (errReporter == nullptr) {
@@ -74,12 +79,14 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
     const StringSlice fileSlice = fileSource->elem.syncSourceFile.value().asSlice();
     auto tokenizerRes = Tokenizer::create(alloc, fileSlice);
     if (tokenizerRes.hasErr()) {
-        errReporter(tokenizerRes.err(), SourceFileLocation(), StringSlice("Tokenizer"), errReporterArg);
+        errReporter(tokenizerRes.err(), SourceFileLocation(), StringSlice("Tokenizer"),
+                    errReporterArg);
         return Error(tokenizerRes.takeErr());
     }
     Tokenizer tokenizer = tokenizerRes.takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, fileSource->elem.syncSourceFile.value().asSlice(),
-                                    errReporter, errReporterArg);
+    ParseInfo parseInfo =
+        ParseInfo(tokenizer.iter(), alloc, fileSource->elem.syncSourceFile.value().asSlice(),
+                  errReporter, errReporterArg);
 
     {
         auto nextOpt = parseInfo.tokenIter.next();
@@ -91,8 +98,8 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
             case TokenType::FnKeyword: {
                 FunctionDefinitionNode* func = new (alloc) FunctionDefinitionNode(alloc);
                 if (func == nullptr) {
-                    parseInfo.reportErr(ProgramError::OutOfMemory, parseInfo.tokenIter.current().location(),
-                                        "Out of memory");
+                    parseInfo.reportErr(ProgramError::OutOfMemory,
+                                        parseInfo.tokenIter.current().location(), "Out of memory");
                     return Error(ProgramError::OutOfMemory);
                 }
 
@@ -101,16 +108,16 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
                 }
 
                 if (ast.nonGenericFunctions.push(func, alloc).hasErr()) {
-                    parseInfo.reportErr(ProgramError::OutOfMemory, parseInfo.tokenIter.current().location(),
-                                        "Out of memory");
+                    parseInfo.reportErr(ProgramError::OutOfMemory,
+                                        parseInfo.tokenIter.current().location(), "Out of memory");
                     return Error(ProgramError::OutOfMemory);
                 }
                 ScopeSymbol symbol{};
                 symbol.symbolType = ScopeSymbol::Tag::Function;
                 symbol.data.function = func->functionName;
                 if (ast.scope.symbols.insert(alloc, symbol, ast.scope.symbols.len()).hasErr()) {
-                    parseInfo.reportErr(ProgramError::OutOfMemory, parseInfo.tokenIter.current().location(),
-                                        "Out of memory");
+                    parseInfo.reportErr(ProgramError::OutOfMemory,
+                                        parseInfo.tokenIter.current().location(), "Out of memory");
                     return Error(ProgramError::OutOfMemory);
                 }
                 nextOpt = parseInfo.tokenIter.next();
@@ -119,7 +126,8 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
                 sy_assert(false, "Struct not yet implemented");
             } break;
             default: {
-                parseInfo.reportErr(ProgramError::CompileSymbol, parseInfo.tokenIter.current().location(),
+                parseInfo.reportErr(ProgramError::CompileSymbol,
+                                    parseInfo.tokenIter.current().location(),
                                     "Expected end of file, fn keyword, or struct keyword");
                 return Error(ProgramError::CompileSymbol);
             }
@@ -163,8 +171,7 @@ TEST_CASE("parseStatement return") {
 TEST_CASE("parseFile empty") {
     Allocator alloc;
     SourceTreeNode source{alloc, {}, {}, SourceFileKind::SyncSourceFile, {}};
-    new (&source.elem.syncSourceFile)
-        Option<StringUnmanaged>(StringUnmanaged::copyConstructSlice("", alloc).takeValue());
+    new (&source.elem.syncSourceFile) Option<String>(String::init("", alloc).takeValue());
 
     auto res = parseFile(alloc, &source, nullptr, nullptr);
     CHECK(res);

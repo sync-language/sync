@@ -5,10 +5,12 @@
 
 #include "../../core/core.h"
 #include "../../program/program_error.hpp"
+#include "../reflect_fwd.hpp"
 #include "../result/result.hpp"
 #include "../string/string_slice.hpp"
 #include "../task/task.hpp"
 #include "function_align.h"
+#include <type_traits>
 #include <utility>
 
 namespace sy {
@@ -51,12 +53,17 @@ class FunctionHandler {
         asRef = std::move(retValue);
     }
 
+    /// Returns the `RawFunction` currently being invoked. Useful for trampolines that need to
+    /// recover per-instance state stored on the `RawFunction` itself (e.g. `innerFn`).
+    const RawFunction* function() const noexcept;
+
   private:
     FunctionHandler(uint32_t index) : handle(index) {}
 
     void* getArgMem(size_t argIndex);
     const Type* getArgType(size_t argIndex);
-    void validateArgTypeMatches(void* arg, const Type* storedType, size_t sizeType, size_t alignType);
+    void validateArgTypeMatches(void* arg, const Type* storedType, size_t sizeType,
+                                size_t alignType);
     void* getRetDst();
     void validateReturnDstAligned(void* retDst, size_t alignType);
 
@@ -73,8 +80,11 @@ class RawFunction {
         /// Internal use only.
         uint16_t _offset;
 
+        ~CallArgs() noexcept;
+
         /// Pushs an argument onto the the script or C stack for the next function call.
-        /// @return `true` if the push was successful, or `false`, if the stack would overflow by pushing the argument.
+        /// @return `true` if the push was successful, or `false`, if the stack would overflow by
+        /// pushing the argument.
         bool push(void* argMem, const Type* typeInfo);
 
         Result<void, ProgramError> call(void* retDst) noexcept;
@@ -95,9 +105,141 @@ class RawFunction {
     /// If `true`, this function can be called in a comptime context within Sync source code.
     bool comptimeSafe;
     FunctionType tag;
-    /// Both for C functions and script functions. Given `tag` and `info`, the function will be correctly called.
-    /// For C functions, this should be a function with the signature of `Function::c_function_t`.
-    const void* fptr;
+    /// Both for C functions and script functions. Given `tag` and `info`, the function will be
+    /// correctly called. For C functions, this should be a function with the signature of
+    /// `Function::c_function_t`.
+    void* fptr;
+    /// Used only for the C++ (probably Rust and Zig) APIs to enable simpler usage. Can be nullptr
+    /// most of the time.
+    void* innerFn = nullptr;
+};
+
+template <typename Sig> class Function;
+
+template <typename Ret, typename... Args> class Function<Ret(Args...)> {
+  public:
+    using NormalFn = Ret (*)(Args...);
+    using FallibleFn = Result<Ret, ProgramError> (*)(Args...);
+
+    constexpr Function(NormalFn fn) noexcept
+        : name_("externFn"), qualifiedName_("externFn"), returnType_(returnTypeOf()),
+          argsTypes_(argsTypesOf()), argsLen_(static_cast<uint16_t>(sizeof...(Args))),
+          alignment_(SY_FUNCTION_MIN_ALIGN), comptimeSafe_(true), tag_(FunctionType::C),
+          fptr_(&infallibleTrampoline), innerFn_(fn) {}
+
+    constexpr Function(FallibleFn fn) noexcept
+        : name_("externFn"), qualifiedName_("externFn"), returnType_(returnTypeOf()),
+          argsTypes_(argsTypesOf()), argsLen_(static_cast<uint16_t>(sizeof...(Args))),
+          alignment_(SY_FUNCTION_MIN_ALIGN), comptimeSafe_(true), tag_(FunctionType::C),
+          fptr_(&fallibleTrampoline), innerFn_(fn) {}
+
+    Result<Ret, ProgramError> call(Args... args) const noexcept {
+        RawFunction::CallArgs callArgs = reinterpret_cast<const RawFunction*>(this)->startCall();
+        const bool pushedAll =
+            (... && callArgs.push(const_cast<void*>(static_cast<const void*>(&args)),
+                                  Reflect<Args>::get()));
+        if (!pushedAll) {
+            return Error(ProgramError::BufferTooSmall);
+        }
+        if constexpr (std::is_void_v<Ret>) {
+            return callArgs.call(nullptr);
+        } else {
+            Ret result{};
+            auto err = callArgs.call(&result);
+            if (err.hasErr()) {
+                return Error(err.takeErr());
+            }
+            return Result<Ret, ProgramError>{std::move(result)};
+        }
+    }
+
+  private:
+    using TrampolineFn = Result<void, ProgramError> (*)(FunctionHandler);
+
+    union Fptr {
+        TrampolineFn cFn;
+        void* scriptFn;
+        constexpr Fptr() noexcept : scriptFn(nullptr) {}
+        constexpr Fptr(TrampolineFn t) noexcept : cFn(t) {}
+    };
+
+    union InnerFn {
+        NormalFn normalFn;
+        FallibleFn fallibleFn;
+        void* scriptData;
+        constexpr InnerFn() noexcept : scriptData(nullptr) {}
+        constexpr InnerFn(NormalFn n) noexcept : normalFn(n) {}
+        constexpr InnerFn(FallibleFn f) noexcept : fallibleFn(f) {}
+    };
+
+    static constexpr const Type* returnTypeOf() noexcept {
+        if constexpr (std::is_void_v<Ret>) {
+            return nullptr;
+        } else {
+            return Reflect<Ret>::get();
+        }
+    }
+
+    static constexpr const Type* const* argsTypesOf() noexcept {
+        if constexpr (sizeof...(Args) == 0) {
+            return nullptr;
+        } else {
+            return ARGS_ARR_;
+        }
+    }
+
+    inline static const Type* const ARGS_ARR_[(sizeof...(Args) > 0 ? sizeof...(Args) : 1)] = {
+        Reflect<Args>::get()...};
+
+    static Result<void, ProgramError> infallibleTrampoline(FunctionHandler h) noexcept {
+        return invokeInfallible(h, std::index_sequence_for<Args...>{});
+    }
+
+    template <size_t... Is>
+    static Result<void, ProgramError> invokeInfallible(FunctionHandler h,
+                                                       std::index_sequence<Is...>) noexcept {
+        const RawFunction* rf = h.function();
+        NormalFn fn = reinterpret_cast<NormalFn>(rf->innerFn);
+        if constexpr (std::is_void_v<Ret>) {
+            fn(h.template takeArg<Args>(Is)...);
+        } else {
+            Ret result = fn(h.template takeArg<Args>(Is)...);
+            h.template setReturn<Ret>(std::move(result));
+        }
+        return {};
+    }
+
+    static Result<void, ProgramError> fallibleTrampoline(FunctionHandler h) noexcept {
+        return invokeFallible(h, std::index_sequence_for<Args...>{});
+    }
+
+    template <size_t... Is>
+    static Result<void, ProgramError> invokeFallible(FunctionHandler h,
+                                                     std::index_sequence<Is...>) noexcept {
+        const RawFunction* rf = h.function();
+        FallibleFn fn = reinterpret_cast<FallibleFn>(rf->innerFn);
+        if constexpr (std::is_void_v<Ret>) {
+            return fn(h.template takeArg<Args>(Is)...);
+        } else {
+            Result<Ret, ProgramError> result = fn(h.template takeArg<Args>(Is)...);
+            if (result.hasErr()) {
+                return Error(result.takeErr());
+            }
+            h.template setReturn<Ret>(result.takeValue());
+            return {};
+        }
+    }
+
+    StringSlice name_;
+    StringSlice qualifiedName_;
+    const Type* returnType_;
+    const Type* const* argsTypes_;
+    uint16_t argsLen_;
+    uint16_t alignment_;
+    bool comptimeSafe_;
+    FunctionType tag_;
+    Fptr fptr_;
+    InnerFn innerFn_;
 };
 } // namespace sy
 

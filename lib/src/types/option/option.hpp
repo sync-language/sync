@@ -24,19 +24,23 @@ template <typename T, typename Enable = void> class SY_API Option final {};
 
 template <typename T> class SY_API Option<T, std::enable_if_t<std::is_pointer_v<T>>> final {
   public:
-    Option() = default;
-    Option(std::nullptr_t){};
-    Option(std::nullopt_t){};
-    Option(T ptr) : ptr_(ptr) {}
-    [[nodiscard]] bool hasValue() const { return ptr_ != nullptr; }
-    [[nodiscard]] operator bool() const { return this->hasValue(); }
-    [[nodiscard]] bool operator!() const { return ptr_ == nullptr; }
-    [[nodiscard]] T value() {
-        detail::debugAssertPtrNotNull(ptr_);
+    constexpr Option() = default;
+    constexpr Option(std::nullptr_t) {};
+    constexpr Option(std::nullopt_t) {};
+    constexpr Option(T ptr) : ptr_(ptr) {}
+    [[nodiscard]] constexpr bool hasValue() const { return ptr_ != nullptr; }
+    [[nodiscard]] constexpr operator bool() const { return this->hasValue(); }
+    [[nodiscard]] constexpr bool operator!() const { return ptr_ == nullptr; }
+    [[nodiscard]] constexpr T value() {
+        if (!std::is_constant_evaluated()) {
+            detail::debugAssertPtrNotNull(ptr_);
+        }
         return ptr_;
     }
-    [[nodiscard]] const T value() const {
-        detail::debugAssertPtrNotNull(ptr_);
+    [[nodiscard]] constexpr const T value() const {
+        if (!std::is_constant_evaluated()) {
+            detail::debugAssertPtrNotNull(ptr_);
+        }
         return ptr_;
     }
 
@@ -50,19 +54,23 @@ template <typename T> class SY_API Option<T, std::enable_if_t<std::is_reference_
     using PtrT = std::conditional_t<std::is_const_v<T>, const NonReference*, NonReference*>;
 
   public:
-    Option() = default;
-    Option(std::nullptr_t){};
-    Option(std::nullopt_t){};
-    Option(T ref) : ptr_(&ref) {}
-    [[nodiscard]] bool hasValue() const { return ptr_ != nullptr; }
-    [[nodiscard]] operator bool() const { return this->hasValue(); }
-    [[nodiscard]] bool operator!() const { return ptr_ == nullptr; }
-    [[nodiscard]] T value() {
-        detail::debugAssertPtrNotNull(ptr_);
+    constexpr Option() = default;
+    constexpr Option(std::nullptr_t) {};
+    constexpr Option(std::nullopt_t) {};
+    constexpr Option(T ref) : ptr_(&ref) {}
+    [[nodiscard]] constexpr bool hasValue() const { return ptr_ != nullptr; }
+    [[nodiscard]] constexpr operator bool() const { return this->hasValue(); }
+    [[nodiscard]] constexpr bool operator!() const { return ptr_ == nullptr; }
+    [[nodiscard]] constexpr T value() {
+        if (!std::is_constant_evaluated()) {
+            detail::debugAssertPtrNotNull(ptr_);
+        }
         return *ptr_;
     }
-    [[nodiscard]] const T value() const {
-        detail::debugAssertPtrNotNull(ptr_);
+    [[nodiscard]] constexpr const T value() const {
+        if (!std::is_constant_evaluated()) {
+            detail::debugAssertPtrNotNull(ptr_);
+        }
         return *ptr_;
     }
 
@@ -70,25 +78,26 @@ template <typename T> class SY_API Option<T, std::enable_if_t<std::is_reference_
     PtrT ptr_ = nullptr;
 };
 
-template <typename T> class SY_API Option<T, std::enable_if_t<!std::is_reference_v<T> && !std::is_pointer_v<T>>> final {
+template <typename T>
+class SY_API Option<T, std::enable_if_t<!std::is_reference_v<T> && !std::is_pointer_v<T>>> final {
   public:
-    Option() = default;
-    Option(std::nullopt_t){};
-    Option(T&& val) noexcept : hasVal_(true), val_(std::move(val)) {}
-    Option(const T& val) : hasVal_(true), val_(val) {}
-    ~Option() noexcept {
+    constexpr Option() = default;
+    constexpr Option(std::nullopt_t) {};
+    constexpr Option(T&& val) noexcept : hasVal_(true), val_(std::move(val)) {}
+    constexpr Option(const T& val) : hasVal_(true), val_(val) {}
+    constexpr ~Option() noexcept {
         if (hasVal_) {
             val_.val.~T();
         }
         hasVal_ = false;
     }
-    Option(Option&& other) noexcept : hasVal_(other.hasVal_) {
+    constexpr Option(Option&& other) noexcept : hasVal_(other.hasVal_) {
         if (hasVal_) {
             new (&val_.val) T(std::move(other.val_.val));
             other.hasVal_ = false;
         }
     }
-    Option& operator=(Option&& other) noexcept {
+    constexpr Option& operator=(Option&& other) noexcept {
         if (this == &other)
             return *this;
 
@@ -102,12 +111,12 @@ template <typename T> class SY_API Option<T, std::enable_if_t<!std::is_reference
         }
         return *this;
     }
-    Option(const Option& other) : hasVal_(other.hasVal_) {
+    constexpr Option(const Option& other) : hasVal_(other.hasVal_) {
         if (hasVal_) {
             new (&val_.val) T(other.val_.val);
         }
     }
-    Option& operator=(const Option& other) noexcept {
+    constexpr Option& operator=(const Option& other) noexcept {
         if (this == &other)
             return *this;
 
@@ -120,19 +129,25 @@ template <typename T> class SY_API Option<T, std::enable_if_t<!std::is_reference
         }
         return *this;
     }
-    [[nodiscard]] bool hasValue() const { return hasVal_; }
-    [[nodiscard]] operator bool() const { return this->hasValue(); }
-    [[nodiscard]] bool operator!() const { return !hasVal_; }
-    [[nodiscard]] T& value() {
-        detail::debugAssertOptionHasValue(hasVal_);
+    [[nodiscard]] constexpr bool hasValue() const { return hasVal_; }
+    [[nodiscard]] constexpr operator bool() const { return this->hasValue(); }
+    [[nodiscard]] constexpr bool operator!() const { return !hasVal_; }
+    [[nodiscard]] constexpr T& value() {
+        if (!std::is_constant_evaluated()) {
+            detail::debugAssertOptionHasValue(hasVal_);
+        }
         return val_.val;
     }
-    [[nodiscard]] const T& value() const {
-        detail::debugAssertOptionHasValue(hasVal_);
+    [[nodiscard]] constexpr const T& value() const {
+        if (!std::is_constant_evaluated()) {
+            detail::debugAssertOptionHasValue(hasVal_);
+        }
         return val_.val;
     }
-    [[nodiscard]] T&& take() {
-        detail::debugAssertOptionHasValue(hasVal_);
+    [[nodiscard]] constexpr T&& take() {
+        if (!std::is_constant_evaluated()) {
+            detail::debugAssertOptionHasValue(hasVal_);
+        }
         this->hasVal_ = false;
         return std::move(val_.val);
     }

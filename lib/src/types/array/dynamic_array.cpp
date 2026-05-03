@@ -41,8 +41,8 @@ static size_t remainingFrontCapacity(const void* data, const void* alloc, const 
     return difference / size;
 }
 
-static size_t remainingBackCapacity(const size_t len, const size_t fullCapacity, const void* data, const void* alloc,
-                                    const size_t size) {
+static size_t remainingBackCapacity(const size_t len, const size_t fullCapacity, const void* data,
+                                    const void* alloc, const size_t size) {
     const size_t frontCapacity = remainingFrontCapacity(data, alloc, size);
     const size_t capacityWithoutFront = fullCapacity - frontCapacity;
     sy_assert(capacityWithoutFront >= len, "Invalid inputs");
@@ -82,16 +82,10 @@ void sy::RawDynArrayUnmanaged::destroyScript(Allocator& alloc, const sy::Type* t
 
     uint8_t* asBytes = reinterpret_cast<uint8_t*>(this->data_);
 
-    if (typeInfo->destructor.hasValue()) {
-        for (size_t i = 0; i < this->len_; i++) {
-            const size_t offset = i * typeInfo->sizeType;
-            void* obj = &asBytes[offset];
-
-            sy::RawFunction::CallArgs callArgs = typeInfo->destructor.value()->startCall();
-            callArgs.push(obj, typeInfo->mutRef);
-            const auto err = callArgs.call(nullptr);
-            sy_assert(err.hasErr() == false, "Destructors should not fail");
-        }
+    for (size_t i = 0; i < this->len_; i++) {
+        const size_t offset = i * typeInfo->sizeType;
+        void* obj = &asBytes[offset];
+        typeInfo->destroyObject(obj);
     }
 
     alloc.freeAlignedArray(asBytes, this->capacity_ * typeInfo->sizeType, typeInfo->alignType);
@@ -110,8 +104,8 @@ sy::RawDynArrayUnmanaged::RawDynArrayUnmanaged(RawDynArrayUnmanaged&& other) noe
     other.alloc_ = nullptr;
 }
 
-void sy::RawDynArrayUnmanaged::moveAssign(RawDynArrayUnmanaged&& other, void (*destruct)(void* ptr), Allocator& alloc,
-                                          size_t size, size_t align) noexcept {
+void sy::RawDynArrayUnmanaged::moveAssign(RawDynArrayUnmanaged&& other, void (*destruct)(void* ptr),
+                                          Allocator& alloc, size_t size, size_t align) noexcept {
     this->destroy(alloc, destruct, size, align);
 
     this->len_ = other.len_;
@@ -126,8 +120,8 @@ void sy::RawDynArrayUnmanaged::moveAssign(RawDynArrayUnmanaged&& other, void (*d
 
 sy::Result<sy::RawDynArrayUnmanaged, sy::AllocErr>
 sy::RawDynArrayUnmanaged::copyConstruct(const RawDynArrayUnmanaged& other, Allocator alloc,
-                                        void (*copyConstructFn)(void* dst, const void* src), size_t size,
-                                        size_t align) noexcept {
+                                        void (*copyConstructFn)(void* dst, const void* src),
+                                        size_t size, size_t align) noexcept {
     RawDynArrayUnmanaged self;
     if (other.len_ == 0) {
         return self;
@@ -156,10 +150,9 @@ sy::RawDynArrayUnmanaged::copyConstruct(const RawDynArrayUnmanaged& other, Alloc
     return self;
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::copyAssign(const RawDynArrayUnmanaged& other, Allocator& alloc,
-                                                                    void (*destruct)(void* ptr),
-                                                                    void (*copyConstructFn)(void* dst, const void* src),
-                                                                    size_t size, size_t align) noexcept {
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::copyAssign(
+    const RawDynArrayUnmanaged& other, Allocator& alloc, void (*destruct)(void* ptr),
+    void (*copyConstructFn)(void* dst, const void* src), size_t size, size_t align) noexcept {
     const uint8_t* otherAsBytes = reinterpret_cast<const uint8_t*>(other.data_);
 
     if (this->capacity_ >= other.len_) {
@@ -226,8 +219,8 @@ void* sy::RawDynArrayUnmanaged::at(size_t index, size_t size) {
     return &selfAsBytes[byteOffset];
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::push(void* element, Allocator& alloc, size_t size,
-                                                              size_t align) noexcept {
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::push(void* element, Allocator& alloc,
+                                                              size_t size, size_t align) noexcept {
     if (remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, size) == 0) {
         if (this->reallocateBack(alloc, size, align) == false) {
             return Error(AllocErr::OutOfMemory);
@@ -259,7 +252,8 @@ sy::RawDynArrayUnmanaged::pushCustomMove(void* element, Allocator& alloc, size_t
 
 sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushScript(void* element, Allocator& alloc,
                                                                     const Type* typeInfo) noexcept {
-    if (remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_, typeInfo->sizeType) == 0) {
+    if (remainingBackCapacity(this->len_, this->capacity_, this->data_, this->alloc_,
+                              typeInfo->sizeType) == 0) {
         if (this->reallocateBack(alloc, typeInfo->sizeType, typeInfo->alignType) == false) {
             return Error(AllocErr::OutOfMemory);
         }
@@ -272,7 +266,8 @@ sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushScript(void* elemen
     return {};
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushFront(void* element, Allocator& alloc, size_t size,
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushFront(void* element, Allocator& alloc,
+                                                                   size_t size,
                                                                    size_t align) noexcept {
     if (remainingFrontCapacity(this->data_, this->alloc_, size) == 0) {
         if (this->reallocateFront(alloc, size, align) == false) {
@@ -287,9 +282,9 @@ sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushFront(void* element
     return {};
 }
 
-sy::Result<void, sy::AllocErr>
-sy::RawDynArrayUnmanaged::pushFrontCustomMove(void* element, Allocator& alloc, size_t size, size_t align,
-                                              void (*moveConstructFn)(void* dst, void* src)) noexcept {
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushFrontCustomMove(
+    void* element, Allocator& alloc, size_t size, size_t align,
+    void (*moveConstructFn)(void* dst, void* src)) noexcept {
     if (remainingFrontCapacity(this->data_, this->alloc_, size) == 0) {
         if (this->reallocateFrontCustomMove(alloc, size, align, moveConstructFn) == false) {
             return Error(AllocErr::OutOfMemory);
@@ -303,8 +298,9 @@ sy::RawDynArrayUnmanaged::pushFrontCustomMove(void* element, Allocator& alloc, s
     return {};
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushFrontScript(void* element, Allocator& alloc,
-                                                                         const Type* typeInfo) noexcept {
+sy::Result<void, sy::AllocErr>
+sy::RawDynArrayUnmanaged::pushFrontScript(void* element, Allocator& alloc,
+                                          const Type* typeInfo) noexcept {
     if (remainingFrontCapacity(this->data_, this->alloc_, typeInfo->sizeType) == 0) {
         if (this->reallocateFront(alloc, typeInfo->sizeType, typeInfo->alignType) == false) {
             return Error(AllocErr::OutOfMemory);
@@ -318,8 +314,9 @@ sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::pushFrontScript(void* e
     return {};
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::insertAt(void* element, Allocator& alloc, size_t index,
-                                                                  size_t size, size_t align) noexcept {
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::insertAt(void* element, Allocator& alloc,
+                                                                  size_t index, size_t size,
+                                                                  size_t align) noexcept {
     sy_assert(index < this->len_, "Index out of bounds");
 
     if (index == 0) {
@@ -348,9 +345,9 @@ sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::insertAt(void* element,
     return {};
 }
 
-sy::Result<void, sy::AllocErr>
-sy::RawDynArrayUnmanaged::insertAtCustomMove(void* element, Allocator& alloc, size_t index, size_t size, size_t align,
-                                             void (*moveConstructFn)(void* dst, void* src)) noexcept {
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::insertAtCustomMove(
+    void* element, Allocator& alloc, size_t index, size_t size, size_t align,
+    void (*moveConstructFn)(void* dst, void* src)) noexcept {
     sy_assert(index < this->len_, "Index out of bounds");
 
     if (index == 0) {
@@ -379,12 +376,14 @@ sy::RawDynArrayUnmanaged::insertAtCustomMove(void* element, Allocator& alloc, si
     return {};
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::insertAtScript(void* element, Allocator& alloc, size_t index,
-                                                                        const Type* typeInfo) noexcept {
+sy::Result<void, sy::AllocErr>
+sy::RawDynArrayUnmanaged::insertAtScript(void* element, Allocator& alloc, size_t index,
+                                         const Type* typeInfo) noexcept {
     return this->insertAt(element, alloc, index, typeInfo->sizeType, typeInfo->alignType);
 }
 
-void sy::RawDynArrayUnmanaged::removeAt(size_t index, void (*destruct)(void* ptr), size_t size) noexcept {
+void sy::RawDynArrayUnmanaged::removeAt(size_t index, void (*destruct)(void* ptr),
+                                        size_t size) noexcept {
     sy_assert(this->len_ > 0, "Nothing to remove");
     sy_assert(index < this->len_, "Index out of bounds");
 
@@ -402,8 +401,10 @@ void sy::RawDynArrayUnmanaged::removeAt(size_t index, void (*destruct)(void* ptr
     }
 }
 
-void sy::RawDynArrayUnmanaged::removeAtCustomMove(size_t index, void (*destruct)(void* ptr), size_t size,
-                                                  void (*moveConstructFn)(void* dst, void* src)) noexcept {
+void sy::RawDynArrayUnmanaged::removeAtCustomMove(size_t index, void (*destruct)(void* ptr),
+                                                  size_t size,
+                                                  void (*moveConstructFn)(void* dst,
+                                                                          void* src)) noexcept {
     sy_assert(this->len_ > 0, "Nothing to remove");
     sy_assert(index < this->len_, "Index out of bounds");
 
@@ -439,7 +440,8 @@ void sy::RawDynArrayUnmanaged::removeAtScript(size_t index, const Type* typeInfo
     }
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reserve(Allocator& alloc, size_t minCapacity, size_t size,
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reserve(Allocator& alloc,
+                                                                 size_t minCapacity, size_t size,
                                                                  size_t align) noexcept {
     const size_t frontCapacity = remainingFrontCapacity(this->data_, this->alloc_, size);
     if (minCapacity <= (this->capacity_ + frontCapacity)) {
@@ -506,13 +508,15 @@ bool sy::RawDynArrayUnmanaged::ConstIterator::operator!=(const ConstIterator& ot
 
 const void* sy::RawDynArrayUnmanaged::ConstIterator::operator*() const noexcept { return current; }
 
-sy::RawDynArrayUnmanaged::ConstIterator& sy::RawDynArrayUnmanaged::ConstIterator::operator++() noexcept {
+sy::RawDynArrayUnmanaged::ConstIterator&
+sy::RawDynArrayUnmanaged::ConstIterator::operator++() noexcept {
     const uint8_t* ptr = reinterpret_cast<const uint8_t*>(this->current);
     this->current = ptr - this->size;
     return *this;
 }
 
-sy::RawDynArrayUnmanaged::ConstIterator sy::RawDynArrayUnmanaged::begin(size_t size) const noexcept {
+sy::RawDynArrayUnmanaged::ConstIterator
+sy::RawDynArrayUnmanaged::begin(size_t size) const noexcept {
     return ConstIterator{this->data_, size};
 }
 
@@ -528,7 +532,8 @@ bool sy::RawDynArrayUnmanaged::ReverseIterator::operator!=(const ReverseIterator
 
 void* sy::RawDynArrayUnmanaged::ReverseIterator::operator*() const noexcept { return current; }
 
-sy::RawDynArrayUnmanaged::ReverseIterator& sy::RawDynArrayUnmanaged::ReverseIterator::operator++() noexcept {
+sy::RawDynArrayUnmanaged::ReverseIterator&
+sy::RawDynArrayUnmanaged::ReverseIterator::operator++() noexcept {
     uint8_t* ptr = reinterpret_cast<uint8_t*>(this->current);
     this->current = ptr - this->size;
     return *this;
@@ -552,19 +557,24 @@ sy::RawDynArrayUnmanaged::ReverseIterator sy::RawDynArrayUnmanaged::rend(size_t 
     return ReverseIterator{endPtr, size};
 }
 
-bool sy::RawDynArrayUnmanaged::ReverseConstIterator::operator!=(const ReverseConstIterator& other) noexcept {
+bool sy::RawDynArrayUnmanaged::ReverseConstIterator::operator!=(
+    const ReverseConstIterator& other) noexcept {
     return this->current != other.current;
 }
 
-const void* sy::RawDynArrayUnmanaged::ReverseConstIterator::operator*() const noexcept { return current; }
+const void* sy::RawDynArrayUnmanaged::ReverseConstIterator::operator*() const noexcept {
+    return current;
+}
 
-sy::RawDynArrayUnmanaged::ReverseConstIterator& sy::RawDynArrayUnmanaged::ReverseConstIterator::operator++() noexcept {
+sy::RawDynArrayUnmanaged::ReverseConstIterator&
+sy::RawDynArrayUnmanaged::ReverseConstIterator::operator++() noexcept {
     const uint8_t* ptr = reinterpret_cast<const uint8_t*>(this->current);
     this->current = ptr - this->size;
     return *this;
 }
 
-sy::RawDynArrayUnmanaged::ReverseConstIterator sy::RawDynArrayUnmanaged::rbegin(size_t size) const noexcept {
+sy::RawDynArrayUnmanaged::ReverseConstIterator
+sy::RawDynArrayUnmanaged::rbegin(size_t size) const noexcept {
     if (this->data_ == nullptr) {
         return ReverseConstIterator{nullptr, size};
     }
@@ -573,7 +583,8 @@ sy::RawDynArrayUnmanaged::ReverseConstIterator sy::RawDynArrayUnmanaged::rbegin(
     return ReverseConstIterator{startPtr, size};
 }
 
-sy::RawDynArrayUnmanaged::ReverseConstIterator sy::RawDynArrayUnmanaged::rend(size_t size) const noexcept {
+sy::RawDynArrayUnmanaged::ReverseConstIterator
+sy::RawDynArrayUnmanaged::rend(size_t size) const noexcept {
     if (this->data_ == nullptr) {
         return ReverseConstIterator{nullptr, size};
     }
@@ -582,8 +593,9 @@ sy::RawDynArrayUnmanaged::ReverseConstIterator sy::RawDynArrayUnmanaged::rend(si
     return ReverseConstIterator{endPtr, size};
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reallocateBack(Allocator& alloc, const size_t size,
-                                                                        const size_t align) noexcept {
+sy::Result<void, sy::AllocErr>
+sy::RawDynArrayUnmanaged::reallocateBack(Allocator& alloc, const size_t size,
+                                         const size_t align) noexcept {
     const size_t newCapacity = capacityIncrease(this->capacity_);
     auto res = alloc.allocAlignedArray<uint8_t>(newCapacity * size, align);
     if (res.hasValue() == false) {
@@ -609,9 +621,9 @@ sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reallocateBack(Allocato
     return {};
 }
 
-sy::Result<void, sy::AllocErr>
-sy::RawDynArrayUnmanaged::reallocateBackCustomMove(Allocator& alloc, const size_t size, const size_t align,
-                                                   void (*moveConstructFn)(void* dst, void* src)) noexcept {
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reallocateBackCustomMove(
+    Allocator& alloc, const size_t size, const size_t align,
+    void (*moveConstructFn)(void* dst, void* src)) noexcept {
     const size_t newCapacity = capacityIncrease(this->capacity_);
     auto res = alloc.allocAlignedArray<uint8_t>(newCapacity * size, align);
     if (res.hasValue() == false) {
@@ -637,8 +649,9 @@ sy::RawDynArrayUnmanaged::reallocateBackCustomMove(Allocator& alloc, const size_
     return {};
 }
 
-sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reallocateFront(Allocator& alloc, const size_t size,
-                                                                         const size_t align) noexcept {
+sy::Result<void, sy::AllocErr>
+sy::RawDynArrayUnmanaged::reallocateFront(Allocator& alloc, const size_t size,
+                                          const size_t align) noexcept {
     const size_t newCapacity = capacityIncrease(this->capacity_);
     auto res = alloc.allocAlignedArray<uint8_t>(newCapacity * size, align);
     if (res.hasValue() == false) {
@@ -665,9 +678,9 @@ sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reallocateFront(Allocat
     return {};
 }
 
-sy::Result<void, sy::AllocErr>
-sy::RawDynArrayUnmanaged::reallocateFrontCustomMove(Allocator& alloc, const size_t size, const size_t align,
-                                                    void (*moveConstructFn)(void* dst, void* src)) noexcept {
+sy::Result<void, sy::AllocErr> sy::RawDynArrayUnmanaged::reallocateFrontCustomMove(
+    Allocator& alloc, const size_t size, const size_t align,
+    void (*moveConstructFn)(void* dst, void* src)) noexcept {
     const size_t newCapacity = capacityIncrease(this->capacity_);
     auto res = alloc.allocAlignedArray<uint8_t>(newCapacity * size, align);
     if (res.hasValue() == false) {

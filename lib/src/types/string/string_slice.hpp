@@ -4,17 +4,20 @@
 #define SY_TYPES_STRING_STRING_SLICE_HPP_
 
 #include "../../core/core.h"
+#include <compare>
+#include <iosfwd>
 #include <memory> // some header for hash
+#include <string_view>
 
 namespace sy {
 class SY_API StringSlice {
   public:
-    StringSlice() = default;
+    constexpr StringSlice() = default;
 
-    StringSlice(const StringSlice&) = default;
-    StringSlice& operator=(const StringSlice&) = default;
-    StringSlice(StringSlice&&) = default;
-    StringSlice& operator=(StringSlice&&) = default;
+    constexpr StringSlice(const StringSlice&) = default;
+    constexpr StringSlice& operator=(const StringSlice&) = default;
+    constexpr StringSlice(StringSlice&&) = default;
+    constexpr StringSlice& operator=(StringSlice&&) = default;
 
     template <size_t N> constexpr StringSlice(char const (&inStr)[N]) : _ptr(inStr), _len(N - 1) {}
 
@@ -32,6 +35,12 @@ class SY_API StringSlice {
     bool operator!=(const StringSlice& other) const { return !(*this == other); }
 
     size_t hash() const;
+
+    [[nodiscard]] operator std::string_view() const noexcept {
+        return std::string_view(this->_ptr, this->_len);
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const StringSlice& s);
 
   private:
     /// Must be UTF8. Does not have to be null terminated. Is not read from if `len == 0`.

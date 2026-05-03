@@ -19,8 +19,8 @@ class NumberLiteral {
   public:
     enum class RepKind { Unsigned64, Signed64, Float64 };
 
-    [[nodiscard]] static Result<NumberLiteral, sy::ProgramError> create(const sy::StringSlice source,
-                                                                        const uint32_t start, const uint32_t end);
+    [[nodiscard]] static Result<NumberLiteral, sy::ProgramError>
+    create(const sy::StringSlice source, const uint32_t start, const uint32_t end);
 
     [[nodiscard]] Result<uint64_t, sy::ProgramError> asUnsigned64() const;
 
@@ -41,8 +41,8 @@ class NumberLiteral {
 
 class CharLiteral {
   public:
-    [[nodiscard]] static Result<CharLiteral, sy::ProgramError> create(const sy::StringSlice source,
-                                                                      const uint32_t start, const uint32_t end);
+    [[nodiscard]] static Result<CharLiteral, sy::ProgramError>
+    create(const sy::StringSlice source, const uint32_t start, const uint32_t end);
 
     sy::Char val;
 };
@@ -50,18 +50,18 @@ class CharLiteral {
 class StringLiteral {
   public:
     [[nodiscard]] static Result<StringLiteral, sy::ProgramError>
-    create(const sy::StringSlice source, const uint32_t start, const uint32_t end, sy::Allocator alloc);
+    create(const sy::StringSlice source, const uint32_t start, const uint32_t end,
+           sy::Allocator alloc);
 
     StringLiteral() = default;
 
-    StringLiteral(StringLiteral&& other) noexcept;
+    StringLiteral(StringLiteral&& other) noexcept = default;
 
-    StringLiteral& operator=(StringLiteral&& other) noexcept;
+    StringLiteral& operator=(StringLiteral&& other) noexcept = default;
 
-    ~StringLiteral() noexcept;
+    ~StringLiteral() noexcept = default;
 
-    sy::StringUnmanaged str;
-    sy::Allocator alloc;
+    sy::String str;
 };
 } // namespace sy
 
