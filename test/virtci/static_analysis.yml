@@ -1,4 +1,4 @@
-cppcheck-x64:
+sync-static-analysis:
   image: ubuntu-server-x64
   cpus: 4
   memory: 8G
