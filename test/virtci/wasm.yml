@@ -41,7 +41,7 @@ ubuntu-x64:
         emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_LIB_ASAN=OFF
 
     - name: Build CMake
-      run: cmake --build build
+      run: cmake --build build -j2
 
     - name: Run CTest
       run: ctest --test-dir build --output-on-failure --verbose

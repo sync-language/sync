@@ -922,14 +922,15 @@ extern "C" {
 #endif
 
 SY_API SyAllocErr sy_string_init(SyStringSlice str, SyAllocator alloc, SyString* out) {
-    auto res = sy::String::init(sy::StringSlice(str.ptr, str.len),
-                                *reinterpret_cast<sy::Allocator*>(&alloc));
+    sy::Allocator* cppAlloc = reinterpret_cast<sy::Allocator*>(&alloc);
+    auto res = sy::String::init(sy::StringSlice(str.ptr, str.len), *cppAlloc);
     if (res.hasErr()) {
         return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
     }
 
     sy::String s = res.takeValue();
-    *out = *reinterpret_cast<SyString*>(&s);
+    SyString* casted = reinterpret_cast<SyString*>(&s);
+    *out = *casted;
     sy::internal::moveAndLeak(std::move(s));
     return SyAllocErr::SY_ALLOC_ERR_NONE;
 }
@@ -952,12 +953,15 @@ SY_API size_t sy_string_hash(const SyString* self) {
 }
 
 SY_API bool sy_string_eq(const SyString* lhs, const SyString* rhs) {
-    return *reinterpret_cast<const sy::String*>(lhs) == *reinterpret_cast<const sy::String*>(rhs);
+    const sy::String* slhs = reinterpret_cast<const sy::String*>(lhs);
+    const sy::String* rlhs = reinterpret_cast<const sy::String*>(rhs);
+    return *slhs == *rlhs;
 }
 
 SY_API bool sy_string_eq_slice(const SyString* lhs, SyStringSlice rhs) {
-    return *reinterpret_cast<const sy::String*>(lhs) ==
-           *reinterpret_cast<const sy::StringSlice*>(&rhs);
+    const sy::String* slhs = reinterpret_cast<const sy::String*>(lhs);
+    const sy::StringSlice* rlhs = reinterpret_cast<const sy::StringSlice*>(&rhs);
+    return *slhs == *rlhs;
 }
 
 SY_API SyAllocErr sy_string_concat(const SyString* self, SyStringSlice str, SyString* out) {
@@ -967,33 +971,37 @@ SY_API SyAllocErr sy_string_concat(const SyString* self, SyStringSlice str, SySt
     }
 
     sy::String s = res.takeValue();
-    *out = *reinterpret_cast<SyString*>(&s);
+    SyString* casted = reinterpret_cast<SyString*>(&s);
+    *out = *casted;
     sy::internal::moveAndLeak(std::move(s));
     return SyAllocErr::SY_ALLOC_ERR_NONE;
 }
 
 SY_API SyAllocErr sy_string_builder_init(SyAllocator alloc, SyStringBuilder* out) {
-    auto res = sy::StringBuilder::init(*reinterpret_cast<sy::Allocator*>(&alloc));
+    sy::Allocator* cppAlloc = reinterpret_cast<sy::Allocator*>(&alloc);
+    auto res = sy::StringBuilder::init(*cppAlloc);
     if (res.hasErr()) {
         return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
     }
 
     sy::StringBuilder s = res.takeValue();
-    *out = *reinterpret_cast<SyStringBuilder*>(&s);
+    SyStringBuilder* casted = reinterpret_cast<SyStringBuilder*>(&s);
+    *out = *casted;
     sy::internal::moveAndLeak(std::move(s));
     return SyAllocErr::SY_ALLOC_ERR_NONE;
 }
 
 SY_API SyAllocErr sy_string_builder_init_with_capacity(size_t inCapacity, SyAllocator alloc,
                                                        SyStringBuilder* out) {
-    auto res =
-        sy::StringBuilder::initWithCapacity(inCapacity, *reinterpret_cast<sy::Allocator*>(&alloc));
+    sy::Allocator* cppAlloc = reinterpret_cast<sy::Allocator*>(&alloc);
+    auto res = sy::StringBuilder::initWithCapacity(inCapacity, *cppAlloc);
     if (res.hasErr()) {
         return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
     }
 
     sy::StringBuilder s = res.takeValue();
-    *out = *reinterpret_cast<SyStringBuilder*>(&s);
+    SyStringBuilder* casted = reinterpret_cast<SyStringBuilder*>(&s);
+    *out = *casted;
     sy::internal::moveAndLeak(std::move(s));
     return SyAllocErr::SY_ALLOC_ERR_NONE;
 }
@@ -1005,7 +1013,8 @@ SY_API SyAllocErr sy_string_builder_build(SyStringBuilder* self, SyString* out) 
     }
 
     sy::String s = res.takeValue();
-    *out = *reinterpret_cast<SyString*>(&s);
+    SyString* casted = reinterpret_cast<SyString*>(&s);
+    *out = *casted;
     sy::internal::moveAndLeak(std::move(s));
     return SyAllocErr::SY_ALLOC_ERR_NONE;
 }

@@ -29,7 +29,7 @@ ubuntu-x64:
       run: cmake -S . -B build_asan_cov --preset linux-debug-cov-asan
 
     - name: Build CMake ASan
-      run: cmake --build build_asan_cov
+      run: cmake --build build_asan_cov -j2
 
     - name: Run CTest ASan
       run: ctest --test-dir build_asan_cov --output-on-failure
@@ -38,7 +38,7 @@ ubuntu-x64:
       run: cmake -S . -B build_tsan --preset linux-dev-tsan
 
     - name: Build CMake TSan
-      run: cmake --build build_tsan
+      run: cmake --build build_tsan -j2
 
     - name: Run CTest TSan
       run: |
@@ -49,7 +49,7 @@ ubuntu-x64:
       run: cmake -S . -B build_rel  -DCMAKE_BUILD_TYPE=Release -DSYNC_LIB_WITH_TESTS=ON -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON -DSYNC_LIB_ASAN=OFF -DSYNC_LIB_TSAN=OFF -DSYNC_LIB_CODE_COVERAGE=ON
 
     - name: Build CMake Release
-      run: cmake --build build_rel
+      run: cmake --build build_rel -j2
 
     - name: Run CTest Release
       run: ctest --test-dir build_rel --output-on-failure

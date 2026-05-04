@@ -75,7 +75,8 @@ Result<GenPool, AllocErr> GenPool::init(Allocator allocator) noexcept {
 
 extern "C" {
 SY_API SyAllocErr sy_gen_pool_init(SyAllocator allocator, SyGenPool* outGenPool) {
-    auto res = sy::GenPool::init(*reinterpret_cast<sy::Allocator*>(&allocator));
+    sy::Allocator* cppalloc = reinterpret_cast<sy::Allocator*>(&allocator);
+    auto res = sy::GenPool::init(*cppalloc);
     if (res.hasErr()) {
         return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
     }
