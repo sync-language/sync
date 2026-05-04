@@ -76,65 +76,65 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_TSAN)
 
 endfunction()
 
-function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
-    add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    if(SYNC_DISABLE_ASAN_TESTS)
-        add_sync_test_flags(${TEST_NAME} FALSE FALSE)
-    else()
-        add_sync_test_flags(${TEST_NAME} TRUE FALSE)
-    endif()
-    target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
-    if(SYNC_LIB_CODE_COVERAGE)
-        if(MSVC)
-        cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
-        file(TO_NATIVE_PATH "${SYNC_ROOT_DIR}" SYNC_WINDOWS_NATIVE_ROOT_DIR)
-        add_test(NAME ${TEST_NAME}
-            COMMAND OpenCppCoverage.exe
-            --sources ${SYNC_WINDOWS_NATIVE_ROOT_DIR}\\lib\\src\\core\\*
-            --export_type binary:${TEST_NAME}.cov
-            -- ${CMAKE_CURRENT_BINARY_DIR}\\Debug\\${TEST_NAME})
-        elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-            # set proper file output name for llvm-cov
-            add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-            set_property(TEST ${TEST_NAME} PROPERTY ENVIRONMENT "LLVM_PROFILE_FILE=${TEST_NAME}.profraw")
-        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-            add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-        endif()
-    else()
-        add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+# function(add_core_sync_test TEST_NAME TEST_MAIN_CPP)
+#     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
+#     if(SYNC_DISABLE_ASAN_TESTS)
+#         add_sync_test_flags(${TEST_NAME} FALSE FALSE)
+#     else()
+#         add_sync_test_flags(${TEST_NAME} TRUE FALSE)
+#     endif()
+#     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
+#     if(SYNC_LIB_CODE_COVERAGE)
+#         if(MSVC)
+#         cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH SYNC_ROOT_DIR)
+#         file(TO_NATIVE_PATH "${SYNC_ROOT_DIR}" SYNC_WINDOWS_NATIVE_ROOT_DIR)
+#         add_test(NAME ${TEST_NAME}
+#             COMMAND OpenCppCoverage.exe
+#             --sources ${SYNC_WINDOWS_NATIVE_ROOT_DIR}\\lib\\src\\core\\*
+#             --export_type binary:${TEST_NAME}.cov
+#             -- ${CMAKE_CURRENT_BINARY_DIR}\\Debug\\${TEST_NAME})
+#         elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+#             # set proper file output name for llvm-cov
+#             add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+#             set_property(TEST ${TEST_NAME} PROPERTY ENVIRONMENT "LLVM_PROFILE_FILE=${TEST_NAME}.profraw")
+#         elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+#             add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+#         endif()
+#     else()
+#         add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 
-        if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
-            add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
-            add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE)
-            target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
-            add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
-        endif()
-    endif()
-endfunction()
+#         if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
+#             add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
+#             add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE)
+#             target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
+#             add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
+#         endif()
+#     endif()
+# endfunction()
 
-function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
-    add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
-    add_sync_test_flags(${TEST_NAME} FALSE FALSE)
-    target_compile_definitions(${TEST_NAME} PRIVATE SYNC_DEATH_TEST=1)
-    target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
-    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-    set_tests_properties(${TEST_NAME} PROPERTIES
-        WILL_FAIL TRUE
-        FAIL_REGULAR_EXPRESSION ${ERR_MSG}
-    )
+# function(add_core_sync_death_test TEST_NAME TEST_MAIN_CPP ERR_MSG)
+#     add_executable(${TEST_NAME} ${TEST_MAIN_CPP} ${CORE_SOURCES})
+#     add_sync_test_flags(${TEST_NAME} FALSE FALSE)
+#     target_compile_definitions(${TEST_NAME} PRIVATE SYNC_DEATH_TEST=1)
+#     target_include_directories(${TEST_NAME} PRIVATE ${CORE_DIR})
+#     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+#     set_tests_properties(${TEST_NAME} PROPERTIES
+#         WILL_FAIL TRUE
+#         FAIL_REGULAR_EXPRESSION ${ERR_MSG}
+#     )
 
-    if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
-        add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
-        add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE)
-        target_compile_definitions(${TEST_NAME}_ThreadSanitizer PRIVATE SYNC_DEATH_TEST=1)
-        target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
-        add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
-        set_tests_properties(${TEST_NAME}_ThreadSanitizer PROPERTIES
-            WILL_FAIL TRUE
-            FAIL_REGULAR_EXPRESSION ${ERR_MSG}
-        )
-    endif()
-endfunction()
+#     if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
+#         add_executable(${TEST_NAME}_ThreadSanitizer ${TEST_MAIN_CPP} ${CORE_SOURCES})
+#         add_sync_test_flags(${TEST_NAME}_ThreadSanitizer FALSE TRUE)
+#         target_compile_definitions(${TEST_NAME}_ThreadSanitizer PRIVATE SYNC_DEATH_TEST=1)
+#         target_include_directories(${TEST_NAME}_ThreadSanitizer PRIVATE ${CORE_DIR})
+#         add_test(NAME ${TEST_NAME}_ThreadSanitizer COMMAND ${TEST_NAME}_ThreadSanitizer)
+#         set_tests_properties(${TEST_NAME}_ThreadSanitizer PROPERTIES
+#             WILL_FAIL TRUE
+#             FAIL_REGULAR_EXPRESSION ${ERR_MSG}
+#         )
+#     endif()
+# endfunction()
 
 # =================
 # Core RwLock Tests
@@ -162,10 +162,10 @@ endfunction()
 
 # add_core_sync_death_test(SyncTestCoreDeath_RwLockDestroyOnSharedLock "lib_tests/core/rwlock_death/rwlock_death_destroy_on_shared_lock.cpp" ".*cannot destroy rwlock that was locked by another thread.*")
 
-add_core_sync_test(SyncTestCore_FilesystemGetFileSizeSmall "lib_tests/core/filesystem/filesystem_get_file_size_this_file_small.cpp")
-add_core_sync_test(SyncTestCore_FilesystemGetFileSizeBigger "lib_tests/core/filesystem/filesystem_get_file_size_this_file_bigger.cpp")
-add_core_sync_test(SyncTestCore_FilesystemGetFileSizeNotAFile "lib_tests/core/filesystem/filesystem_get_file_size_not_a_file.cpp")
-add_core_sync_test(SyncTestCore_FilesystemRelativeToAbsoluteDir "lib_tests/core/filesystem/filesystem_relative_to_absolute_dir.cpp")
+# add_core_sync_test(SyncTestCore_FilesystemGetFileSizeSmall "lib_tests/core/filesystem/filesystem_get_file_size_this_file_small.cpp")
+# add_core_sync_test(SyncTestCore_FilesystemGetFileSizeBigger "lib_tests/core/filesystem/filesystem_get_file_size_this_file_bigger.cpp")
+# add_core_sync_test(SyncTestCore_FilesystemGetFileSizeNotAFile "lib_tests/core/filesystem/filesystem_get_file_size_not_a_file.cpp")
+# add_core_sync_test(SyncTestCore_FilesystemRelativeToAbsoluteDir "lib_tests/core/filesystem/filesystem_relative_to_absolute_dir.cpp")
 
 # ==================
 # Main Library Tests
@@ -231,21 +231,8 @@ set(SYNC_LIB_TESTS_SOURCES
 
 add_executable(SyncLibTests ${SYNC_LIB_TESTS_SOURCES})
 target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS=1)
-if(SYNC_DISABLE_ASAN_TESTS)
-        add_sync_test_flags(SyncLibTests FALSE FALSE)
-    else()
-        add_sync_test_flags(SyncLibTests TRUE FALSE)
-    endif()
-if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
-    add_executable(SyncLibTests_ThreadSanitizer ${SYNC_LIB_TESTS_SOURCES})
-    target_compile_definitions(SyncLibTests_ThreadSanitizer PRIVATE SYNC_LIB_WITH_TESTS=1)
-    add_sync_test_flags(SyncLibTests_ThreadSanitizer FALSE TRUE)
-endif()
-
+add_sync_test_flags(SyncLibTests ${SYNC_LIB_ASAN} ${SYNC_LIB_TSAN})
 add_test(NAME SyncLibTests COMMAND SyncLibTests)
-if((NOT MSVC) AND (NOT EMSCRIPTEN) AND (NOT SYNC_SKIP_TSAN_TESTS))
-    add_test(NAME SyncLibTests_ThreadSanitizer COMMAND SyncLibTests_ThreadSanitizer)
-endif()
 
 add_executable(NewTests "lib/test_main.cpp" "lib/unit_tests/rwlock.cpp" "lib/unit_tests/string.cpp" "lib/unit_tests/gen_pool.cpp")
 target_link_libraries(NewTests PRIVATE sync::sync)

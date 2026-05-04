@@ -56,6 +56,7 @@ ubuntu-x64:
 
     - name: LCOV Capture
       run: |
+        mkdir -p reports/linux_x64/html
         lcov --capture --directory build_asan_cov --output-file reports/linux_x64/coverage_asan.info --branch-coverage --ignore-errors negative,negative,inconsistent,inconsistent,mismatch,mismatch,gcov,gcov --exclude '*/doctest.h'
         lcov --capture --directory build_rel --output-file reports/linux_x64/coverage_rel.info --branch-coverage --ignore-errors negative,negative,inconsistent,inconsistent,mismatch,mismatch,gcov,gcov --exclude '*/doctest.h'
 
