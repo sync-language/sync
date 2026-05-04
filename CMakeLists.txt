@@ -164,7 +164,7 @@ if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 if(WIN32)
-    target_link_libraries(sync PRIVATE "$<$<CONFIG:Debug>:dbghelp>")
+    target_link_libraries(sync PRIVATE "$<$<CONFIG:Debug>:dbghelp>" synchronization)
 endif()
 
 include(cmake/base_compiler_flags.cmake)

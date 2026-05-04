@@ -233,6 +233,12 @@ add_executable(SyncLibTests ${SYNC_LIB_TESTS_SOURCES})
 target_compile_definitions(SyncLibTests PRIVATE SYNC_LIB_WITH_TESTS=1)
 add_sync_test_flags(SyncLibTests ${SYNC_LIB_ASAN} ${SYNC_LIB_TSAN})
 add_test(NAME SyncLibTests COMMAND SyncLibTests)
+if(WIN32 AND NOT MSVC)
+    target_link_libraries(SyncLibTests PRIVATE
+        "$<$<CONFIG:Debug>:dbghelp>"
+        synchronization
+    )
+endif()
 
 add_executable(NewTests "lib/test_main.cpp" "lib/unit_tests/rwlock.cpp" "lib/unit_tests/string.cpp" "lib/unit_tests/gen_pool.cpp")
 target_link_libraries(NewTests PRIVATE sync::sync)
