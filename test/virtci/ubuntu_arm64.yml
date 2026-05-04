@@ -36,7 +36,7 @@ ubuntu-arm64:
         ctest --test-dir build_tsan --output-on-failure
 
     - name: Configure CMake Release
-      run: cmake -S . -B build_rel  -DCMAKE_BUILD_TYPE=Release -DSYNC_LIB_WITH_TESTS=ON -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON -DSYNC_LIB_ASAN=OFF -DSYNC_LIB_TSAN=OFF -DSYNC_LIB_CODE_COVERAGE=ON
+      run: cmake -S . -B build_rel --preset linux-rel-cov
 
     - name: Build CMake Release
       run: cmake --build build_rel -j2

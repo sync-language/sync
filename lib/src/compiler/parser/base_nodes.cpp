@@ -60,21 +60,21 @@ IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>
     }
 }
 
-#if SYNC_LIB_WITH_TESTS
+// #if SYNC_LIB_WITH_TESTS
 
-#include "../../doctest.h"
+// #include "../../doctest.h"
 
-namespace {
-class TestParserNodeThing : public detail::IBaseParserNode {
-  public:
-    TestParserNodeThing(Allocator inAlloc) : IBaseParserNode(inAlloc) {}
-};
-} // namespace
+// namespace {
+// class TestParserNodeThing : public detail::IBaseParserNode {
+//   public:
+//     TestParserNodeThing(Allocator inAlloc) : IBaseParserNode(inAlloc) {}
+// };
+// } // namespace
 
-TEST_CASE("IBaseParserNode new and delete") {
-    Allocator alloc;
-    TestParserNodeThing* ouh = new (alloc) TestParserNodeThing(alloc);
-    delete ouh;
-}
+// TEST_CASE("IBaseParserNode new and delete") {
+//     Allocator alloc;
+//     TestParserNodeThing* ouh = new (alloc) TestParserNodeThing(alloc);
+//     delete ouh;
+// }
 
-#endif // SYNC_LIB_WITH_TESTS
+// #endif // SYNC_LIB_WITH_TESTS

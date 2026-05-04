@@ -148,6 +148,16 @@
       }
     },
     {
+      "name": "linux-rel-cov",
+      "displayName": "Linux Release Cov",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SYNC_LIB_WITH_TESTS": "ON",
+        "SYNC_LIB_CODE_COVERAGE": "ON"
+      }
+    },
+    {
       "name": "win-msvc-dev-asan",
       "displayName": "Win MSVC Dev ASan",
       "inherits": "win-msvc-base",
