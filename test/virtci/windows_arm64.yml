@@ -19,7 +19,7 @@ windows-arm64:
       offline: true
 
     - name: Configure CMake Visual Studio
-      run: cmake -S sync -B build-vs -G "Visual Studio 18 2026" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8" -DSYNC_DISABLE_ASAN_TESTS=ON
+      run: cmake -S sync -B build-vs -G "Visual Studio 18 2026" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON
 
     - name: Build CMake Visual Studio
       run: cmake --build build-vs -j2

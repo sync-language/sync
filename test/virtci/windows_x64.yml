@@ -22,28 +22,28 @@ windows-x64:
       offline: true
 
     - name: Configure CMake Visual Studio
-      run: cmake -S sync -B build-vs -G "Visual Studio 18 2026" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DCMAKE_CXX_FLAGS="/utf-8" -DCMAKE_C_FLAGS="/utf-8"
+      run: cmake -S sync -B build_vs -G "Visual Studio 18 2026" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON
 
     - name: Build CMake Visual Studio
-      run: cmake --build build-vs -j2
+      run: cmake --build build_vs -j2
 
     - name: Run CTest Visual Studio
-      run: ctest --test-dir build-vs --output-on-failure -C Debug
+      run: ctest --test-dir build_vs --output-on-failure -C Debug
+
+    - name: Configure CMake Clang-cl ASan
+      run: cmake -S sync -B build_clang_cl_asan --preset win-clang-cl-debug-cov-asan
+
+    - name: Build CMake Clang-cl ASan
+      run: cmake --build build_clang_cl_asan -j2
+
+    - name: Run CTest Clang-cl ASan
+      run: ctest --test-dir build_clang_cl_asan --output-on-failure -C Debug
 
     - name: Configure CMake MinGW
-      run: cmake -S sync -B build-mingw -G "Unix Makefiles" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
+      run: cmake -S sync -B build-mingw -G "Unix Makefiles" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON
 
     - name: Build CMake MinGW
       run: cmake --build build-mingw -j2
 
     - name: Run CTest MinGW
       run: ctest --test-dir build-mingw --output-on-failure -C Debug
-
-    - name: Configure CMake Clang-cl
-      run: cmake -S sync -B build-clang-cl -G "Ninja" -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF -DSYNC_SKIP_TSAN_TESTS=ON
-
-    - name: Build CMake Clang-cl
-      run: cmake --build build-clang-cl -j2
-
-    - name: Run CTest Clang-cl
-      run: ctest --test-dir build-clang-cl --output-on-failure -C Debug

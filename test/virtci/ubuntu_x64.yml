@@ -19,7 +19,7 @@ ubuntu-x64:
       run: |
         wget https://github.com/linux-test-project/lcov/releases/download/v2.4/lcov-2.4.tar.gz
         tar xf lcov-2.4.tar.gz
-        make -C lcov-2.4 install
+        sudo make -C lcov-2.4 install
         rm -rf lcov-2.4 lcov-2.4.tar.gz
 
     - name: Run Subsequent Steps Offline
