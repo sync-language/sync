@@ -13,7 +13,8 @@ macos-x64:
           - docs
 
     - name: Run Subsequent Steps Offline
-      offline: true
+      restart:
+        offline: true
 
     - name: Configure CMake
       run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON -DSYNC_LIB_DOCTEST_ADD_CTESTS=OFF

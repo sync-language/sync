@@ -19,7 +19,8 @@ windows-x64:
       run: choco install -y ninja --force --no-progress --install-arguments '/Quiet'
 
     - name: Run Subsequent Steps Offline
-      offline: true
+      restart:
+        offline: true
 
     - name: Configure CMake Visual Studio
       run: cmake -S sync -B build_vs -G "Visual Studio 18 2026" -DCMAKE_BUILD_TYPE=Debug -DSYNC_LIB_WITH_TESTS=ON

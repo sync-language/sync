@@ -23,7 +23,8 @@ ubuntu-x64:
         rm -rf lcov-2.4 lcov-2.4.tar.gz
 
     - name: Run Subsequent Steps Offline
-      offline: true
+      restart:
+        offline: true
 
     - name: Configure CMake ASan
       run: cmake -S . -B build_asan_cov --preset linux-debug-cov-asan

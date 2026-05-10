@@ -14,7 +14,8 @@ sync-static-analysis:
         sudo apt-get install -y cppcheck cmake build-essential python3
 
     - name: Go offline for security
-      offline: true
+      restart:
+        offline: true
 
     - name: Configure CMake For compile_commands.json
       run: |

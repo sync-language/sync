@@ -13,7 +13,8 @@ macos-arm64:
           - docs
 
     - name: Run Subsequent Steps Offline
-      offline: true
+      restart:
+        offline: true
 
     - name: Configure CMake ASan
       run: cmake -S . -B build_asan_cov --preset mac-debug-cov-asan

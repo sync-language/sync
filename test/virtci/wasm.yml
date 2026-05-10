@@ -26,7 +26,8 @@ ubuntu-x64:
         ./emsdk activate latest
 
     - name: Run Subsequent Steps Offline
-      offline: true
+      restart:
+        offline: true
 
     - name: Activate Emscripten
       run: |
