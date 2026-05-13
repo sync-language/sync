@@ -20,7 +20,7 @@ fn add(num1: i32, num2: i32) i32 {
 
     // the following line won't get executed
     // print(num1);
-    
+
     // however the following line will, as it is uncommented
     print(num2);
     return num1 + num2;
@@ -35,15 +35,27 @@ Documentation comments are above functions, structs, members, traits and global 
 /// Contains relevant data to a person
 struct Person {
     /// name of this person as `first last`
-    name: str,
+    name: String,
     /// person's age. Typically will be within life expectancy, but maybe someone will be immortal
-    age: u16
+    age: ?u16
 }
+```
+
+### Multiline Comments `/* */`
+
+```sync
+/*
+This is a multiline comment.
+You can put a lot of stuff here!
+/*
+Even nested works!
+*/
+*/
 ```
 
 ## Primitives
 
-### Primitive Types
+### Primitive and Built-in Types
 
 | Type | C/C++ Equivalent | Description |
 |------|--------------|-------------|
@@ -61,19 +73,21 @@ struct Person {
 | f64 | double | 64-bit floating point |
 | char | SyChar / sy::Char | 32-bit unicode scalar value |
 | Type | SyType / sy::Type | compile time type information |
-| str | SyStringSlice / sy::StringSlice | pointer to the start of a utf8 string with a length |
-| String | SyString / sy::String | memory managed utf8 string container |
-| List[T] | sy::List<T> | memory managed dynamically resizeable contiguous array |
-| Set[K] | sy::Set<K> | memory mananaged hash set |
-| Map[K, V] | sy::Map<K, V> | memory mananaged hash map |
-| Vec[N, T] | sy::Vec<N, T> | math vector N long containing T type |
-| Mat[N, M, T] | sy::Mat<N, M, T> | math matrix of dimensions N*M of T type |
-| Unique[T] | SyUnique / sy::Unique<T> | thread-safe single owned object |
-| Shared[T] | SyShared / sy::Shared<T> | thread-safe multiple owned object |
-| Weak[T] | SyWeak / sy::Weak<T> | thread-safe weak reference to Unique or Shared |
-| Task[?T] | SyTask / sy::Task<T> | Parallel execution unit or result from it. See [Task](#task) |
+| [str](#str) | SyStringSlice / sy::StringSlice | pointer to the start of a utf8 string with a length |
+| [String](#string) | SyString / sy::String | memory managed utf8 string container |
+| [List[T]](#dynamic-array--array-list) | sy::List<T> | memory managed dynamically resizeable contiguous array |
+| [Set[K]](#hash-set) | sy::Set<K> | memory mananaged hash set |
+| [Map[K, V]](#hash-map) | sy::Map<K, V> | memory mananaged hash map |
+| [Vec[N, T]](#vectors) | sy::Vec<N, T> | math vector N long containing T type |
+| [Mat[N, M, T]](#matrices) | sy::Mat<N, M, T> | math matrix of dimensions N*M of T type |
+| [Unique[T]](#unique) | SyUnique / sy::Unique<T> | thread-safe single owned object |
+| [Shared[T]](#shared) | SyShared / sy::Shared<T> | thread-safe multiple owned object |
+| [Weak[T]](#weak) | SyWeak / sy::Weak<T> | thread-safe weak reference to Unique or Shared |
+| [Task[?T]](#task) | SyTask / sy::Task<T> | Parallel execution unit or result from it. See [Task](#task) |
+| [GenOwner[T]](#genowner) | SyGenOwner / sy::GenOwner<T> | Element-wise atomic thread-safe generational object owner for simple primitives and `String`. |
+| [GenRef[T]](#genref) | SyGenRef / sy::GenRef<T> | Element-wise atomic thread-safe generational reference for simple primitives and `String`. |
 | Ordering | SyOrdering / sy::Ordering | Order of two elements |
-| AnyError | SyAnyError / sy::AnyError | Default error type with runtime type information |
+| [AnyError](#anyerror) | SyAnyError / sy::AnyError | Default error type with runtime type information |
 
 ### Primitive Values
 
@@ -99,7 +113,7 @@ fn main() {
     const num: u8 = 100 as u8;
 
     // COMPILER ERROR! 257 is too big to fit in an unsigned 8-bit integer
-    const tooBig: u8 = 257 as u8; 
+    const tooBig: u8 = 257 as u8;
 }
 ```
 
@@ -377,8 +391,8 @@ fn main() {
     // iterate over a range from 0 (inclusive) to 10 (exclusive)
     for i in 0..10 {
         print(i); // 0 to 9
-    }    
-    
+    }
+
     // iterate over a range from 0 (inclusive) to 10 (inclusive)
     for i in 0..=10 {
         print(i); // 0 to 10
@@ -603,7 +617,7 @@ fn main() {
         if num < 95 {
             continue;
         }
-    
+
         print(num); // 99, 98, 97, 96, 95
     }
 
@@ -784,7 +798,7 @@ fn main() {
         }
         val
     }
-    print(y); // 100 
+    print(y); // 100
 }
 ```
 
@@ -985,13 +999,13 @@ fn parseBool(input: str) str!bool {
 fn main() {
     // try to unwrap the error to get the ok value.
     // if it contains an error instead, catch it and do something with it.
-    const parsed: bool = try parseBool("hello") catch as err {
+    const parsed: bool = try parseBool("hello") catch err {
         print(err);
         return;
-    }   
-    
+    }
+
     // declare the error type
-    const parsedAgain: bool = try parseBool("hullo") catch as err: str {
+    const parsedAgain: bool = try parseBool("hullo") catch err: str {
         print(err);
         return;
     }
@@ -1005,6 +1019,7 @@ fn main() {
     // try to unwrap the error to get the ok value.
     // if it contains an error instead, catch it and do something with it.
     const parsed: bool = try parseBool("hello") catch {
+        // do some stuff
         return;
     }
 }
@@ -1013,7 +1028,9 @@ fn main() {
 `try` itself can just return the error itself.
 
 ```sync
-fn 
+fn performParse() ! {
+    const parsed: bool = try parseBool("hello"); // returns the error
+}
 ```
 
 `try` can also work with multiple chains error function calls.
@@ -1093,7 +1110,7 @@ fn main() {
     mut val: Unique[i32] = 5;
 
     sync mut val { // acquire an exclusive, read-write lock to val
-        // any thread that tries to lock the same object will have to 
+        // any thread that tries to lock the same object will have to
         // wait until the lock is released at the end of the scope
         val += 1;
         print(val); // prints 6
@@ -1111,7 +1128,7 @@ Given that Sync can cross FFI boundaries, it is not possible to analyze if any l
 ```sync
 fn externCallableFunction(mut sharedVal: Shared[i32]) {
     sync mut sharedVal {
-        
+        // ...
     } catch {
         print("deadlock detected");
         return;
@@ -1155,7 +1172,7 @@ Any type can be prefixed with `Unique`, `Shared`, or `Weak` to mark it as a thre
 
 #### Unique
 
-The `Unique` type modifier gives single ownership. When the object goes out of scope or is generally destroyed, all references become invalidated.
+The `Unique` smart pointer provides single ownership. When the object goes out of scope or is generally destroyed, all references become invalidated.
 
 ```sync
 Unique[i32] // Single ownership to shared memory of a signed 32 bit integer
@@ -1170,7 +1187,7 @@ fn main() {
 
 #### Shared
 
-The `Shared` type modifier provides shared ownership. If the refcount is greater than 1, going out of scope or a destructor call does not invalidate the object, just decrements the refcount. It is only destroyed when the refcount reaches zero.
+The `Shared` smart pointer provides shared ownership. If the refcount is greater than 1, going out of scope or a destructor call does not invalidate the object, just decrements the refcount. It is only destroyed when the refcount reaches zero.
 
 ```sync
 Shared[i32] // Shared ownership to shared memory of a signed 32 bit integer
@@ -1190,7 +1207,7 @@ fn main() {
 
 #### Weak
 
-The `Weak` type modifier provides a weak reference that auto invalidates if the unique or shared object it references is destroyed.
+The `Weak` smart pointer provides a weak reference that auto invalidates if the unique or shared object it references is destroyed.
 
 ```sync
 Weak[i32] // Weak reference to another Unique or Shared which owns the i32
@@ -1221,6 +1238,44 @@ fn main() {
             print("invalid!"); // prints!
         }
     }
+}
+```
+
+#### GenOwner
+
+The `GenOwner` smart pointer is the owner to a resource contained within a generational pool.
+
+A generational pool is a large collection of differently typed data. Objects of the same type will live within the same typed sub-pool, and are all contiguous in memory with each other. The GenOwner controls the lifetime of the resource within the pool, incrementing the generation count upon destruction / creation. This works in tandem with [GenRef[T]](#genref) to have thread-safe shared memory but without full mutexes, as an alternative to the `sync` block system.
+
+Due to the lack of full locking, only simple types are allowed. These are the PoD primitives, and `String`, along with any `struct` that is composed of those types.
+
+GenOwner has two primary methods, being `load()`, and `store()`. `load()` returns a full clone of the object, not a pointer to that object. `store()` fully overwrites the object. Note, two individual `load()` calls on the same thread may return different values if another thread performs a `store()` in between. This is non-deterministic and depends entirely on scheduling. A `load()` operation will always yield the full write from a `store()`, not a partial write.
+
+```sync
+fn main() {
+    mut genobj: GenOwner[i32] = 1;
+    print(genobj.load()); // 1
+    print(genobj.load()); // may still be 1, may not be if another thread changed it
+    genobj.store(2);
+}
+```
+
+#### GenRef
+
+The `GenRef` smart pointer is a weak reference to a [GenOwner[T]](#genowner), supporting the same read/write mechanisms as GenOwner, just without full ownership.
+
+Should the underlying resource be destroyed, it's generation count will no longer match the one stored within the GenRef, automatically invalidating the reference.
+
+All other operations are identical between `GenOwner` and `GenRef`, including the `load()` and `store()` mechanisms.
+
+```sync
+fn main() {
+    mut genobj: GenOwner[i32] = 1;
+    print(genobj.load()); // 1
+    mut genref: GenRef[i32] = genobj;
+    genref.store(2);
+    print(genobj.load()); // probably 2, since genobj and genref point to the same object,
+                          // unless a write occurred between the store() and load().
 }
 ```
 
@@ -1367,13 +1422,22 @@ const asStr: str@'a = message;
 
 #### String
 
-Sync supports a resizeable utf8 string. It is simlar to C++ std::string, Rust std::String, and Python str. It is written as `String`.
+Sync's `String` is atomically reference counted, and the allocated string is immutable, unlike C++ std::string, and Rust std::String. Copying a Sync string is a shallow copy + atomic reference count increase.
+
+This is explicitly done so that `String` works within the generational pool system (see [GenOwner](#genowner) and [GenRef](#genref)).
+
+All compile time string literals are also `String` instances.
 
 ```sync
 String // String type.
 
 const s: String;
 const slice: str = s; // Coerce to string slice.
+```
+
+```sync
+const slice: str = "hello world!";
+const sLit: String = "hello world!"; // also valid without allocating memory
 ```
 
 #### Dynamic Array / Array List
@@ -1561,7 +1625,7 @@ impl Person {
     // static function on Person.
     fn new(name: str, age: u16) Person {
         return Person{.name = name, .age = age};
-    } 
+    }
 
     // member function, queryable by host program.
     fn birthday(self: *mut Self) {
@@ -2028,7 +2092,7 @@ impl TryCast[str] for Player {
 
 fn main() {
     const player = Player{.name = ""};
-    const name = player as str catch as err: NameErr {
+    const name = player as str catch err: NameErr {
         print(err); // InvalidName
         return;
     }
@@ -2119,7 +2183,7 @@ struct State {
     uint8_t tag;
     union {
         uint8_t walking; // unused data
-        float running; 
+        float running;
         struct { float oxygenLeft; bool onSurface; } swimming;
         struct { float gravity; float force; } jumping;
     } payload;
@@ -2144,7 +2208,7 @@ struct State {
     int32_t tag;
     union {
         uint8_t walking; // unused data
-        float running; 
+        float running;
         struct { float oxygenLeft; bool onSurface; } swimming;
         struct { float gravity; float force; } jumping;
     } payload;
@@ -2228,7 +2292,7 @@ fn main() {
 #### Constrain Function Generics
 
 ```sync
-fn add[T](num1: T, num2: T) T 
+fn add[T](num1: T, num2: T) T
 where @isInteger(T)
 {
     return num1 + num2;
@@ -2244,13 +2308,13 @@ trait Adder {
     }
 }
 
-fn add[T](num1: T, num2: T) T 
+fn add[T](num1: T, num2: T) T
 where @implements(T, Adder)
 {
     return num1.performAdd(num2);
 }
 
-fn simpleAdd[T: Adder](num1: T, num2: T) T 
+fn simpleAdd[T: Adder](num1: T, num2: T) T
 {
     return num1.performAdd(num2);
 }
@@ -2319,9 +2383,9 @@ impl Sword {
 // src/main.sync
 
 // import all pub symbols from `player.sync`.
-import("player.sync"); 
+import("player.sync");
 // import only the `Sword` struct and all of it's methods.
-import("weapons/sword.sync").Sword; 
+import("weapons/sword.sync").Sword;
 
 fn main() {
     mut player = Player{.health = 10};
@@ -2410,7 +2474,7 @@ pub struct Player {
 // src/main.sync
 
 // import all pub symbols from `player.sync`, which will also import any pub imports within that file recursively.
-import("player.sync"); 
+import("player.sync");
 
 fn main() {
     const player = Player{.health = 10};
@@ -2534,7 +2598,7 @@ Modifier on a trait to implement a trait default, or disable a trait implementat
 
 Creates an `AnyError` with custom metadata from a `try` or `throw` statement.
 
-- `@err("message")`: Attaches a message from a `String`/`str`.
+- `@err("message")`: Attaches a message from a `String`/`str`. Can also be the name of a `String` or `str` identifier.
 - `@err("example1", cause <variable_name>)`: Chains a cause of the new error
 - `@err("example2", trace)`: Adds a stack trace
 - `@err("example3", cause <variable_name>, trace)`: Chains a cause, and adds a stack trace
@@ -2556,7 +2620,7 @@ fn doSomething() ! {
 
 fn wrapDoSomething() ! {
     // Try catch
-    try doSomething() catch as e {
+    try doSomething() catch e {
         // no payload, but has the cause
         throw @err("doSomething failed!", cause e);
     }
@@ -2572,7 +2636,7 @@ fn explicitError() i32! {
 }
 
 fn wrapExplicitError() ! {
-    try explicitError() catch as e {
+    try explicitError() catch e {
         // e is of type i32
         // cannot do a cause here, as there is no AnyError to wrap
         throw e @err("explicitError failed!");
