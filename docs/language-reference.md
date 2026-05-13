@@ -192,14 +192,6 @@ Struct literals follow the format of `StructName{.member1 = value1, .member2 = v
 All declared variables can be either immutable with `const`, or mutable with `mut`. All function parameters are implicitly immutable, unless marked `mut`.
 
 ```sync
-// num1 is immutable, and num2 is mutable
-fn printNumbers(num1: i32, mut num2: i32) {
-    print(num1);
-    print(num2);
-    num1 += 1; // COMPILE ERROR! Cannot mutate immutable variable
-    num2 += 1; // allowed.
-}
-
 fn main() {
     mut firstName: str = "timothy";
     const lastName: str = "jones";
@@ -209,6 +201,14 @@ fn main() {
 
     // COMPILER ERROR! lastName is marked const
     lastName = "tones";
+}
+
+// num1 is immutable, and num2 is mutable
+fn printNumbers(num1: i32, mut num2: i32) {
+    print(num1);
+    print(num2);
+    num1 += 1; // COMPILE ERROR! Cannot mutate immutable variable
+    num2 += 1; // allowed.
 }
 ```
 
@@ -1581,6 +1581,27 @@ struct Example {
 }
 ```
 
+### File As Structs
+
+All source code files are structs, similar to Zig.
+
+```sync
+// Player.sync
+
+pub health: f32
+```
+
+```sync
+// main.sync
+
+import("Player.sync") as Player;
+
+fn main() {
+    const p = Player{ .health = 10.0 };
+}
+
+```
+
 ## Functions
 
 All functions have the following syntax.
@@ -2163,6 +2184,25 @@ impl State {
 
 This applies to [Sum Types](#sum-types) as well.
 
+## Nested Types
+
+Both structs and enums are allowed to have types inside of them.
+
+```sync
+struct Player {
+    pub health: Health,
+
+    enum State {
+        Walking,
+        Running
+    }
+
+    struct Health {
+        pub value: f32
+    }
+}
+```
+
 ## Sum Types
 
 Sync support sum types. These types must be compatible with C, so they follow a strict memory layout. Like Rust, Sync uses the `enum` keyword for both C style enums, as well as tagged unions.
@@ -2194,9 +2234,9 @@ It is recommended to specify the size of the enum tag explicitly for FFI purpose
 
 ```sync
 enum State : i32 { // Explicitly use i32 as the tag representation
-    Walking
-    Running(speedMultiplier: f32)
-    Swimming(oxygenLeft: f32, onSurface: bool)
+    Walking,
+    Running(speedMultiplier: f32),
+    Swimming(oxygenLeft: f32, onSurface: bool),
     Jumping(gravity: f32, force: f32)
 }
 ```
@@ -2219,9 +2259,9 @@ You can also specify the discriminant of the sum type by assigning it a compile 
 
 ```sync
 enum State {
-    Walking = 5
-    Running(speedMultiplier: f32) = 6
-    Swimming(oxygenLeft: f32, onSurface: bool) = 7
+    Walking = 5,
+    Running(speedMultiplier: f32) = 6,
+    Swimming(oxygenLeft: f32, onSurface: bool) = 7,
     Jumping(gravity: f32, force: f32) = 8
 }
 ```
@@ -2348,7 +2388,9 @@ where @sizeOf(T) == 16 // maybe this is required for padding reasons
 
 ## Imports
 
-The `import` keyword can be used to import either modules, or files relative to the current one.
+In Sync, a file is a struct, so importing a file gives you access to the symbols inside.
+
+The `import` keyword can be used to import either relative file paths, or packages.
 
 ```sync
 // src/player.sync
@@ -2357,6 +2399,7 @@ pub struct Player {
     pub health: f32
 }
 
+// Enemy is not marked pub, so cannot access outside of this file.
 struct Enemy {
     damage: f32
 }
@@ -2364,7 +2407,7 @@ struct Enemy {
 
 ```sync
 // src/weapons/sword.sync
-import("../player.sync");
+import("../player.sync") as player;
 
 pub struct Sword {
     pub material: str,
@@ -2372,26 +2415,27 @@ pub struct Sword {
 }
 
 impl Sword {
-    pub fn hitPlayer(self: *mut Self, player: *mut Player) {
+    pub fn hitPlayer(self: *mut Self, player: *mut player.Player) {
         player.health -= 1;
         self.durability -= 1;
     }
 }
 ```
 
+`as` is ALWAYS required when importing a file or package directrly, but not required when importing a namespace (struct, enum, etc.). For importing a namespace directly, the identifier is automatically bound to that namespace within the scope where the import lives.
+
 ```sync
 // src/main.sync
 
 // import all pub symbols from `player.sync`.
-import("player.sync");
-// import only the `Sword` struct and all of it's methods.
+import("player.sync") as player;
+
+// import only the `Sword` struct and all of it's impl blocks across all files / packages that get compiled.
+// The identifier `Sword` is bound to sword.Sword in this scope.
 import("weapons/sword.sync").Sword;
 
 fn main() {
     mut player = Player{.health = 10};
-
-    // COMPILE ERROR! Enemy is not marked `pub` and thus wasn't imported
-    const enemy = Enemy{.damage = 5};
 
     mut sword = Sword{.material = "diamond", .durability = 100};
     sword.hitPlayer(&mut player);
@@ -2407,17 +2451,17 @@ CIRCULAR IMPORTS ARE OK!
 
 ```sync
 // src/player.sync
-import("weapons/sword.sync");
+import("weapons/sword.sync") as sword;
 
 pub struct Player {
     pub health: f32,
-    pub weapon: Sword,
+    pub weapon: sword.Sword,
 }
 ```
 
 ```sync
 // src/weapons/sword.sync
-import("../player.sync");
+import("../player.sync") as player;
 
 pub struct Sword {
     pub material: str,
@@ -2425,7 +2469,7 @@ pub struct Sword {
 }
 
 impl Sword {
-    pub fn hitPlayer(self: *mut Self, player: *mut Player) {
+    pub fn hitPlayer(self: *mut Self, player: *mut player.Player) {
         player.health -= 1;
         self.durability -= 1;
     }
@@ -2443,7 +2487,7 @@ There are two ways to re-export imported symbols. The first is through assigning
 
 // make a compile time global variable called `weapon` which contains all of the symbols in the import.
 // the compiler will correctly identify the real types, not these aliases.
-const weapon = import("weapons/sword.sync");
+import("weapons/sword.sync") as weapon;
 
 fn main() {
     const sword = weapon.Sword{.material = "iron", .durability = 50};
@@ -2478,7 +2522,7 @@ import("player.sync");
 
 fn main() {
     const player = Player{.health = 10};
-    const sword = Sword{.material = "wood", .durability = 15};
+    const sword = sword.Sword{.material = "wood", .durability = 15};
 }
 ```
 
