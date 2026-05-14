@@ -20,21 +20,20 @@ void* sy::detail::IBaseParserNode::operator new(size_t size, Allocator inAlloc) 
     return reinterpret_cast<void*>(actualSelf);
 }
 
-void sy::detail::IBaseParserNode::operator delete(void* self) noexcept {
+void sy::detail::IBaseParserNode::operator delete(void* self, size_t size) noexcept {
     if (self == nullptr)
         return;
     IBaseParserNode* actualSelf = reinterpret_cast<IBaseParserNode*>(self);
-    actualSelf->alloc_.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_,
-                                        PARSER_NODE_ALIGN);
+    actualSelf->alloc_.freeAlignedArray(actualSelf, size, PARSER_NODE_ALIGN);
 }
 
-void sy::detail::IBaseParserNode::operator delete(void* self, Allocator inAlloc) noexcept {
-    if (self == nullptr)
-        return;
-    IBaseParserNode* actualSelf = reinterpret_cast<IBaseParserNode*>(self);
-    inAlloc.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_,
-                             PARSER_NODE_ALIGN);
-}
+// void sy::detail::IBaseParserNode::operator delete(void* self, Allocator inAlloc) noexcept {
+//     if (self == nullptr)
+//         return;
+//     IBaseParserNode* actualSelf = reinterpret_cast<IBaseParserNode*>(self);
+//     inAlloc.freeAlignedArray(reinterpret_cast<uint8_t*>(self), actualSelf->size_,
+//                              PARSER_NODE_ALIGN);
+// }
 
 Result<Option<IFunctionStatement*>, ProgramError>
 IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* variables,

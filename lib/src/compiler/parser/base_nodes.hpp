@@ -18,7 +18,7 @@ struct InterpreterFunctionScriptInfo;
 namespace detail {
 class IBaseParserNode {
   public:
-    IBaseParserNode(Allocator inAlloc) noexcept : alloc_(inAlloc) {}
+    IBaseParserNode(Allocator inAlloc) noexcept : size_(0), alloc_(inAlloc) {}
 
     virtual ~IBaseParserNode() noexcept {}
 
@@ -28,9 +28,9 @@ class IBaseParserNode {
 
     static void* operator new(size_t size, Allocator inAlloc) noexcept;
 
-    static void operator delete(void* self) noexcept;
+    static void operator delete(void* self, size_t size) noexcept;
 
-    static void operator delete(void* self, Allocator inAlloc) noexcept;
+    // static void operator delete(void* self, Allocator inAlloc) noexcept;
 
   private:
     /// Stupid. Necessary to make operator delete work properly with allocators.
@@ -47,10 +47,12 @@ class IFunctionStatement : public detail::IBaseParserNode {
     static Result<Option<IFunctionStatement*>, ProgramError>
     parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* variables, Scope* currentScope);
 
-    virtual Result<void, ProgramError> init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+    virtual Result<void, ProgramError> init(ParseInfo* parseInfo,
+                                            DynArray<StackVariable>* variables,
                                             Scope* currentScope) noexcept = 0;
 
-    virtual Result<void, ProgramError> compileStatement(FunctionBuilder* builder) const noexcept = 0;
+    virtual Result<void, ProgramError>
+    compileStatement(FunctionBuilder* builder) const noexcept = 0;
 };
 
 /// Handles the functions themselves, which own a bunch of `IFunctionLogicNode`
