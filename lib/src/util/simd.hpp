@@ -19,9 +19,42 @@ constexpr size_t SUGGESTED_SIMD_WIDTH = 32;
 constexpr size_t SUGGESTED_SIMD_WIDTH = 16;
 #elif defined(__ARM_NEON__)
 constexpr size_t SUGGESTED_SIMD_WIDTH = 16;
+#elif defined(__wasm_simd128__)
+constexpr size_t SUGGESTED_SIMD_WIDTH = 16;
 #else
 constexpr size_t SUGGESTED_SIMD_WIDTH = alignof(uint64_t);
 #endif
+
+namespace sy {
+namespace internal {
+/// Detects x86-64-v2: SSE3 / SSSE3 / SSE4.1 / SSE4.2 / POPCNT.
+bool cpuHasSSE42() noexcept;
+
+/// Detects x86-64-v3: AVX / AVX2 / BMI1 / BMI2 / FMA / LZCNT / MOVBE / F16.
+/// Will also return `false` if `cpuHasSSE42() == false`.
+bool cpuHasAVX2() noexcept;
+
+/// Detects // x86-64-v4: AVX-512F + BW + CD + DQ + VL.
+/// Will also return `false` if `cpuHasSSE42() == false`.
+/// Will also return `false` if `cpuHasAVX2() == false`.
+bool cpuHasAVX512BW() noexcept;
+
+/// NEON is mandatory on AArch64, but Scalable Vector Extension is not always supported.
+bool cpuHasSVE() noexcept;
+
+/// RISC-V vector extension (RVV 1.0).
+bool cpuHasRVV() noexcept;
+
+// NOTE: wasm simd is compile time detected with `__wasm_simd128__`.
+constexpr bool cpuHasWasmSIMD() {
+#if defined(__wasm_simd128__)
+    return true;
+#else
+    return false;
+#endif
+}
+} // namespace internal
+} // namespace sy
 
 namespace simd_detail {
 std::optional<uint32_t> countTrailingZeroes32(uint32_t mask);
@@ -33,7 +66,8 @@ std::optional<uint32_t> firstZeroIndex8x16(const uint8_t* alignedPtr);
 
 template <int Width> class SimdMask final {
   public:
-    using integer_t = std::conditional_t<Width == 16, uint16_t, std::conditional_t<Width == 32, uint32_t, uint64_t>>;
+    using integer_t = std::conditional_t<Width == 16, uint16_t,
+                                         std::conditional_t<Width == 32, uint32_t, uint64_t>>;
 
     integer_t mask;
 
@@ -104,7 +138,8 @@ bool equalBytes8x64(const uint8_t* lhs, const uint8_t* rhs);
 
 template <int Width> class alignas(Width) ByteSimd final {
   public:
-    static_assert(Width == 16 || Width == 32 || Width == 64, "Byte simd width must be 16, 32, or 64");
+    static_assert(Width == 16 || Width == 32 || Width == 64,
+                  "Byte simd width must be 16, 32, or 64");
 
     uint8_t bytes[Width]{};
 

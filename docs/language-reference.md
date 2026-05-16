@@ -177,6 +177,7 @@ Struct literals follow the format of `StructName{.member1 = value1, .member2 = v
 | pub | Allow access of the symbol outside of the file it is declared in |
 | return | Return a non-error value from a function to the caller |
 | Self | The primary type in an `impl` block |
+| self | The self object in an `impl` block |
 | struct | Defines a structure in the C structure layout |
 | switch | Match on values or enum variants |
 | sync | Lock one or more thread-safe objects shared across thread boundaries |

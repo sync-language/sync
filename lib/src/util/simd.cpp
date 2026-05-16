@@ -20,7 +20,95 @@
 #include <arm_neon.h>
 #endif
 
-#define assert_aligned(ptr, alignment) sy_assert((((uintptr_t)ptr) % alignment == 0), "Pointer not properly aligned");
+#if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
+#include <intrin.h>
+#endif
+
+bool sy::internal::cpuHasSSE42() noexcept {
+    static const bool has = []() -> bool {
+#if defined(_WIN32) || defined(WIN32)
+        return IsProcessorFeaturePresent(PF_SSE4_2_INSTRUCTIONS_AVAILABLE) != FALSE;
+#elif defined(__GNUC__) || defined(__clang__)
+        __builtin_cpu_init();
+        return __builtin_cpu_supports("sse4.2") != 0;
+#else
+        return false;
+#endif
+    }();
+    return has;
+}
+
+bool sy::internal::cpuHasAVX2() noexcept {
+    static const bool has = []() -> bool {
+        if (!cpuHasSSE42()) {
+            return false; // tiering
+        }
+#if defined(_WIN32) || defined(WIN32)
+        return IsProcessorFeaturePresent(PF_AVX2_INSTRUCTIONS_AVAILABLE) != FALSE;
+#elif defined(__GNUC__) || defined(__clang__)
+        __builtin_cpu_init();
+        return __builtin_cpu_supports("avx2") != 0;
+#else
+        return false;
+#endif
+    }();
+    return has;
+}
+
+bool sy::internal::cpuHasAVX512BW() noexcept {
+    static const bool has = []() -> bool {
+        if (!cpuHasSSE42()) {
+            return false; // tiering
+        }
+        if (!cpuHasAVX2()) {
+            return false; // tiering
+        }
+#if defined(_WIN32) || defined(WIN32)
+        // Gate on F: this validates the OS XSAVE-state check (ZMM regs) for free.
+        // Then read CPUID.(EAX=7,ECX=0):EBX[30] for the BW bit.
+        if (IsProcessorFeaturePresent(PF_AVX512F_INSTRUCTIONS_AVAILABLE) == FALSE)
+            return false;
+#if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
+        int info[4];
+        __cpuidex(info, 7, 0);
+        return (info[1] & (1 << 30)) != 0;
+#else
+        return false;
+#endif
+#elif defined(__GNUC__) || defined(__clang__)
+        __builtin_cpu_init();
+        return __builtin_cpu_supports("avx512bw") != 0;
+#else
+        return false;
+#endif
+    }();
+    return has;
+}
+
+bool sy::internal::cpuHasSVE() noexcept {
+    static const bool has = []() -> bool {
+#if (defined(_WIN32) || defined(WIN32)) && defined(_M_ARM64) &&                                    \
+    defined(PF_ARM_SVE_INSTRUCTIONS_AVAILABLE)
+        return IsProcessorFeaturePresent(PF_ARM_SVE_INSTRUCTIONS_AVAILABLE) != FALSE;
+#elif defined(__ARM_FEATURE_SVE)
+        return true; // compiled with SVE enabled
+#else
+        return false;
+#endif
+    }();
+    return has;
+}
+
+bool sy::internal::cpuHasRVV() noexcept {
+#if defined(__riscv_v) || defined(__riscv_vector)
+    return true;
+#else
+    return false;
+#endif
+}
+
+#define assert_aligned(ptr, alignment)                                                             \
+    sy_assert((((uintptr_t)ptr) % alignment == 0), "Pointer not properly aligned");
 
 std::optional<uint32_t> simd_detail::countTrailingZeroes32(uint32_t mask) {
 #if defined(_WIN32) || defined(WIN32)
@@ -183,7 +271,8 @@ static bool equalBytes8x64AVX512(const uint8_t* lhs, const uint8_t* rhs) {
 SimdMask<64> simd_detail::equalMask8x64(const uint8_t* alignedPtr, uint8_t value) {
     assert_aligned(alignedPtr, 64);
 
-#if defined(__AVX2__) // not every x86_64 cpu supports AVX512F so we use this questionable workaround
+#if defined(__AVX2__) // not every x86_64 cpu supports AVX512F so we use this questionable
+                      // workaround
     using FuncT = SimdMask<64> (*)(const uint8_t*, uint8_t);
     static const FuncT func = []() {
         if (is_avx512f_supported()) {
@@ -356,7 +445,8 @@ TEST_SUITE("simd mask") {
             CHECK_EQ(i, 32);
         }
         { // 64
-            SimdMask<64> self(0b0101010101010101010101010101010101010101010101010101010101010101ULL);
+            SimdMask<64> self(
+                0b0101010101010101010101010101010101010101010101010101010101010101ULL);
             uint32_t i = 0;
             for (uint32_t index : self) {
                 CHECK_EQ(index, i);

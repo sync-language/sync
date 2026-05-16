@@ -30,7 +30,7 @@ class IBaseParserNode {
 
     static void operator delete(void* self, size_t size) noexcept;
 
-    // static void operator delete(void* self, Allocator inAlloc) noexcept;
+    static void operator delete(void* self, Allocator inAlloc) noexcept;
 
   private:
     /// Stupid. Necessary to make operator delete work properly with allocators.
