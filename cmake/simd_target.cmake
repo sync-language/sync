@@ -6,7 +6,7 @@
 # - SSE42 (x86_64 SSE4.2)
 # - AVX2 (x86_64 AVX2)
 # - AVX512 (x86_64 AVX512F and AVX512BW)
-# - SVE (AArch64 )
+# - SVE (AArch64 Scalable Vector Extension)
 # - RVV (RISC-V64 RVV 1.0)
 # - WASM_SIMD (WASM 128-bit SIMD)
 #

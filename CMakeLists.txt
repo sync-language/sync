@@ -49,7 +49,15 @@ set(SYNC_LIB_SOURCES
     "lib/src/core/core.c"
     "lib/src/core/builtin_functions/sort.cpp"
     "lib/src/core/builtin_traits/iterator.cpp"
-    "lib/src/util/simd.cpp"
+    "lib/src/simd/simd.cpp"
+    "lib/src/simd/simd_sse2.cpp"
+    "lib/src/simd/simd_sse42.cpp"
+    "lib/src/simd/simd_avx2.cpp"
+    "lib/src/simd/simd_avx512.cpp"
+    "lib/src/simd/simd_neon.cpp"
+    "lib/src/simd/simd_sve.cpp"
+    "lib/src/simd/simd_rvv.cpp"
+    "lib/src/simd/simd_wasm.cpp"
     "lib/src/mem/allocator.cpp"
     "lib/src/mem/os_mem.cpp"
     "lib/src/mem/protected_allocator.cpp"
@@ -207,6 +215,29 @@ unset(_sync_simd_feat)
 # are required by their respective ISAs.
 # Have this here for explicitness.
 add_simd_flags_to_target(sync OFF OFF OFF OFF OFF OFF)
+
+# x86_64 SIMD tiering. Assumes AVX512 also supports AVX2, and AVX2 also supports SSE4.2
+if(NOT ${SYNC_NO_SSE42})
+    add_simd_flags_to_file("lib/src/simd/simd_sse42.cpp" ON OFF OFF OFF OFF OFF)
+endif()
+if(NOT ${SYNC_NO_AVX2})
+    add_simd_flags_to_file("lib/src/simd/simd_avx2.cpp" ON ON OFF OFF OFF OFF)
+endif()
+if(NOT ${SYNC_NO_AVX512})
+    add_simd_flags_to_file("lib/src/simd/simd_avx2.cpp" ON ON ON OFF OFF OFF)
+endif()
+
+if(NOT ${SYNC_NO_SVE})
+    add_simd_flags_to_file("lib/src/simd/simd_sve.cpp" OFF OFF OFF ON OFF OFF)
+endif()
+
+if(NOT ${SYNC_NO_RVV})
+    add_simd_flags_to_file("lib/src/simd/simd_sve.cpp" OFF OFF OFF OFF ON OFF)
+endif()
+
+if(NOT ${SYNC_NO_WASM_SIMD})
+    add_simd_flags_to_file("lib/src/simd/simd_sve.cpp" OFF OFF OFF OFF OFF ON)
+endif()
 
 if(EMSCRIPTEN)
     message(STATUS "Enabling pthread support for Emscripten")
