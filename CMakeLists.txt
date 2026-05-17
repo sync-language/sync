@@ -23,12 +23,19 @@ option(SYNC_LIB_CODE_COVERAGE "Enable code coverage" OFF)
 option(SYNC_LIB_ASAN "Use compiler specific address sanitizing" OFF)
 option(SYNC_LIB_TSAN "Use compiler specific thread sanitizing" OFF)
 option(SYNC_NO_PAGES "Do not support direct virtual memory function access" OFF)
-option(SYNC_NO_AVX2 "Explicitly disable AVX2 usage" ON)
-option(SYNC_NO_AVX512 "Explicitly disable AVX512 usage" ON)
-option(SYNC_WASM_USE_SIMD "Use Fixed-width SIMD on WASM" OFF)
-option(SYNC_NO_RVV "Explicitly disable riscv64 RVV" OFF)
 option(SYNC_NO_FILESYSTEM "Disable file system access" OFF)
 option(SYNC_NO_SAFETY_CHECKS "Disable all safety checks" OFF)
+
+# SIMD opt-outs. Detects if the build machine can even compile for that SIMD target,
+# even if the build machine itself cannot run it (for instance limited AVX512 support).
+# All default to OFF by default, except WASM SIMD, which is disabled by default.
+# Set any to ON to forcefully prevent even runtime CPU detection for dynamic SIMD dispatch.
+option(SYNC_NO_SSE42 "Explicitly disable x86_64 SSE4.2 paths" OFF)
+option(SYNC_NO_AVX2 "Explicitly disable x86_64 AVX2 paths" OFF)
+option(SYNC_NO_AVX512 "Explicitly disable x86_64 AVX512 paths" OFF)
+option(SYNC_NO_SVE "Explicitly disable arm64 SVE paths" OFF)
+option(SYNC_NO_RVV "Explicitly disable riscv64 RVV paths" OFF)
+option(SYNC_NO_WASM_SIMD "Explicitly disable WASM SIMD" ON)
 
 # Overriding core functionality. See docs/core_requirements.md
 option(SYNC_CUSTOM_ALIGNED_MALLOC_FREE "Provide and link your own custom implementation of basic memory allocation operations" OFF)
@@ -185,7 +192,21 @@ if(SYNC_LIB_CODE_COVERAGE)
 endif()
 
 include(cmake/simd_target.cmake)
-add_simd_flags_to_target(sync SYNC_NO_AVX2 SYNC_NO_AVX512 SYNC_WASM_USE_SIMD SYNC_NO_RVV)
+# Propagate "this tier is not in the binary" to source code as SYNC_NO_<X>.
+# Read SYNC_BUILD_<X> (the merged verdict) rather than SYNC_NO_<X> (pure user
+# input) — the former captures both user opt-out and toolchain incapability.
+foreach(_sync_simd_feat SSE42 AVX2 AVX512 SVE RVV WASM_SIMD)
+    if(NOT SYNC_BUILD_${_sync_simd_feat})
+        target_compile_definitions(sync PRIVATE SYNC_NO_${_sync_simd_feat}=1)
+    endif()
+endforeach()
+unset(_sync_simd_feat)
+
+# The whole target itself shouldn't emit any specialized instructions.
+# Base SSE2 and NEON are ok though and not handled here, as they
+# are required by their respective ISAs.
+# Have this here for explicitness.
+add_simd_flags_to_target(sync OFF OFF OFF OFF OFF OFF)
 
 if(EMSCRIPTEN)
     message(STATUS "Enabling pthread support for Emscripten")

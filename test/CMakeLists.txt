@@ -57,7 +57,7 @@ function(add_sync_test_flags TEST_NAME ENABLE_ASAN ENABLE_TSAN)
         target_compile_definitions(${TEST_NAME} PRIVATE SYNC_LIB_CODE_COVERAGE=1)
     endif()
 
-    add_simd_flags_to_target(sync SYNC_NO_AVX2 SYNC_NO_AVX512 SYNC_WASM_USE_SIMD SYNC_NO_RVV)
+    add_simd_flags_to_target(sync OFF OFF OFF OFF OFF OFF)
 
     if(EMSCRIPTEN)
         target_compile_options(${TEST_NAME} PRIVATE -pthread)
