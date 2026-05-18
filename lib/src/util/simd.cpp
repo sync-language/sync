@@ -24,6 +24,7 @@
 #include <intrin.h>
 #endif
 
+#if defined(__x86_64__) || defined(_M_X64)
 bool sy::internal::cpuHasSSE42() noexcept {
     static const bool has = []() -> bool {
 #if defined(_WIN32) || defined(WIN32)
@@ -84,6 +85,7 @@ bool sy::internal::cpuHasAVX512BW() noexcept {
     }();
     return has;
 }
+#endif
 
 bool sy::internal::cpuHasSVE() noexcept {
     static const bool has = []() -> bool {

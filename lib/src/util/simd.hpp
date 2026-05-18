@@ -27,6 +27,7 @@ constexpr size_t SUGGESTED_SIMD_WIDTH = alignof(uint64_t);
 
 namespace sy {
 namespace internal {
+#if defined(__x86_64__) || defined(_M_X64)
 /// Detects x86-64-v2: SSE3 / SSSE3 / SSE4.1 / SSE4.2 / POPCNT.
 bool cpuHasSSE42() noexcept;
 
@@ -38,6 +39,7 @@ bool cpuHasAVX2() noexcept;
 /// Will also return `false` if `cpuHasSSE42() == false`.
 /// Will also return `false` if `cpuHasAVX2() == false`.
 bool cpuHasAVX512BW() noexcept;
+#endif
 
 /// NEON is mandatory on AArch64, but Scalable Vector Extension is not always supported.
 bool cpuHasSVE() noexcept;

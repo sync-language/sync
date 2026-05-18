@@ -2,6 +2,7 @@
 // scalar way when necessary.
 
 #include "simd.hpp"
+#include <bit>
 
 #if defined(_WIN32) || defined(WIN32)
 
@@ -26,6 +27,7 @@
 #include <intrin.h>
 #endif
 
+#if defined(__x86_64__) || defined(_M_X64)
 bool sy::internal::cpuHasSSE42() noexcept {
     static const bool has = []() -> bool {
 #if defined(_WIN32) || defined(WIN32)
@@ -89,7 +91,9 @@ bool sy::internal::cpuHasAVX512BW() noexcept {
     }();
     return has;
 }
+#endif
 
+#if defined(__aarch64__) || defined(_M_ARM64)
 bool sy::internal::cpuHasSVE() noexcept {
     static const bool has = []() -> bool {
 #if (defined(_WIN32) || defined(WIN32)) && defined(_M_ARM64) &&                                    \
@@ -103,7 +107,9 @@ bool sy::internal::cpuHasSVE() noexcept {
     }();
     return has;
 }
+#endif
 
+#if defined(__riscv) && (__riscv_xlen == 64)
 bool sy::internal::cpuHasRVV() noexcept {
 #if defined(__riscv_v) || defined(__riscv_vector)
     return true;
@@ -111,6 +117,7 @@ bool sy::internal::cpuHasRVV() noexcept {
     return false;
 #endif
 }
+#endif
 
 #if !defined(__wasm__)
 #if !defined(__x86_64__) && !defined(_M_X64) && !defined(__aarch64__) && !defined(_M_ARM64) &&     \
@@ -136,5 +143,40 @@ bool equalBytes8x16(const uint8_t* lhs, const uint8_t* rhs) noexcept {
     const uint64_t* ra = reinterpret_cast<const uint64_t*>(rhs);
     return ((la[0] ^ ra[0]) | (la[1] ^ ra[1])) == 0;
 }
+
+sy::internal::SimdMask16 sy::internal::matchBytesMask(const uint8_t* mem, uint8_t value) noexcept {
+    assert_aligned(mem, 16);
+    uint16_t out = 0;
+    for (uint8_t i = 0; i < 16; ++i) {
+        if (mem[i] == value) {
+            out |= static_cast<uint16_t>(1U << i);
+        }
+    }
+    return SimdMask16{out};
+}
 #endif // not x64 or arm64
 #endif // not wasm
+
+uint32_t sy::internal::SimdMask16::count() const noexcept {
+    return static_cast<uint32_t>(std::popcount(this->mask));
+}
+
+sy::Option<uint8_t> sy::internal::SimdMask16::first() const noexcept {
+    if (this->mask == 0) {
+        return {};
+    }
+    return static_cast<uint8_t>(std::countr_zero(this->mask));
+}
+
+bool sy::internal::SimdMask16::Iterator::operator!=(const Iterator& other) const noexcept {
+    return this->data != other.data;
+}
+
+uint32_t sy::internal::SimdMask16::Iterator::operator*() const noexcept {
+    return static_cast<uint32_t>(std::countr_zero(this->data));
+}
+
+sy::internal::SimdMask16::Iterator& sy::internal::SimdMask16::Iterator::operator++() noexcept {
+    this->data &= static_cast<uint16_t>(this->data - 1);
+    return *this;
+}

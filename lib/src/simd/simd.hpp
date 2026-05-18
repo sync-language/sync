@@ -7,6 +7,7 @@
 
 namespace sy {
 namespace internal {
+#if defined(__x86_64__) || defined(_M_X64)
 /// Detects x86-64-v2: SSE3 / SSSE3 / SSE4.1 / SSE4.2 / POPCNT.
 bool cpuHasSSE42() noexcept;
 
@@ -19,13 +20,19 @@ bool cpuHasAVX2() noexcept;
 /// Will also return `false` if `cpuHasAVX2() == false`.
 /// TODO VBMI VBMI2?
 bool cpuHasAVX512BW() noexcept;
+#endif
 
+#if defined(__aarch64__) || defined(_M_ARM64)
 /// NEON is mandatory on AArch64, but Scalable Vector Extension is not always supported.
 bool cpuHasSVE() noexcept;
+#endif
 
+#if defined(__riscv) && (__riscv_xlen == 64)
 /// RISC-V vector extension (RVV 1.0).
 bool cpuHasRVV() noexcept;
+#endif
 
+#if defined(__wasm__)
 // NOTE: wasm simd is compile time detected with `__wasm_simd128__`.
 constexpr bool cpuHasWasmSIMD() {
 #if defined(SYNC_NO_WASM_SIMD)
@@ -36,9 +43,10 @@ constexpr bool cpuHasWasmSIMD() {
     return false;
 #endif
 }
+#endif
 
 #define assert_aligned(ptr, alignment)                                                             \
-    sy_assert((((uintptr_t)ptr) % alignment == 0), "Pointer not properly aligned");
+    sy_assert((((uintptr_t)(ptr)) % (alignment) == 0), "Pointer not properly aligned");
 
 /// Finds the index of the first zero byte
 /// @param mem 16 byte aligned memory buffer to check.
@@ -59,7 +67,26 @@ bool equalBytes8x16(const uint8_t* lhs, const uint8_t* rhs) noexcept;
 struct SimdMask16 {
     uint16_t mask;
 
-    // TODO iterator
+    /// Number of bytes that matched.
+    uint32_t count() const noexcept;
+
+    /// Index of the first matching byte, or none if no bytes matched.
+    Option<uint8_t> first() const noexcept;
+
+    struct Iterator {
+        bool operator!=(const Iterator& other) const noexcept;
+        uint32_t operator*() const noexcept;
+        Iterator& operator++() noexcept;
+
+      private:
+        friend struct SimdMask16;
+        Iterator(uint16_t inData) noexcept : data(inData) {}
+        uint16_t data;
+    };
+
+    Iterator begin() const noexcept { return Iterator(mask); }
+
+    Iterator end() const noexcept { return Iterator(0); }
 };
 
 /// Get a mask for every entry in the 16 bytes of `mem` that are equal to `value`.

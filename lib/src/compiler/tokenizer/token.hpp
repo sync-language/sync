@@ -263,6 +263,7 @@ class TokenStore {
         char* data = nullptr;
         size_t len = 0;
         size_t capacity = 0;
+        size_t align = 0;
     };
 
     TokenStore(Allocator alloc) : alloc_(alloc) {}
@@ -271,6 +272,8 @@ class TokenStore {
 
     static Result<SimdAllocatedSource, AllocErr>
     allocatedSimdPaddedSource(Allocator alloc, size_t sourceLen) noexcept;
+
+    void freeData() noexcept;
 
     sy::Allocator alloc_;
     SimdAllocatedSource source_{};
@@ -281,7 +284,7 @@ class TokenStore {
     size_t tokensLen_ = 0;
     size_t tokensCapacity_ = 0;
     /// Which byte position a new line occurred. Used for binary search.
-    DynArray<size_t> newLineBytes{};
+    DynArray<size_t> newLineBytes_{};
 };
 
 } // namespace sy

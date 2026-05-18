@@ -25,6 +25,28 @@ bool sy::internal::equalBytes8x16(const uint8_t* lhs, const uint8_t* rhs) noexce
     }
 }
 
+sy::internal::SimdMask16 sy::internal::matchBytesMask(const uint8_t* mem, uint8_t value) noexcept {
+    assert_aligned(mem, 16);
+
+    if constexpr (cpuHasWasmSIMD()) {
+#if defined(__wasm_simd128__)
+        const v128_t v = wasm_v128_load(mem);
+        const v128_t needle = wasm_i8x16_splat(static_cast<int8_t>(value));
+        const v128_t eq = wasm_i8x16_eq(v, needle);
+        const uint16_t mask = static_cast<uint16_t>(wasm_i8x16_bitmask(eq));
+        return SimdMask16{mask};
+#endif
+    } else {
+        uint16_t out = 0;
+        for (uint8_t i = 0; i < 16; ++i) {
+            if (mem[i] == value) {
+                out |= static_cast<uint16_t>(1U << i);
+            }
+        }
+        return SimdMask16{out};
+    }
+}
+
 sy::Option<uint8_t> sy::internal::firstZeroIndex8x16(const uint8_t* mem) noexcept {
     assert_aligned(mem, 16);
 

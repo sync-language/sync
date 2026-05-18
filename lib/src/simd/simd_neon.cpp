@@ -20,6 +20,20 @@ bool sy::internal::equalBytes8x16(const uint8_t* lhs, const uint8_t* rhs) noexce
     return vminvq_u8(eq) == 0xFF;
 }
 
+sy::internal::SimdMask16 sy::internal::matchBytesMask(const uint8_t* mem, uint8_t value) noexcept {
+    assert_aligned(mem, 16);
+    const uint8x16_t v = vld1q_u8(mem);
+    const uint8x16_t eq = vceqq_u8(v, vdupq_n_u8(value));
+    // Powers of two, using each bit which will get compressed down later.
+    alignas(16) static constexpr uint8_t kBits[16] = {1, 2, 4, 8, 16, 32, 64, 128,
+                                                      1, 2, 4, 8, 16, 32, 64, 128};
+    const uint8x16_t bits = vld1q_u8(kBits);
+    const uint8x16_t masked = vandq_u8(eq, bits);
+    const uint16_t lo = vaddv_u8(vget_low_u8(masked));
+    const uint16_t hi = vaddv_u8(vget_high_u8(masked));
+    return SimdMask16{static_cast<uint16_t>(lo | (hi << 8))};
+}
+
 sy::Option<uint8_t> sy::internal::firstZeroIndex8x16(const uint8_t* mem) noexcept {
     assert_aligned(mem, 16);
     const uint8x16_t v = vld1q_u8(mem);
@@ -31,7 +45,7 @@ sy::Option<uint8_t> sy::internal::firstZeroIndex8x16(const uint8_t* mem) noexcep
     const uint64_t mask =
         vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(eq), 4)), 0);
     if (mask == 0) {
-        return std::nullopt;
+        return {};
     }
 #if defined(_MSC_VER)
     unsigned long idx;

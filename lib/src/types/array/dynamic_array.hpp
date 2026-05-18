@@ -28,14 +28,15 @@ class SY_API RawDynArrayUnmanaged final {
 
     RawDynArrayUnmanaged& operator=(RawDynArrayUnmanaged&& other) = delete;
 
-    void moveAssign(RawDynArrayUnmanaged&& other, void (*destruct)(void* ptr), Allocator& alloc, size_t size,
-                    size_t align) noexcept;
+    void moveAssign(RawDynArrayUnmanaged&& other, void (*destruct)(void* ptr), Allocator& alloc,
+                    size_t size, size_t align) noexcept;
 
     RawDynArrayUnmanaged(const RawDynArrayUnmanaged& other) = delete;
 
     [[nodiscard]] static Result<RawDynArrayUnmanaged, AllocErr>
     copyConstruct(const RawDynArrayUnmanaged& other, Allocator alloc,
-                  void (*copyConstructFn)(void* dst, const void* src), size_t size, size_t align) noexcept;
+                  void (*copyConstructFn)(void* dst, const void* src), size_t size,
+                  size_t align) noexcept;
 
     // TODO script types copy
     // [[nodiscard]] static AllocExpect<RawDynArrayUnmanaged> copyConstructScript(
@@ -46,10 +47,10 @@ class SY_API RawDynArrayUnmanaged final {
 
     RawDynArrayUnmanaged& operator=(const RawDynArrayUnmanaged& other) = delete;
 
-    [[nodiscard]] Result<void, AllocErr> copyAssign(const RawDynArrayUnmanaged& other, Allocator& alloc,
-                                                    void (*destruct)(void* ptr),
-                                                    void (*copyConstructFn)(void* dst, const void* src), size_t size,
-                                                    size_t align) noexcept;
+    [[nodiscard]] Result<void, AllocErr>
+    copyAssign(const RawDynArrayUnmanaged& other, Allocator& alloc, void (*destruct)(void* ptr),
+               void (*copyConstructFn)(void* dst, const void* src), size_t size,
+               size_t align) noexcept;
 
     // TODO script types copy
     // [[nodiscard]] AllocExpect<void> copyAssignScript(
@@ -68,30 +69,35 @@ class SY_API RawDynArrayUnmanaged final {
 
     [[nodiscard]] void* data() { return this->data_; }
 
-    [[nodiscard]] Result<void, AllocErr> push(void* element, Allocator& alloc, size_t size, size_t align) noexcept;
+    [[nodiscard]] Result<void, AllocErr> push(void* element, Allocator& alloc, size_t size,
+                                              size_t align) noexcept;
 
-    [[nodiscard]] Result<void, AllocErr> pushCustomMove(void* element, Allocator& alloc, size_t size, size_t align,
-                                                        void (*moveConstructFn)(void* dst, void* src)) noexcept;
+    [[nodiscard]] Result<void, AllocErr>
+    pushCustomMove(void* element, Allocator& alloc, size_t size, size_t align,
+                   void (*moveConstructFn)(void* dst, void* src)) noexcept;
 
-    [[nodiscard]] Result<void, AllocErr> pushScript(void* element, Allocator& alloc, const Type* typeInfo) noexcept;
+    [[nodiscard]] Result<void, AllocErr> pushScript(void* element, Allocator& alloc,
+                                                    const Type* typeInfo) noexcept;
 
-    [[nodiscard]] Result<void, AllocErr> pushFront(void* element, Allocator& alloc, size_t size, size_t align) noexcept;
+    [[nodiscard]] Result<void, AllocErr> pushFront(void* element, Allocator& alloc, size_t size,
+                                                   size_t align) noexcept;
 
-    [[nodiscard]] Result<void, AllocErr> pushFrontCustomMove(void* element, Allocator& alloc, size_t size, size_t align,
-                                                             void (*moveConstructFn)(void* dst, void* src)) noexcept;
+    [[nodiscard]] Result<void, AllocErr>
+    pushFrontCustomMove(void* element, Allocator& alloc, size_t size, size_t align,
+                        void (*moveConstructFn)(void* dst, void* src)) noexcept;
 
     [[nodiscard]] Result<void, AllocErr> pushFrontScript(void* element, Allocator& alloc,
                                                          const Type* typeInfo) noexcept;
 
-    [[nodiscard]] Result<void, AllocErr> insertAt(void* element, Allocator& alloc, size_t index, size_t size,
-                                                  size_t align) noexcept;
+    [[nodiscard]] Result<void, AllocErr> insertAt(void* element, Allocator& alloc, size_t index,
+                                                  size_t size, size_t align) noexcept;
 
-    [[nodiscard]] Result<void, AllocErr> insertAtCustomMove(void* element, Allocator& alloc, size_t index, size_t size,
-                                                            size_t align,
-                                                            void (*moveConstructFn)(void* dst, void* src)) noexcept;
+    [[nodiscard]] Result<void, AllocErr>
+    insertAtCustomMove(void* element, Allocator& alloc, size_t index, size_t size, size_t align,
+                       void (*moveConstructFn)(void* dst, void* src)) noexcept;
 
-    [[nodiscard]] Result<void, AllocErr> insertAtScript(void* element, Allocator& alloc, size_t index,
-                                                        const Type* typeInfo) noexcept;
+    [[nodiscard]] Result<void, AllocErr>
+    insertAtScript(void* element, Allocator& alloc, size_t index, const Type* typeInfo) noexcept;
 
     void removeAt(size_t index, void (*destruct)(void* ptr), size_t size) noexcept;
 
@@ -215,12 +221,13 @@ template <typename T> class DynArrayUnmanaged final {
 
     DynArrayUnmanaged(const DynArrayUnmanaged& other) = delete;
 
-    [[nodiscard]] static Result<DynArrayUnmanaged, AllocErr> copyConstruct(const DynArrayUnmanaged& other,
-                                                                           Allocator alloc) noexcept;
+    [[nodiscard]] static Result<DynArrayUnmanaged, AllocErr>
+    copyConstruct(const DynArrayUnmanaged& other, Allocator alloc) noexcept;
 
     DynArrayUnmanaged& operator=(const DynArrayUnmanaged& other) = delete;
 
-    [[nodiscard]] Result<void, AllocErr> copyAssign(const DynArrayUnmanaged& other, Allocator& alloc) noexcept;
+    [[nodiscard]] Result<void, AllocErr> copyAssign(const DynArrayUnmanaged& other,
+                                                    Allocator& alloc) noexcept;
 
     [[nodiscard]] size_t len() const { return this->inner_.len(); }
 
@@ -244,9 +251,11 @@ template <typename T> class DynArrayUnmanaged final {
 
     [[nodiscard]] Result<void, AllocErr> pushFront(const T& element, Allocator& alloc) noexcept;
 
-    [[nodiscard]] Result<void, AllocErr> insertAt(T&& element, Allocator& alloc, size_t index) noexcept;
+    [[nodiscard]] Result<void, AllocErr> insertAt(T&& element, Allocator& alloc,
+                                                  size_t index) noexcept;
 
-    [[nodiscard]] Result<void, AllocErr> insertAt(const T& element, Allocator& alloc, size_t index) noexcept;
+    [[nodiscard]] Result<void, AllocErr> insertAt(const T& element, Allocator& alloc,
+                                                  size_t index) noexcept;
 
     void removeAt(size_t index) noexcept;
 
@@ -324,7 +333,9 @@ template <typename T> class DynArrayUnmanaged final {
         ReverseConstIterator(RawDynArrayUnmanaged::ReverseConstIterator in) : iter(in) {}
 
       public:
-        bool operator!=(const ReverseConstIterator& other) noexcept { return this->iter != other.iter; }
+        bool operator!=(const ReverseConstIterator& other) noexcept {
+            return this->iter != other.iter;
+        }
         const T& operator*() const noexcept { return *reinterpret_cast<const T*>(*iter); }
         ReverseConstIterator& operator++() noexcept {
             ++(this->iter);
@@ -336,9 +347,13 @@ template <typename T> class DynArrayUnmanaged final {
         };
     };
 
-    ReverseConstIterator rbegin() const noexcept { return ReverseConstIterator{this->inner_.rbegin(sizeof(T))}; }
+    ReverseConstIterator rbegin() const noexcept {
+        return ReverseConstIterator{this->inner_.rbegin(sizeof(T))};
+    }
 
-    ReverseConstIterator rend() const noexcept { return ReverseConstIterator{this->inner_.rend(sizeof(T))}; }
+    ReverseConstIterator rend() const noexcept {
+        return ReverseConstIterator{this->inner_.rend(sizeof(T))};
+    }
 
   private:
     constexpr static detail::DestructFn elementDestruct = detail::makeDestructor<T>();
@@ -417,7 +432,8 @@ template <typename T> class DynArray final {
     ReverseConstIterator rend() const noexcept { return this->inner_.rend(); }
 
   private:
-    DynArray(DynArrayUnmanaged<T>&& inner, Allocator alloc) : inner_(std::move(inner)), alloc_(alloc) {}
+    DynArray(DynArrayUnmanaged<T>&& inner, Allocator alloc)
+        : inner_(std::move(inner)), alloc_(alloc) {}
 
   private:
     DynArrayUnmanaged<T> inner_{};
@@ -434,10 +450,10 @@ inline void DynArrayUnmanaged<T>::moveAssign(DynArrayUnmanaged&& other, Allocato
 }
 
 template <typename T>
-inline Result<DynArrayUnmanaged<T>, AllocErr> DynArrayUnmanaged<T>::copyConstruct(const DynArrayUnmanaged& other,
-                                                                                  Allocator alloc) noexcept {
-    auto result = RawDynArrayUnmanaged::copyConstruct(other.inner_, alloc, detail::makeCopyConstructor<T>(), sizeof(T),
-                                                      alignof(T));
+inline Result<DynArrayUnmanaged<T>, AllocErr>
+DynArrayUnmanaged<T>::copyConstruct(const DynArrayUnmanaged& other, Allocator alloc) noexcept {
+    auto result = RawDynArrayUnmanaged::copyConstruct(
+        other.inner_, alloc, detail::makeCopyConstructor<T>(), sizeof(T), alignof(T));
     if (result.hasErr())
         return Error(AllocErr::OutOfMemory);
 
@@ -450,8 +466,8 @@ inline Result<DynArrayUnmanaged<T>, AllocErr> DynArrayUnmanaged<T>::copyConstruc
 template <typename T>
 inline Result<void, AllocErr> DynArrayUnmanaged<T>::copyAssign(const DynArrayUnmanaged& other,
                                                                Allocator& alloc) noexcept {
-    return this->inner_.copyAssign(other.inner_, alloc, elementDestruct, detail::makeCopyConstructor<T>(), sizeof(T),
-                                   alignof(T));
+    return this->inner_.copyAssign(other.inner_, alloc, elementDestruct,
+                                   detail::makeCopyConstructor<T>(), sizeof(T), alignof(T));
 }
 
 template <typename T> inline const T& DynArrayUnmanaged<T>::at(size_t index) const {
@@ -462,22 +478,26 @@ template <typename T> inline T& DynArrayUnmanaged<T>::at(size_t index) {
     return *reinterpret_cast<T*>(this->inner_.at(index, sizeof(T)));
 }
 
-template <typename T> inline Result<void, AllocErr> DynArrayUnmanaged<T>::push(T&& element, Allocator& alloc) noexcept {
+template <typename T>
+inline Result<void, AllocErr> DynArrayUnmanaged<T>::push(T&& element, Allocator& alloc) noexcept {
     if constexpr (std::is_trivially_copyable_v<T>) {
         return this->inner_.push(&element, alloc, sizeof(T), alignof(T));
     } else {
-        return this->inner_.pushCustomMove(&element, alloc, sizeof(T), alignof(T), detail::makeMoveConstructor<T>());
+        return this->inner_.pushCustomMove(&element, alloc, sizeof(T), alignof(T),
+                                           detail::makeMoveConstructor<T>());
     }
 }
 
 template <typename T>
-inline Result<void, AllocErr> DynArrayUnmanaged<T>::push(const T& element, Allocator& alloc) noexcept {
+inline Result<void, AllocErr> DynArrayUnmanaged<T>::push(const T& element,
+                                                         Allocator& alloc) noexcept {
     T elem = element;
     return this->push(std::move(elem), alloc);
 }
 
 template <typename T>
-inline Result<void, AllocErr> DynArrayUnmanaged<T>::pushFront(T&& element, Allocator& alloc) noexcept {
+inline Result<void, AllocErr> DynArrayUnmanaged<T>::pushFront(T&& element,
+                                                              Allocator& alloc) noexcept {
     if constexpr (std::is_trivially_copyable_v<T>) {
         return this->inner_.pushFront(&element, alloc, sizeof(T), alignof(T));
     } else {
@@ -487,13 +507,15 @@ inline Result<void, AllocErr> DynArrayUnmanaged<T>::pushFront(T&& element, Alloc
 }
 
 template <typename T>
-inline Result<void, AllocErr> DynArrayUnmanaged<T>::pushFront(const T& element, Allocator& alloc) noexcept {
+inline Result<void, AllocErr> DynArrayUnmanaged<T>::pushFront(const T& element,
+                                                              Allocator& alloc) noexcept {
     T elem = element;
     return this->pushFront(std::move(elem), alloc);
 }
 
 template <typename T>
-inline Result<void, AllocErr> DynArrayUnmanaged<T>::insertAt(T&& element, Allocator& alloc, size_t index) noexcept {
+inline Result<void, AllocErr> DynArrayUnmanaged<T>::insertAt(T&& element, Allocator& alloc,
+                                                             size_t index) noexcept {
     if constexpr (std::is_trivially_copyable_v<T>) {
         return this->inner_.insertAt(&element, alloc, index, sizeof(T), alignof(T));
     } else {
@@ -513,12 +535,14 @@ template <typename T> inline void DynArrayUnmanaged<T>::removeAt(size_t index) n
     if constexpr (std::is_trivially_copyable_v<T>) {
         this->inner_.removeAt(index, elementDestruct, sizeof(T));
     } else {
-        this->inner_.removeAtCustomMove(index, elementDestruct, sizeof(T), detail::makeMoveConstructor<T>());
+        this->inner_.removeAtCustomMove(index, elementDestruct, sizeof(T),
+                                        detail::makeMoveConstructor<T>());
     }
 }
 
 template <typename T>
-inline Result<void, AllocErr> DynArrayUnmanaged<T>::reserve(Allocator& alloc, size_t minCapacity) noexcept {
+inline Result<void, AllocErr> DynArrayUnmanaged<T>::reserve(Allocator& alloc,
+                                                            size_t minCapacity) noexcept {
     if constexpr (std::is_trivially_copyable_v<T>) {
         return this->inner_.reserve(alloc, minCapacity, sizeof(T), alignof(T));
     } else {
@@ -527,7 +551,7 @@ inline Result<void, AllocErr> DynArrayUnmanaged<T>::reserve(Allocator& alloc, si
 }
 
 template <typename T> inline DynArray<T>& DynArray<T>::operator=(DynArray&& other) noexcept {
-    this->inner_.moveAssign(other.inner_, this->alloc_);
+    this->inner_.moveAssign(std::move(other.inner_), this->alloc_);
     this->alloc_ = other.alloc_; // now own the memory from the other allocator
     return *this;
 }
@@ -538,7 +562,8 @@ template <typename T> inline DynArray<T>::DynArray(const DynArray& other) noexce
     new (this) DynArray<T>(result.takeValue());
 }
 
-template <typename T> inline Result<DynArray<T>, AllocErr> DynArray<T>::copyConstruct(const DynArray& other) {
+template <typename T>
+inline Result<DynArray<T>, AllocErr> DynArray<T>::copyConstruct(const DynArray& other) {
     auto result = DynArrayUnmanaged<T>::copyConstruct(other.inner_, other.alloc_);
     if (result.hasErr()) {
         return Error(AllocErr::OutOfMemory);
@@ -569,19 +594,23 @@ template <typename T> inline Result<void, AllocErr> DynArray<T>::pushFront(T&& e
     return this->inner_.pushFront(std::move(element), this->alloc_);
 }
 
-template <typename T> inline Result<void, AllocErr> DynArray<T>::pushFront(const T& element) noexcept {
+template <typename T>
+inline Result<void, AllocErr> DynArray<T>::pushFront(const T& element) noexcept {
     return this->inner_.pushFront(element, this->alloc_);
 }
 
-template <typename T> inline Result<void, AllocErr> DynArray<T>::insertAt(T&& element, size_t index) noexcept {
+template <typename T>
+inline Result<void, AllocErr> DynArray<T>::insertAt(T&& element, size_t index) noexcept {
     return this->inner_.insertAt(element, this->alloc_, index);
 }
 
-template <typename T> inline Result<void, AllocErr> DynArray<T>::insertAt(const T& element, size_t index) noexcept {
+template <typename T>
+inline Result<void, AllocErr> DynArray<T>::insertAt(const T& element, size_t index) noexcept {
     return this->inner_.insertAt(element, this->alloc_, index);
 }
 
-template <typename T> inline Result<void, AllocErr> DynArray<T>::reserve(size_t minCapacity) noexcept {
+template <typename T>
+inline Result<void, AllocErr> DynArray<T>::reserve(size_t minCapacity) noexcept {
     return this->inner_.reserve(this->alloc_, minCapacity);
 }
 

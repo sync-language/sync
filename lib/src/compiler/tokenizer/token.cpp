@@ -1363,7 +1363,7 @@ static std::tuple<Token, uint32_t> parseStringSharedSetSelfOrIdentifier(const St
     if (remainingSourceLen >= 3) {
         if (sliceFoundAtUnchecked(source, "elf", start)) {
             return extractKeywordOrIdentifier(source, remainingSourceLen, 3, start,
-                                              TokenType::SelfKeyword);
+                                              TokenType::SelfTypeKeyword);
         }
     }
 
@@ -1937,7 +1937,7 @@ TEST_CASE("[Token] extern") { testParseKeyword("extern", TokenType::ExternKeywor
 
 TEST_CASE("[Token] where") { testParseKeyword("where", TokenType::WhereKeyword); }
 
-TEST_CASE("[Token] Self") { testParseKeyword("Self", TokenType::SelfKeyword); }
+TEST_CASE("[Token] Self") { testParseKeyword("Self", TokenType::SelfTypeKeyword); }
 
 TEST_CASE("[Token] impl") { testParseKeyword("impl", TokenType::ImplKeyword); }
 
@@ -2841,7 +2841,7 @@ TokenSpan sy::TokenRef::span() const noexcept {
 
 StringSlice sy::TokenRef::text() const noexcept {
     TokenSpan span = this->span();
-    StringSlice source = this->store_->source_;
+    StringSlice source = this->store_->source();
     sy_assert(source.len() >= span.byteLocation + span.length, "Out of bounds token text");
     return StringSlice(source.data() + static_cast<ptrdiff_t>(span.byteLocation), span.length);
 }
@@ -3099,57 +3099,49 @@ Result<ParsedToken, ProgramError> parseToken(StringSlice simdPaddedSource, size_
     }
 
     // TODO
-}
-
-Result<TokenStore::SimdAllocatedSource, AllocErr>
-TokenStore::allocatedSimdPaddedSource(Allocator alloc, size_t sourceLen) noexcept {
-    auto paddedSimdSourceAllocCapacity = [](size_t sourceLen, size_t align) -> size_t {
-        const size_t remainder = sourceLen % align;
-        if (remainder == 0) {
-            return sourceLen + align;
-        }
-        return (sourceLen + align) + (align - remainder);
-    };
-
-    size_t outCapacity;
-    auto res = [&alloc, sourceLen, paddedSimdSourceAllocCapacity, &outCapacity]() {
-#if defined(__wasm__)
-        outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 16);
-        return alloc.allocAlignedArray<char>(outCapacity, 16);
-#elif defined(_M_X64) || defined(__x86_64__)
-        if (internal::cpuHasAVX512BW()) {
-            outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 64);
-            return alloc.allocAlignedArray<char>(outCapacity, 64);
-        } else if (internal::cpuHasAVX2()) {
-            outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 32);
-            return alloc.allocAlignedArray<char>(outCapacity, 32);
-        } else {
-            outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 16);
-            return alloc.allocAlignedArray<char>(outCapacity, 16);
-        }
-#elif defined(__aarch64__) || defined(_M_ARM64)
-        outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 16);
-        return alloc.allocAlignedArray<char>(outCapacity, 16);
-#elif defined(__riscv) && (__riscv_xlen == 64)
-        outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 16);
-        return alloc.allocAlignedArray<char>(outCapacity, 16);
-#else
-        outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 16);
-        return alloc.allocAlignedArray<char>(outCapacity, 16);
-#endif
-    }();
-
-    if (res.hasErr()) {
-        return Error(AllocErr::OutOfMemory);
-    }
-
-    SimdAllocatedSource source = {.data = res.value(), .len = sourceLen, .capacity = outCapacity};
-    return source;
+    return Error(ProgramError::Unknown);
 }
 
 } // namespace
 
 #pragma endregion
+
+sy::TokenStore::~TokenStore() noexcept { this->freeData(); }
+
+sy::TokenStore::TokenStore(TokenStore&& other) noexcept
+    : alloc_(other.alloc_), source_(other.source_), tokens_(other.tokens_), spans_(other.spans_),
+      tokensLen_(other.tokensLen_), tokensCapacity_(other.tokensCapacity_),
+      newLineBytes_(std::move(other.newLineBytes_)) {
+    other.source_.data = nullptr;
+    other.source_.len = 0;
+    other.source_.capacity = 0;
+    other.source_.align = 0;
+    other.tokens_ = nullptr;
+    other.spans_ = nullptr;
+    other.tokensLen_ = 0;
+    other.tokensCapacity_ = 0;
+}
+
+TokenStore& sy::TokenStore::operator=(TokenStore&& other) noexcept {
+    if (this != &other) {
+        this->alloc_ = other.alloc_;
+        this->source_ = other.source_;
+        this->tokens_ = other.tokens_;
+        this->spans_ = other.spans_;
+        this->tokensLen_ = other.tokensLen_;
+        this->tokensCapacity_ = other.tokensCapacity_;
+        this->newLineBytes_ = std::move(other.newLineBytes_);
+        other.source_.data = nullptr;
+        other.source_.len = 0;
+        other.source_.capacity = 0;
+        other.source_.align = 0;
+        other.tokens_ = nullptr;
+        other.spans_ = nullptr;
+        other.tokensLen_ = 0;
+        other.tokensCapacity_ = 0;
+    }
+    return *this;
+}
 
 Result<TokenStore, ProgramError> sy::TokenStore::init(Allocator alloc,
                                                       StringSlice source) noexcept {
@@ -3184,7 +3176,82 @@ Result<TokenStore, ProgramError> sy::TokenStore::init(Allocator alloc,
 
     bool keepFinding = true;
     while (keepFinding) {
-        // TODO
+        (void)parseToken(self.source(), 0);
+    }
+
+    return self;
+}
+
+Result<TokenStore::SimdAllocatedSource, AllocErr>
+TokenStore::allocatedSimdPaddedSource(Allocator alloc, size_t sourceLen) noexcept {
+    auto paddedSimdSourceAllocCapacity = [](size_t sourceLen, size_t align) -> size_t {
+        const size_t remainder = sourceLen % align;
+        if (remainder == 0) {
+            return sourceLen + align;
+        }
+        return (sourceLen + align) + (align - remainder);
+    };
+
+    size_t outCapacity;
+    size_t outAlign;
+    auto res = [&alloc, sourceLen, paddedSimdSourceAllocCapacity, &outCapacity, &outAlign]() {
+#if defined(__wasm__)
+        outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 16);
+        outAlign = 16;
+        return alloc.allocAlignedArray<char>(outCapacity, 16);
+#elif defined(_M_X64) || defined(__x86_64__)
+        if (internal::cpuHasAVX512BW()) {
+            outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 64);
+            outAlign = 64;
+            return alloc.allocAlignedArray<char>(outCapacity, 64);
+        } else if (internal::cpuHasAVX2()) {
+            outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 32);
+            outAlign = 32;
+            return alloc.allocAlignedArray<char>(outCapacity, 32);
+        } else {
+            outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 16);
+            outAlign = 16;
+            return alloc.allocAlignedArray<char>(outCapacity, 16);
+        }
+#elif defined(__aarch64__) || defined(_M_ARM64)
+        outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 16);
+        outAlign = 16;
+        return alloc.allocAlignedArray<char>(outCapacity, 16);
+#elif defined(__riscv) && (__riscv_xlen == 64)
+        outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 16);
+        outAlign = 16;
+        return alloc.allocAlignedArray<char>(outCapacity, 16);
+#else
+        outCapacity = paddedSimdSourceAllocCapacity(sourceLen, 16);
+        outAlign = 16;
+        return alloc.allocAlignedArray<char>(outCapacity, 16);
+#endif
+    }();
+
+    if (res.hasErr()) {
+        return Error(AllocErr::OutOfMemory);
+    }
+
+    SimdAllocatedSource source = {
+        .data = res.value(), .len = sourceLen, .capacity = outCapacity, .align = outAlign};
+    return source;
+}
+
+void sy::TokenStore::freeData() noexcept {
+    if (this->source_.data != nullptr) {
+        this->alloc_.freeAlignedArray(this->source_.data, this->source_.capacity,
+                                      this->source_.align);
+        this->source_.data = nullptr;
+        this->source_.len = 0;
+        this->source_.capacity = 0;
+        this->source_.align = 0;
+    }
+
+    if (this->tokens_ != nullptr) {
+        this->alloc_.freeArray(this->tokens_, this->tokensCapacity_);
+    }
+    if (this->spans_ != nullptr) {
+        this->alloc_.freeArray(this->spans_, this->tokensCapacity_);
     }
 }
 
