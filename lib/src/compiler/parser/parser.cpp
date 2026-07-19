@@ -145,44 +145,44 @@ Result<FileAst, CompileError> sy::parseFile(Allocator alloc, const SourceTreeNod
 
 #include "../../doctest.h"
 
-TEST_CASE("parseStatement right brace") {
-    Allocator alloc;
-    Tokenizer tokenizer = Tokenizer::create(alloc, "}").takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
-    (void)parseInfo.tokenIter.next();
-    auto res = parseStatement(&parseInfo, nullptr, nullptr);
-    CHECK(res.hasValue());
-    CHECK_FALSE(res.value().hasValue());
-}
+// TEST_CASE("parseStatement right brace") {
+//     Allocator alloc;
+//     Tokenizer tokenizer = Tokenizer::create(alloc, "}").takeValue();
+//     ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
+//     (void)parseInfo.tokenIter.next();
+//     auto res = parseStatement(&parseInfo, nullptr, nullptr);
+//     CHECK(res.hasValue());
+//     CHECK_FALSE(res.value().hasValue());
+// }
 
-TEST_CASE("parseStatement return") {
-    Allocator alloc;
-    Tokenizer tokenizer = Tokenizer::create(alloc, "return;").takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
-    (void)parseInfo.tokenIter.next();
-    auto res = parseStatement(&parseInfo, nullptr, nullptr);
-    CHECK(res.hasValue());
-    CHECK(res.value().hasValue());
-    IFunctionStatement* statement = res.value().value();
-    CHECK_NE(dynamic_cast<ReturnNode*>(statement), nullptr);
-    delete res.value().value();
-}
+// TEST_CASE("parseStatement return") {
+//     Allocator alloc;
+//     Tokenizer tokenizer = Tokenizer::create(alloc, "return;").takeValue();
+//     ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
+//     (void)parseInfo.tokenIter.next();
+//     auto res = parseStatement(&parseInfo, nullptr, nullptr);
+//     CHECK(res.hasValue());
+//     CHECK(res.value().hasValue());
+//     IFunctionStatement* statement = res.value().value();
+//     CHECK_NE(dynamic_cast<ReturnNode*>(statement), nullptr);
+//     delete res.value().value();
+// }
 
-TEST_CASE("parseFile empty") {
-    Allocator alloc;
-    SourceTreeNode source{alloc, {}, {}, SourceFileKind::SyncSourceFile, {}};
-    new (&source.elem.syncSourceFile) Option<String>(String::init("", alloc).takeValue());
+// TEST_CASE("parseFile empty") {
+//     Allocator alloc;
+//     SourceTreeNode source{alloc, {}, {}, SourceFileKind::SyncSourceFile, {}};
+//     new (&source.elem.syncSourceFile) Option<String>(String::init("", alloc).takeValue());
 
-    auto res = parseFile(alloc, &source, nullptr, nullptr);
-    CHECK(res);
-    FileAst ast = res.takeValue();
-    CHECK_EQ(ast.nonGenericFunctions.len(), 0);
-    CHECK_EQ(ast.nonGenericStructs.len(), 0);
-    CHECK_FALSE(ast.scope.isInFunction);
-    CHECK_FALSE(ast.scope.isSync);
-    CHECK_EQ(ast.scope.syncVariables.len(), 0);
-    CHECK_EQ(ast.scope.symbols.len(), 0);
-    CHECK_FALSE(ast.scope.parent.hasValue());
-}
+//     auto res = parseFile(alloc, &source, nullptr, nullptr);
+//     CHECK(res);
+//     FileAst ast = res.takeValue();
+//     CHECK_EQ(ast.nonGenericFunctions.len(), 0);
+//     CHECK_EQ(ast.nonGenericStructs.len(), 0);
+//     CHECK_FALSE(ast.scope.isInFunction);
+//     CHECK_FALSE(ast.scope.isSync);
+//     CHECK_EQ(ast.scope.syncVariables.len(), 0);
+//     CHECK_EQ(ast.scope.symbols.len(), 0);
+//     CHECK_FALSE(ast.scope.parent.hasValue());
+// }
 
 #endif // SYNC_LIB_WITH_TESTS

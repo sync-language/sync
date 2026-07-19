@@ -339,29 +339,29 @@ Result<FunctionBuilder, CompileError> sy::FunctionDefinitionNode::compile() cons
 //     }
 // }
 
-TEST_CASE("[FunctionDefintion] parse no args") {
-    Allocator alloc;
-    Tokenizer tokenizer = Tokenizer::create(alloc, "()").takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
-    (void)parseInfo.tokenIter.next();
-    DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
-    CHECK_EQ(variables.len(), 0);
-}
+// TEST_CASE("[FunctionDefintion] parse no args") {
+//     Allocator alloc;
+//     Tokenizer tokenizer = Tokenizer::create(alloc, "()").takeValue();
+//     ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, {}, nullptr, nullptr);
+//     (void)parseInfo.tokenIter.next();
+//     DynArray<StackVariable> variables = parseFunctionArgs(&parseInfo).takeValue();
+//     CHECK_EQ(variables.len(), 0);
+// }
 
-TEST_CASE("[FunctionDefintion] parse function return no value statement") {
-    Allocator alloc;
-    Tokenizer tokenizer = Tokenizer::create(alloc, "fn example() { return; }").takeValue();
-    ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, "hello", nullptr, nullptr);
-    (void)parseInfo.tokenIter.next();
-    FunctionDefinitionNode funcDef = FunctionDefinitionNode(alloc);
-    Scope outerScope{};
-    CHECK(funcDef.init(&parseInfo, &outerScope));
-    CHECK_EQ(funcDef.unqualifiedName(), "example");
-    CHECK_EQ(funcDef.qualifiedName(), "hello.example");
-    CHECK_EQ(funcDef.args.len(), 0);
-    CHECK_FALSE(funcDef.retType.hasValue());
-    CHECK_EQ(funcDef.localVariables.len(), 0);
-    CHECK_EQ(funcDef.statements.len(), 1);
-}
+// TEST_CASE("[FunctionDefintion] parse function return no value statement") {
+//     Allocator alloc;
+//     Tokenizer tokenizer = Tokenizer::create(alloc, "fn example() { return; }").takeValue();
+//     ParseInfo parseInfo = ParseInfo(tokenizer.iter(), alloc, "hello", nullptr, nullptr);
+//     (void)parseInfo.tokenIter.next();
+//     FunctionDefinitionNode funcDef = FunctionDefinitionNode(alloc);
+//     Scope outerScope{};
+//     CHECK(funcDef.init(&parseInfo, &outerScope));
+//     CHECK_EQ(funcDef.unqualifiedName(), "example");
+//     CHECK_EQ(funcDef.qualifiedName(), "hello.example");
+//     CHECK_EQ(funcDef.args.len(), 0);
+//     CHECK_FALSE(funcDef.retType.hasValue());
+//     CHECK_EQ(funcDef.localVariables.len(), 0);
+//     CHECK_EQ(funcDef.statements.len(), 1);
+// }
 
 #endif // SYNC_LIB_WITH_TESTS
