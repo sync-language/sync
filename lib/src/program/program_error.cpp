@@ -16,7 +16,7 @@ SourceLocation::SourceLocation(const StringSlice source, const uint32_t location
 }
 
 namespace sy {
-ProgramErrorReporter defaultErrReporter = [](ProgramError errKind, const SourceFileLocation& where, StringSlice msg,
+CompileErrorReporter defaultErrReporter = [](CompileError errKind, const SourceFileLocation& where, StringSlice msg,
                                              void* arg) {
     (void)arg;
 
@@ -46,5 +46,5 @@ ProgramErrorReporter defaultErrReporter = [](ProgramError errKind, const SourceF
 };
 } // namespace sy
 
-// ProgramError::ProgramError(Option<SourceFileLocation> inWhere, Kind inKind) noexcept : where_(inWhere), kind_(inKind)
+// CompileError::CompileError(Option<SourceFileLocation> inWhere, Kind inKind) noexcept : where_(inWhere), kind_(inKind)
 // {}

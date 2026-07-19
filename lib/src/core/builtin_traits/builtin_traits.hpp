@@ -6,12 +6,38 @@
 #include "../../types/function/function.hpp"
 #include "../../types/option/option.hpp"
 #include "../../types/ordering/ordering.hpp"
+#include "../../types/anyerror/anyerror.hpp"
+#include "../../types/result/result.hpp"
 #include "../core.h"
+#include "../exceptional.hpp"
 #include <new>
+#include <type_traits>
+#include <utility>
 
 namespace sy {
+using NativeDestructorFn = void (*)(void* obj);
+using NativeCloneFn = Result<void, Exceptional> (*)(void* dst, const void* src);
+
+using BuiltInDestructorFn = Function<void(void* obj)>;
+// Success type is `void`; failure flows through `Function`'s `AnyError` channel. The native
+// clone's `Exceptional` is swallowed into an (inline, non-allocating) `AnyError` by `CLONE_FN_OF`.
+using BuiltInCloneFn = Function<void(void* dst, const void* src)>;
+
+namespace detail {
+// Detects an opt-in member `clone()`. Types without one fall back to the copy constructor.
+template <typename T, typename = void> struct has_member_clone : std::false_type {};
+template <typename T>
+struct has_member_clone<T, std::void_t<decltype(std::declval<const T&>().clone())>>
+    : std::true_type {};
+
+// Widen an accepted clone error into the native clone channel (`Exceptional`). `AnyError`-returning
+// clones are intentionally unsupported here; a future `TryClone` will upcast to `AnyError`.
+constexpr Exceptional cloneErrToExceptional(AllocErr) noexcept { return Exceptional::OOM; }
+constexpr Exceptional cloneErrToExceptional(Exceptional e) noexcept { return e; }
+} // namespace detail
+
 struct BuiltInCoherentTraits {
-    Option<const Function<void(void* dst, const void* src)>*> clone;
+    Option<const BuiltInCloneFn*> clone;
     Option<const Function<bool(const void* lhs, const void* rhs)>*> equal;
     Option<const Function<size_t(const void* obj)>*> hash;
     Option<const Function<Ordering(const void* lhs, const void* rhs)>*> compare;
@@ -19,13 +45,36 @@ struct BuiltInCoherentTraits {
     Option<const Function<void(void* dst, const void* src)>*> elementWiseAtomicLoad;
     Option<const Function<void(void* dst, const void* src)>*> elementWiseAtomicStore;
 
+    // Physical clone. Dispatches to an opt-in member `clone()` (accepting `Result<T, AllocErr>` or
+    // `Result<T, Exceptional>`), otherwise firewalls the copy constructor. Speaks `Exceptional`.
     template <typename T>
-    static constexpr Function<void(void* dst, const void* src)> CLONE_FN_OF =
-        +[](void* dst, const void* src) {
-            T* tDst = reinterpret_cast<T*>(dst);
-            const T* tSrc = reinterpret_cast<const T*>(src);
-            new (tDst) T(*tSrc);
-        };
+    static constexpr NativeCloneFn NATIVE_CLONE_FN_OF =
+        +[](void* dst, const void* src) -> Result<void, Exceptional> {
+        T* tDst = reinterpret_cast<T*>(dst);
+        const T* tSrc = reinterpret_cast<const T*>(src);
+        if constexpr (detail::has_member_clone<T>::value) {
+            auto r = tSrc->clone();
+            if (r.hasErr()) {
+                return Error(detail::cloneErrToExceptional(r.takeErr()));
+            }
+            new (tDst) T(r.takeValue());
+            return {};
+        } else {
+            return wrapExceptionalCall([tDst, tSrc]() { new (tDst) T(*tSrc); });
+        }
+    };
+
+    // Interpreter-facing clone (`Function`, `AnyError` channel): swallows the native `Exceptional`
+    // into an inline `AnyError`.
+    template <typename T>
+    static constexpr BuiltInCloneFn CLONE_FN_OF =
+        +[](void* dst, const void* src) -> Result<void, AnyError> {
+        auto r = NATIVE_CLONE_FN_OF<T>(dst, src);
+        if (r.hasErr()) {
+            return Error(AnyError(r.takeErr()));
+        }
+        return {};
+    };
 
     template <typename T>
     static constexpr Function<bool(const void* lhs, const void* rhs)> EQUAL_FN_OF =
@@ -57,8 +106,7 @@ struct BuiltInCoherentTraits {
         }
     };
 
-    template <typename T>
-    static constexpr const Function<void(void* dst, const void* src)>* makeClone() noexcept {
+    template <typename T> static constexpr const BuiltInCloneFn* makeClone() noexcept {
         return &CLONE_FN_OF<T>;
     }
 

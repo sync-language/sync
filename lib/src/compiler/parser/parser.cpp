@@ -7,10 +7,10 @@
 using namespace sy;
 
 namespace sy {
-extern ProgramErrorReporter defaultErrReporter;
+extern CompileErrorReporter defaultErrReporter;
 }
 
-Error<ProgramError> sy::ParseInfo::reportErr(ProgramError errKind, uint32_t inBytePos,
+Error<CompileError> sy::ParseInfo::reportErr(CompileError errKind, uint32_t inBytePos,
                                              StringSlice msg) const noexcept {
     SourceFileLocation asFileLocation = SourceFileLocation(this->tokenIter.source(), inBytePos);
     asFileLocation.fileName = this->moduleName;
@@ -31,7 +31,7 @@ sy::FileAst::~FileAst() noexcept {
     this->nonGenericStructs.destroy(this->alloc);
 }
 
-Result<Option<IFunctionStatement*>, ProgramError>
+Result<Option<IFunctionStatement*>, CompileError>
 sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables,
                    Scope* currentScope) noexcept {
     const TokenType tokenType = parseInfo->tokenIter.current().tag();
@@ -40,9 +40,9 @@ sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables
     }
 
     auto makeOutOfMemory = [parseInfo]() {
-        parseInfo->reportErr(ProgramError::OutOfMemory, parseInfo->tokenIter.current().location(),
+        parseInfo->reportErr(CompileError::OutOfMemory, parseInfo->tokenIter.current().location(),
                              "Out of memory");
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     };
 
     switch (tokenType) {
@@ -58,15 +58,15 @@ sy::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables
         return Option<IFunctionStatement*>(node);
     } break;
     default:
-        parseInfo->reportErr(ProgramError::CompileFunctionStatement,
+        parseInfo->reportErr(CompileError::CompileFunctionStatement,
                              parseInfo->tokenIter.current().location(),
                              "Unknown token for start of statement");
-        return Error(ProgramError::CompileFunctionStatement);
+        return Error(CompileError::CompileFunctionStatement);
     }
 }
 
-Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNode* fileSource,
-                                            ProgramErrorReporter errReporter,
+Result<FileAst, CompileError> sy::parseFile(Allocator alloc, const SourceTreeNode* fileSource,
+                                            CompileErrorReporter errReporter,
                                             void* errReporterArg) noexcept {
     sy_assert(fileSource->kind == SourceFileKind::SyncSourceFile, "Expected Sync source code file");
 
@@ -98,9 +98,9 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
             case TokenType::FnKeyword: {
                 FunctionDefinitionNode* func = new (alloc) FunctionDefinitionNode(alloc);
                 if (func == nullptr) {
-                    parseInfo.reportErr(ProgramError::OutOfMemory,
+                    parseInfo.reportErr(CompileError::OutOfMemory,
                                         parseInfo.tokenIter.current().location(), "Out of memory");
-                    return Error(ProgramError::OutOfMemory);
+                    return Error(CompileError::OutOfMemory);
                 }
 
                 if (auto res = func->init(&parseInfo, &ast.scope); res.hasErr()) {
@@ -108,17 +108,17 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
                 }
 
                 if (ast.nonGenericFunctions.push(func, alloc).hasErr()) {
-                    parseInfo.reportErr(ProgramError::OutOfMemory,
+                    parseInfo.reportErr(CompileError::OutOfMemory,
                                         parseInfo.tokenIter.current().location(), "Out of memory");
-                    return Error(ProgramError::OutOfMemory);
+                    return Error(CompileError::OutOfMemory);
                 }
                 ScopeSymbol symbol{};
                 symbol.symbolType = ScopeSymbol::Tag::Function;
                 symbol.data.function = func->functionName;
                 if (ast.scope.symbols.insert(alloc, symbol, ast.scope.symbols.len()).hasErr()) {
-                    parseInfo.reportErr(ProgramError::OutOfMemory,
+                    parseInfo.reportErr(CompileError::OutOfMemory,
                                         parseInfo.tokenIter.current().location(), "Out of memory");
-                    return Error(ProgramError::OutOfMemory);
+                    return Error(CompileError::OutOfMemory);
                 }
                 nextOpt = parseInfo.tokenIter.next();
             } break;
@@ -126,10 +126,10 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
                 sy_assert(false, "Struct not yet implemented");
             } break;
             default: {
-                parseInfo.reportErr(ProgramError::CompileSymbol,
+                parseInfo.reportErr(CompileError::CompileSymbol,
                                     parseInfo.tokenIter.current().location(),
                                     "Expected end of file, fn keyword, or struct keyword");
-                return Error(ProgramError::CompileSymbol);
+                return Error(CompileError::CompileSymbol);
             }
             }
             nextOpt = parseInfo.tokenIter.next();
@@ -138,7 +138,7 @@ Result<FileAst, ProgramError> sy::parseFile(Allocator alloc, const SourceTreeNod
 
     new (&ast.imports) MapUnmanaged<StringSlice, bool>(std::move(parseInfo.imports));
 
-    return Result<FileAst, ProgramError>(std::move(ast));
+    return Result<FileAst, CompileError>(std::move(ast));
 }
 
 #if SYNC_LIB_WITH_TESTS

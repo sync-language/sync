@@ -12,8 +12,8 @@ using namespace sy;
 
 enum class OkExecStatus { Continue, FunctionCall, Return };
 
-static Result<OkExecStatus, ProgramError> interpreterExecuteContinuous(const Program* program);
-static Result<OkExecStatus, ProgramError> interpreterExecuteOperation(const Program* program);
+static Result<OkExecStatus, AnyError> interpreterExecuteContinuous(const Program* program);
+static Result<OkExecStatus, AnyError> interpreterExecuteOperation(const Program* program);
 static void unwindStackFrame(const int16_t* unwindSlots, const uint16_t len);
 
 static void setupFunctionStackFrame(const RawFunction* scriptFunction, void* outReturnValue) {
@@ -35,7 +35,7 @@ static void setupFunctionStackFrame(const RawFunction* scriptFunction, void* out
     activeStack.setInstructionPointer(scriptInfo->bytecode);
 }
 
-Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const RawFunction* scriptFunction,
+Result<void, AnyError> sy::interpreterExecuteScriptFunction(const RawFunction* scriptFunction,
                                                                 void* outReturnValue) {
     // Just setup the initial function call stack
     setupFunctionStackFrame(scriptFunction, outReturnValue);
@@ -77,7 +77,7 @@ Result<void, ProgramError> sy::interpreterExecuteScriptFunction(const RawFunctio
     return {};
 }
 
-static Result<OkExecStatus, ProgramError> interpreterExecuteContinuous(const Program* program) {
+static Result<OkExecStatus, AnyError> interpreterExecuteContinuous(const Program* program) {
     while (true) {
         auto execResult = interpreterExecuteOperation(program);
         if (execResult.hasValue() && execResult.value() == OkExecStatus::Continue) {
@@ -104,13 +104,13 @@ static void unwindStackFrame(const int16_t* unwindSlots, const uint16_t len) {
 
 static void executeReturn(const Bytecode b);
 static void executeReturnValue(const Bytecode b);
-static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChange,
+static Result<void, AnyError> executeCallImmediateNoReturn(ptrdiff_t& ipChange,
                                                                const Bytecode* bytecodes);
-static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
+static Result<void, AnyError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
                                                          const Bytecode* bytecodes);
-static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange,
+static Result<void, AnyError> executeCallImmediateWithReturn(ptrdiff_t& ipChange,
                                                                  const Bytecode* bytecodes);
-static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange,
+static Result<void, AnyError> executeCallSrcWithReturn(ptrdiff_t& ipChange,
                                                            const Bytecode* bytecodes);
 static void executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes);
@@ -121,14 +121,14 @@ static void executeJump(ptrdiff_t& ipChange, const Bytecode bytecode);
 static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode);
 static void executeDestruct(const Bytecode bytecode);
 
-static Result<OkExecStatus, ProgramError> interpreterExecuteOperation(const Program* program) {
+static Result<OkExecStatus, AnyError> interpreterExecuteOperation(const Program* program) {
     (void)program;
 
     ptrdiff_t ipChange = 1;
     const Bytecode* instructionPointer = Stack::getActiveStack().getInstructionPointer();
     const OpCode opcode = instructionPointer->getOpcode();
 
-    auto result = [opcode, instructionPointer, &ipChange]() -> Result<OkExecStatus, ProgramError> {
+    auto result = [opcode, instructionPointer, &ipChange]() -> Result<OkExecStatus, AnyError> {
         switch (opcode) {
         case OpCode::Noop:
             break;
@@ -255,7 +255,7 @@ static bool pushScriptFunctionArgs(const RawFunction* function, const uint16_t a
     return true;
 }
 
-static Result<void, ProgramError> setupInterpreterNestedCall(const RawFunction* function,
+static Result<void, AnyError> setupInterpreterNestedCall(const RawFunction* function,
                                                              void* retDst, const uint16_t argsCount,
                                                              const uint16_t* argsSrc) {
     if (function->tag == FunctionType::Script) {
@@ -268,7 +268,7 @@ static Result<void, ProgramError> setupInterpreterNestedCall(const RawFunction* 
     return {};
 }
 
-static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChange,
+static Result<void, AnyError> executeCallImmediateNoReturn(ptrdiff_t& ipChange,
                                                                const Bytecode* bytecodes) {
     const operators::CallImmediateNoReturn operands =
         bytecodes[0].toOperands<operators::CallImmediateNoReturn>();
@@ -286,7 +286,7 @@ static Result<void, ProgramError> executeCallImmediateNoReturn(ptrdiff_t& ipChan
     return setupInterpreterNestedCall(function, nullptr, operands.argCount, argsSrcs);
 }
 
-static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
+static Result<void, AnyError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
                                                          const Bytecode* bytecodes) {
     const operators::CallSrcNoReturn operands =
         bytecodes[0].toOperands<operators::CallSrcNoReturn>();
@@ -305,7 +305,7 @@ static Result<void, ProgramError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
     return setupInterpreterNestedCall(function, nullptr, operands.argCount, argsSrcs);
 }
 
-static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipChange,
+static Result<void, AnyError> executeCallImmediateWithReturn(ptrdiff_t& ipChange,
                                                                  const Bytecode* bytecodes) {
     const operators::CallImmediateWithReturn operands =
         bytecodes[0].toOperands<operators::CallImmediateWithReturn>();
@@ -324,7 +324,7 @@ static Result<void, ProgramError> executeCallImmediateWithReturn(ptrdiff_t& ipCh
     return setupInterpreterNestedCall(function, returnDst, operands.argCount, argsSrcs);
 }
 
-static Result<void, ProgramError> executeCallSrcWithReturn(ptrdiff_t& ipChange,
+static Result<void, AnyError> executeCallSrcWithReturn(ptrdiff_t& ipChange,
                                                            const Bytecode* bytecodes) {
     const operators::CallSrcWithReturn operands =
         bytecodes[0].toOperands<operators::CallSrcWithReturn>();

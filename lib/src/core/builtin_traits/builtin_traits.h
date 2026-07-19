@@ -3,6 +3,8 @@
 #ifndef _SY_CORE_BUILTIN_TRAITS_BUILTIN_TRAITS_H_
 #define _SY_CORE_BUILTIN_TRAITS_BUILTIN_TRAITS_H_
 
+#include "../exceptional.h"
+
 struct SyFunction;
 
 typedef struct SyBuiltInCoherentTraits {
@@ -13,4 +15,7 @@ typedef struct SyBuiltInCoherentTraits {
     const SyFunction* elementWiseAtomicClone;
     const SyFunction* elementWiseAtomicMove;
 } SyBuiltInCoherentTraits;
+
+typedef void (*SyNativeDestructorFn)(void* obj);
+typedef SyExceptional (*SyNativeCloneFn)(void* dst, const void* src);
 #endif // _SY_CORE_BUILTIN_TRAITS_BUILTIN_TRAITS_H_

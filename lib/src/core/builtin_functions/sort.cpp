@@ -3,7 +3,7 @@
 
 using namespace sy;
 
-Result<void, ProgramError> sy::sortIntoSlice(IteratorObj* iter, void* outBuf, size_t outBufElemSize) noexcept {
+Result<void, AnyError> sy::sortIntoSlice(IteratorObj* iter, void* outBuf, size_t outBufElemSize) noexcept {
     (void)outBuf;
     (void)outBufElemSize;
     const Type* valueType = iter->traitImpl->valueType;

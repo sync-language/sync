@@ -1,0 +1,21 @@
+//! API
+#pragma once
+#ifndef SY_CORE_EXCEPTIONAL_H_
+#define SY_CORE_EXCEPTIONAL_H_
+
+#include "core.h"
+
+typedef enum SyExceptional {
+    SY_EXCEPTIONAL_NONE = 0,
+    SY_EXCEPTIONAL_OOM = 1,
+    SY_EXCEPTIONAL_BOUNDS = 2,
+    SY_EXCEPTIONAL_SYSTEM = 3,
+    SY_EXCEPTIONAL_IO = 4,
+    SY_EXCEPTIONAL_ARITHMETIC = 5,
+    SY_EXCEPTIONAL_CAPACITY = 6,
+    SY_EXCEPTIONAL_OTHER = 7,
+
+    _SY_EXCEPTIONAL_MAX = 0x7FFFFFFF,
+} SyExceptional;
+
+#endif // SY_CORE_EXCEPTIONAL_H_

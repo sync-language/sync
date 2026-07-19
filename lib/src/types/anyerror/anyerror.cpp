@@ -29,8 +29,14 @@ struct AnyError::Impl {
     }
 };
 
-Result<AnyError, AllocErr> sy::AnyError::init(Allocator alloc, StringSlice message, void* payload,
-                                              const Type* payloadType) noexcept {
+AnyError::AnyError(Exceptional err) noexcept {
+    static_assert(alignof(Impl) >= 2, "Need a free low bit for pointer tagging");
+    this->impl_ = (static_cast<uintptr_t>(err) << 1) | 1;
+}
+
+SY_API Result<AnyError, AllocErr>
+sy::internal::sy_anyerror_init_impl(StringSlice msg, void* payload, const Type* payloadType,
+                                    Option<AnyError> cause, Allocator alloc) noexcept {
     const bool nullPayload = payload == nullptr;
     const bool nullType = payloadType == nullptr;
     if (nullPayload) {
@@ -40,12 +46,12 @@ Result<AnyError, AllocErr> sy::AnyError::init(Allocator alloc, StringSlice messa
         sy_assert(nullPayload, "Expected payload for supplied type, but none was provided");
     }
 
-    auto implRes = alloc.allocObject<Impl>();
+    auto implRes = alloc.allocObject<AnyError::Impl>();
     if (implRes.hasErr()) {
         return Error(AllocErr::OutOfMemory);
     }
 
-    auto strRes = String::init(message, alloc);
+    auto strRes = String::init(msg, alloc);
     if (strRes.hasErr()) {
         alloc.freeObject(implRes.value());
         return Error(AllocErr::OutOfMemory);
@@ -63,10 +69,9 @@ Result<AnyError, AllocErr> sy::AnyError::init(Allocator alloc, StringSlice messa
         memcpy(payloadMem, payload, payloadType->sizeType);
     }
 
-    Impl* self = implRes.value();
-    new (self) Impl();
+    AnyError::Impl* self = implRes.value();
+    new (self) AnyError::Impl();
     self->alloc = alloc;
-    // new (&self->message) StringUnmanaged(strRes.takeValue());
     self->message = strRes.takeValue();
 
     if (payloadMem) {
@@ -74,76 +79,62 @@ Result<AnyError, AllocErr> sy::AnyError::init(Allocator alloc, StringSlice messa
         self->payloadType = payloadType;
     }
 
+    if (cause.hasValue()) {
+        self->cause = std::move(cause);
+    }
+
     AnyError e;
-    e.impl_ = self;
+    e.impl_ = reinterpret_cast<uintptr_t>(self);
     return e;
 }
 
-AnyError::AnyError(Allocator alloc, StringSlice message, void* payload,
-                   const Type* payloadType) noexcept {
-    AnyError err = AnyError::init(alloc, message, payload, payloadType).takeValue();
-    this->impl_ = err.impl_;
-    err.impl_ = nullptr;
-}
-
-Result<AnyError, AllocErr> sy::AnyError::initCause(AnyError cause, StringSlice message,
-                                                   void* payload,
-                                                   const Type* payloadType) noexcept {
-    sy_assert(cause.impl_ != nullptr, "Expected valid cause");
-
-    auto errRes = AnyError::init(cause.impl_->alloc, message, payload, payloadType);
-    if (errRes.hasValue()) {
-        new (&errRes.value().impl_->cause) Option<AnyError>(std::move(cause));
-    }
-
-    return errRes;
-}
-
-AnyError::AnyError(AnyError cause, StringSlice message, void* payload,
-                   const Type* payloadType) noexcept {
-    AnyError err = AnyError::initCause(std::move(cause), message, payload, payloadType).takeValue();
-    this->impl_ = err.impl_;
-    err.impl_ = nullptr;
-}
-
-AnyError::AnyError(AnyError&& other) noexcept : impl_(other.impl_) { other.impl_ = nullptr; }
+AnyError::AnyError(AnyError&& other) noexcept : impl_(other.impl_) { other.impl_ = 0; }
 
 AnyError& sy::AnyError::operator=(AnyError&& other) noexcept {
     if (this == &other)
         return *this;
 
-    if (this->impl_ != nullptr) {
-        Allocator alloc = this->impl_->alloc;
-        this->impl_->~Impl();
-        alloc.freeObject(this->impl_);
+    if (!this->exceptional().hasValue()) {
+        if (this->impl_ != 0) {
+            Impl* impl = reinterpret_cast<Impl*>(this->impl_);
+            Allocator alloc = impl->alloc;
+            impl->~Impl();
+            alloc.freeObject(impl);
+        }
     }
 
     this->impl_ = other.impl_;
-    other.impl_ = nullptr;
+    other.impl_ = 0;
     return *this;
 }
 
-Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
-    if (this->impl_ == nullptr) {
+Result<AnyError, AnyError> sy::AnyError::clone() const noexcept {
+    if (this->impl_ == 0) {
         return AnyError();
     }
 
-    const Type* type = nullptr;
-    if (this->impl_->payloadType.hasValue()) {
-        type = this->impl_->payloadType.value();
+    if (auto exc = this->exceptional(); exc.hasValue()) {
+        return AnyError(exc.value());
     }
 
-    Allocator alloc = this->impl_->alloc;
+    const Impl* impl = reinterpret_cast<const Impl*>(this->impl_);
+
+    const Type* type = nullptr;
+    if (impl->payloadType.hasValue()) {
+        type = impl->payloadType.value();
+    }
+
+    Allocator alloc = impl->alloc;
 
     auto implRes = alloc.allocObject<Impl>();
     if (implRes.hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(AnyError(Exceptional::OOM));
     }
 
-    auto strRes = String::init(this->impl_->message, alloc);
+    auto strRes = String::init(impl->message, alloc);
     if (strRes.hasErr()) {
         alloc.freeObject(implRes.value());
-        return Error(ProgramError::OutOfMemory);
+        return Error(AnyError(Exceptional::OOM));
     }
 
     void* payloadMem = nullptr;
@@ -151,10 +142,10 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
         auto payloadRes = alloc.allocAlignedArray<uint8_t>(type->sizeType, type->alignType);
         if (payloadRes.hasErr()) {
             alloc.freeObject(implRes.value());
-            return Error(ProgramError::OutOfMemory);
+            return Error(AnyError(Exceptional::OOM));
         }
         payloadMem = payloadRes.value();
-        auto copyErr = type->cloneObj(payloadMem, this->impl_->payload.value());
+        auto copyErr = type->cloneObj(payloadMem, impl->payload.value());
         if (copyErr.hasErr()) {
             alloc.freeObject(implRes.value());
             alloc.freeAlignedArray(payloadRes.value(), type->sizeType, type->alignType);
@@ -173,8 +164,8 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
     }
 
     // recursive chicanery here.
-    if (this->impl_->cause.hasValue()) {
-        auto cloneRes = this->impl_->cause.value().clone();
+    if (impl->cause.hasValue()) {
+        auto cloneRes = impl->cause.value().clone();
         if (cloneRes.hasErr()) {
             newErr->~Impl();
             alloc.freeObject(newErr);
@@ -185,7 +176,7 @@ Result<AnyError, ProgramError> sy::AnyError::clone() const noexcept {
     }
 
     AnyError e;
-    e.impl_ = newErr;
+    e.impl_ = reinterpret_cast<uintptr_t>(newErr);
     return e;
 }
 
@@ -197,10 +188,13 @@ AnyError& sy::AnyError::operator=(const AnyError& other) noexcept {
     if (this == &other)
         return *this;
 
-    if (this->impl_ != nullptr) {
-        Allocator alloc = this->impl_->alloc;
-        this->impl_->~Impl();
-        alloc.freeObject(this->impl_);
+    if (!this->exceptional().hasValue()) {
+        if (this->impl_ != 0) {
+            Impl* impl = reinterpret_cast<Impl*>(this->impl_);
+            Allocator alloc = impl->alloc;
+            impl->~Impl();
+            alloc.freeObject(impl);
+        }
     }
 
     new (this) AnyError(other.clone().takeValue());
@@ -208,55 +202,105 @@ AnyError& sy::AnyError::operator=(const AnyError& other) noexcept {
 }
 
 sy::AnyError::~AnyError() noexcept {
-    if (this->impl_ == nullptr)
+    if (this->impl_ == 0 || (this->impl_ & 1) == 1) {
         return;
+    }
 
-    Allocator alloc = this->impl_->alloc;
-    this->impl_->~Impl();
-    alloc.freeObject(this->impl_);
-    this->impl_ = nullptr;
+    Impl* impl = reinterpret_cast<Impl*>(this->impl_);
+    Allocator alloc = impl->alloc;
+    impl->~Impl();
+    alloc.freeObject(impl);
+    this->impl_ = 0;
+}
+
+Option<Exceptional> sy::AnyError::exceptional() const noexcept {
+    if ((this->impl_ & 1) == 1) {
+        return static_cast<Exceptional>(this->impl_ >> 1);
+    }
+    return Option<Exceptional>{};
 }
 
 StringSlice sy::AnyError::message() const noexcept {
-    if (this->impl_ == nullptr)
+    if (this->impl_ == 0)
         return StringSlice();
 
-    return this->impl_->message.asSlice();
+    if (auto exceptionalRes = this->exceptional(); exceptionalRes.hasValue()) {
+        switch (exceptionalRes.value()) {
+        case Exceptional::OOM:
+            return StringSlice("Out Of Memory");
+        case Exceptional::Bounds:
+            return StringSlice("Out Of Bounds");
+        case Exceptional::System:
+            return StringSlice("System Error");
+        case Exceptional::Io:
+            return StringSlice("IO Error");
+        case Exceptional::Arithmetic:
+            return StringSlice("Arithmetic Error");
+        case Exceptional::Capacity:
+            return StringSlice("Capacity Error");
+        case Exceptional::Other:
+        default:
+            return StringSlice("Unknown Exception");
+        }
+    }
+
+    return reinterpret_cast<const Impl*>(this->impl_)->message.asSlice();
 }
 
 Option<AnyError&> sy::AnyError::cause() noexcept {
-    if (this->impl_ == nullptr || !this->impl_->cause.hasValue())
+    if (this->impl_ == 0 || (this->impl_ & 1) == 1)
         return {};
 
-    return Option<AnyError&>(this->impl_->cause.value());
+    Impl* impl = reinterpret_cast<Impl*>(this->impl_);
+    if (!impl->cause.hasValue()) {
+        return {};
+    }
+
+    return Option<AnyError&>(impl->cause.value());
 }
 
 Option<const AnyError&> sy::AnyError::cause() const noexcept {
-    if (this->impl_ == nullptr || !this->impl_->cause.hasValue())
+    if (this->impl_ == 0 || (this->impl_ & 1) == 1)
         return {};
 
-    return Option<const AnyError&>(this->impl_->cause.value());
+    const Impl* impl = reinterpret_cast<const Impl*>(this->impl_);
+    if (!impl->cause.hasValue()) {
+        return {};
+    }
+
+    return Option<const AnyError&>(impl->cause.value());
 }
 
 Option<void*> sy::AnyError::rawPayload() noexcept {
-    if (this->impl_ == nullptr)
+    if (this->impl_ == 0 || (this->impl_ & 1) == 1)
         return {};
 
-    return this->impl_->payload;
+    Impl* impl = reinterpret_cast<Impl*>(this->impl_);
+    if (!impl->payload.hasValue()) {
+        return {};
+    }
+
+    return impl->payload;
 }
 
 Option<const void*> sy::AnyError::rawPayload() const noexcept {
-    if (this->impl_ == nullptr || !this->impl_->payload.hasValue())
+    if (this->impl_ == 0 || (this->impl_ & 1) == 1)
         return {};
 
-    return Option<const void*>(this->impl_->payload.value());
+    const Impl* impl = reinterpret_cast<const Impl*>(this->impl_);
+    if (!impl->payload.hasValue()) {
+        return {};
+    }
+
+    return Option<const void*>(impl->payload.value());
 }
 
 Option<const Type*> sy::AnyError::payloadType() const noexcept {
-    if (this->impl_ == nullptr)
+    if (this->impl_ == 0 || (this->impl_ & 1) == 1)
         return {};
 
-    return this->impl_->payloadType;
+    const Impl* impl = reinterpret_cast<const Impl*>(this->impl_);
+    return impl->payloadType;
 }
 
 // #if SYNC_LIB_WITH_TESTS

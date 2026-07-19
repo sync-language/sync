@@ -28,7 +28,7 @@ struct SourceFileLocation {
         : source(inSource), bytePos(inBytePos), location(inSource, inBytePos) {}
 };
 
-enum class ProgramError : int {
+enum class CompileError : int {
     Unknown = 1,
     OutOfMemory = 2,
     CompileSourceFileTooBig = 3,
@@ -53,13 +53,13 @@ enum class ProgramError : int {
     GenRefStale = 22,
 };
 
-using ProgramErrorReporter = void (*)(ProgramError errKind, const SourceFileLocation& where,
+using CompileErrorReporter = void (*)(CompileError errKind, const SourceFileLocation& where,
                                       StringSlice msg, void* arg);
 
 /// @brief This class handles all fatal errors within Sync, for both runtime
 /// and compile time. Runtime and compile time errors are treated the same due
 /// to Sync supporting comptime code execution.
-// class ProgramError {
+// class CompileError {
 //   public:
 //     enum class Kind : int {
 //         Unknown = 0,
@@ -82,7 +82,7 @@ using ProgramErrorReporter = void (*)(ProgramError errKind, const SourceFileLoca
 //         CompileModuleDependencyGraph,
 //     };
 
-//     ProgramError(Option<SourceFileLocation> inWhere, Kind inKind) noexcept;
+//     CompileError(Option<SourceFileLocation> inWhere, Kind inKind) noexcept;
 
 //     [[nodiscard]] Option<SourceFileLocation> where() const { return where_; }
 

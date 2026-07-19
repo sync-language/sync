@@ -130,9 +130,19 @@ SY_API void sy_gen_pool_destroy(SyGenPool* self) {
     ascpp->~GenPool();
 }
 
-SY_API SyProgramError sy_gen_owner_destroy(SyGenOwner* self) {
+namespace {
+/// Flattens a rich `AnyError` down to a C compile-error code for the gen-pool C ABI. OOM is
+/// preserved; everything else collapses to unknown (a rich value cannot cross the C boundary).
+SyCompileError anyErrorToCompileCode(const AnyError& err) noexcept {
+    const Option<Exceptional> exc = err.exceptional();
+    return exc.hasValue() && exc.value() == Exceptional::OOM ? SY_COMPILE_ERROR_OUT_OF_MEMORY
+                                                             : SY_COMPILE_ERROR_UNKNOWN;
+}
+} // namespace
+
+SY_API SyCompileError sy_gen_owner_destroy(SyGenOwner* self) {
     if (self->gen_ == 0) {
-        return SY_PROGRAM_ERROR_GEN_REF_STALE;
+        return SY_COMPILE_ERROR_GEN_REF_STALE;
     }
 
     auto* chunk = reinterpret_cast<internal::GenTypedPool::Chunk*>(self->chunk_);
@@ -144,7 +154,7 @@ SY_API SyProgramError sy_gen_owner_destroy(SyGenOwner* self) {
     if (!chunk->generations[self->objectIndex_].compare_exchange_strong(
             self->gen_, self->gen_ + 1, std::memory_order_acq_rel)) {
         chunk->typedPoolParent->lock.unlockExclusive();
-        return SY_PROGRAM_ERROR_GEN_REF_STALE;
+        return SY_COMPILE_ERROR_GEN_REF_STALE;
     }
 
     if (chunk->typedPoolParent->type->builtinTraits->elementWiseAtomicDestroy.hasValue()) {
@@ -158,7 +168,7 @@ SY_API SyProgramError sy_gen_owner_destroy(SyGenOwner* self) {
             self->chunk_ = nullptr;
             self->objectIndex_ = 0;
             chunk->typedPoolParent->lock.unlockExclusive();
-            return static_cast<SyProgramError>(res.err());
+            return anyErrorToCompileCode(res.err());
         }
     }
 
@@ -168,23 +178,23 @@ SY_API SyProgramError sy_gen_owner_destroy(SyGenOwner* self) {
     self->gen_ = 0;
     self->chunk_ = nullptr;
     self->objectIndex_ = 0;
-    return SY_PROGRAM_ERROR_NONE;
+    return SY_COMPILE_ERROR_NONE;
 }
 
-SY_API SyProgramError sy_gen_owner_load(const SyGenOwner* self, void* outObj) {
+SY_API SyCompileError sy_gen_owner_load(const SyGenOwner* self, void* outObj) {
     return sy_gen_ref_load(reinterpret_cast<const SyGenRef*>(self), outObj);
 }
 
-SY_API SyProgramError sy_gen_owner_store(SyGenOwner* self, void* obj) {
+SY_API SyCompileError sy_gen_owner_store(SyGenOwner* self, void* obj) {
     if (self->gen_ == 0) {
-        return SY_PROGRAM_ERROR_GEN_REF_STALE;
+        return SY_COMPILE_ERROR_GEN_REF_STALE;
     }
 
     auto* chunk = reinterpret_cast<internal::GenTypedPool::Chunk*>(self->chunk_);
     sy_assert(self->objectIndex_ < chunk->capacity, "Invalid object index");
 
     if (self->gen_ != chunk->generations[self->objectIndex_].load(std::memory_order_acquire)) {
-        return SY_PROGRAM_ERROR_GEN_REF_STALE;
+        return SY_COMPILE_ERROR_GEN_REF_STALE;
     }
 
     auto* typedPool = chunk->typedPoolParent;
@@ -217,14 +227,14 @@ SY_API SyProgramError sy_gen_owner_store(SyGenOwner* self, void* obj) {
     seq.fetch_add(1, std::memory_order_release);
 
     if (self->gen_ != chunk->generations[self->objectIndex_].load(std::memory_order_acquire)) {
-        return SY_PROGRAM_ERROR_GEN_REF_STALE;
+        return SY_COMPILE_ERROR_GEN_REF_STALE;
     }
 
     if (elementWiseAtomicMoveRes.hasErr()) {
-        return static_cast<SyProgramError>(elementWiseAtomicMoveRes.err());
+        return anyErrorToCompileCode(elementWiseAtomicMoveRes.err());
     }
 
-    return SY_PROGRAM_ERROR_NONE;
+    return SY_COMPILE_ERROR_NONE;
 }
 
 SY_API SyGenRef sy_gen_owner_ref(SyGenOwner* self) {
@@ -235,9 +245,9 @@ SY_API SyGenRef sy_gen_owner_ref(SyGenOwner* self) {
     return ref;
 }
 
-SY_API SyProgramError sy_gen_ref_load(const SyGenRef* self, void* outObj) {
+SY_API SyCompileError sy_gen_ref_load(const SyGenRef* self, void* outObj) {
     if (self->gen_ == 0) {
-        return SY_PROGRAM_ERROR_GEN_REF_STALE;
+        return SY_COMPILE_ERROR_GEN_REF_STALE;
     }
 
     auto* chunk = reinterpret_cast<internal::GenTypedPool::Chunk*>(self->chunk_);
@@ -272,27 +282,27 @@ SY_API SyProgramError sy_gen_ref_load(const SyGenRef* self, void* outObj) {
         }
 
         if (gen.load(std::memory_order_acquire) != self->gen_) {
-            return SY_PROGRAM_ERROR_GEN_REF_STALE;
+            return SY_COMPILE_ERROR_GEN_REF_STALE;
         }
 
         if (cloneRes.hasErr()) {
-            return static_cast<SyProgramError>(cloneRes.err());
+            return anyErrorToCompileCode(cloneRes.err());
         }
-        return SY_PROGRAM_ERROR_NONE;
+        return SY_COMPILE_ERROR_NONE;
     }
 }
 
-SY_API SyProgramError sy_gen_ref_store(SyGenRef* self, void* obj) {
+SY_API SyCompileError sy_gen_ref_store(SyGenRef* self, void* obj) {
     auto* chunk = reinterpret_cast<internal::GenTypedPool::Chunk*>(self->chunk_);
     // shared lock to prevent destruction
     chunk->typedPoolParent->lock.lockShared();
-    const SyProgramError err = sy_gen_owner_store(reinterpret_cast<SyGenOwner*>(self), obj);
+    const SyCompileError err = sy_gen_owner_store(reinterpret_cast<SyGenOwner*>(self), obj);
     chunk->typedPoolParent->lock.unlockShared();
     return err;
 }
 }
 
-SY_API void sy::internal::ensureNoProgramError(int err) {
+SY_API void sy::internal::ensureNoCompileError(int err) {
     sy_assert(err == 0, "Destructor should't have failed especially with C++ templates");
     (void)err;
 }

@@ -50,7 +50,7 @@ class SY_API Compiler final {
 
     [[nodiscard]] Result<DynArray<const Module*>, AllocErr> allModules() const noexcept;
 
-    [[nodiscard]] Result<Program, ProgramError> compile(ProgramErrorReporter errReporter,
+    [[nodiscard]] Result<Program, CompileError> compile(CompileErrorReporter errReporter,
                                                         void* errReporterArg) const noexcept;
 
   private:

@@ -76,17 +76,17 @@ sy::TypeResolutionInfo::parse(ParseInfo* parseInfo) noexcept {
     return Error(TypeResolutionInfo::Err::NotAType);
 }
 
-static Result<void, ProgramError> parseOptionalSymbol(ParsedType* parsedType) {
+static Result<void, CompileError> parseOptionalSymbol(ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Nullable;
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parsePointer(ParseInfo* parseInfo, ParsedType* parsedType) {
+static Result<void, CompileError> parsePointer(ParseInfo* parseInfo, ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Pointer;
 
@@ -99,13 +99,13 @@ static Result<void, ProgramError> parsePointer(ParseInfo* parseInfo, ParsedType*
     }
 
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parseLifetimePointer(ParseInfo* parseInfo,
+static Result<void, CompileError> parseLifetimePointer(ParseInfo* parseInfo,
                                                        ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Pointer;
@@ -114,10 +114,10 @@ static Result<void, ProgramError> parseLifetimePointer(ParseInfo* parseInfo,
     if (auto next = parseInfo->tokenIter.peek(); next.has_value()) {
         TokenType nextToken = next.value().tag();
         if (nextToken != TokenType::Identifier) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType,
+            parseInfo->reportErr(CompileError::CompileUnknownType,
                                  parseInfo->tokenIter.current().location(),
                                  "Expected identifier for lifetime annotated pointer"); //
-            return Error(ProgramError::CompileUnknownType);
+            return Error(CompileError::CompileUnknownType);
         }
 
         (void)parseInfo->tokenIter.next();
@@ -133,13 +133,13 @@ static Result<void, ProgramError> parseLifetimePointer(ParseInfo* parseInfo,
     }
 
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parseSlice(ParseInfo* parseInfo, ParsedType* parsedType) {
+static Result<void, CompileError> parseSlice(ParseInfo* parseInfo, ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Slice;
 
@@ -152,13 +152,13 @@ static Result<void, ProgramError> parseSlice(ParseInfo* parseInfo, ParsedType* p
     }
 
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parseLifetimeSlice(ParseInfo* parseInfo, ParsedType* parsedType) {
+static Result<void, CompileError> parseLifetimeSlice(ParseInfo* parseInfo, ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Slice;
 
@@ -166,10 +166,10 @@ static Result<void, ProgramError> parseLifetimeSlice(ParseInfo* parseInfo, Parse
     if (auto next = parseInfo->tokenIter.peek(); next.has_value()) {
         TokenType nextToken = next.value().tag();
         if (nextToken != TokenType::Identifier) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType,
+            parseInfo->reportErr(CompileError::CompileUnknownType,
                                  parseInfo->tokenIter.current().location(),
                                  "Expected identifier for lifetime annotated pointer"); //
-            return Error(ProgramError::CompileUnknownType);
+            return Error(CompileError::CompileUnknownType);
         }
 
         (void)parseInfo->tokenIter.next();
@@ -185,13 +185,13 @@ static Result<void, ProgramError> parseLifetimeSlice(ParseInfo* parseInfo, Parse
     }
 
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parseDyn(ParseInfo* parseInfo, ParsedType* parsedType) {
+static Result<void, CompileError> parseDyn(ParseInfo* parseInfo, ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Dyn;
 
@@ -204,13 +204,13 @@ static Result<void, ProgramError> parseDyn(ParseInfo* parseInfo, ParsedType* par
     }
 
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parseLifetimeDyn(ParseInfo* parseInfo, ParsedType* parsedType) {
+static Result<void, CompileError> parseLifetimeDyn(ParseInfo* parseInfo, ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Dyn;
 
@@ -218,10 +218,10 @@ static Result<void, ProgramError> parseLifetimeDyn(ParseInfo* parseInfo, ParsedT
     if (auto next = parseInfo->tokenIter.peek(); next.has_value()) {
         TokenType nextToken = next.value().tag();
         if (nextToken != TokenType::Identifier) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType,
+            parseInfo->reportErr(CompileError::CompileUnknownType,
                                  parseInfo->tokenIter.current().location(),
                                  "Expected identifier for lifetime annotated pointer");
-            return Error(ProgramError::CompileUnknownType);
+            return Error(CompileError::CompileUnknownType);
         }
 
         (void)parseInfo->tokenIter.next();
@@ -237,51 +237,51 @@ static Result<void, ProgramError> parseLifetimeDyn(ParseInfo* parseInfo, ParsedT
     }
 
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parseUnique(ParsedType* parsedType) {
+static Result<void, CompileError> parseUnique(ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Unique;
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parseShared(ParsedType* parsedType) {
+static Result<void, CompileError> parseShared(ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Shared;
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parseWeak(ParsedType* parsedType) {
+static Result<void, CompileError> parseWeak(ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::Weak;
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parseStaticArray(ParseInfo* parseInfo, ParsedType* parsedType) {
+static Result<void, CompileError> parseStaticArray(ParseInfo* parseInfo, ParsedType* parsedType) {
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::StaticArray;
 
     if (parseInfo->tokenIter.next().has_value() == false) {
-        parseInfo->reportErr(ProgramError::CompileUnknownType,
+        parseInfo->reportErr(CompileError::CompileUnknownType,
                              parseInfo->tokenIter.current().location(),
                              "Expected expression for static array size, not end of file");
-        return Error(ProgramError::CompileUnknownType);
+        return Error(CompileError::CompileUnknownType);
     }
 
     // This gets added BEFORE the static array node, but is a child of the static array node to
@@ -296,62 +296,62 @@ static Result<void, ProgramError> parseStaticArray(ParseInfo* parseInfo, ParsedT
             sizeNode.tag = ParsedTypeTag::IntLiteral;
             sizeNode.expression = parseInfo->tokenIter.currentSlice();
             if (parsedType->nodes.push(std::move(sizeNode)).hasErr()) {
-                return Error(ProgramError::OutOfMemory);
+                return Error(CompileError::OutOfMemory);
             }
             sizeNodeIndex = static_cast<uint16_t>(parsedType->nodes.len() - 1);
         } break;
 
         default:
-            parseInfo->reportErr(ProgramError::CompileUnknownType,
+            parseInfo->reportErr(CompileError::CompileUnknownType,
                                  parseInfo->tokenIter.current().location(),
                                  "Expected number literal for array size");
-            return Error(ProgramError::CompileUnknownType);
+            return Error(CompileError::CompileUnknownType);
         }
     }
 
     if (node.childrenIndices.push(sizeNodeIndex).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
 
     { // need ']' character
         if (parseInfo->tokenIter.next().has_value() == false) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType,
+            parseInfo->reportErr(CompileError::CompileUnknownType,
                                  parseInfo->tokenIter.current().location(),
                                  "Expected ']' for static array type, not end of file");
-            return Error(ProgramError::CompileUnknownType);
+            return Error(CompileError::CompileUnknownType);
         }
         const TokenType current = parseInfo->tokenIter.current().tag();
         if (current != TokenType::RightBracketSymbol) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType,
+            parseInfo->reportErr(CompileError::CompileUnknownType,
                                  parseInfo->tokenIter.current().location(),
                                  "Expected ']' for static array type");
-            return Error(ProgramError::CompileUnknownType);
+            return Error(CompileError::CompileUnknownType);
         }
     }
 
     return {};
 }
 
-static Result<void, ProgramError> parseConcreteLifetime(ParseInfo* parseInfo,
+static Result<void, CompileError> parseConcreteLifetime(ParseInfo* parseInfo,
                                                         ParsedType* parsedType) {
     // next must be identifier for valid lifetime pointer
     if (parseInfo->tokenIter.next().has_value() == false) {
-        parseInfo->reportErr(ProgramError::CompileUnknownType,
+        parseInfo->reportErr(CompileError::CompileUnknownType,
                              parseInfo->tokenIter.current().location(),
                              "Expected identifier for concrete lifetime, not end of file");
-        return Error(ProgramError::CompileUnknownType);
+        return Error(CompileError::CompileUnknownType);
     }
 
     TokenType token = parseInfo->tokenIter.current().tag();
     if (token != TokenType::Identifier) {
-        parseInfo->reportErr(ProgramError::CompileUnknownType,
+        parseInfo->reportErr(CompileError::CompileUnknownType,
                              parseInfo->tokenIter.current().location(),
                              "Expected identifier for concrete lifetime");
-        return Error(ProgramError::CompileUnknownType);
+        return Error(CompileError::CompileUnknownType);
     }
 
     parsedType->nodes[parsedType->nodes.len() - 1].lifetime = parseInfo->tokenIter.currentSlice();
@@ -359,24 +359,24 @@ static Result<void, ProgramError> parseConcreteLifetime(ParseInfo* parseInfo,
     return {};
 }
 
-static Result<void, ProgramError> parseErrorUnion(ParseInfo* parseInfo, ParsedType* parsedType) {
+static Result<void, CompileError> parseErrorUnion(ParseInfo* parseInfo, ParsedType* parsedType) {
     { // validate not already found error union
         const ParsedTypeNode& rootNode = parsedType->nodes[parsedType->rootNode];
         if (rootNode.tag == ParsedTypeTag::ErrorUnion) {
-            parseInfo->reportErr(ProgramError::CompileUnknownType,
+            parseInfo->reportErr(CompileError::CompileUnknownType,
                                  parseInfo->tokenIter.current().location(),
                                  "Cannot chain error unions");
-            return Error(ProgramError::CompileUnknownType);
+            return Error(CompileError::CompileUnknownType);
         }
     }
 
     ParsedTypeNode node;
     node.tag = ParsedTypeTag::ErrorUnion;
     if (node.childrenIndices.push(parsedType->rootNode).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
     if (parsedType->nodes.push(std::move(node)).hasErr()) {
-        return Error(ProgramError::OutOfMemory);
+        return Error(CompileError::OutOfMemory);
     }
     parsedType->rootNode = static_cast<uint16_t>(parsedType->nodes.len() - 1);
 
@@ -401,7 +401,7 @@ struct GenericContext {
 
 static constexpr uint16_t MAX_GENERIC_TYPE_DEPTH = 32;
 
-Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
+Result<ParsedType, CompileError> sy::ParsedType::parse(ParseInfo* parseInfo) {
     ParsedType parsedType{DynArray<ParsedTypeNode>(parseInfo->alloc)};
     TypeParsePhase parsePhase = TypeParsePhase::CollectPrefixOrGetNamed;
 
@@ -450,7 +450,7 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                 node.tag = ParsedTypeTag::Named;
                 node.name = parseInfo->tokenIter.currentSlice();
                 if (parsedType.nodes.push(std::move(node)).hasErr()) {
-                    return Error(ProgramError::OutOfMemory);
+                    return Error(CompileError::OutOfMemory);
                 }
 
                 if (genericStackDepth > 0) {
@@ -463,7 +463,7 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                             if (prevNode.childrenIndices
                                     .push(static_cast<uint16_t>(parsedType.nodes.len() - 1))
                                     .hasErr()) {
-                                return Error(ProgramError::OutOfMemory);
+                                return Error(CompileError::OutOfMemory);
                             }
                         }
                     }
@@ -481,7 +481,7 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                     if (prevNodeIndex.hasValue()) {
                         ParsedTypeNode& prevNode = parsedType.nodes[prevNodeIndex.value()];
                         if (prevNode.childrenIndices.push(newNodeIndex).hasErr()) {
-                            return Error(ProgramError::OutOfMemory);
+                            return Error(CompileError::OutOfMemory);
                         }
                     } else {
                         parsedType.rootNode = newNodeIndex;
@@ -493,10 +493,10 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
 
             default:
                 if (parsePhase == TypeParsePhase::GetNamedOnly) {
-                    parseInfo->reportErr(ProgramError::CompileUnknownType,
+                    parseInfo->reportErr(CompileError::CompileUnknownType,
                                          parseInfo->tokenIter.current().location(),
                                          "Expected identifier or primitive");
-                    return Error(ProgramError::CompileUnknownType);
+                    return Error(CompileError::CompileUnknownType);
                 }
             }
         }
@@ -582,7 +582,7 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                 ParsedTypeNode node;
                 node.tag = ParsedTypeTag::Tuple;
                 if (parsedType.nodes.push(std::move(node)).hasErr()) {
-                    return Error(ProgramError::OutOfMemory);
+                    return Error(CompileError::OutOfMemory);
                 }
                 shouldStepIter = false;
                 parsePhase = TypeParsePhase::CollectPostfix;
@@ -618,9 +618,9 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
             case TokenType::LeftParenthesesSymbol: { // generic
                 if (genericStackDepth >= MAX_GENERIC_TYPE_DEPTH) {
                     parseInfo->reportErr(
-                        ProgramError::CompileUnknownType, parseInfo->tokenIter.current().location(),
+                        CompileError::CompileUnknownType, parseInfo->tokenIter.current().location(),
                         "Generic nesting depth exceeds maximum (maybe malicious code)");
-                    return Error(ProgramError::CompileUnknownType);
+                    return Error(CompileError::CompileUnknownType);
                 }
 
                 uint16_t namedNodeIndex = static_cast<uint16_t>(parsedType.nodes.len() - 1);
@@ -630,10 +630,10 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                 genericStackDepth += 1;
 
                 if (parseInfo->tokenIter.next().has_value() == false) {
-                    parseInfo->reportErr(ProgramError::CompileUnknownType,
+                    parseInfo->reportErr(CompileError::CompileUnknownType,
                                          parseInfo->tokenIter.current().location(),
                                          "Expected generic argument or ')', not EOF");
-                    return Error(ProgramError::CompileUnknownType);
+                    return Error(CompileError::CompileUnknownType);
                 }
 
                 TokenType token = parseInfo->tokenIter.current().tag();
@@ -651,10 +651,10 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                 case TokenType::NumberLiteral: {
                     if (parsedType.nodes[currentGenericContext->parentNode].tag ==
                         ParsedTypeTag::Tuple) {
-                        parseInfo->reportErr(ProgramError::CompileUnknownType,
+                        parseInfo->reportErr(CompileError::CompileUnknownType,
                                              parseInfo->tokenIter.current().location(),
                                              "Tuple may not contain number literals");
-                        return Error(ProgramError::CompileUnknownType);
+                        return Error(CompileError::CompileUnknownType);
                     }
 
                     ParsedTypeNode argNode;
@@ -662,18 +662,18 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                     argNode.expression = parseInfo->tokenIter.currentSlice();
                     uint16_t argIndex = static_cast<uint16_t>(parsedType.nodes.len());
                     if (parsedType.nodes.push(std::move(argNode)).hasErr()) {
-                        return Error(ProgramError::OutOfMemory);
+                        return Error(CompileError::OutOfMemory);
                     }
                     if (parsedType.nodes[namedNodeIndex].childrenIndices.push(argIndex).hasErr()) {
-                        return Error(ProgramError::OutOfMemory);
+                        return Error(CompileError::OutOfMemory);
                     }
 
                     if (parseInfo->tokenIter.next().has_value() == false) {
                         parseInfo->reportErr(
-                            ProgramError::CompileUnknownType,
+                            CompileError::CompileUnknownType,
                             parseInfo->tokenIter.current().location(),
                             "Expected ',' or ')' after generic argument, not end of file");
-                        return Error(ProgramError::CompileUnknownType);
+                        return Error(CompileError::CompileUnknownType);
                     }
                     continue;
                 } break;
@@ -693,17 +693,17 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                             if (parsedType.nodes[currentGenericContext->parentNode]
                                     .childrenIndices.push(currentGenericContext->currentArgRoot)
                                     .hasErr()) {
-                                return Error(ProgramError::OutOfMemory);
+                                return Error(CompileError::OutOfMemory);
                             }
                         }
 
                         if (token == TokenType::CommaSymbol) {
                             if (parseInfo->tokenIter.next().has_value() == false) {
                                 parseInfo->reportErr(
-                                    ProgramError::CompileUnknownType,
+                                    CompileError::CompileUnknownType,
                                     parseInfo->tokenIter.current().location(),
                                     "Expected generic argument after ',', not end of file");
-                                return Error(ProgramError::CompileUnknownType);
+                                return Error(CompileError::CompileUnknownType);
                             }
 
                             TokenType nextToken = parseInfo->tokenIter.current().tag();
@@ -715,20 +715,20 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                                 argNode.expression = parseInfo->tokenIter.currentSlice();
                                 uint16_t argIndex = static_cast<uint16_t>(parsedType.nodes.len());
                                 if (parsedType.nodes.push(std::move(argNode)).hasErr()) {
-                                    return Error(ProgramError::OutOfMemory);
+                                    return Error(CompileError::OutOfMemory);
                                 }
                                 if (parsedType.nodes[currentGenericContext->parentNode]
                                         .childrenIndices.push(argIndex)
                                         .hasErr()) {
-                                    return Error(ProgramError::OutOfMemory);
+                                    return Error(CompileError::OutOfMemory);
                                 }
 
                                 if (parseInfo->tokenIter.next().has_value() == false) {
-                                    parseInfo->reportErr(ProgramError::CompileUnknownType,
+                                    parseInfo->reportErr(CompileError::CompileUnknownType,
                                                          parseInfo->tokenIter.current().location(),
                                                          "Expected ',' or ')' after generic "
                                                          "argument, not end of file");
-                                    return Error(ProgramError::CompileUnknownType);
+                                    return Error(CompileError::CompileUnknownType);
                                 }
                             } else {
                                 parsePhase = TypeParsePhase::CollectPrefixOrGetNamed;
@@ -747,10 +747,10 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                     parsePhase = TypeParsePhase::DoneParse;
                 }
 
-                // parseInfo->reportErr(ProgramError::CompileUnknownType,
+                // parseInfo->reportErr(CompileError::CompileUnknownType,
                 // parseInfo->tokenIter.current().location(),
                 //                      "Expected concrete lifetime, error union, or generic args");
-                // return Error(ProgramError::CompileUnknownType);
+                // return Error(CompileError::CompileUnknownType);
             }
             }
 
@@ -770,7 +770,7 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                 if (prevNodeIndex.hasValue()) {
                     ParsedTypeNode& prevNode = parsedType.nodes[prevNodeIndex.value()];
                     if (prevNode.childrenIndices.push(newNodeIndex).hasErr()) {
-                        return Error(ProgramError::OutOfMemory);
+                        return Error(CompileError::OutOfMemory);
                     }
                 } else {
                     parsedType.rootNode = newNodeIndex;
@@ -779,7 +779,7 @@ Result<ParsedType, ProgramError> sy::ParsedType::parse(ParseInfo* parseInfo) {
                 if (prevNodeIndex.hasValue()) {
                     ParsedTypeNode& prevNode = parsedType.nodes[prevNodeIndex.value()];
                     if (prevNode.childrenIndices.push(newNodeIndex).hasErr()) {
-                        return Error(ProgramError::OutOfMemory);
+                        return Error(CompileError::OutOfMemory);
                     }
                 }
             }

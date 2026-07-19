@@ -14,7 +14,7 @@ struct TaskHeader {
     Allocator alloc_;
     SyAtomicBool isDone_;
     RwLock lock_;
-    Option<ProgramError> encounteredErr_;
+    Option<AnyError> encounteredErr_;
     const RawFunction* function_;
     Stack stack_;
 
@@ -82,11 +82,11 @@ sy::RawTask::~RawTask() noexcept {
 
 const Type* sy::RawTask::retType() const noexcept { return asHeader(this->inner_)->valType(); }
 
-Result<bool, ProgramError> RawTask::isDone() const noexcept {
+Result<bool, AnyError> RawTask::isDone() const noexcept {
     return sy_atomic_bool_load(&asHeader(this->inner_)->isDone_, SY_MEMORY_ORDER_SEQ_CST);
 }
 
-Result<void, ProgramError> RawTask::awaitDone(void* outReturn) noexcept {
+Result<void, AnyError> RawTask::awaitDone(void* outReturn) noexcept {
     while (!this->isDone()) {
         sy_thread_yield();
     }
@@ -100,7 +100,7 @@ Result<void, ProgramError> RawTask::awaitDone(void* outReturn) noexcept {
     return {};
 }
 
-Result<bool, ProgramError> RawTask::getIfDone(void* outReturn) noexcept {
+Result<bool, AnyError> RawTask::getIfDone(void* outReturn) noexcept {
     if (!this->isDone()) {
         return false;
     }
@@ -110,7 +110,7 @@ Result<bool, ProgramError> RawTask::getIfDone(void* outReturn) noexcept {
     (void)header->lock_.lockExclusive();
 
     if (header->encounteredErr_.hasValue()) {
-        ProgramError err = header->encounteredErr_.value();
+        AnyError err = header->encounteredErr_.value();
         header->lock_.unlockExclusive();
         header->destroy();
         this->inner_ = nullptr;

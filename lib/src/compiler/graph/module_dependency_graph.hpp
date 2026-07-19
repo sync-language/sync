@@ -11,7 +11,8 @@ class Module;
 
 /// @brief DAG
 struct ModuleDependencyGraph {
-    [[nodiscard]] static Result<ModuleDependencyGraph, ProgramError> init(DynArray<const Module*> modules) noexcept;
+    [[nodiscard]] static Result<ModuleDependencyGraph, CompileError>
+    init(DynArray<const Module*> modules) noexcept;
 
     // struct ModuleDepGraphNode {
     //     const Module* mod;

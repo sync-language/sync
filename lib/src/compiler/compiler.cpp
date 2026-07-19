@@ -18,7 +18,7 @@ using namespace sy;
 namespace fs = std::filesystem;
 
 namespace sy {
-extern ProgramErrorReporter defaultErrReporter;
+extern CompileErrorReporter defaultErrReporter;
 
 struct CompilerImpl {
     Allocator alloc;
@@ -204,12 +204,12 @@ Result<DynArray<const Module*>, AllocErr> sy::Compiler::allModules() const noexc
     return modules;
 }
 
-static Result<ModuleDependencyGraph, ProgramError>
+static Result<ModuleDependencyGraph, CompileError>
 getCompileOrder(Allocator alloc, const MapUnmanaged<ModuleVersion, Module*>& modules) noexcept {
     DynArray<const Module*> allModules{alloc};
     for (const auto entry : modules) {
         if (allModules.push(entry.value).hasErr()) {
-            return Error(ProgramError::OutOfMemory);
+            return Error(CompileError::OutOfMemory);
         }
     }
     auto res = ModuleDependencyGraph::init(std::move(allModules));
@@ -219,9 +219,9 @@ getCompileOrder(Allocator alloc, const MapUnmanaged<ModuleVersion, Module*>& mod
     return res.takeValue();
 }
 
-static Result<ProgramModuleInternal*, ProgramError>
+static Result<ProgramModuleInternal*, CompileError>
 compileModule(const ModuleImpl* mod, Allocator protAlloc, Allocator tempAlloc,
-              ProgramErrorReporter errReporter, void* errReporterArg) {
+              CompileErrorReporter errReporter, void* errReporterArg) {
     MapUnmanaged<const SourceTreeNode*, FileAst> asts;
     DynArray<const SourceTreeNode*> nodesToProcess(tempAlloc);
     (void)nodesToProcess;
@@ -234,7 +234,7 @@ compileModule(const ModuleImpl* mod, Allocator protAlloc, Allocator tempAlloc,
         FileAst ast = result.takeValue();
         sy_assert(ast.imports.len() == 0, "Imports not yet supported");
         if (asts.insert(tempAlloc, mod->rootFile, std::move(ast)).hasErr()) {
-            return Error(ProgramError::OutOfMemory);
+            return Error(CompileError::OutOfMemory);
         }
         // TODO importing
     }
@@ -253,7 +253,7 @@ compileModule(const ModuleImpl* mod, Allocator protAlloc, Allocator tempAlloc,
         auto res = ProgramModuleInternal::init(protAlloc, mod->name.asSlice(), mod->version,
                                                functionCount, structCount);
         if (res.hasErr()) {
-            return Error(ProgramError::OutOfMemory);
+            return Error(CompileError::OutOfMemory);
         }
         moduleInternal = res.value();
     }
@@ -264,10 +264,10 @@ compileModule(const ModuleImpl* mod, Allocator protAlloc, Allocator tempAlloc,
             for (const IFunctionDefinition* func : astEntry.value.nonGenericFunctions) {
                 auto unqualifiedRes = String::init(func->unqualifiedName(), protAlloc);
                 if (unqualifiedRes.hasErr())
-                    return Error(ProgramError::OutOfMemory);
+                    return Error(CompileError::OutOfMemory);
                 auto qualifiedRes = String::init(func->qualifiedName(), protAlloc);
                 if (qualifiedRes.hasErr())
-                    return Error(ProgramError::OutOfMemory);
+                    return Error(CompileError::OutOfMemory);
 
                 new (&moduleInternal->allFunctionNames[iter])
                     String(std::move(unqualifiedRes.takeValue()));
@@ -296,16 +296,16 @@ compileModule(const ModuleImpl* mod, Allocator protAlloc, Allocator tempAlloc,
 static_assert(sizeof(Module) == sizeof(ModuleImpl*));
 static_assert(sizeof(ProgramModule) == sizeof(ProgramModuleInternal*));
 
-static Result<void, ProgramError>
+static Result<void, CompileError>
 compileModules(ProgramInternal* programInternal, Allocator tempAlloc,
                const MapUnmanaged<ModuleVersion, Module*>& modules,
-               ProgramErrorReporter errReporter, void* errReporterArg) noexcept {
+               CompileErrorReporter errReporter, void* errReporterArg) noexcept {
 
     { // allocate memory for all modules
         auto modAllocRes =
             programInternal->protAlloc.asAllocator().allocArray<ProgramModule>(modules.len());
         if (modAllocRes.hasErr()) {
-            return Error(ProgramError::OutOfMemory);
+            return Error(CompileError::OutOfMemory);
         }
         programInternal->allModules = modAllocRes.value();
         programInternal->allModulesLen = modules.len();
@@ -340,7 +340,7 @@ compileModules(ProgramInternal* programInternal, Allocator tempAlloc,
     return {};
 }
 
-Result<Program, ProgramError> sy::Compiler::compile(ProgramErrorReporter errReporter,
+Result<Program, CompileError> sy::Compiler::compile(CompileErrorReporter errReporter,
                                                     void* errReporterArg) const noexcept {
     if (errReporter == nullptr) {
         errReporter = defaultErrReporter;
@@ -352,7 +352,7 @@ Result<Program, ProgramError> sy::Compiler::compile(ProgramErrorReporter errRepo
         auto allocRes = protAlloc.asAllocator().allocObject<ProgramInternal>();
         if (allocRes.hasErr()) {
             // OUT OF PAGES? insane
-            return Error(ProgramError::OutOfMemory);
+            return Error(CompileError::OutOfMemory);
         }
         programInternal = allocRes.value();
         new (programInternal) ProgramInternal();
@@ -371,7 +371,7 @@ Result<Program, ProgramError> sy::Compiler::compile(ProgramErrorReporter errRepo
     Program program;
     ProgramInternal** inner = reinterpret_cast<ProgramInternal**>(&program);
     *inner = programInternal;
-    return Error(ProgramError::Unknown);
+    return Error(CompileError::Unknown);
 }
 
 static Result<String, ModuleErr> loadFileToString(Allocator& alloc, const fs::path& path) {

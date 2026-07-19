@@ -7,8 +7,9 @@ fn main() {
 
     cc::Build::new()
         .cpp(true)
-        .std("c++17")
+        .std("c++20")
         .file("src/core/core.c")
+        .file("src/core/exceptional.c")
         .file("src/core/builtin_functions/sort.cpp")
         .file("src/core/builtin_traits/iterator.cpp")
         .file("src/util/simd.cpp")
@@ -29,6 +30,7 @@ fn main() {
         .file("src/types/string/string.cpp")
         .file("src/types/sync_obj/sync_obj.cpp")
         .file("src/types/array/dynamic_array.cpp")
+        .file("src/types/array/list.cpp")
         .file("src/types/array/slice.cpp")
         .file("src/types/hash/groups.cpp")
         .file("src/types/hash/map.cpp")

@@ -26,7 +26,7 @@ class Tokenizer {
 
     Tokenizer& operator=(const Tokenizer& other) = delete;
 
-    static Result<Tokenizer, ProgramError> create(sy::Allocator allocator, sy::StringSlice source) noexcept;
+    static Result<Tokenizer, CompileError> create(sy::Allocator allocator, sy::StringSlice source) noexcept;
 
     TokenIter iter() const noexcept;
 

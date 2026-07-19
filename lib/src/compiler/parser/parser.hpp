@@ -22,15 +22,15 @@ struct ParseInfo {
     // const SourceTreeNode* fileSource;
     StringSlice moduleName;
     MapUnmanaged<StringSlice, bool> imports;
-    ProgramErrorReporter errReporter;
+    CompileErrorReporter errReporter;
     void* errReporterArg;
 
-    ParseInfo(TokenIter inIter, Allocator inAlloc, StringSlice inModName, ProgramErrorReporter inErrReporter,
+    ParseInfo(TokenIter inIter, Allocator inAlloc, StringSlice inModName, CompileErrorReporter inErrReporter,
               void* inErrReporterArg) noexcept
         : tokenIter(inIter), alloc(inAlloc), moduleName(inModName), imports({}), errReporter(inErrReporter),
           errReporterArg(inErrReporterArg) {}
 
-    Error<ProgramError> reportErr(ProgramError errKind, uint32_t inBytePos, StringSlice msg) const noexcept;
+    Error<CompileError> reportErr(CompileError errKind, uint32_t inBytePos, StringSlice msg) const noexcept;
 };
 
 class IFunctionDefinition;
@@ -51,11 +51,11 @@ struct FileAst {
     ~FileAst() noexcept;
 };
 
-Result<Option<IFunctionStatement*>, ProgramError>
+Result<Option<IFunctionStatement*>, CompileError>
 parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* localVariables, Scope* currentScope) noexcept;
 
-Result<FileAst, ProgramError> parseFile(Allocator alloc, const SourceTreeNode* fileSource,
-                                        ProgramErrorReporter errReporter, void* errReporterArg) noexcept;
+Result<FileAst, CompileError> parseFile(Allocator alloc, const SourceTreeNode* fileSource,
+                                        CompileErrorReporter errReporter, void* errReporterArg) noexcept;
 
 } // namespace sy
 

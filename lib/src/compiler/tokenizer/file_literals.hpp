@@ -19,12 +19,12 @@ class NumberLiteral {
   public:
     enum class RepKind { Unsigned64, Signed64, Float64 };
 
-    [[nodiscard]] static Result<NumberLiteral, sy::ProgramError>
+    [[nodiscard]] static Result<NumberLiteral, sy::CompileError>
     create(const sy::StringSlice source, const uint32_t start, const uint32_t end);
 
-    [[nodiscard]] Result<uint64_t, sy::ProgramError> asUnsigned64() const;
+    [[nodiscard]] Result<uint64_t, sy::CompileError> asUnsigned64() const;
 
-    [[nodiscard]] Result<int64_t, sy::ProgramError> asSigned64() const;
+    [[nodiscard]] Result<int64_t, sy::CompileError> asSigned64() const;
 
     [[nodiscard]] double asFloat64() const;
 
@@ -41,7 +41,7 @@ class NumberLiteral {
 
 class CharLiteral {
   public:
-    [[nodiscard]] static Result<CharLiteral, sy::ProgramError>
+    [[nodiscard]] static Result<CharLiteral, sy::CompileError>
     create(const sy::StringSlice source, const uint32_t start, const uint32_t end);
 
     sy::Char val;
@@ -49,7 +49,7 @@ class CharLiteral {
 
 class StringLiteral {
   public:
-    [[nodiscard]] static Result<StringLiteral, sy::ProgramError>
+    [[nodiscard]] static Result<StringLiteral, sy::CompileError>
     create(const sy::StringSlice source, const uint32_t start, const uint32_t end,
            sy::Allocator alloc);
 

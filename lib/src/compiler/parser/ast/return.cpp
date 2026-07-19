@@ -6,16 +6,16 @@
 
 using namespace sy;
 
-Result<void, ProgramError> sy::ReturnNode::init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+Result<void, CompileError> sy::ReturnNode::init(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                                 Scope*) noexcept {
     sy_assert(parseInfo->tokenIter.current().tag() == TokenType::ReturnKeyword, "Expected return keyword");
     sy_assert(this->retValue.hasValue() == false, "Should not already have an expression value to return");
 
     const StringSlice source = parseInfo->tokenIter.source();
-    auto makeEndOfFileError = [source, parseInfo]() -> Error<ProgramError> {
-        parseInfo->reportErr(ProgramError::CompileFunctionStatement, static_cast<uint32_t>(source.len() - 1),
+    auto makeEndOfFileError = [source, parseInfo]() -> Error<CompileError> {
+        parseInfo->reportErr(CompileError::CompileFunctionStatement, static_cast<uint32_t>(source.len() - 1),
                              "Unexpected end of file");
-        return Error(ProgramError::CompileFunctionStatement);
+        return Error(CompileError::CompileFunctionStatement);
     };
 
     auto result = parseInfo->tokenIter.next();
@@ -37,12 +37,12 @@ Result<void, ProgramError> sy::ReturnNode::init(ParseInfo* parseInfo, DynArray<S
     return {};
 }
 
-Result<void, ProgramError> sy::ReturnNode::compileStatement(FunctionBuilder* builder) const noexcept {
+Result<void, CompileError> sy::ReturnNode::compileStatement(FunctionBuilder* builder) const noexcept {
     if (this->retValue.hasValue() == false) {
         const operators::Return ret = {static_cast<uint64_t>(operators::Return::OPCODE)};
         const Bytecode asBytecode = Bytecode(ret);
         if (builder->pushBytecode(&asBytecode, 1).hasErr()) {
-            return Error(ProgramError::OutOfMemory);
+            return Error(CompileError::OutOfMemory);
         }
     } else {
         auto expressionErr = this->retValue.value().compileExpression(builder);
@@ -54,7 +54,7 @@ Result<void, ProgramError> sy::ReturnNode::compileStatement(FunctionBuilder* bui
                                             static_cast<uint64_t>(this->retValue.value().variableIndex)};
         const Bytecode asBytecode = Bytecode(ret);
         if (builder->pushBytecode(&asBytecode, 1).hasErr()) {
-            return Error(ProgramError::OutOfMemory);
+            return Error(CompileError::OutOfMemory);
         }
     }
     return {};

@@ -56,7 +56,7 @@ struct ProgramInternal {
     ProgramModule* allModules = nullptr;
     size_t allModulesLen = 0;
     MapUnmanaged<StringSlice, DynArrayUnmanaged<ProgramModule*>> moduleVersions;
-    ProgramErrorReporter errReporter = nullptr;
+    CompileErrorReporter errReporter = nullptr;
     void* errReporterArg = nullptr;
 };
 
