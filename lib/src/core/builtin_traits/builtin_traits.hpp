@@ -20,7 +20,7 @@ using NativeDestructorFn = void (*)(void* obj);
 using NativeCloneFn = Result<void, Exceptional> (*)(void* dst, const void* src);
 using NativeEqualFn = bool (*)(const void* lhs, const void* rhs);
 using NativeHashFn = size_t (*)(const void* obj);
-using NativeCompareFn = bool (*)(const void* lhs, const void* rhs);
+using NativeCompareFn = Ordering (*)(const void* lhs, const void* rhs);
 using NativeElementWiseAtomicDestructorFn = void (*)(void* obj);
 using NativeElementWiseAtomicLoadFn = void (*)(void* dst, const void* src);
 using NativeElementWiseAtomicStoreFn = void (*)(void* dst, const void* src);
@@ -30,7 +30,7 @@ using BuiltInDestructorFn = Function<void(void* obj)>;
 using BuiltInCloneFn = Function<void(void* dst, const void* src)>;
 using BuiltInEqualFn = Function<bool(const void* lhs, const void* rhs)>;
 using BuiltInHashFn = Function<size_t(const void* obj)>;
-using BuiltInCompareFn = Function<bool(const void* lhs, const void* rhs)>;
+using BuiltInCompareFn = Function<Ordering(const void* lhs, const void* rhs)>;
 using BuiltInElementWiseAtomicDestructorFn = Function<void(void* obj)>;
 using BuiltInElementWiseAtomicLoadFn = Function<void(void* dst, const void* src)>;
 using BuiltInElementWiseAtomicStoreFn = Function<void(void* dst, const void* src)>;
@@ -63,10 +63,10 @@ struct BuiltInCoherentTraits {
         +[](void* dst, const void* src) -> Result<void, Exceptional> {
         T* tDst = reinterpret_cast<T*>(dst);
         const T* tSrc = reinterpret_cast<const T*>(src);
-        if constexpr (detail::has_member_clone<T>::value) {
+        if constexpr (internal::has_member_clone<T>::value) {
             auto r = tSrc->clone();
             if (r.hasErr()) {
-                return Error(detail::cloneErrToExceptional(r.takeErr()));
+                return Error(internal::cloneErrToExceptional(r.takeErr()));
             }
             new (tDst) T(r.takeValue());
             return {};
@@ -100,8 +100,8 @@ struct BuiltInCoherentTraits {
     };
 
     template <typename T>
-        static constexpr BuiltInCompareFn >
-        COMPARE_FN_OF = +[](const void* lhs, const void* rhs) -> Ordering {
+    static constexpr BuiltInCompareFn COMPARE_FN_OF =
+        +[](const void* lhs, const void* rhs) -> Ordering {
         const T* tLhs = reinterpret_cast<const T*>(lhs);
         const T* tRhs = reinterpret_cast<const T*>(rhs);
         bool eq = (*tLhs) == (*tRhs);
@@ -118,7 +118,7 @@ struct BuiltInCoherentTraits {
         return &CLONE_FN_OF<T>;
     }
 
-    template <typename T> static constexpr const BuiltInEqualFn > *makeEqualityFunction() noexcept {
+    template <typename T> static constexpr const BuiltInEqualFn* makeEqualityFunction() noexcept {
         return &EQUAL_FN_OF<T>;
     }
 
