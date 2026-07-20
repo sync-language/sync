@@ -16,10 +16,10 @@ class FunctionDefinitionNode : public IFunctionDefinition {
 
     virtual ~FunctionDefinitionNode() noexcept;
 
-    virtual Result<void, ProgramError> init(ParseInfo* parseInfo,
+    virtual Result<void, CompileError> init(ParseInfo* parseInfo,
                                             Scope* outerScope) noexcept override;
 
-    virtual Result<FunctionBuilder, ProgramError> compile() const noexcept override;
+    virtual Result<FunctionBuilder, CompileError> compile() const noexcept override;
 
     virtual StringSlice unqualifiedName() const noexcept override { return functionName; }
 

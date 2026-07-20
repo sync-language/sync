@@ -172,6 +172,7 @@ endfunction()
 # ==================
 set(SYNC_LIB_TESTS_SOURCES
     "../lib/src/core/core.c"
+    "../lib/src/core/exceptional.cpp"
     "../lib/src/core/builtin_functions/sort.cpp"
     "../lib/src/core/builtin_traits/iterator.cpp"
     "../lib/src/util/simd.cpp"

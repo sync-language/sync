@@ -5,7 +5,7 @@
 
 using namespace sy;
 
-Result<void, ProgramError> sy::IteratorObj::next(void* outOptional) noexcept {
+Result<void, AnyError> sy::IteratorObj::next(void* outOptional) noexcept {
     sy_assert(outOptional != nullptr, "Store iterator next value in null");
 
     RawFunction::CallArgs callArgs = this->traitImpl->next->startCall();

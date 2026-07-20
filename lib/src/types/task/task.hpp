@@ -3,7 +3,7 @@
 
 #include "../../core/core.h"
 #include "../../mem/allocator.hpp"
-#include "../../program/program_error.hpp"
+#include "../anyerror/anyerror.hpp"
 #include "../result/result.hpp"
 
 namespace sy {
@@ -39,11 +39,11 @@ class SY_API RawTask {
 
     const Type* retType() const noexcept;
 
-    Result<bool, ProgramError> isDone() const noexcept;
+    Result<bool, AnyError> isDone() const noexcept;
 
-    Result<void, ProgramError> awaitDone(void* outReturn) noexcept;
+    Result<void, AnyError> awaitDone(void* outReturn) noexcept;
 
-    Result<bool, ProgramError> getIfDone(void* outReturn) noexcept;
+    Result<bool, AnyError> getIfDone(void* outReturn) noexcept;
 
   private:
     friend class TaskUtils;

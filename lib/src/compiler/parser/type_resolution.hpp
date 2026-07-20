@@ -63,7 +63,7 @@ struct ParsedType {
     DynArray<ParsedTypeNode> nodes{};
     uint16_t rootNode = 0;
 
-    static Result<ParsedType, ProgramError> parse(ParseInfo* parseInfo);
+    static Result<ParsedType, CompileError> parse(ParseInfo* parseInfo);
 
     const ParsedTypeNode& getRootNode() const noexcept { return this->nodes[this->rootNode]; }
 };

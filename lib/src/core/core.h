@@ -87,6 +87,16 @@ using std::uint8_t;
 #endif // NDEBUG
 #endif // SYNC_BACKTRACE_SUPPORTED
 
+#ifndef SYNC_HAS_EXCEPTIONS
+#ifdef __cplusplus
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS) || defined(_CPPUNWIND)
+#define SYNC_HAS_EXCEPTIONS 1
+#else
+#define SYNC_HAS_EXCEPTIONS 0
+#endif
+#endif // __cplusplus
+#endif // SYNC_HAS_EXCEPTIONS
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -109,4 +119,57 @@ SY_API void sy_set_write_string_error(void (*writeStrErr)(const char* message));
 }
 #endif
 
+// #ifdef __cplusplus
+// namespace sy {} // namespace sy
+// #else
+// // https://en.cppreference.com/cpp/error/exception
+// typedef enum SyExceptional {
+//     SY_EXCEPTIONAL_NONE = 0,
+//     SY_EXCEPTIONAL_OOM = 1,
+//     SY_EXCEPTIONAL_BOUNDS = 2,
+//     SY_EXCEPTIONAL_SYSTEM = 3,
+//     SY_EXCEPTIONAL_IO = 4,
+//     SY_EXCEPTIONAL_ARITHMETIC = 5,
+//     SY_EXCEPTIONAL_CAPACITY = 6,
+//     SY_EXCEPTIONAL_OTHER = 7,
+
+//     _SY_EXCEPTIONAL_MAX = 0x7FFFFFFF,
+// } SyExceptional;
+// #endif // __cplusplus
+
+// typedef void (*SyDestructFn)(void* obj);
+// /// @return `0` on success, `1` on any allocation failure.
+// typedef int (*SyCloneFn)(const void* src, void* dst);
+
+#ifdef __cplusplus
+
+#include <type_traits>
+#if SYNC_HAS_EXCEPTIONS
+#include <exception>
 #endif
+
+namespace sy {
+template <typename T> void destructForT(void* obj) { static_cast<T*>(obj)->~T(); }
+
+template <typename T> int cloneForT(const void* src, void* dst) {
+    const T* srcT = static_cast<const T*>(src);
+    T* dstT = static_cast<T*>(dst);
+
+#if SYNC_HAS_EXCEPTIONS
+    try {
+        *dstT = *srcT;
+    } catch (const std::bad_alloc& e) {
+        (void)e;
+        return 1;
+    }
+#endif
+    // At this point if it fails then so be it.
+    *dstT = *srcT;
+    return 0;
+}
+
+} // namespace sy
+
+#endif // __cplusplus
+
+#endif // SY_CORE_CORE_H_

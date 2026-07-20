@@ -40,6 +40,7 @@ option(SYNC_CUSTOM_BACKTRACE "Provide and link your own custom implementation of
 
 set(SYNC_LIB_SOURCES
     "lib/src/core/core.c"
+    "lib/src/core/exceptional.cpp"
     "lib/src/core/builtin_functions/sort.cpp"
     "lib/src/core/builtin_traits/iterator.cpp"
     "lib/src/util/simd.cpp"
@@ -60,6 +61,7 @@ set(SYNC_LIB_SOURCES
     "lib/src/types/string/string.cpp"
     "lib/src/types/sync_obj/sync_obj.cpp"
     "lib/src/types/array/dynamic_array.cpp"
+    "lib/src/types/array/list.cpp"
     "lib/src/types/array/slice.cpp"
     "lib/src/types/hash/groups.cpp"
     "lib/src/types/hash/map.cpp"

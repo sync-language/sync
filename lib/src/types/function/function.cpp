@@ -439,7 +439,7 @@ bool sy::RawFunction::CallArgs::push(void* argMem, const Type* typeInfo) {
     return true;
 }
 
-sy::Result<void, sy::ProgramError> sy::RawFunction::CallArgs::call(void* retDst) noexcept {
+sy::Result<void, sy::AnyError> sy::RawFunction::CallArgs::call(void* retDst) noexcept {
     sy_assert_release(this->pushedCount == this->func->argsLen,
                       "Did not push enough arguments for function");
 
@@ -467,7 +467,7 @@ sy::Result<void, sy::ProgramError> sy::RawFunction::CallArgs::call(void* retDst)
     }
 }
 
-Result<RawTask, ProgramError> sy::RawFunction::CallArgs::callParallel() noexcept {
+Result<RawTask, AnyError> sy::RawFunction::CallArgs::callParallel() noexcept {
     sy_assert_release(this->pushedCount == this->func->argsLen,
                       "Did not push enough arguments for function");
 
@@ -477,7 +477,7 @@ Result<RawTask, ProgramError> sy::RawFunction::CallArgs::callParallel() noexcept
     3. when finish, restore the previous threadlocal active stack
     */
 
-    return Error(ProgramError::BufferTooSmall);
+    return Error(AnyError(Exceptional::Capacity));
 }
 
 sy::RawFunction::CallArgs sy::RawFunction::startCall() const {
@@ -575,7 +575,7 @@ const sy::RawFunction* sy::FunctionHandler::function() const noexcept {
 // }
 
 // template <typename T, T expected>
-// sy::Result<void, sy::ProgramError> simpleFunc1Arg(FunctionHandler handler) {
+// sy::Result<void, sy::AnyError> simpleFunc1Arg(FunctionHandler handler) {
 //     const T arg = handler.takeArg<T>(0);
 //     CHECK_EQ(arg, expected);
 //     return {};

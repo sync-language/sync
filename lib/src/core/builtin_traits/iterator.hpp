@@ -1,7 +1,7 @@
 #ifndef _SY_CORE_BUILTIN_TRAITS_ITERATOR_HPP_
 #define _SY_CORE_BUILTIN_TRAITS_ITERATOR_HPP_
 
-#include "../../program/program_error.hpp"
+#include "../../types/anyerror/anyerror.hpp"
 #include "../../types/result/result.hpp"
 
 namespace sy {
@@ -27,7 +27,7 @@ class IteratorObj {
     /// Trait implementation
     const IteratorTrait* traitImpl;
 
-    Result<void, ProgramError> next(void* outOptional) noexcept;
+    Result<void, AnyError> next(void* outOptional) noexcept;
 };
 
 } // namespace sy

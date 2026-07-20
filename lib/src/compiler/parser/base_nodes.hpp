@@ -44,14 +44,14 @@ class IFunctionStatement : public detail::IBaseParserNode {
   public:
     IFunctionStatement(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
 
-    static Result<Option<IFunctionStatement*>, ProgramError>
+    static Result<Option<IFunctionStatement*>, CompileError>
     parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* variables, Scope* currentScope);
 
-    virtual Result<void, ProgramError> init(ParseInfo* parseInfo,
+    virtual Result<void, CompileError> init(ParseInfo* parseInfo,
                                             DynArray<StackVariable>* variables,
                                             Scope* currentScope) noexcept = 0;
 
-    virtual Result<void, ProgramError>
+    virtual Result<void, CompileError>
     compileStatement(FunctionBuilder* builder) const noexcept = 0;
 };
 
@@ -62,9 +62,9 @@ class IFunctionDefinition : public detail::IBaseParserNode {
   public:
     IFunctionDefinition(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
 
-    virtual Result<void, ProgramError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept = 0;
+    virtual Result<void, CompileError> init(ParseInfo* parseInfo, Scope* outerScope) noexcept = 0;
 
-    virtual Result<FunctionBuilder, ProgramError> compile() const noexcept = 0;
+    virtual Result<FunctionBuilder, CompileError> compile() const noexcept = 0;
 
     virtual StringSlice unqualifiedName() const noexcept = 0;
 
@@ -77,7 +77,7 @@ class ITypeDefNode : public detail::IBaseParserNode {
   public:
     ITypeDefNode(Allocator inAlloc) noexcept : IBaseParserNode(inAlloc) {}
 
-    virtual Result<void, ProgramError> defineType() const noexcept = 0;
+    virtual Result<void, CompileError> defineType() const noexcept = 0;
 };
 } // namespace sy
 

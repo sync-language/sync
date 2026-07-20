@@ -67,9 +67,9 @@ template <typename T> class GenOwner {
 
     GenOwner& operator=(const GenOwner& other) = delete;
 
-    Result<T, ProgramError> load() const noexcept;
+    Result<T, CompileError> load() const noexcept;
 
-    Result<void, ProgramError> store(T obj) noexcept;
+    Result<void, CompileError> store(T obj) noexcept;
 
     GenRef<T> ref() noexcept;
 
@@ -94,9 +94,9 @@ template <typename T> class GenRef {
     GenRef& operator=(GenRef&& other) noexcept = default;
     ~GenRef() noexcept = default;
 
-    Result<T, ProgramError> load() const noexcept;
+    Result<T, CompileError> load() const noexcept;
 
-    Result<void, ProgramError> store(T obj) noexcept;
+    Result<void, CompileError> store(T obj) noexcept;
 
   private:
     template <typename U> friend class GenOwner;
@@ -108,7 +108,7 @@ template <typename T> class GenRef {
 };
 
 namespace internal {
-SY_API void ensureNoProgramError(int err);
+SY_API void ensureNoCompileError(int err);
 SY_API int sy_gen_pool_add_impl(GenPool* self, void* obj, const sy::Type* objType, void* outGenRef);
 SY_API int sy_gen_owner_destroy_impl(void* self);
 SY_API int sy_gen_owner_load_impl(const void* self, void* outObj);
@@ -140,7 +140,7 @@ GenOwner<T>::GenOwner(GenOwner&& other) noexcept
 
 template <typename T> GenOwner<T>& GenOwner<T>::operator=(GenOwner&& other) noexcept {
     if (this != &other) {
-        internal::ensureNoProgramError(
+        internal::ensureNoCompileError(
             internal::sy_gen_owner_destroy_impl(static_cast<void*>(this)));
         this->gen_ = other.gen_;
         this->chunk_ = other.chunk_;
@@ -157,31 +157,31 @@ template <typename T> inline GenOwner<T>::~GenOwner() noexcept {
         return;
     }
 
-    internal::ensureNoProgramError(internal::sy_gen_owner_destroy_impl(static_cast<void*>(this)));
+    internal::ensureNoCompileError(internal::sy_gen_owner_destroy_impl(static_cast<void*>(this)));
 
     this->gen_ = 0;
     this->chunk_ = nullptr;
     this->objectIndex_ = 0;
 }
 
-template <typename T> inline Result<T, ProgramError> GenOwner<T>::load() const noexcept {
+template <typename T> inline Result<T, CompileError> GenOwner<T>::load() const noexcept {
     T out{};
     const int err = internal::sy_gen_owner_load_impl(static_cast<const void*>(this), &out);
     if (err == 0) {
         return out;
     }
 
-    return Error(static_cast<ProgramError>(err));
+    return Error(static_cast<CompileError>(err));
 }
 
-template <typename T> inline Result<void, ProgramError> GenOwner<T>::store(T obj) noexcept {
+template <typename T> inline Result<void, CompileError> GenOwner<T>::store(T obj) noexcept {
     const int err = internal::sy_gen_owner_store_impl(static_cast<void*>(this), &obj);
     if (err == 0) {
         return {};
     }
 
     internal::moveAndLeak(std::move(obj));
-    return Error(static_cast<ProgramError>(err));
+    return Error(static_cast<CompileError>(err));
 }
 
 template <typename T> inline GenRef<T> GenOwner<T>::ref() noexcept {
@@ -192,24 +192,24 @@ template <typename T> inline GenRef<T> GenOwner<T>::ref() noexcept {
     return ref;
 }
 
-template <typename T> inline Result<T, ProgramError> GenRef<T>::load() const noexcept {
+template <typename T> inline Result<T, CompileError> GenRef<T>::load() const noexcept {
     T out{};
     const int err = internal::sy_gen_ref_load_impl(static_cast<const void*>(this), &out);
     if (err == 0) {
         return out;
     }
 
-    return Error(static_cast<ProgramError>(err));
+    return Error(static_cast<CompileError>(err));
 }
 
-template <typename T> inline Result<void, ProgramError> GenRef<T>::store(T obj) noexcept {
+template <typename T> inline Result<void, CompileError> GenRef<T>::store(T obj) noexcept {
     const int err = internal::sy_gen_ref_store_impl(static_cast<void*>(this), &obj);
     if (err == 0) {
         return {};
     }
 
     internal::moveAndLeak(std::move(obj));
-    return Error(static_cast<ProgramError>(err));
+    return Error(static_cast<CompileError>(err));
 }
 
 } // namespace sy

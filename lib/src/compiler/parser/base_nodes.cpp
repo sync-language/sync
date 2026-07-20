@@ -35,7 +35,7 @@ void sy::detail::IBaseParserNode::operator delete(void* self, Allocator inAlloc)
                              PARSER_NODE_ALIGN);
 }
 
-Result<Option<IFunctionStatement*>, ProgramError>
+Result<Option<IFunctionStatement*>, CompileError>
 IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                    Scope* currentScope) {
     const Token token = parseInfo->tokenIter.current();
@@ -53,9 +53,9 @@ IFunctionStatement::parseStatement(ParseInfo* parseInfo, DynArray<StackVariable>
         return Option<IFunctionStatement*>(ret);
     } break;
     default:
-        parseInfo->reportErr(ProgramError::CompileStatement, token.location(),
+        parseInfo->reportErr(CompileError::CompileStatement, token.location(),
                              "Expected either start of a statement or } symbol");
-        return Error(ProgramError::CompileStatement);
+        return Error(CompileError::CompileStatement);
     }
 }
 

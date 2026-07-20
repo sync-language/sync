@@ -116,7 +116,7 @@ class SY_API Type {
     StringSlice name;
     Tag tag;
     ExtraInfo extra;
-    const Function<void(void*)>* destructor;
+    const BuiltInDestructorFn* destructor;
     const BuiltInCoherentTraits* builtinTraits;
     const Type* constRef;
     const Type* mutRef;
@@ -125,7 +125,7 @@ class SY_API Type {
     static constexpr Type makeRefType(StringSlice refName, bool isMutable,
                                       const Type* underlyingType);
 
-    template <typename T> Result<void, ProgramError> destroyObject(T* obj) const {
+    template <typename T> Result<void, AnyError> destroyObject(T* obj) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -133,7 +133,7 @@ class SY_API Type {
         return this->destroyObjectImpl(reinterpret_cast<void*>(obj));
     }
 
-    template <typename T> Result<void, ProgramError> cloneObj(T* dst, const T* src) const {
+    template <typename T> Result<void, AnyError> cloneObj(T* dst, const T* src) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -142,7 +142,7 @@ class SY_API Type {
                                      reinterpret_cast<const void*>(src));
     }
 
-    template <typename T> Result<bool, ProgramError> equalObj(const T* lhs, const T* rhs) const {
+    template <typename T> Result<bool, AnyError> equalObj(const T* lhs, const T* rhs) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -151,7 +151,7 @@ class SY_API Type {
                                       reinterpret_cast<const void*>(rhs));
     }
 
-    template <typename T> Result<size_t, ProgramError> hashObj(const T* obj) const {
+    template <typename T> Result<size_t, AnyError> hashObj(const T* obj) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -160,7 +160,7 @@ class SY_API Type {
     }
 
     template <typename T>
-    Result<Ordering, ProgramError> compareObj(const T* lhs, const T* rhs) const {
+    Result<Ordering, AnyError> compareObj(const T* lhs, const T* rhs) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -169,7 +169,7 @@ class SY_API Type {
                                        reinterpret_cast<const void*>(rhs));
     }
 
-    template <typename T> Result<void, ProgramError> elementWiseAtomicDestroyObj(T* dst) const {
+    template <typename T> Result<void, AnyError> elementWiseAtomicDestroyObj(T* dst) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -178,7 +178,7 @@ class SY_API Type {
     }
 
     template <typename T>
-    Result<void, ProgramError> elementWiseAtomicLoadObj(T* dst, const T* src) const {
+    Result<void, AnyError> elementWiseAtomicLoadObj(T* dst, const T* src) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -188,7 +188,7 @@ class SY_API Type {
     }
 
     template <typename T>
-    Result<void, ProgramError> elementWiseAtomicStoreObj(T* dst, const T* src) const {
+    Result<void, AnyError> elementWiseAtomicStoreObj(T* dst, const T* src) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }
@@ -199,14 +199,14 @@ class SY_API Type {
 
   private:
     void assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) const;
-    Result<void, ProgramError> destroyObjectImpl(void* obj) const;
-    Result<void, ProgramError> cloneObjectImpl(void* dst, const void* src) const;
-    Result<bool, ProgramError> equalObjectsImpl(const void* self, const void* other) const;
-    Result<size_t, ProgramError> hashObjectImpl(const void* self) const;
-    Result<Ordering, ProgramError> compareObjectImpl(const void* self, const void* other) const;
-    Result<void, ProgramError> elementWiseAtomicDestroyObjImpl(void* obj) const;
-    Result<void, ProgramError> elementWiseAtomicLoadObjImpl(void* dst, const void* src) const;
-    Result<void, ProgramError> elementWiseAtomicStoreObjImpl(void* dst, const void* src) const;
+    Result<void, AnyError> destroyObjectImpl(void* obj) const;
+    Result<void, AnyError> cloneObjectImpl(void* dst, const void* src) const;
+    Result<bool, AnyError> equalObjectsImpl(const void* self, const void* other) const;
+    Result<size_t, AnyError> hashObjectImpl(const void* self) const;
+    Result<Ordering, AnyError> compareObjectImpl(const void* self, const void* other) const;
+    Result<void, AnyError> elementWiseAtomicDestroyObjImpl(void* obj) const;
+    Result<void, AnyError> elementWiseAtomicLoadObjImpl(void* dst, const void* src) const;
+    Result<void, AnyError> elementWiseAtomicStoreObjImpl(void* dst, const void* src) const;
 };
 
 namespace internal {

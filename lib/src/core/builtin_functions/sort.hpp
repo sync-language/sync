@@ -13,8 +13,8 @@ class IteratorObj;
 /// @param iter The iterator. Size is not known ahead of time.
 /// @param outBuf The buffer to write the elements into.
 /// @param outBufElemSize The amount of elements the buffer can store.
-/// @return An error if encountered, such as `ProgramError::BufferTooSmall`, otherwise nothing.
-Result<void, ProgramError> sortIntoSlice(IteratorObj* iter, void* outBuf, size_t outBufElemSize) noexcept;
+/// @return An error if encountered, such as `Exceptional::Capacity`, otherwise nothing.
+Result<void, AnyError> sortIntoSlice(IteratorObj* iter, void* outBuf, size_t outBufElemSize) noexcept;
 } // namespace sy
 
 #endif // _SY_CORE_BUILTIN_FUNCTIONS_SORT_HPP_

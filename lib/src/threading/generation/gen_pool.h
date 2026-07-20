@@ -43,17 +43,17 @@ SY_API SyAllocErr sy_gen_pool_add(SyGenPool* self, void* obj, const SyType* objT
 
 SY_API void sy_gen_pool_destroy(SyGenPool* self);
 
-SY_API SyProgramError sy_gen_owner_destroy(SyGenOwner* self);
+SY_API SyCompileError sy_gen_owner_destroy(SyGenOwner* self);
 
-SY_API SyProgramError sy_gen_owner_load(const SyGenOwner* self, void* outObj);
+SY_API SyCompileError sy_gen_owner_load(const SyGenOwner* self, void* outObj);
 
-SY_API SyProgramError sy_gen_owner_store(SyGenOwner* self, void* obj);
+SY_API SyCompileError sy_gen_owner_store(SyGenOwner* self, void* obj);
 
 SY_API SyGenRef sy_gen_owner_ref(SyGenOwner* self);
 
-SY_API SyProgramError sy_gen_ref_load(const SyGenRef* self, void* outObj);
+SY_API SyCompileError sy_gen_ref_load(const SyGenRef* self, void* outObj);
 
-SY_API SyProgramError sy_gen_ref_store(SyGenRef* self, void* obj);
+SY_API SyCompileError sy_gen_ref_store(SyGenRef* self, void* obj);
 
 #ifdef __cplusplus
 } // extern "C"

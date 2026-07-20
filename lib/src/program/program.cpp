@@ -12,46 +12,46 @@ static_assert(sizeof(Program) == sizeof(SyProgram));
 static_assert(sizeof(SyProgramRuntimeErrorKind) == sizeof(int));
 static_assert(sizeof(CallStack) == sizeof(SyCallStack));
 
-static_assert(SY_PROGRAM_ERROR_NONE == 0);
-static_assert(static_cast<int>(ProgramError::Unknown) == SY_PROGRAM_ERROR_UNKNOWN);
-static_assert(static_cast<int>(ProgramError::OutOfMemory) == SY_PROGRAM_ERROR_OUT_OF_MEMORY);
-static_assert(static_cast<int>(ProgramError::CompileSourceFileTooBig) ==
-              SY_PROGRAM_ERROR_COMPILE_SOURCE_FILE_TOO_BIG);
-static_assert(static_cast<int>(ProgramError::CompileNegativeToUnsignedIntConversion) ==
-              SY_PROGRAM_ERROR_COMPILE_NEGATIVE_TO_UNSIGNED_INT_CONVERSION);
-static_assert(static_cast<int>(ProgramError::CompileUnsignedOutsideIntRangeConversion) ==
-              SY_PROGRAM_ERROR_COMPILE_UNSIGNED_OUTSIDE_INT_RANGE_CONVERSION);
-static_assert(static_cast<int>(ProgramError::CompileFloatOutsideIntRangeConversion) ==
-              SY_PROGRAM_ERROR_COMPILE_FLOAT_OUTSIDE_INT_RANGE_CONVERSION);
-static_assert(static_cast<int>(ProgramError::CompileDecimalNumberLiteral) ==
-              SY_PROGRAM_ERROR_COMPILE_DECIMAL_NUMBER_LITERAL);
-static_assert(static_cast<int>(ProgramError::CompileCharNumberLiteral) ==
-              SY_PROGRAM_ERROR_COMPILE_CHAR_NUMBER_LITERAL);
-static_assert(static_cast<int>(ProgramError::CompileTooManyCharsInCharLiteral) ==
-              SY_PROGRAM_ERROR_COMPILE_TOO_MANY_CHARS_IN_CHAR_LITERAL);
-static_assert(static_cast<int>(ProgramError::CompileUnsupportedChar) ==
-              SY_PROGRAM_ERROR_COMPILE_UNSUPPORTED_CHAR);
-static_assert(static_cast<int>(ProgramError::CompileEscapeSequence) ==
-              SY_PROGRAM_ERROR_COMPILE_ESCAPE_SEQUENCE);
-static_assert(static_cast<int>(ProgramError::CompileFunctionSignature) ==
-              SY_PROGRAM_ERROR_COMPILE_FUNCTION_SIGNATURE);
-static_assert(static_cast<int>(ProgramError::CompileFunctionStatement) ==
-              SY_PROGRAM_ERROR_COMPILE_FUNCTION_STATEMENT);
-static_assert(static_cast<int>(ProgramError::CompileExpression) ==
-              SY_PROGRAM_ERROR_COMPILE_EXPRESSION);
-static_assert(static_cast<int>(ProgramError::CompileStatement) ==
-              SY_PROGRAM_ERROR_COMPILE_STATEMENT);
-static_assert(static_cast<int>(ProgramError::CompileSymbol) == SY_PROGRAM_ERROR_COMPILE_SYMBOL);
-static_assert(static_cast<int>(ProgramError::CompileCircularModuleDependency) ==
-              SY_PROGRAM_ERROR_COMPILE_CIRCULAR_MODULE_DEPENDENCY);
-static_assert(static_cast<int>(ProgramError::CompileModuleDependencyGraph) ==
-              SY_PROGRAM_ERROR_COMPILE_MODULE_DEPENDENCY_GRAPH);
-static_assert(static_cast<int>(ProgramError::CompileSelfImport) ==
-              SY_PROGRAM_ERROR_COMPILE_SELF_IMPORT);
-static_assert(static_cast<int>(ProgramError::CompileUnknownType) ==
-              SY_PROGRAM_ERROR_COMPILE_UNKNOWN_TYPE);
-static_assert(static_cast<int>(ProgramError::BufferTooSmall) == SY_PROGRAM_ERROR_BUFFER_TOO_SMALL);
-static_assert(static_cast<int>(ProgramError::GenRefStale) == SY_PROGRAM_ERROR_GEN_REF_STALE);
+static_assert(SY_COMPILE_ERROR_NONE == 0);
+static_assert(static_cast<int>(CompileError::Unknown) == SY_COMPILE_ERROR_UNKNOWN);
+static_assert(static_cast<int>(CompileError::OutOfMemory) == SY_COMPILE_ERROR_OUT_OF_MEMORY);
+static_assert(static_cast<int>(CompileError::CompileSourceFileTooBig) ==
+              SY_COMPILE_ERROR_COMPILE_SOURCE_FILE_TOO_BIG);
+static_assert(static_cast<int>(CompileError::CompileNegativeToUnsignedIntConversion) ==
+              SY_COMPILE_ERROR_COMPILE_NEGATIVE_TO_UNSIGNED_INT_CONVERSION);
+static_assert(static_cast<int>(CompileError::CompileUnsignedOutsideIntRangeConversion) ==
+              SY_COMPILE_ERROR_COMPILE_UNSIGNED_OUTSIDE_INT_RANGE_CONVERSION);
+static_assert(static_cast<int>(CompileError::CompileFloatOutsideIntRangeConversion) ==
+              SY_COMPILE_ERROR_COMPILE_FLOAT_OUTSIDE_INT_RANGE_CONVERSION);
+static_assert(static_cast<int>(CompileError::CompileDecimalNumberLiteral) ==
+              SY_COMPILE_ERROR_COMPILE_DECIMAL_NUMBER_LITERAL);
+static_assert(static_cast<int>(CompileError::CompileCharNumberLiteral) ==
+              SY_COMPILE_ERROR_COMPILE_CHAR_NUMBER_LITERAL);
+static_assert(static_cast<int>(CompileError::CompileTooManyCharsInCharLiteral) ==
+              SY_COMPILE_ERROR_COMPILE_TOO_MANY_CHARS_IN_CHAR_LITERAL);
+static_assert(static_cast<int>(CompileError::CompileUnsupportedChar) ==
+              SY_COMPILE_ERROR_COMPILE_UNSUPPORTED_CHAR);
+static_assert(static_cast<int>(CompileError::CompileEscapeSequence) ==
+              SY_COMPILE_ERROR_COMPILE_ESCAPE_SEQUENCE);
+static_assert(static_cast<int>(CompileError::CompileFunctionSignature) ==
+              SY_COMPILE_ERROR_COMPILE_FUNCTION_SIGNATURE);
+static_assert(static_cast<int>(CompileError::CompileFunctionStatement) ==
+              SY_COMPILE_ERROR_COMPILE_FUNCTION_STATEMENT);
+static_assert(static_cast<int>(CompileError::CompileExpression) ==
+              SY_COMPILE_ERROR_COMPILE_EXPRESSION);
+static_assert(static_cast<int>(CompileError::CompileStatement) ==
+              SY_COMPILE_ERROR_COMPILE_STATEMENT);
+static_assert(static_cast<int>(CompileError::CompileSymbol) == SY_COMPILE_ERROR_COMPILE_SYMBOL);
+static_assert(static_cast<int>(CompileError::CompileCircularModuleDependency) ==
+              SY_COMPILE_ERROR_COMPILE_CIRCULAR_MODULE_DEPENDENCY);
+static_assert(static_cast<int>(CompileError::CompileModuleDependencyGraph) ==
+              SY_COMPILE_ERROR_COMPILE_MODULE_DEPENDENCY_GRAPH);
+static_assert(static_cast<int>(CompileError::CompileSelfImport) ==
+              SY_COMPILE_ERROR_COMPILE_SELF_IMPORT);
+static_assert(static_cast<int>(CompileError::CompileUnknownType) ==
+              SY_COMPILE_ERROR_COMPILE_UNKNOWN_TYPE);
+static_assert(static_cast<int>(CompileError::BufferTooSmall) == SY_COMPILE_ERROR_BUFFER_TOO_SMALL);
+static_assert(static_cast<int>(CompileError::GenRefStale) == SY_COMPILE_ERROR_GEN_REF_STALE);
 
 sy::CallStack::CallStack(const RawFunction* const* inFunctions, size_t inLen)
     : _functions(inFunctions), _len(inLen) {

@@ -5,6 +5,7 @@
 
 #include "../../core/core.h"
 #include "../../program/program_error.hpp"
+#include "../anyerror/anyerror.hpp"
 #include "../reflect_fwd.hpp"
 #include "../result/result.hpp"
 #include "../string/string_slice.hpp"
@@ -70,7 +71,7 @@ class FunctionHandler {
     uint32_t handle;
 };
 
-using c_function_t = Result<void, ProgramError> (*)(FunctionHandler);
+using c_function_t = Result<void, AnyError> (*)(FunctionHandler);
 
 class RawFunction {
   public:
@@ -87,9 +88,9 @@ class RawFunction {
         /// pushing the argument.
         bool push(void* argMem, const Type* typeInfo);
 
-        Result<void, ProgramError> call(void* retDst) noexcept;
+        Result<void, AnyError> call(void* retDst) noexcept;
 
-        Result<RawTask, ProgramError> callParallel() noexcept;
+        Result<RawTask, AnyError> callParallel() noexcept;
     };
 
     CallArgs startCall() const;
@@ -119,7 +120,7 @@ template <typename Sig> class Function;
 template <typename Ret, typename... Args> class Function<Ret(Args...)> {
   public:
     using NormalFn = Ret (*)(Args...);
-    using FallibleFn = Result<Ret, ProgramError> (*)(Args...);
+    using FallibleFn = Result<Ret, AnyError> (*)(Args...);
 
     constexpr Function(NormalFn fn) noexcept
         : name_("externFn"), qualifiedName_("externFn"), returnType_(returnTypeOf()),
@@ -133,13 +134,14 @@ template <typename Ret, typename... Args> class Function<Ret(Args...)> {
           alignment_(SY_FUNCTION_MIN_ALIGN), comptimeSafe_(true), tag_(FunctionType::C),
           fptr_(&fallibleTrampoline), innerFn_(fn) {}
 
-    Result<Ret, ProgramError> call(Args... args) const noexcept {
+    Result<Ret, AnyError> call(Args... args) const noexcept {
         RawFunction::CallArgs callArgs = reinterpret_cast<const RawFunction*>(this)->startCall();
         const bool pushedAll =
             (... && callArgs.push(const_cast<void*>(static_cast<const void*>(&args)),
                                   Reflect<Args>::get()));
         if (!pushedAll) {
-            return Error(ProgramError::BufferTooSmall);
+            // return Error(ProgramError::BufferTooSmall); // this cant happen I think, need to
+            // check
         }
         if constexpr (std::is_void_v<Ret>) {
             return callArgs.call(nullptr);
@@ -149,12 +151,12 @@ template <typename Ret, typename... Args> class Function<Ret(Args...)> {
             if (err.hasErr()) {
                 return Error(err.takeErr());
             }
-            return Result<Ret, ProgramError>{std::move(result)};
+            return Result<Ret, AnyError>{std::move(result)};
         }
     }
 
   private:
-    using TrampolineFn = Result<void, ProgramError> (*)(FunctionHandler);
+    using TrampolineFn = Result<void, AnyError> (*)(FunctionHandler);
 
     union Fptr {
         TrampolineFn cFn;
@@ -191,13 +193,13 @@ template <typename Ret, typename... Args> class Function<Ret(Args...)> {
     inline static const Type* const ARGS_ARR_[(sizeof...(Args) > 0 ? sizeof...(Args) : 1)] = {
         Reflect<Args>::get()...};
 
-    static Result<void, ProgramError> infallibleTrampoline(FunctionHandler h) noexcept {
+    static Result<void, AnyError> infallibleTrampoline(FunctionHandler h) noexcept {
         return invokeInfallible(h, std::index_sequence_for<Args...>{});
     }
 
     template <size_t... Is>
-    static Result<void, ProgramError> invokeInfallible(FunctionHandler h,
-                                                       std::index_sequence<Is...>) noexcept {
+    static Result<void, AnyError> invokeInfallible(FunctionHandler h,
+                                                   std::index_sequence<Is...>) noexcept {
         const RawFunction* rf = h.function();
         NormalFn fn = reinterpret_cast<NormalFn>(rf->innerFn);
         if constexpr (std::is_void_v<Ret>) {
@@ -209,19 +211,19 @@ template <typename Ret, typename... Args> class Function<Ret(Args...)> {
         return {};
     }
 
-    static Result<void, ProgramError> fallibleTrampoline(FunctionHandler h) noexcept {
+    static Result<void, AnyError> fallibleTrampoline(FunctionHandler h) noexcept {
         return invokeFallible(h, std::index_sequence_for<Args...>{});
     }
 
     template <size_t... Is>
-    static Result<void, ProgramError> invokeFallible(FunctionHandler h,
-                                                     std::index_sequence<Is...>) noexcept {
+    static Result<void, AnyError> invokeFallible(FunctionHandler h,
+                                                 std::index_sequence<Is...>) noexcept {
         const RawFunction* rf = h.function();
         FallibleFn fn = reinterpret_cast<FallibleFn>(rf->innerFn);
         if constexpr (std::is_void_v<Ret>) {
             return fn(h.template takeArg<Args>(Is)...);
         } else {
-            Result<Ret, ProgramError> result = fn(h.template takeArg<Args>(Is)...);
+            Result<Ret, AnyError> result = fn(h.template takeArg<Args>(Is)...);
             if (result.hasErr()) {
                 return Error(result.takeErr());
             }

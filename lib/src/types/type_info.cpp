@@ -82,7 +82,7 @@ void sy::Type::assertTypeSizeAlignMatch(size_t sizeOfType, size_t alignOfType) c
     (void)alignOfType;
 }
 
-Result<void, ProgramError> sy::Type::destroyObjectImpl(void* obj) const {
+Result<void, AnyError> sy::Type::destroyObjectImpl(void* obj) const {
     sy_assert(obj != nullptr, "Cannot destroy null object");
     if (this->destructor == nullptr) {
         return {};
@@ -116,7 +116,7 @@ Result<void, ProgramError> sy::Type::destroyObjectImpl(void* obj) const {
     return this->destructor->call(obj);
 }
 
-Result<void, ProgramError> sy::Type::cloneObjectImpl(void* dst, const void* src) const {
+Result<void, AnyError> sy::Type::cloneObjectImpl(void* dst, const void* src) const {
     sy_assert(dst != nullptr, "Cannot copy to null object");
     sy_assert(src != nullptr, "Cannot copy from null object");
     sy_assert(this->builtinTraits->clone.hasValue(),
@@ -138,7 +138,7 @@ Result<void, ProgramError> sy::Type::cloneObjectImpl(void* dst, const void* src)
     return this->builtinTraits->clone.value()->call(dst, src);
 }
 
-Result<bool, ProgramError> sy::Type::equalObjectsImpl(const void* self, const void* other) const {
+Result<bool, AnyError> sy::Type::equalObjectsImpl(const void* self, const void* other) const {
     sy_assert(self != nullptr, "Cannot equality compare null object");
     sy_assert(other != nullptr, "Cannot equality compare null object");
     sy_assert(this->builtinTraits->equal.hasValue(),
@@ -155,7 +155,7 @@ Result<bool, ProgramError> sy::Type::equalObjectsImpl(const void* self, const vo
     return this->builtinTraits->equal.value()->call(self, other);
 }
 
-Result<size_t, ProgramError> sy::Type::hashObjectImpl(const void* self) const {
+Result<size_t, AnyError> sy::Type::hashObjectImpl(const void* self) const {
     sy_assert(self != nullptr, "Cannot hash null object");
     sy_assert(this->builtinTraits->hash.hasValue(), "Cannot do hash without a hash function");
 
@@ -170,7 +170,7 @@ Result<size_t, ProgramError> sy::Type::hashObjectImpl(const void* self) const {
     return this->builtinTraits->hash.value()->call(self);
 }
 
-Result<Ordering, ProgramError> sy::Type::compareObjectImpl(const void* self,
+Result<Ordering, AnyError> sy::Type::compareObjectImpl(const void* self,
                                                            const void* other) const {
     sy_assert(self != nullptr, "Cannot equality compare null object");
     sy_assert(other != nullptr, "Cannot equality compare null object");
@@ -188,7 +188,7 @@ Result<Ordering, ProgramError> sy::Type::compareObjectImpl(const void* self,
     return this->builtinTraits->compare.value()->call(self, other);
 }
 
-Result<void, ProgramError> sy::Type::elementWiseAtomicDestroyObjImpl(void* obj) const {
+Result<void, AnyError> sy::Type::elementWiseAtomicDestroyObjImpl(void* obj) const {
     sy_assert(obj != nullptr, "Cannot atomically destroy null object");
     if (this->builtinTraits->elementWiseAtomicDestroy.hasValue() == false) {
         return {};
@@ -215,7 +215,7 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicDestroyObjImpl(void* obj) 
     return this->builtinTraits->elementWiseAtomicDestroy.value()->call(obj);
 }
 
-Result<void, ProgramError> sy::Type::elementWiseAtomicLoadObjImpl(void* dst,
+Result<void, AnyError> sy::Type::elementWiseAtomicLoadObjImpl(void* dst,
                                                                   const void* src) const {
     sy_assert(dst != nullptr, "Cannot copy to null object");
     sy_assert(src != nullptr, "Cannot copy from null object");
@@ -297,7 +297,7 @@ Result<void, ProgramError> sy::Type::elementWiseAtomicLoadObjImpl(void* dst,
     return this->builtinTraits->elementWiseAtomicLoad.value()->call(dst, src);
 }
 
-Result<void, ProgramError> sy::Type::elementWiseAtomicStoreObjImpl(void* dst,
+Result<void, AnyError> sy::Type::elementWiseAtomicStoreObjImpl(void* dst,
                                                                    const void* src) const {
     sy_assert(dst != nullptr, "Cannot move to null object");
     sy_assert(src != nullptr, "Cannot move from null object");

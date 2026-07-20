@@ -52,10 +52,10 @@ struct Expression {
 
     ~Expression() noexcept;
 
-    static Result<Expression, ProgramError> parse(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
+    static Result<Expression, CompileError> parse(ParseInfo* parseInfo, DynArray<StackVariable>* variables,
                                                   Option<size_t> dstVarIndex) noexcept;
 
-    Result<void, ProgramError> compileExpression(FunctionBuilder* builder) const;
+    Result<void, CompileError> compileExpression(FunctionBuilder* builder) const;
 };
 } // namespace sy
 

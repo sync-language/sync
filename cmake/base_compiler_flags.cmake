@@ -9,7 +9,7 @@ function(set_base_compiler_flags TARGET)
         target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic -Werror)
     endif()
 
-    if(CMAKE_BUILD_TYPE EQUAL "Debug" OR CMAKE_BUILD_TYPE EQUAL "RelWithDebInfo")
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
         if(WIN32)
             target_link_libraries(${TARGET} PRIVATE "dbghelp")
         endif()
