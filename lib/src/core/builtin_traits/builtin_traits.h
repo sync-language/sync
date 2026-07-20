@@ -12,6 +12,7 @@ typedef struct SyBuiltInCoherentTraits {
     const SyFunction* equal;
     const SyFunction* hash;
     const SyFunction* compare;
+    const SyFunction* elementWiseAtomicDestroy;
     const SyFunction* elementWiseAtomicClone;
     const SyFunction* elementWiseAtomicMove;
 } SyBuiltInCoherentTraits;
