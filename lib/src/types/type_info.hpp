@@ -159,8 +159,7 @@ class SY_API Type {
         return this->hashObjectImpl(reinterpret_cast<const void*>(obj));
     }
 
-    template <typename T>
-    Result<Ordering, AnyError> compareObj(const T* lhs, const T* rhs) const {
+    template <typename T> Result<Ordering, AnyError> compareObj(const T* lhs, const T* rhs) const {
         if constexpr (!std::is_same<T, void>::value) {
             this->assertTypeSizeAlignMatch(sizeof(T), alignof(T));
         }

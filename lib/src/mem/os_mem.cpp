@@ -25,7 +25,8 @@ C11 standard
 
 The pointer returned if the allocation succeeds is suitably aligned so that it may be assigned to a
 pointer to any type of object with a fundamental alignment requirement and then used to access such
-an object or an array of such objects in the space allocated (until the space is explicitly deallocated).
+an object or an array of such objects in the space allocated (until the space is explicitly
+deallocated).
 
 ISO/IEC 9899:201x (aka ISO C11)
 */
@@ -67,16 +68,21 @@ void aligned_free(void* buf) {
 #endif
 }
 
+/// Always returns `nullptr` on failure.
 void* page_malloc(size_t len) {
 #if defined(SYNC_NO_PAGES)
     return aligned_malloc(len, page_size());
 #elif defined(_WIN32)
     return VirtualAlloc(NULL, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 #elif defined(__GNUC__)
-    return mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    void* mem = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (mem == nullptr || mem == MAP_FAILED) {
+        return nullptr;
+    }
+    return mem;
 #else
-    static_assert(
-        false, "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'")
+    static_assert(false, "Improperly configured on whether to use page memory operations or not. "
+                         "Please define 'SYNC_NO_PAGES'")
 #endif
 }
 
@@ -94,8 +100,8 @@ void page_free(void* pagesStart, size_t len) {
     sy_assert(result == 0, "Failed to free pages");
     (void)result;
 #else
-    static_assert(
-        false, "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'")
+    static_assert(false, "Improperly configured on whether to use page memory operations or not. "
+                         "Please define 'SYNC_NO_PAGES'")
 #endif
 }
 }
@@ -114,9 +120,8 @@ size_t page_size() {
         long sz = sysconf(_SC_PAGESIZE);
         return static_cast<size_t>(sz);
 #else
-        static_assert(
-            false,
-            "Improperly configured on whether to use page memory operations or not. Please define 'SYNC_NO_PAGES'")
+        static_assert(false, "Improperly configured on whether to use page memory operations or "
+                             "not. Please define 'SYNC_NO_PAGES'")
 #endif
     }();
     return pageSize;

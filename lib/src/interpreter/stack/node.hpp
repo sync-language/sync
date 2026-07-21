@@ -3,58 +3,74 @@
 #define SY_INTERPRETER_STACK_NODE_HPP_
 
 #include "../../core/core.h"
+#include "../../mem/allocator.hpp"
+#include "../../types/option/option.hpp"
+#include "../../types/result/result.hpp"
 #include "frame.hpp"
 #include <cstddef>
-#include <optional>
 
 namespace sy {
 struct Bytecode;
 class Type;
 
+/// An individual "slot" in the interpreter stack. It's the minimum amount of bytes any value can
+/// occupy, including one byte values like 8 bit intgers or booleans. This should be freely case
+/// back and forth to whatever data type you require using `reinterpret_cast<T>(value)`. Minimum
+/// alignment for function execution is 16 bytes so might as well. Plus in the future makes it easy
+/// to auto-vectorize stuff when JIT comes, and 128 bit integers / floats.
+class alignas(16) StackValueSlot final {
+
+  public:
+  private: // dev note, layout is little endian, but probably not relevant.
+    uint64_t low_;
+    uint64_t high_;
+};
+
+/// An individual "slot" in the interpreter stack for runtime type information, mapping 1:1 to a
+/// `StackValueSlot` range. The `Type` instance at this slot can be either `owned` or not. If it is
+/// owned (`StackTypeSlot::isOwned() == true`), that means it should have it's destructor called
+/// either at the end of a scope, or as part of unwinding. If not (`StackTypeSlot::isOwned() ==
+/// false`), that means it shouldn't have the destructor called, and is likely being used as a
+/// temporary location.
+class alignas(16) StackTypeSlot final {
+  public:
+    StackTypeSlot() = default;
+
+    StackTypeSlot(Type type, bool owned) noexcept;
+
+    StackTypeSlot(std::nullptr_t) : baseMask_(0), indirection_(0), mutableBits_(0) {}
+
+    /// @return The type at this slot with no ownership information.
+    [[nodiscard]] Option<Type> get() const noexcept;
+
+    /// @return `true` if the slot owns this type instance (should have the destructor called on the
+    /// corresponding `StackValueSlot` range), otherwise `false`.
+    [[nodiscard]] bool isOwned() const noexcept;
+
+    void set(Type type, bool owned) noexcept;
+
+  private:
+    /// Instances of `sy::Type` are required to have alignment of `alignof(void*)`, therefore on
+    /// all target platforms, the lowest bit will be zeroed, and thus can be used as a flag bit,
+    /// conserving memory.
+    static constexpr uintptr_t TYPE_OWNED_FLAG = 0b1;
+
+    // matches `Type` layout.
+
+    uintptr_t baseMask_ = 0;
+    uint32_t indirection_ = 0;
+    uint32_t mutableBits_ = 0;
+};
+
 class Node final {
   public:
-    class TypeOfValue {
-      public:
-        TypeOfValue() = default;
-        TypeOfValue(const sy::Type* type, bool owned);
-        TypeOfValue(std::nullptr_t) : mask_(0) {};
-        TypeOfValue& operator=(std::nullptr_t);
-
-        const sy::Type* get() const;
-        operator const sy::Type*() const;
-
-        void set(const sy::Type* type, bool owned);
-
-        bool operator==(const TypeOfValue& other) const;
-        bool operator==(const sy::Type* otherType) const;
-
-        bool isOwned() const;
-
-      private:
-        /// Instances of `sy::Type` are required to have alignment of `alignof(void*)`, therefore on all target
-        /// platforms, the lowest bit will be zeroed, and thus can be used as a flag bit, conserving memory.
-        static constexpr uintptr_t TYPE_NOT_OWNED_FLAG = 0b1;
-
-        uintptr_t mask_ = 0;
-    };
-
-    /// See `Node::MIN_SLOTS`. Is aligned to `Node::MIN_VALUES_ALIGNMENT` or page alignment.
-    uint64_t* values = nullptr;
-    /// See `Node::MIN_SLOTS`. Is aligned to `ALLOC_CACHE_ALIGN` or page alignment.
-    TypeOfValue* types = nullptr;
-    /// `slots * sizeof(uint64_t)` is the amount of bytes occupied by all of the memory allocated for
-    /// each of `values` and `types`.
-    uint32_t slots = 0;
     ///
-    uint32_t nextBaseOffset = Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
-    /// If `currentFrame.has_value() == true`, then this node is currently in use,
-    /// preventing certain operations such as `reallocate(...)`.
-    std::optional<Frame> currentFrame{};
-    /// How many frames this node has. If `frameDepth > 0`, then this node is in use,
-    /// preventing certain operations such as `reallocate(...)`.
-    uint16_t frameDepth = 0;
-
-    Node(const uint32_t minSlotSize);
+    /// @param minSlotSize
+    /// @param allocator Only used for the small stack. Otherwise just uses the OS page allocator if
+    /// available, then back to `allocator` if not.
+    /// @return
+    [[nodiscard]] static Result<Node, AllocErr> init(uint32_t minSlotSize,
+                                                     Allocator allocator) noexcept;
 
     ~Node() noexcept;
 
@@ -66,105 +82,94 @@ class Node final {
 
     Node& operator=(const Node& other) = delete;
 
-    [[nodiscard]] bool isInUse() const;
+    [[nodiscard]] bool hasFrames() const;
 
-    /// @brief Forcibly reallocates this node to either grow or shrink it's allocation size
-    /// @param minSlotSize Can be less than `this->slots`.
-    void reallocate(const uint32_t minSlotSize);
+    /// Check if there is enough space to add this stack frame.
+    /// @param frameLength The length of the frame, excluding the
+    /// `Frame::OLD_FRAME_INFO_RESERVED_SLOTS` slots required to store the previous frame.
+    [[nodiscard]] bool hasEnoughSpaceForFrame(uint16_t frameLength,
+                                              uint16_t alignment) const noexcept;
 
-    [[nodiscard]] bool hasEnoughSpaceForFrame(const uint16_t frameLength, const uint16_t alignment) const;
+    /// @param frameLength The length of the frame, excluding the
+    /// `Frame::OLD_FRAME_INFO_RESERVED_SLOTS` slots required to store the previous frame.
+    /// @return A result. On ok, returns no value. On error, returns a `bool`. If it is
+    /// `true`, this `Node` has existing frames, thus cannot be deleted for a new `Node` with a
+    /// larger allocation. If it is `false`, this `Node` is not in use, and thus is safe to delete
+    /// this `Node` instance and create a new one with enough allocation.
+    [[nodiscard]] Result<void, bool> pushFrame(uint16_t frameLength, uint16_t requiredByteAlign,
+                                               void* retValDst,
+                                               Option<FrameInstructionPair> previous) noexcept;
 
-    /// @brief Attempts to push a new frame onto this node while the node is currently in use,
-    /// meaning reallocation is not possible.
-    /// @param frameLength The length of the frame
-    /// @param byteAlign The alignment in bytes
-    /// @param retValDst The return value destination. May be `nullptr`.
-    /// @param currentFrame The current frame. If this node is in use, and `previousFrame.has_value() == true`,
-    /// expects that `previousFrame.value()` is equivalent to `this->currentFrame.value()`.
-    /// @param instructionPointer The instruction pointer that was being executed. May be `nullptr`. NOTE If
-    /// `instructionPointer == nullptr`, then it is assumed that there is no previous frame.
-    /// @return `true` the frame was successfully pushed onto this node.
-    [[nodiscard]] bool pushFrameNoReallocate(const uint16_t frameLength, const uint16_t byteAlign,
-                                             void* const retValDst, const Bytecode* const instructionPointer);
+    [[nodiscard]] Option<FrameInstructionPair> popFrame() noexcept;
 
-    /// @brief Pushes a frame onto this node from a previous node. Expects this node to not be in use,
-    /// allowing reallocation.
-    /// @param frameLength The length of the frame
-    /// @param byteAlign The alignment in bytes
-    /// @param retValDst The return value destination. May be `nullptr`.
-    /// @param previousFrame The frame that was used previously. Should be from another node, or std::nullopt
-    /// @param instructionPointer The instruction pointer that was being executed. May be `nullptr`. NOTE If
-    /// `instructionPointer == nullptr`, then it is assumed that there is no previous frame, and when calling
-    /// `Node::popFrame()`, will not return a frame and instruction pointer.
-    void pushFrameAllowReallocate(const uint16_t frameLength, const uint16_t byteAlign, void* const retValDst,
-                                  std::optional<Frame> previousFrame, const Bytecode* const instructionPointer);
-
-    /// @brief Pops a frame from this node. If this node owned the previous frame, it's information
-    /// is restored into this node, along with returning the frame data. If there was no previous frame,
-    /// meaning the frame was the first frame on the entire call stack, then a null option is returned.
-    /// @return An optional containing the previous frame data, regardless of whether this node owns
-    /// it or not, along with the instruction pointer.
-    [[nodiscard]] std::optional<std::tuple<Frame, const Bytecode*>> popFrame();
-
-    /// @brief Attempts to push a script function argument onto this node.
-    /// @param argMem Non-null pointer to the arguments memory to be byte-copied from.
-    /// @param type Non-null pointer to the type of the argument.
-    /// @param offset Memory offset to place the argument. If not properly aligned, will be shifted.
-    /// @param frameLength Slot length of the frame for the future function call.
-    /// @param frameByteAlign Byte alignment of the frame for the future function call.
-    /// @return std::nullopt if cannot fit the argument and it's frame into this node. Otherwise
-    /// returns the offset for where the next argument should go.
-    [[nodiscard]] std::optional<uint16_t> pushScriptFunctionArg(const void* argMem, const sy::Type* type,
-                                                                uint16_t offset, const uint16_t frameLength,
-                                                                const uint16_t frameByteAlign);
-
-    /// Checks if this node needs reallocation for the new frame length and alignment.
-    /// If it does, returns a valid option with the new reallocation minimum size, that is guaranteed to fit
-    /// the frame length at the specified alignment including with having to shift the base offset for alignment
-    /// requirements.
-    /// If it does not need reallocation, returns a null option.
-    /// # Debug Asserts
-    /// `this->currentFrame.has_value() == false`.
-    [[nodiscard]] std::optional<uint32_t> shouldReallocate(uint16_t frameLength, uint16_t alignment) const;
+    /// @return A result. On ok, returns the offset for where the next argument should go (assuming
+    /// no alignment padding). On error, returns a `bool`. If it is `true`, this `Node` has existing
+    /// frames, thus cannot be deleted for a new `Node` with a larger allocation. If it is `false`,
+    /// this `Node` is not in use, and thus is safe to delete this `Node` instance and create a new
+    /// one with enough allocation.
+    [[nodiscard]] Result<uint16_t, bool> pushScriptFunctionArg(void* argMem, Type type,
+                                                               uint16_t offset,
+                                                               uint16_t frameLength,
+                                                               uint16_t frameByteAlign) noexcept;
 
     /// @return non-null pointer to the value at the specific offset within the current stack frame.
-    template <typename T> T* frameValueAt(const uint16_t offset);
+    template <typename T> T* frameValueAt(uint16_t offset);
 
     /// @return non-null pointer to the value at the specific offset within the current stack frame.
-    template <typename T> const T* frameValueAt(const uint16_t offset) const;
+    template <typename T> const T* frameValueAt(uint16_t offset) const;
 
-    /// @return The type within the current stack frame at `offset`. The underlying `const sy::Type*` may be nullptr.
-    TypeOfValue typeAt(const uint16_t offset) const;
+    /// @return The type within the current stack frame at `offset`. The underlying `const
+    /// sy::Type*` may be nullptr.
+    StackTypeSlot typeAt(uint16_t offset) const;
 
-    /// Sets the type at `offset` to `type`. If `type` is not a null type, will also set the following slots to
-    /// nullptr provided that the type requires that many slots to store an object.
-    void setTypeAt(const TypeOfValue type, const uint16_t offset);
+    /// Sets the type at `offset` to `type`. If `type` is not a null type, will also set the
+    /// following slots to nullptr provided that the type requires that many slots to store an
+    /// object.
+    void setTypeAt(StackTypeSlot type, uint16_t offset);
 
-    void setFrameFunction(const uint16_t functionIndex);
+    void setFrameFunction(uint16_t functionIndex);
 
     /// By default, values use 1KB.
-    /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit pointers,
-    /// such as wasm32, the types minimum allocation is 512B.
-    static constexpr size_t MIN_SLOTS = 128;
-
-    /// Values are aligned to either their smaller-than-page allocation size, or are page aligned.
-    /// Alignments greater than page alignment makes no sense.
-    static constexpr size_t MIN_VALUES_ALIGNMENT = 128 * alignof(uint64_t);
+    /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit
+    /// pointers, such as wasm32, the types minimum allocation is 512B.
+    static constexpr size_t MIN_SLOTS = 64;
 
   private:
     Node() = default;
 
-    void ensureOffsetWithinFrameBounds(const uint16_t offset) const;
+    void ensureOffsetWithinFrameBounds(uint16_t offset) const;
+
+    Allocator alloc;
+    /// See `Node::MIN_SLOTS`. Is aligned to `ALLOC_CACHE_ALIGN` if `slots <= MIN_SLOTS`, or page
+    /// alignment. `slots * sizeof(StackValueSlot)` is the total memory allocated for this.
+    StackValueSlot* values = nullptr;
+    /// See `Node::MIN_SLOTS`. Is aligned to `ALLOC_CACHE_ALIGN` if `slots <= MIN_SLOTS`, or page
+    /// alignment. `slots * sizeof(StackValueSlot)` is the total memory allocated for this.
+    StackTypeSlot* types = nullptr;
+    /// Total amount of slots allocated for each of `values` and `types`.
+    uint32_t slots = 0;
+    /// Offset including the slots required to store frame info.
+    uint32_t nextBaseOffset = Frame::OLD_FRAME_INFO_RESERVED_SLOTS;
+    /// If `currentFrame.has_value() == true`, then this node is currently in use,
+    /// preventing certain operations such as `reallocate(...)`.
+    Option<Frame> currentFrame{};
+    /// How many frames this node has. If `frameDepth > 0`, then this node is in use,
+    /// preventing certain operations such as `reallocate(...)`.
+    uint16_t frameDepth = 0;
 };
 
-template <typename T> inline T* Node::frameValueAt(const uint16_t offset) {
+template <typename T> inline T* Node::frameValueAt(uint16_t offset) {
     ensureOffsetWithinFrameBounds(offset);
-    return reinterpret_cast<T*>(&this->values[offset + this->nextBaseOffset]);
+    const auto frame = this->currentFrame.value();
+    const uint32_t actualOffset = frame.basePointerOffset + static_cast<uint32_t>(offset);
+    return reinterpret_cast<T*>(&this->values[actualOffset]);
 }
 
-template <typename T> inline const T* Node::frameValueAt(const uint16_t offset) const {
+template <typename T> inline const T* Node::frameValueAt(uint16_t offset) const {
     ensureOffsetWithinFrameBounds(offset);
-    return reinterpret_cast<const T*>(&this->values[offset + this->nextBaseOffset]);
+    const auto frame = this->currentFrame.value();
+    const uint32_t actualOffset = frame.basePointerOffset + static_cast<uint32_t>(offset);
+    return reinterpret_cast<const T*>(&this->values[actualOffset]);
 }
 
 } // namespace sy
