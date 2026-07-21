@@ -253,16 +253,16 @@ static FrameInstructionPair readFrameAndInstructionPointer(const StackValueSlot*
     return pair;
 }
 
-Result<void, bool> sy::Node::pushFrame(uint16_t frameLength, uint16_t requiredByteAlign,
-                                       void* retValDst,
-                                       Option<FrameInstructionPair> previous) noexcept {
+Result<void, Node::PushFailure>
+sy::Node::pushFrame(uint16_t frameLength, uint16_t requiredByteAlign, void* retValDst,
+                    Option<FrameInstructionPair> previous) noexcept {
     // TODO what happens when a native function calls the interpreter that already has a frame?
     // TODO then `previous` would be empty??
     if (!hasEnoughSpaceForFrame(frameLength, requiredByteAlign)) {
         if (this->hasFrames()) {
-            return Error(true);
+            return Error(Node::PushFailure::TooBigAndHasFrames);
         }
-        return Error(false);
+        return Error(Node::PushFailure::CanReconstructBigger);
     }
 
     // `nextBaseOffsetForAlignment` works in slot indices, which only produces a correctly
@@ -353,14 +353,14 @@ Option<FrameInstructionPair> sy::Node::popFrame() noexcept {
     return oldPair;
 }
 
-Result<uint16_t, bool> sy::Node::pushScriptFunctionArg(void* argMem, Type type, uint16_t offset,
-                                                       uint16_t frameLength,
-                                                       uint16_t frameByteAlign) noexcept {
+Result<uint16_t, Node::PushFailure>
+sy::Node::pushScriptFunctionArg(void* argMem, Type type, uint16_t offset, uint16_t frameLength,
+                                uint16_t frameByteAlign) noexcept {
     if (!hasEnoughSpaceForFrame(frameLength, frameByteAlign)) {
         if (this->hasFrames()) {
-            return Error(true);
+            return Error(Node::PushFailure::TooBigAndHasFrames);
         }
-        return Error(false);
+        return Error(Node::PushFailure::CanReconstructBigger);
     }
 
     sy_assert((reinterpret_cast<uintptr_t>(this->values) % frameByteAlign) == 0 &&

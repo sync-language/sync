@@ -40,7 +40,6 @@ fn main() {
         .file("src/types/task/task.cpp")
         .file("src/types/box/box.cpp")
         .file("src/types/anyerror/anyerror.cpp")
-        .file("src/interpreter/stack/frame.cpp")
         .file("src/interpreter/stack/node.cpp")
         .file("src/interpreter/stack/stack.cpp")
         .file("src/interpreter/bytecode.cpp")

@@ -6,12 +6,30 @@
 #include "../../mem/allocator.hpp"
 #include "../../types/option/option.hpp"
 #include "../../types/result/result.hpp"
-#include "frame.hpp"
 #include <cstddef>
 
 namespace sy {
 struct Bytecode;
 class Type;
+
+class Frame {
+  public:
+    uint32_t basePointerOffset = 0;
+    uint16_t frameLength = 0;
+    uint16_t functionIndex = 0;
+    void* retValueDst = nullptr;
+
+    Frame() = default;
+
+    /// The amount of slots the old stack frame info needs to store itself within the bounds of the
+    /// new frame.
+    static constexpr size_t OLD_FRAME_INFO_RESERVED_SLOTS = 1;
+};
+
+struct FrameInstructionPair {
+    Frame frame;
+    const Bytecode* instructionPointer;
+};
 
 /// An individual "slot" in the interpreter stack. It's the minimum amount of bytes any value can
 /// occupy, including one byte values like 8 bit intgers or booleans. This should be freely case
@@ -64,7 +82,11 @@ class alignas(16) StackTypeSlot final {
 
 class Node final {
   public:
-    ///
+    enum class PushFailure {
+        CanReconstructBigger,
+        TooBigAndHasFrames,
+    };
+
     /// @param minSlotSize
     /// @param allocator Only used for the small stack. Otherwise just uses the OS page allocator if
     /// available, then back to `allocator` if not.
@@ -96,9 +118,9 @@ class Node final {
     /// `true`, this `Node` has existing frames, thus cannot be deleted for a new `Node` with a
     /// larger allocation. If it is `false`, this `Node` is not in use, and thus is safe to delete
     /// this `Node` instance and create a new one with enough allocation.
-    [[nodiscard]] Result<void, bool> pushFrame(uint16_t frameLength, uint16_t requiredByteAlign,
-                                               void* retValDst,
-                                               Option<FrameInstructionPair> previous) noexcept;
+    [[nodiscard]] Result<void, PushFailure>
+    pushFrame(uint16_t frameLength, uint16_t requiredByteAlign, void* retValDst,
+              Option<FrameInstructionPair> previous) noexcept;
 
     [[nodiscard]] Option<FrameInstructionPair> popFrame() noexcept;
 
@@ -107,20 +129,19 @@ class Node final {
     /// frames, thus cannot be deleted for a new `Node` with a larger allocation. If it is `false`,
     /// this `Node` is not in use, and thus is safe to delete this `Node` instance and create a new
     /// one with enough allocation.
-    [[nodiscard]] Result<uint16_t, bool> pushScriptFunctionArg(void* argMem, Type type,
-                                                               uint16_t offset,
-                                                               uint16_t frameLength,
-                                                               uint16_t frameByteAlign) noexcept;
+    [[nodiscard]] Result<uint16_t, PushFailure>
+    pushScriptFunctionArg(void* argMem, Type type, uint16_t offset, uint16_t frameLength,
+                          uint16_t frameByteAlign) noexcept;
 
     /// @return non-null pointer to the value at the specific offset within the current stack frame.
-    template <typename T> T* frameValueAt(uint16_t offset);
+    template <typename T> [[nodiscard]] T* frameValueAt(uint16_t offset);
 
     /// @return non-null pointer to the value at the specific offset within the current stack frame.
-    template <typename T> const T* frameValueAt(uint16_t offset) const;
+    template <typename T> [[nodiscard]] const T* frameValueAt(uint16_t offset) const;
 
     /// @return The type within the current stack frame at `offset`. The underlying `const
     /// sy::Type*` may be nullptr.
-    StackTypeSlot typeAt(uint16_t offset) const;
+    [[nodiscard]] StackTypeSlot typeAt(uint16_t offset) const;
 
     /// Sets the type at `offset` to `type`. If `type` is not a null type, will also set the
     /// following slots to nullptr provided that the type requires that many slots to store an
@@ -129,10 +150,14 @@ class Node final {
 
     void setFrameFunction(uint16_t functionIndex);
 
+    [[nodiscard]] Option<Frame> frame() const noexcept { return this->currentFrame; }
+
+    [[nodiscard]] uint32_t slotsCount() const noexcept { return this->slots; }
+
     /// By default, values use 1KB.
     /// On targets with 64 bit pointers, the types minimum allocation is 1KB. On targets with 32 bit
     /// pointers, such as wasm32, the types minimum allocation is 512B.
-    static constexpr size_t MIN_SLOTS = 64;
+    static constexpr uint32_t MIN_SLOTS = 64;
 
   private:
     Node() = default;

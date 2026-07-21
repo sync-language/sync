@@ -71,7 +71,6 @@ set(SYNC_LIB_SOURCES
     "lib/src/types/task/task.cpp"
     "lib/src/types/box/box.cpp"
     "lib/src/types/anyerror/anyerror.cpp"
-    "lib/src/interpreter/stack/frame.cpp"
     "lib/src/interpreter/stack/node.cpp"
     "lib/src/interpreter/stack/stack.cpp"
     "lib/src/interpreter/bytecode.cpp"
