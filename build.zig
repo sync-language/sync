@@ -90,6 +90,7 @@ const sync_lang_c_sources = [_][]const u8{
     "lib/src/threading/generation/gen_pool_internal.cpp",
     //"lib/src/types/type_info.cpp",
     "lib/src/types/type.cpp",
+    "lib/src/types/type_c_compat.cpp",
     "lib/src/types/primitive_reflect_types.cpp",
     "lib/src/types/function/function.cpp",
     "lib/src/types/string/string_internal.cpp",

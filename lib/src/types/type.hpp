@@ -160,6 +160,25 @@ class SY_API TypeMetadata {
     const sy::BuiltInCoherentTraits* builtinTraits;
 }; // class TypeMetadata
 
+namespace internal {
+SY_API extern const Type TYPE_BOOL;
+SY_API extern const Type TYPE_I8;
+SY_API extern const Type TYPE_U8;
+SY_API extern const Type TYPE_I16;
+SY_API extern const Type TYPE_U16;
+SY_API extern const Type TYPE_I32;
+SY_API extern const Type TYPE_U32;
+SY_API extern const Type TYPE_I64;
+SY_API extern const Type TYPE_U64;
+SY_API extern const Type TYPE_USIZE;
+SY_API extern const Type TYPE_F32;
+SY_API extern const Type TYPE_F64;
+SY_API extern const Type TYPE_ORDERING;
+SY_API extern const Type TYPE_STRING_SLICE;
+SY_API extern const Type TYPE_STRING;
+SY_API extern const Type TYPE_OPAQUE_PTR;
+} // namespace internal
+
 } // namespace sy
 
 // #endif // SY_TYPES_TYPE_HPP_
