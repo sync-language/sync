@@ -3,36 +3,50 @@
 #define SY_INTERPRETER_BYTECODE_HPP_
 
 #include "../core/core.h"
+#include "../types/type.hpp"
 #include "stack/stack.hpp"
 
+static_assert(false, "gotta fix type is now bigger than just 1 pointer / 1 bytecode");
+
 namespace sy {
-class Type;
 
 /// All OpCodes occupy 1 byte
 enum class OpCode : uint8_t {
     /// Does nothing
     Noop = 0x00,
-    /// Returns from a function without a return value. After this operation, the function stops executing, the stack
+    /// Returns from a function without a return value. After this operation, the function stops
+    /// executing, the stack
     /// is then unwinded, and the frame is popped. Uses `operators::Return`.
     Return,
-    /// Returns from a function with a return value. After this operation, the function stops executing, the stack is
+    /// Returns from a function with a return value. After this operation, the function stops
+    /// executing, the stack is
     /// then unwinded, and the frame is popped. Uses `operators::ReturnValue`.
     ReturnValue,
-    /// Calls a function whose `const sy::Function*` instance is provided within the bytecode as the one after the
-    /// initial bytecode. The function argument sources started at the bytecode after the immediate function bytecode,
+    /// Calls a function whose `const sy::Function*` instance is provided within the bytecode as the
+    /// one after the
+    /// initial bytecode. The function argument sources started at the bytecode after the immediate
+    /// function bytecode,
     /// extending as necessary as an array of `uint16_t` values. The function returns no value.
-    /// Is at least 2 wide, but often more depending on function arguments. Uses `operators::CallImmediateNoReturn`.
+    /// Is at least 2 wide, but often more depending on function arguments. Uses
+    /// `operators::CallImmediateNoReturn`.
     CallImmediateNoReturn,
-    /// Calls a function at `src`. The function argument sources start after the initial bytecode, extending as
-    /// necessary as an array of `uint16_t` values. The function returns no value. Uses `operators::CallSrcNoReturn`.
+    /// Calls a function at `src`. The function argument sources start after the initial bytecode,
+    /// extending as
+    /// necessary as an array of `uint16_t` values. The function returns no value. Uses
+    /// `operators::CallSrcNoReturn`.
     CallSrcNoReturn,
-    /// Calls a function whose `const sy::Function*` instance is provided within the bytecode as the one after the
-    /// initial bytecode. The function argument sources started at the bytecode after the immediate function bytecode,
+    /// Calls a function whose `const sy::Function*` instance is provided within the bytecode as the
+    /// one after the
+    /// initial bytecode. The function argument sources started at the bytecode after the immediate
+    /// function bytecode,
     /// extending as necessary as an array of `uint16_t` values. The function returns a value.
-    /// Is at least 2 wide, but often more depending on function arguments. Uses `operators::CallImmediateWithReturn`.
+    /// Is at least 2 wide, but often more depending on function arguments. Uses
+    /// `operators::CallImmediateWithReturn`.
     CallImmediateWithReturn,
-    /// Calls a function at `src`. The function argument sources start after the initial bytecode, extending as
-    /// necessary as an array of `uint16_t` values. The function returns a value. Uses `operators::CallSrcWithReturn`.
+    /// Calls a function at `src`. The function argument sources start after the initial bytecode,
+    /// extending as
+    /// necessary as an array of `uint16_t` values. The function returns a value. Uses
+    /// `operators::CallSrcWithReturn`.
     CallSrcWithReturn,
     /// May be 2 wide instruction if loading the default value for non scalar types.
     /// For scalar types, loads zero values. Uses `operators::LoadDefault`.
@@ -40,27 +54,33 @@ enum class OpCode : uint8_t {
     /// May be 2 wide instructions, if loading immediate value greater than 32 bits in size.
     /// Uses `operators::LoadImmediateScalar`.
     LoadImmediateScalar,
-    /// Loads value 0xAA into all bytes of the memory an object will occupy. Does not take a type, and doesn't set a
+    /// Loads value 0xAA into all bytes of the memory an object will occupy. Does not take a type,
+    /// and doesn't set a
     /// type. Just calls memset.
     /// TODO memset references or heap allocations?
     /// This is the same as [undefined](https://ziglang.org/documentation/master/#undefined) in zig.
-    /// Primarily, this is useful for doing struct and array initialization. Uses `operators::MemsetUninitialized`.
+    /// Primarily, this is useful for doing struct and array initialization. Uses
+    /// `operators::MemsetUninitialized`.
     MemsetUninitialized,
     /// Forcibly sets the type at `dst` to a type. Overrides the type of whatever was present.
     /// May be 2 wide instruction, if the type is not a scalar type, thus `isScalar` flag is false.
     /// Uses `operators::SetType`.
     SetType,
     /// Forcibly sets the type at `dst` to be null, signaling that the memory has no type.
-    /// Useful to set memory as shouldn't be unwinded, or shouldn't be operated on until later specified.
+    /// Useful to set memory as shouldn't be unwinded, or shouldn't be operated on until later
+    /// specified.
     /// Uses `operators::SetNullType`.
     SetNullType,
-    /// Unconditionally jumps the instruction pointer by `amount` bytecodes. Can jump by a positive or negative value.
+    /// Unconditionally jumps the instruction pointer by `amount` bytecodes. Can jump by a positive
+    /// or negative value.
     /// Is within the range of `int32_t`. Uses `operators::Jump`.
     Jump,
-    /// Conditionally jumps the instruction pointer by `amount` bytecodes, if `src == false`. Can jump by a positive or
+    /// Conditionally jumps the instruction pointer by `amount` bytecodes, if `src == false`. Can
+    /// jump by a positive or
     /// negative value. Is within the range of `int32_t`. Uses `operators::JumpIfFalse`.
     JumpIfFalse,
-    /// Explicitly call the destructor of `src`, which also removes it's type info. Uses `operators::Destruct`.
+    /// Explicitly call the destructor of `src`, which also removes it's type info. Uses
+    /// `operators::Destruct`.
     Destruct,
     Sync,
     Unsync,
@@ -127,12 +147,13 @@ enum class ScalarTag : uint8_t {
 
 constexpr size_t SCALAR_TAG_USED_BITS = 6;
 
-const sy::Type* scalarTypeFromTag(ScalarTag tag);
+sy::Type scalarTypeFromTag(ScalarTag tag);
 
-/// Holds all operand types. All operands are expected to have a static constexpr member named `OPCODE` of type
-/// `OpCode`, matching the opcode of the operation. This is used for validation.
-/// They are also all expected to have the first `OPCODE_USED_BITS` be a bitfield named `reserveOpcode`.
-/// Lastly, all operand types must be of size `sizeof(Bytecode)`, and align `alignof(Bytecode)`.
+/// Holds all operand types. All operands are expected to have a static constexpr member named
+/// `OPCODE` of type `OpCode`, matching the opcode of the operation. This is used for validation.
+/// They are also all expected to have the first `OPCODE_USED_BITS` be a bitfield named
+/// `reserveOpcode`. Lastly, all operand types must be of size `sizeof(Bytecode)`, and align
+/// `alignof(Bytecode)`.
 namespace operators {
 
 /// Returns from a function without a return value.
@@ -218,7 +239,7 @@ struct MemsetUninitialized {
     uint64_t reserveOpcode : OPCODE_USED_BITS;
     /// Boolean
     uint64_t dst : Stack::BITS_PER_STACK_OPERAND;
-    uint64_t slots : 16;
+  uint64_t slots : 16;
 
     static constexpr OpCode OPCODE = OpCode::MemsetUninitialized;
 };

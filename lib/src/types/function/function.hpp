@@ -86,7 +86,7 @@ class RawFunction {
         /// Pushs an argument onto the the script or C stack for the next function call.
         /// @return `true` if the push was successful, or `false`, if the stack would overflow by
         /// pushing the argument.
-        bool push(void* argMem, const Type* typeInfo);
+        bool push(void* argMem, Type typeInfo);
 
         Result<void, AnyError> call(void* retDst) noexcept;
 

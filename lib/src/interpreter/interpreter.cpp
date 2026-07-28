@@ -3,7 +3,7 @@
 #include "../program/program.hpp"
 #include "../program/program_internal.hpp"
 #include "../types/function/function.hpp"
-#include "../types/type_info.hpp"
+#include "../types/type.hpp"
 #include "bytecode.hpp"
 #include "stack/stack.hpp"
 #include <cstring>
@@ -35,8 +35,8 @@ static void setupFunctionStackFrame(const RawFunction* scriptFunction, void* out
     activeStack.setInstructionPointer(scriptInfo->bytecode);
 }
 
-Result<void, AnyError> sy::interpreterExecuteScriptFunction(const RawFunction* scriptFunction,
-                                                                void* outReturnValue) {
+static Result<void, AnyError>
+sy::interpreterExecuteScriptFunction(const RawFunction* scriptFunction, void* outReturnValue) {
     // Just setup the initial function call stack
     setupFunctionStackFrame(scriptFunction, outReturnValue);
 
@@ -91,27 +91,25 @@ static Result<OkExecStatus, AnyError> interpreterExecuteContinuous(const Program
 static void unwindStackFrame(const int16_t* unwindSlots, const uint16_t len) {
     Stack& activeStack = Stack::getActiveStack();
     for (uint16_t i = 0; i < len; i++) {
-        const Type* type = activeStack.typeAt(unwindSlots[i]);
-        if (type == nullptr) {
+        const auto maybeType = activeStack.typeAt(unwindSlots[i]).get();
+        if (maybeType.hasValue() == false) {
             continue;
         }
 
-        sy_assert(type->tag != Type::Tag::Reference, "Cannot destruct reference types");
-
-        type->destroyObject(activeStack.frameValueAt<void>(unwindSlots[i]));
+        maybeType.value().destroyUnchecked(activeStack.frameValueAt<void>(unwindSlots[i]));
     }
 }
 
 static void executeReturn(const Bytecode b);
 static void executeReturnValue(const Bytecode b);
 static Result<void, AnyError> executeCallImmediateNoReturn(ptrdiff_t& ipChange,
-                                                               const Bytecode* bytecodes);
-static Result<void, AnyError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
-                                                         const Bytecode* bytecodes);
-static Result<void, AnyError> executeCallImmediateWithReturn(ptrdiff_t& ipChange,
-                                                                 const Bytecode* bytecodes);
-static Result<void, AnyError> executeCallSrcWithReturn(ptrdiff_t& ipChange,
                                                            const Bytecode* bytecodes);
+static Result<void, AnyError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
+                                                     const Bytecode* bytecodes);
+static Result<void, AnyError> executeCallImmediateWithReturn(ptrdiff_t& ipChange,
+                                                             const Bytecode* bytecodes);
+static Result<void, AnyError> executeCallSrcWithReturn(ptrdiff_t& ipChange,
+                                                       const Bytecode* bytecodes);
 static void executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes);
 static void executeMemsetUninitialized(const Bytecode bytecode);
@@ -227,10 +225,11 @@ static void executeReturnValue(const Bytecode b) {
     void* retDst = activeStack.returnDst();
     sy_assert(retDst != nullptr, "Cannot assign return value to null memory");
 
-    const Type* retValType = activeStack.typeAt(operands.src);
-    sy_assert(retValType != nullptr, "Cannot return null type");
+    const auto retValType = activeStack.typeAt(operands.src).get();
+    sy_assert(retValType.hasValue(), "Cannot return null type");
 
-    std::memcpy(retDst, activeStack.frameValueAt<void>(operands.src), retValType->sizeType);
+    std::memcpy(retDst, activeStack.frameValueAt<void>(operands.src),
+                retValType.value().base->typeSize);
 
     // Frame is automatically unwinded
 }
@@ -246,18 +245,18 @@ static bool pushScriptFunctionArgs(const RawFunction* function, const uint16_t a
 
     for (uint16_t i = 0; i < argsCount; i++) {
         const uint16_t argSrc = argsSrc[i];
-        const Type* type = activeStack.typeAt(argSrc);
-        sy_assert(type != nullptr, "Cannot push null type to function");
-        if (callArgs.push(activeStack.frameValueAt<void>(argSrc), type) == false) {
+        const auto maybeType = activeStack.typeAt(argSrc).get();
+        sy_assert(maybeType.hasValue(), "Cannot push null type to function");
+        if (callArgs.push(activeStack.frameValueAt<void>(argSrc), maybeType.value()) == false) {
             return false;
         }
     }
     return true;
 }
 
-static Result<void, AnyError> setupInterpreterNestedCall(const RawFunction* function,
-                                                             void* retDst, const uint16_t argsCount,
-                                                             const uint16_t* argsSrc) {
+static Result<void, AnyError> setupInterpreterNestedCall(const RawFunction* function, void* retDst,
+                                                         const uint16_t argsCount,
+                                                         const uint16_t* argsSrc) {
     if (function->tag == FunctionType::Script) {
         (void)pushScriptFunctionArgs(function, argsCount, argsSrc);
         setupFunctionStackFrame(function, retDst);
@@ -269,7 +268,7 @@ static Result<void, AnyError> setupInterpreterNestedCall(const RawFunction* func
 }
 
 static Result<void, AnyError> executeCallImmediateNoReturn(ptrdiff_t& ipChange,
-                                                               const Bytecode* bytecodes) {
+                                                           const Bytecode* bytecodes) {
     const operators::CallImmediateNoReturn operands =
         bytecodes[0].toOperands<operators::CallImmediateNoReturn>();
 
@@ -287,13 +286,14 @@ static Result<void, AnyError> executeCallImmediateNoReturn(ptrdiff_t& ipChange,
 }
 
 static Result<void, AnyError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
-                                                         const Bytecode* bytecodes) {
+                                                     const Bytecode* bytecodes) {
     const operators::CallSrcNoReturn operands =
         bytecodes[0].toOperands<operators::CallSrcNoReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
 
-    sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function,
+    sy_assert(activeStack.typeAt(operands.src).get().value().base->extra.tag ==
+                  TypeExtra::Tag::Function,
               "Expected function to call");
     const RawFunction* function = activeStack.frameValueAt<const RawFunction>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
@@ -306,7 +306,7 @@ static Result<void, AnyError> executeCallSrcNoReturn(ptrdiff_t& ipChange,
 }
 
 static Result<void, AnyError> executeCallImmediateWithReturn(ptrdiff_t& ipChange,
-                                                                 const Bytecode* bytecodes) {
+                                                             const Bytecode* bytecodes) {
     const operators::CallImmediateWithReturn operands =
         bytecodes[0].toOperands<operators::CallImmediateWithReturn>();
 
@@ -325,13 +325,14 @@ static Result<void, AnyError> executeCallImmediateWithReturn(ptrdiff_t& ipChange
 }
 
 static Result<void, AnyError> executeCallSrcWithReturn(ptrdiff_t& ipChange,
-                                                           const Bytecode* bytecodes) {
+                                                       const Bytecode* bytecodes) {
     const operators::CallSrcWithReturn operands =
         bytecodes[0].toOperands<operators::CallSrcWithReturn>();
 
     Stack& activeStack = Stack::getActiveStack();
 
-    sy_assert(activeStack.typeAt(operands.src).get()->tag == Type::Tag::Function,
+    sy_assert(activeStack.typeAt(operands.src).get().value().base->extra.tag ==
+                  TypeExtra::Tag::Function,
               "Expected function to call");
     const RawFunction* function = activeStack.frameValueAt<const RawFunction>(operands.src);
     const uint16_t* argsSrcs = reinterpret_cast<const uint16_t*>(&bytecodes[1]);
@@ -353,8 +354,8 @@ void executeLoadDefault(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     void* destination = activeStack.frameValueAt<void>(operands.dst);
 
     if (operands.isScalar) {
-        const Type* scalarType = scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
-        memset(destination, 0, scalarType->sizeType);
+        const Type scalarType = scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
+        memset(destination, 0, scalarType.base->typeSize);
     } else {
         (void)ipChange;
         // TODO call default constructors or default initializer
@@ -369,18 +370,18 @@ void executeLoadImmediateScalar(ptrdiff_t& ipChange, const Bytecode* bytecodes) 
 
     Stack& activeStack = Stack::getActiveStack();
     void* destination = activeStack.frameValueAt<void>(operands.dst);
-    const Type* type = scalarTypeFromTag(scalarTag);
-    if (type->sizeType <= 4) { // 32 bits
+    const Type type = scalarTypeFromTag(scalarTag);
+    if (type.base->typeSize <= 4) { // 32 bits
         uint32_t rawValue = static_cast<uint32_t>(operands.immediate);
         *reinterpret_cast<uint32_t*>(destination) = rawValue;
     } else {
         // All scalar types have alignment less than or equal to alignof(Bytecode), so this is fine.
-        sy_assert(type->alignType <= alignof(Bytecode),
+        sy_assert(type.base->typeAlign <= alignof(Bytecode),
                   "Scalar types must have less than or equal alignment to Bytecode");
         const void* valueMemory = reinterpret_cast<const void*>(&bytecodes[1]);
-        memcpy(destination, valueMemory, type->sizeType);
+        memcpy(destination, valueMemory, type.base->typeSize);
 
-        ipChange = operators::LoadImmediateScalar::bytecodeUsed(scalarTag);
+        ipChange = static_cast<ptrdiff_t>(operators::LoadImmediateScalar::bytecodeUsed(scalarTag));
 
         // TODO how to load immediate string objects? not string slices
     }
@@ -406,14 +407,16 @@ void executeSetType(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
     const operators::SetType operands = bytecodes[0].toOperands<operators::SetType>();
 
     Stack& activeStack = Stack::getActiveStack();
-    const Type* type = nullptr;
-    if (operands.isScalar) {
-        type = scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
-    } else {
-        const Bytecode next = bytecodes[1];
-        memcpy(&type, &next, sizeof(const Type*));
-        ipChange = 2;
-    }
+    Type type = [operands, bytecodes]() -> Type {
+        if (operands.isScalar) {
+            return scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
+        } else {
+            Type out(nullptr, 0, 0);
+            memcpy(&out, &bytecodes[1], sizeof(Type));
+            ipChange = 2;
+        }
+    }();
+
     activeStack.setTypeAt(Node::TypeOfValue(type, true), operands.dst);
 }
 

@@ -7,7 +7,7 @@
 #include "../types/array/slice.hpp"
 #include "../types/hash/map.hpp"
 #include "../types/string/string.hpp"
-#include "../types/type_info.hpp"
+#include "../types/type.hpp"
 #include "program.hpp"
 
 namespace sy {

@@ -6,8 +6,8 @@
 #include "../../program/program.h"
 #include "../../program/program_internal.hpp"
 #include "../../threading/alloc_cache_align.hpp"
-#include "../type_info.h"
-#include "../type_info.hpp"
+#include "../type.h"
+#include "../type.hpp"
 #include "function.hpp"
 #include <cstring>
 #include <new>
@@ -399,8 +399,7 @@ sy::RawFunction::CallArgs::~CallArgs() noexcept {
     this->func = nullptr;
 }
 
-bool sy::RawFunction::CallArgs::push(void* argMem, const Type* typeInfo) {
-    sy_assert(typeInfo != nullptr, "Cannot push null typed argument");
+bool sy::RawFunction::CallArgs::push(void* argMem, Type typeInfo) {
     sy_assert(this->pushedCount < this->func->argsLen,
               "Cannot push more arguments than the function takes");
 
@@ -408,8 +407,7 @@ bool sy::RawFunction::CallArgs::push(void* argMem, const Type* typeInfo) {
         const sy::InterpreterFunctionScriptInfo* scriptInfo =
             reinterpret_cast<const sy::InterpreterFunctionScriptInfo*>(this->func->fptr);
         const bool result = Stack::getActiveStack().pushScriptFunctionArg(
-            argMem, reinterpret_cast<const Type*>(typeInfo), this->_offset,
-            scriptInfo->stackSpaceRequired, func->alignment);
+            argMem, typeInfo, this->_offset, scriptInfo->stackSpaceRequired, func->alignment);
 
         if (result == false) {
             return false;

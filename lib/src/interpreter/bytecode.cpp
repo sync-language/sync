@@ -1,9 +1,8 @@
 #include "bytecode.hpp"
 #include "../core/core_internal.h"
-#include "../types/type_info.hpp"
+#include "../types/type.hpp"
 
 using namespace sy;
-using sy::internal::ReflectImpl;
 
 OpCode sy::Bytecode::getOpcode() const {
     // This is safe.
@@ -16,32 +15,32 @@ void sy::Bytecode::assertOpCodeMatch(OpCode actual, OpCode expected) {
     (void)expected;
 }
 
-const sy::Type* sy::scalarTypeFromTag(ScalarTag tag) {
+sy::Type sy::scalarTypeFromTag(ScalarTag tag) {
     switch (tag) {
     case ScalarTag::Bool:
-        return ReflectImpl<bool>::get();
+        return sy::internal::TYPE_BOOL;
     case ScalarTag::I8:
-        return ReflectImpl<int8_t>::get();
+        return sy::internal::TYPE_I8;
     case ScalarTag::I16:
-        return ReflectImpl<int16_t>::get();
+        return sy::internal::TYPE_I16;
     case ScalarTag::I32:
-        return ReflectImpl<int32_t>::get();
+        return sy::internal::TYPE_I32;
     case ScalarTag::I64:
-        return ReflectImpl<int64_t>::get();
+        return sy::internal::TYPE_I64;
     case ScalarTag::U8:
-        return ReflectImpl<uint8_t>::get();
+        return sy::internal::TYPE_U8;
     case ScalarTag::U16:
-        return ReflectImpl<uint16_t>::get();
+        return sy::internal::TYPE_U16;
     case ScalarTag::U32:
-        return ReflectImpl<uint32_t>::get();
+        return sy::internal::TYPE_U32;
     case ScalarTag::U64:
-        return ReflectImpl<uint64_t>::get();
+        return sy::internal::TYPE_U64;
     case ScalarTag::USize:
-        return &sy::internal::TYPE_USIZE;
+        return sy::internal::TYPE_USIZE;
     case ScalarTag::F32:
-        return ReflectImpl<float>::get();
+        return sy::internal::TYPE_F32;
     case ScalarTag::F64:
-        return ReflectImpl<double>::get();
+        return sy::internal::TYPE_F64;
     }
     sync_unreachable();
 }
@@ -91,12 +90,12 @@ size_t sy::operators::CallSrcWithReturn::bytecodeUsed(uint16_t argCount) {
 }
 
 size_t sy::operators::LoadImmediateScalar::bytecodeUsed(ScalarTag scalarTag) {
-    const sy::Type* scalarType = scalarTypeFromTag(scalarTag);
-    if (scalarType->sizeType <= 4) {
+    sy::Type scalarType = scalarTypeFromTag(scalarTag);
+    if (scalarType.base->typeSize <= 4) {
         // Fits into initial bytecode
         return 1;
     } else {
         // LoadImmediateScalar operands + the memory required for the immediate value
-        return 1 + (1 + scalarType->sizeType / alignof(Bytecode));
+        return 1 + (1 + scalarType.base->typeSize / alignof(Bytecode));
     }
 }

@@ -4,6 +4,8 @@
 #include "string/string.hpp"
 #include "string/string_internal.hpp"
 #include "string/string_slice.hpp"
+#include <atomic>
+#include <functional>
 
 using namespace sy;
 
@@ -95,6 +97,147 @@ bool sy::Type::operator==(const Type& other) const noexcept {
 
     return true;
 }
+
+Result<void, AnyError> sy::Type::destroyUnchecked(void* obj) const noexcept {
+    sy_assert(obj != nullptr, "obj may not be null");
+
+    if (this->isReference() || this->base->extra.tag == TypeExtra::Tag::Reference) {
+        return {};
+    }
+
+    if (this->base->destructor == nullptr) {
+        return {};
+    }
+
+    return this->base->destructor->call(obj);
+}
+
+Result<void, AnyError> sy::Type::cloneUnchecked(void* out, const void* srcObj) const noexcept {
+    sy_assert(out != nullptr, "out object may not be null");
+    sy_assert(srcObj != nullptr, "source object may not be null");
+
+    if (this->isReference() || this->base->extra.tag == TypeExtra::Tag::Reference) {
+        memcpy(out, srcObj, sizeof(void*)); // is this the right thing to do?
+        return {};
+    }
+
+    sy_assert(this->base->builtinTraits->clone.hasValue(), "Type is not clonable");
+
+    return this->base->builtinTraits->clone.value()->call(out, srcObj);
+}
+
+Result<bool, AnyError> sy::Type::equalUnchecked(const void* lhs, const void* rhs) const noexcept {
+    sy_assert(lhs != nullptr, "left hand object may not be null");
+    sy_assert(rhs != nullptr, "right hand object may not be null");
+
+    if (this->isReference() || this->base->extra.tag == TypeExtra::Tag::Reference) {
+        return lhs == rhs; // pointer equality
+    }
+
+    sy_assert(this->base->builtinTraits->equal.hasValue(), "Type is not equality comparable");
+
+    return this->base->builtinTraits->equal.value()->call(lhs, rhs);
+}
+
+Result<size_t, AnyError> sy::Type::hashUnchecked(const void* obj) const noexcept {
+    sy_assert(obj != nullptr, "obj may not be null");
+
+    if (this->isReference() || this->base->extra.tag == TypeExtra::Tag::Reference) {
+        std::hash<const void*> pointerHasher;
+        return pointerHasher(obj); // hash the pointer itself
+    }
+
+    sy_assert(this->base->builtinTraits->hash.hasValue(), "Type is not hashable");
+
+    return this->base->builtinTraits->hash.value()->call(obj);
+}
+
+Result<Ordering, AnyError> sy::Type::compareUnchecked(const void* lhs,
+                                                      const void* rhs) const noexcept {
+    sy_assert(lhs != nullptr, "left hand object may not be null");
+    sy_assert(rhs != nullptr, "right hand object may not be null");
+
+    if (this->isReference() || this->base->extra.tag == TypeExtra::Tag::Reference) {
+        const uintptr_t lhsInteger = reinterpret_cast<uintptr_t>(lhs);
+        const uintptr_t rhsInteger = reinterpret_cast<uintptr_t>(rhs);
+        if (lhsInteger == rhsInteger) {
+            return Ordering::Equal;
+        } else if (lhsInteger < rhsInteger) {
+            return Ordering::Less;
+        } else {
+            return Ordering::Greater;
+        }
+    }
+
+    sy_assert(this->base->builtinTraits->compare.hasValue(), "Type is not ordering comparable");
+
+    return this->base->builtinTraits->compare.value()->call(lhs, rhs);
+}
+
+Result<void, AnyError> sy::Type::elementWiseAtomicDestroyUnchecked(void* obj) const noexcept {
+    sy_assert(obj != nullptr, "obj may not be null");
+
+    if (this->isReference() || this->base->extra.tag == TypeExtra::Tag::Reference) {
+        return {};
+    }
+
+    if (this->base->builtinTraits->elementWiseAtomicDestroy.hasValue() == false) {
+        return {};
+    }
+
+    return this->base->builtinTraits->elementWiseAtomicDestroy.value()->call(obj);
+}
+
+Result<void, AnyError> sy::Type::elementWiseAtomicLoadUnchecked(void* out,
+                                                                const void* srcObj) const noexcept {
+    sy_assert(out != nullptr, "out object may not be null");
+    sy_assert(srcObj != nullptr, "source object may not be null");
+
+    if (this->isReference() || this->base->extra.tag == TypeExtra::Tag::Reference) {
+        // this maybe should be an error or assert? Not sure.
+        void** outAsDoublePtr = reinterpret_cast<void**>(out);
+        const std::atomic<void*>* asAtomicSrc =
+            reinterpret_cast<const std::atomic<void*>*>(srcObj);
+        *outAsDoublePtr = asAtomicSrc->load(std::memory_order_seq_cst);
+        return {};
+    }
+
+    sy_assert(this->base->builtinTraits->elementWiseAtomicLoad.hasValue(),
+              "Type is not element-wise atomically loadable");
+
+    return this->base->builtinTraits->elementWiseAtomicLoad.value()->call(out, srcObj);
+}
+
+Result<void, AnyError>
+sy::Type::elementWiseAtomicStoreUnchecked(void* out, const void* srcObj) const noexcept {
+    sy_assert(out != nullptr, "out object may not be null");
+    sy_assert(srcObj != nullptr, "source object may not be null");
+
+    if (this->isReference() || this->base->extra.tag == TypeExtra::Tag::Reference) {
+        // this maybe should be an error or assert? Not sure.
+        std::atomic<void*>* atomicOut = reinterpret_cast<std::atomic<void*>*>(out);
+        void* const* srcAsDoublePtr = reinterpret_cast<void* const*>(srcObj);
+        atomicOut->store(*srcAsDoublePtr, std::memory_order_seq_cst);
+        return {};
+    }
+
+    sy_assert(this->base->builtinTraits->elementWiseAtomicStore.hasValue(),
+              "Type is not element-wise atomically loadable");
+
+    return this->base->builtinTraits->elementWiseAtomicStore.value()->call(out, srcObj);
+}
+
+namespace sy {
+namespace internal {
+SY_API void sy_type_debug_assert_same_size(size_t objSize, size_t expectedSize) noexcept {
+    sy_assert(objSize == expectedSize, "Wrong object for this type, size mismatch");
+}
+
+SY_API void sy_type_debug_assert_same_align(size_t objAlign, size_t expectedAlign) noexcept {
+    sy_assert(objAlign == expectedAlign, "Wrong object for this type, align mismatch");
+}
+} // namespace internal
+} // namespace sy
 
 // ==========
 // PRIMITIVES
@@ -401,30 +544,22 @@ constexpr static TypeMetadata OPAQUE_PTR_TYPE_METADATA = {
 
 namespace sy {
 namespace internal {
-SY_API constexpr Type TYPE_BOOL = {.base = &BOOL_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_I8 = {.base = &INT8_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_U8 = {.base = &UINT8_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_I16 = {.base = &INT16_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_U16 = {
-    .base = &UINT16_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_I32 = {.base = &INT32_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_U32 = {
-    .base = &UINT32_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_I64 = {.base = &INT64_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_U64 = {
-    .base = &UINT64_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_USIZE = {
-    .base = &USIZE_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_F32 = {.base = &F32_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_F64 = {.base = &F64_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_ORDERING = {
-    .base = &ORDERING_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_STRING_SLICE = {
-    .base = &STRING_SLICE_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_STRING = {
-    .base = &STRING_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
-SY_API constexpr Type TYPE_OPAQUE_PTR = {
-    .base = &OPAQUE_PTR_TYPE_METADATA, .indirection = 0, .mutableBits = 0};
+SY_API constexpr Type TYPE_BOOL = Type(&BOOL_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_I8 = Type(&INT8_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_U8 = Type(&UINT8_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_I16 = Type(&INT16_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_U16 = Type(&UINT16_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_I32 = Type(&INT32_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_U32 = Type(&UINT32_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_I64 = Type(&INT64_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_U64 = Type(&UINT64_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_USIZE = Type(&USIZE_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_F32 = Type(&F32_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_F64 = Type(&F64_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_ORDERING = Type(&ORDERING_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_STRING_SLICE = Type(&STRING_SLICE_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_STRING = Type(&STRING_TYPE_METADATA, 0, 0);
+SY_API constexpr Type TYPE_OPAQUE_PTR = Type(&OPAQUE_PTR_TYPE_METADATA, 0, 0);
 } // namespace internal
 } // namespace sy
 
