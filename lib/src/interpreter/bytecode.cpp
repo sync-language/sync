@@ -4,6 +4,10 @@
 
 using namespace sy;
 
+static_assert(sizeof(Bytecode) < sizeof(Type), "Catch if Type changes size");
+static_assert(sizeof(Bytecode) * BYTECODE_NEEDED_FOR_TYPE <= sizeof(Type),
+              "Type must occupy no more than 2 bytecode");
+
 OpCode sy::Bytecode::getOpcode() const {
     // This is safe.
     return static_cast<OpCode>(this->value & OPCODE_BITMASK);

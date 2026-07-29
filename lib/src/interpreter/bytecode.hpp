@@ -63,8 +63,8 @@ enum class OpCode : uint8_t {
     /// `operators::MemsetUninitialized`.
     MemsetUninitialized,
     /// Forcibly sets the type at `dst` to a type. Overrides the type of whatever was present.
-    /// May be 2 wide instruction, if the type is not a scalar type, thus `isScalar` flag is false.
-    /// Uses `operators::SetType`.
+    /// If `isScalar == false`, this instruction has an extra `BYTECODE_NEEDED_FOR_TYPE`
+    /// instructions after it which contain the `Type` object.
     SetType,
     /// Forcibly sets the type at `dst` to be null, signaling that the memory has no type.
     /// Useful to set memory as shouldn't be unwinded, or shouldn't be operated on until later
@@ -129,6 +129,8 @@ struct Bytecode {
   private:
     static void assertOpCodeMatch(OpCode actual, OpCode expected);
 };
+
+constexpr size_t BYTECODE_NEEDED_FOR_TYPE = 2;
 
 enum class ScalarTag : uint8_t {
     Bool,
@@ -239,15 +241,15 @@ struct MemsetUninitialized {
     uint64_t reserveOpcode : OPCODE_USED_BITS;
     /// Boolean
     uint64_t dst : Stack::BITS_PER_STACK_OPERAND;
-  uint64_t slots : 16;
+    uint64_t slots : 16;
 
     static constexpr OpCode OPCODE = OpCode::MemsetUninitialized;
 };
 
 struct SetType {
     uint64_t reserveOpcode : OPCODE_USED_BITS;
-    /// Boolean
     uint64_t dst : Stack::BITS_PER_STACK_OPERAND;
+    /// Boolean
     uint64_t isScalar : 1;
     /// Used if `isScalar == true`
     uint64_t scalarTag : SCALAR_TAG_USED_BITS;

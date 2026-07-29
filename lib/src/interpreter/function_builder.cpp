@@ -7,9 +7,12 @@ using namespace sy;
 
 sy::FunctionBuilder::FunctionBuilder(Allocator alloc) noexcept : args(alloc), bytecode(alloc) {}
 
-Result<void, AllocErr> sy::FunctionBuilder::addArg(const Type* type) noexcept { return this->args.push(type); }
+Result<void, AllocErr> sy::FunctionBuilder::addArg(Type type) noexcept {
+    return this->args.push(type);
+}
 
-Result<void, AllocErr> sy::FunctionBuilder::pushBytecode(const Bytecode* bytecodeArr, size_t count) noexcept {
+Result<void, AllocErr> sy::FunctionBuilder::pushBytecode(const Bytecode* bytecodeArr,
+                                                         size_t count) noexcept {
     if (this->bytecode.reserve(this->bytecode.len() + count).hasErr()) {
         return Error(AllocErr::OutOfMemory);
     }
