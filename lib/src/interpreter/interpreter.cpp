@@ -411,13 +411,12 @@ void executeSetType(ptrdiff_t& ipChange, const Bytecode* bytecodes) {
         if (operands.isScalar) {
             return scalarTypeFromTag(static_cast<ScalarTag>(operands.scalarTag));
         } else {
-            Type out(nullptr, 0, 0);
-            memcpy(&out, &bytecodes[1], sizeof(Type));
-            ipChange = 2;
+            return operators::SetType::getNonScalarType(
+                reinterpret_cast<const operators::SetType*>(bytecodes));
         }
     }();
 
-    activeStack.setTypeAt(Node::TypeOfValue(type, true), operands.dst);
+    activeStack.setTypeAt(StackTypeSlot(type, true), operands.dst);
 }
 
 void executeSetNullType(const Bytecode bytecode) {
@@ -436,8 +435,9 @@ static void executeJumpIfFalse(ptrdiff_t& ipChange, const Bytecode bytecode) {
     const operators::JumpIfFalse operands = bytecode.toOperands<operators::JumpIfFalse>();
 
     Stack& activeStack = Stack::getActiveStack();
-    const Type* srcType = activeStack.typeAt(operands.src);
-    sy_assert(srcType == Reflect<bool>::get(), "Can only conditionally jump on boolean types");
+    StackTypeSlot srcType = activeStack.typeAt(operands.src);
+    sy_assert(srcType.get().value() == Reflect<bool>::get(),
+              "Can only conditionally jump on boolean types");
     (void)srcType;
 
     if (*activeStack.frameValueAt<bool>(operands.src) == false) {
@@ -451,10 +451,10 @@ static void executeDestruct(const Bytecode bytecode) {
 
     Stack& activeStack = Stack::getActiveStack();
 
-    const Type* srcType = activeStack.typeAt(operands.src);
-    sy_assert(srcType != nullptr, "Cannot destruct null typed object");
+    StackTypeSlot srcType = activeStack.typeAt(operands.src);
+    sy_assert(srcType.get().hasValue(), "Cannot destruct null typed object");
 
     void* src = activeStack.frameValueAt<void>(operands.src);
-    srcType->destroyObject(src);
-    activeStack.setTypeAt(nullptr, operands.src);
+    srcType.get().value().destroyUnchecked(src);
+    activeStack.setTypeAt({}, operands.src);
 }

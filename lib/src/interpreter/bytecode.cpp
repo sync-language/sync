@@ -103,3 +103,10 @@ size_t sy::operators::LoadImmediateScalar::bytecodeUsed(ScalarTag scalarTag) {
         return 1 + (1 + scalarType.base->typeSize / alignof(Bytecode));
     }
 }
+
+Type sy::operators::SetType::getNonScalarType(const SetType* self) noexcept {
+    sy_assert(self->isScalar == false,
+              "Cannot get non-scalar type if this instruction is for a scalar");
+    const SetType* offsetMem = &self[1];
+    return *reinterpret_cast<const Type*>(offsetMem);
+}

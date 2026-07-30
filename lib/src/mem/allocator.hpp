@@ -134,7 +134,7 @@ Result<Allocated<T>, AllocErr> Allocator::allocAlignedObject(size_t align) noexc
     if (ptr == nullptr) {
         return Error(AllocErr::OutOfMemory);
     }
-    return Allocated<T>(ptr, *this, len, actualAlign);
+    return Allocated<T>(ptr, *this, 1, actualAlign);
 }
 
 template <typename T>
@@ -172,8 +172,8 @@ template <typename T> inline Allocated<T>::~Allocated() noexcept {
 
     this->allocator_.freeAlignedArray(this->obj_, this->count_, this->alignBytes_);
     this->obj_ = nullptr;
-    this->len_ = 0;
-    this->align_ = 0;
+    this->count_ = 0;
+    this->alignBytes_ = 0;
 }
 
 template <typename T> inline T* Allocated<T>::get() noexcept { return this->obj_; }
@@ -181,8 +181,8 @@ template <typename T> inline T* Allocated<T>::get() noexcept { return this->obj_
 template <typename T> inline T* Allocated<T>::take() noexcept {
     T* obj = this->obj_;
     this->obj_ = nullptr;
-    this->len_ = 0;
-    this->align_ = 0;
+    this->count_ = 0;
+    this->alignBytes_ = 0;
     return obj;
 }
 

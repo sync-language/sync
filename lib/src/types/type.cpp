@@ -98,6 +98,20 @@ bool sy::Type::operator==(const Type& other) const noexcept {
     return true;
 }
 
+size_t sy::Type::byteSize() const noexcept {
+    if (this->isReference()) {
+        return sizeof(void*);
+    }
+    return this->base->typeSize;
+}
+
+size_t sy::Type::byteAlign() const noexcept {
+    if (this->isReference()) {
+        return alignof(void*);
+    }
+    return this->base->typeAlign;
+}
+
 Result<void, AnyError> sy::Type::destroyUnchecked(void* obj) const noexcept {
     sy_assert(obj != nullptr, "obj may not be null");
 
@@ -196,8 +210,7 @@ Result<void, AnyError> sy::Type::elementWiseAtomicLoadUnchecked(void* out,
     if (this->isReference() || this->base->extra.tag == TypeExtra::Tag::Reference) {
         // this maybe should be an error or assert? Not sure.
         void** outAsDoublePtr = reinterpret_cast<void**>(out);
-        const std::atomic<void*>* asAtomicSrc =
-            reinterpret_cast<const std::atomic<void*>*>(srcObj);
+        const std::atomic<void*>* asAtomicSrc = reinterpret_cast<const std::atomic<void*>*>(srcObj);
         *outAsDoublePtr = asAtomicSrc->load(std::memory_order_seq_cst);
         return {};
     }

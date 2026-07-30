@@ -1,8 +1,9 @@
+
 #include "anyerror.hpp"
 #include "../../core/builtin_traits/builtin_traits.hpp"
 #include "../../core/core_internal.h"
 #include "../string/string.hpp"
-#include "../type_info.hpp"
+#include "../type.hpp"
 #include <cstring>
 #include <new>
 
@@ -16,15 +17,20 @@ struct AnyError::Impl {
     // If has a value, so does `payloadType`
     Option<void*> payload{};
     // If has a value, so does `payload`
-    Option<const Type*> payloadType{};
+    Option<Type> payloadType{};
     // TODO stack trace and source location
 
     ~Impl() noexcept {
         if (payload.hasValue()) {
-            const Type* type = payloadType.value();
-            type->destroyObject(payload.value());
-            alloc.freeAlignedArray(static_cast<uint8_t*>(payload.value()), type->sizeType,
-                                   type->alignType);
+            Type type = payloadType.value();
+            type.destroyUnchecked(payload.value());
+            if (type.isReference()) {
+                alloc.freeAlignedArray(static_cast<uint8_t*>(payload.value()), sizeof(void*),
+                                       alignof(void*));
+            } else {
+                alloc.freeAlignedArray(static_cast<uint8_t*>(payload.value()), type.base->typeSize,
+                                       type.base->typeAlign);
+            }
         }
     }
 };
@@ -53,30 +59,28 @@ sy::internal::sy_anyerror_init_impl(StringSlice msg, void* payload, const Type* 
 
     auto strRes = String::init(msg, alloc);
     if (strRes.hasErr()) {
-        alloc.freeObject(implRes.value());
         return Error(AllocErr::OutOfMemory);
     }
 
     void* payloadMem = nullptr;
     if (!nullPayload) {
         auto payloadRes =
-            alloc.allocAlignedArray<uint8_t>(payloadType->sizeType, payloadType->alignType);
+            alloc.allocAlignedArray<uint8_t>(payloadType->byteSize(), payloadType->byteAlign());
         if (payloadRes.hasErr()) {
-            alloc.freeObject(implRes.value());
             return Error(AllocErr::OutOfMemory);
         }
-        payloadMem = payloadRes.value();
-        memcpy(payloadMem, payload, payloadType->sizeType);
+        payloadMem = payloadRes.value().take();
+        memcpy(payloadMem, payload, payloadType->byteSize());
     }
 
-    AnyError::Impl* self = implRes.value();
+    AnyError::Impl* self = implRes.value().take();
     new (self) AnyError::Impl();
     self->alloc = alloc;
     self->message = strRes.takeValue();
 
     if (payloadMem) {
         self->payload = payloadMem;
-        self->payloadType = payloadType;
+        self->payloadType = *payloadType;
     }
 
     if (cause.hasValue()) {
@@ -86,6 +90,10 @@ sy::internal::sy_anyerror_init_impl(StringSlice msg, void* payload, const Type* 
     AnyError e;
     e.impl_ = reinterpret_cast<uintptr_t>(self);
     return e;
+}
+
+SY_API void sy::internal::sy_debug_assert_types_similar(Type lhs, Type rhs) noexcept {
+    sy_assert(lhs == rhs, "Types are not structurally similar");
 }
 
 AnyError::AnyError(AnyError&& other) noexcept : impl_(other.impl_) { other.impl_ = 0; }
@@ -119,10 +127,7 @@ Result<AnyError, AnyError> sy::AnyError::clone() const noexcept {
 
     const Impl* impl = reinterpret_cast<const Impl*>(this->impl_);
 
-    const Type* type = nullptr;
-    if (impl->payloadType.hasValue()) {
-        type = impl->payloadType.value();
-    }
+    Option<Type> type = this->payloadType();
 
     Allocator alloc = impl->alloc;
 
@@ -133,27 +138,25 @@ Result<AnyError, AnyError> sy::AnyError::clone() const noexcept {
 
     auto strRes = String::init(impl->message, alloc);
     if (strRes.hasErr()) {
-        alloc.freeObject(implRes.value());
         return Error(AnyError(Exceptional::OOM));
     }
 
     void* payloadMem = nullptr;
-    if (type != nullptr) {
-        auto payloadRes = alloc.allocAlignedArray<uint8_t>(type->sizeType, type->alignType);
+    if (type.hasValue()) {
+        auto payloadRes =
+            alloc.allocAlignedArray<uint8_t>(type.value().byteSize(), type.value().byteAlign());
         if (payloadRes.hasErr()) {
-            alloc.freeObject(implRes.value());
             return Error(AnyError(Exceptional::OOM));
         }
-        payloadMem = payloadRes.value();
-        auto copyErr = type->cloneObj(payloadMem, impl->payload.value());
+        payloadMem = payloadRes.value().get();
+        auto copyErr = type.value().cloneUnchecked(payloadMem, impl->payload.value());
         if (copyErr.hasErr()) {
-            alloc.freeObject(implRes.value());
-            alloc.freeAlignedArray(payloadRes.value(), type->sizeType, type->alignType);
             return Error(copyErr.takeErr());
         }
+        (void)payloadRes.value().take();
     }
 
-    Impl* newErr = implRes.value();
+    Impl* newErr = implRes.value().take();
     new (newErr) Impl();
     newErr->alloc = alloc;
     new (&newErr->message) String(strRes.takeValue());
@@ -271,7 +274,7 @@ Option<const AnyError&> sy::AnyError::cause() const noexcept {
     return Option<const AnyError&>(impl->cause.value());
 }
 
-Option<void*> sy::AnyError::rawPayload() noexcept {
+Option<void*> sy::AnyError::payloadUnchecked() noexcept {
     if (this->impl_ == 0 || (this->impl_ & 1) == 1)
         return {};
 
@@ -283,7 +286,7 @@ Option<void*> sy::AnyError::rawPayload() noexcept {
     return impl->payload;
 }
 
-Option<const void*> sy::AnyError::rawPayload() const noexcept {
+Option<const void*> sy::AnyError::payloadUnchecked() const noexcept {
     if (this->impl_ == 0 || (this->impl_ & 1) == 1)
         return {};
 
@@ -295,7 +298,7 @@ Option<const void*> sy::AnyError::rawPayload() const noexcept {
     return Option<const void*>(impl->payload.value());
 }
 
-Option<const Type*> sy::AnyError::payloadType() const noexcept {
+Option<Type> sy::AnyError::payloadType() const noexcept {
     if (this->impl_ == 0 || (this->impl_ & 1) == 1)
         return {};
 

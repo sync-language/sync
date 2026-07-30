@@ -79,6 +79,12 @@ class SY_API Type final {
         return ((*this) == other) == false;
     }
 
+    /// @return If `isReference()`, `sizeof(void*)` otherwise `base->typeSize`.
+    [[nodiscard]] size_t byteSize() const noexcept;
+
+    /// @return If `isReference()`, `alignof(void*)` otherwise `base->typeAlign`.
+    [[nodiscard]] size_t byteAlign() const noexcept;
+
     /// Invoke the destructor of `T` on `obj`, whether as a native type or a script type. If
     /// `this->isReference()` will return without invoking anything. If `base->extra.tag ==
     /// sy::TypeExtra::Tag::Reference`, will also return without invoking anything.

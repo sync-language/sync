@@ -241,7 +241,7 @@ struct MemsetUninitialized {
     uint64_t reserveOpcode : OPCODE_USED_BITS;
     /// Boolean
     uint64_t dst : Stack::BITS_PER_STACK_OPERAND;
-    uint64_t slots : 16;
+  uint64_t slots : 16;
 
     static constexpr OpCode OPCODE = OpCode::MemsetUninitialized;
 };
@@ -255,6 +255,8 @@ struct SetType {
     uint64_t scalarTag : SCALAR_TAG_USED_BITS;
 
     static constexpr OpCode OPCODE = OpCode::SetType;
+
+    static Type getNonScalarType(const SetType* self) noexcept;
 };
 
 struct SetNullType {

@@ -19,7 +19,9 @@ SY_API Result<AnyError, AllocErr> sy_anyerror_init_impl(StringSlice msg, void* p
                                                         const Type* payloadType,
                                                         Option<AnyError> cause,
                                                         Allocator alloc) noexcept;
-}
+
+SY_API void sy_debug_assert_types_similar(Type lhs, Type rhs) noexcept;
+} // namespace internal
 
 class AnyError {
   public:
@@ -59,11 +61,15 @@ class AnyError {
 
     Option<const AnyError&> cause() const noexcept;
 
-    Option<void*> rawPayload() noexcept;
+    Option<Type> payloadType() const noexcept;
 
-    Option<const void*> rawPayload() const noexcept;
+    template <typename T> Option<const T&> payload() const noexcept;
 
-    Option<const Type*> payloadType() const noexcept;
+    template <typename T> Option<T&> payload() noexcept;
+
+    Option<const void*> payloadUnchecked() const noexcept;
+
+    Option<void*> payloadUnchecked() noexcept;
 
     // TODO stack trace and source location (or them together idk)
 
@@ -86,11 +92,31 @@ inline Result<AnyError, AllocErr> AnyError::init(StringSlice msg, Option<T> payl
         payloadMem = &payload.value();
         payloadType = ::sy::Reflect<T>::get();
     }
-    auto res = internal::sy_anyerror_init_impl(msg, payloadMem, payloadType, std::move(cause), alloc);
+    auto res =
+        internal::sy_anyerror_init_impl(msg, payloadMem, payloadType, std::move(cause), alloc);
     internal::moveAndLeak(payload);
     return res;
 }
 
+template <typename T> inline Option<const T&> AnyError::payload() const noexcept {
+    auto payloadTypeOpt = this->payloadType();
+    if (payloadTypeOpt) {
+        internal::sy_debug_assert_types_similar(::sy::Reflect<T>::get(), payloadTypeOpt.value());
+        return Option<const T&>(*reinterpret_cast<const T*>(this->payload().value()));
+    } else {
+        return {};
+    }
+}
+
+template <typename T> inline Option<T&> AnyError::payload() noexcept {
+    auto payloadTypeOpt = this->payloadType();
+    if (payloadTypeOpt) {
+        internal::sy_debug_assert_types_similar(::sy::Reflect<T>::get(), payloadTypeOpt.value());
+        return Option<T&>(*reinterpret_cast<T*>(this->payload().value()));
+    } else {
+        return {};
+    }
+}
 } // namespace sy
 
 #endif // _SY_TYPES_ANYERROR_ANYERROR_HPP_
