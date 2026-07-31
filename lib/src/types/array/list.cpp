@@ -9,7 +9,7 @@ extern "C" {
 void sy_list_destroy(SyList* self, size_t typeSize, size_t typeAlign,
                      SyNativeDestructorFn destruct) {
 #ifndef NDEBUG
-    if (self->len == 0) {
+    if (self->capacity_ == 0) {
         sy_assert(self->data_ == nullptr, "Should have no list memory");
         sy_assert(self->allocated_ == nullptr, "Should have no list memory");
     } else {
@@ -17,14 +17,14 @@ void sy_list_destroy(SyList* self, size_t typeSize, size_t typeAlign,
         sy_assert(self->allocated_ != nullptr, "Should have list memory");
     }
 #endif
-    if (self->len == 0) {
+    if (self->capacity_ == 0) {
         return;
     }
 
     uint8_t* dataBytes = static_cast<uint8_t*>(self->data_);
     if (destruct != nullptr) {
         for (size_t i = 0; i < self->len; i++) {
-            destruct(&dataBytes[self->len * typeSize]);
+            destruct(&dataBytes[i * typeSize]);
         }
     }
 

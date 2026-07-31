@@ -14,7 +14,7 @@ typedef struct SyList {
     /// Internal only. Default to `0`.
     size_t capacity_;
     /// Internal only. Default to `nullptr`.
-    void* allocated_ = nullptr;
+    void* allocated_;
     SyAllocator allocator;
 } SyList;
 

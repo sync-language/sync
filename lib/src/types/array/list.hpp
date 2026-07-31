@@ -7,6 +7,7 @@
 #include "../../core/exceptional.hpp"
 #include "../../mem/allocator.hpp"
 #include "../result/result.hpp"
+#include <iterator>
 #include <new>
 #include <type_traits>
 
@@ -67,6 +68,25 @@ template <typename T> class List final {
     void removeAt(size_t index) noexcept;
 
     Result<void, AllocErr> reserve(size_t minCapacity) noexcept;
+
+    using Iterator = T*;
+    using ConstIterator = const T*;
+    using ReverseIterator = std::reverse_iterator<T*>;
+    using ConstReverseIterator = std::reverse_iterator<const T*>;
+
+    [[nodiscard]] Iterator begin() noexcept { return this->dataUnchecked(); }
+    [[nodiscard]] Iterator end() noexcept { return this->dataUnchecked() + this->len_; }
+    [[nodiscard]] ConstIterator begin() const noexcept { return this->dataUnchecked(); }
+    [[nodiscard]] ConstIterator end() const noexcept { return this->dataUnchecked() + this->len_; }
+
+    [[nodiscard]] ReverseIterator rbegin() noexcept { return ReverseIterator(this->end()); }
+    [[nodiscard]] ReverseIterator rend() noexcept { return ReverseIterator(this->begin()); }
+    [[nodiscard]] ConstReverseIterator rbegin() const noexcept {
+        return ConstReverseIterator(this->end());
+    }
+    [[nodiscard]] ConstReverseIterator rend() const noexcept {
+        return ConstReverseIterator(this->begin());
+    }
 
   private:
     friend struct Test_List;
