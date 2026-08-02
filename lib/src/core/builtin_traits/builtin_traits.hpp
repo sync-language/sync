@@ -17,7 +17,9 @@
 namespace sy {
 using NativeDestructorFn = void (*)(void* obj);
 /// Most of the built-in trait functions cannot really fail, but this one absolutely can.
-using NativeCloneFn = Result<void, Exceptional> (*)(void* dst, const void* src);
+/// @return `int` matching sy::Exceptional. If `0`, no error happened, otherwise cast to
+/// `sy::Exceptional.`
+using NativeCloneFn = int (*)(void* dst, const void* src);
 using NativeEqualFn = bool (*)(const void* lhs, const void* rhs);
 using NativeHashFn = size_t (*)(const void* obj);
 using NativeCompareFn = Ordering (*)(const void* lhs, const void* rhs);
@@ -59,19 +61,22 @@ struct BuiltInCoherentTraits {
     Option<const BuiltInElementWiseAtomicStoreFn*> elementWiseAtomicStore;
 
     template <typename T>
-    static constexpr NativeCloneFn NATIVE_CLONE_FN_OF =
-        +[](void* dst, const void* src) -> Result<void, Exceptional> {
+    static constexpr NativeCloneFn NATIVE_CLONE_FN_OF = +[](void* dst, const void* src) -> int {
         T* tDst = reinterpret_cast<T*>(dst);
         const T* tSrc = reinterpret_cast<const T*>(src);
         if constexpr (internal::has_member_clone<T>::value) {
             auto r = tSrc->clone();
             if (r.hasErr()) {
-                return Error(internal::cloneErrToExceptional(r.takeErr()));
+                return static_cast<int>(internal::cloneErrToExceptional(r.takeErr()));
             }
             new (tDst) T(r.takeValue());
-            return {};
+            return 0;
         } else {
-            return wrapExceptionalCall([tDst, tSrc]() { new (tDst) T(*tSrc); });
+            auto r = wrapExceptionalCall([tDst, tSrc]() { new (tDst) T(*tSrc); });
+            if (r.hasValue()) {
+                return 0;
+            }
+            return static_cast<int>(r.err());
         }
     };
 
@@ -79,8 +84,8 @@ struct BuiltInCoherentTraits {
     static constexpr BuiltInCloneFn CLONE_FN_OF =
         +[](void* dst, const void* src) -> Result<void, AnyError> {
         auto r = NATIVE_CLONE_FN_OF<T>(dst, src);
-        if (r.hasErr()) {
-            return Error(AnyError(r.takeErr()));
+        if (r != 0) {
+            return Error(AnyError(static_cast<Exceptional>(r)));
         }
         return {};
     };

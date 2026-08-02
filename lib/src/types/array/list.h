@@ -22,8 +22,28 @@ typedef struct SyList {
 extern "C" {
 #endif
 
-void sy_list_destroy(SyList* self, size_t typeSize, size_t typeAlign,
-                     SyNativeDestructorFn destruct);
+SY_API void sy_list_destroy(SyList* self, size_t typeSize, size_t typeAlign,
+                            SyNativeDestructorFn typeDestruct);
+
+SY_API SyExceptional sy_list_clone(const SyList* self, SyList* out, size_t typeSize,
+                                   size_t typeAlign, SyNativeCloneFn typeClone,
+                                   SyNativeDestructorFn typeDestruct);
+
+SY_API SyAllocErr sy_list_push(SyList* self, void* obj, size_t typeSize, size_t typeAlign);
+
+SY_API SyAllocErr sy_list_push_front(SyList* self, void* obj, size_t typeSize, size_t typeAlign);
+
+SY_API SyAllocErr sy_list_insert_at(SyList* self, void* obj, size_t index, size_t typeSize,
+                                    size_t typeAlign);
+
+SY_API void sy_list_remove_at(SyList* self, size_t index, size_t typeSize,
+                              SyNativeDestructorFn typeDestruct);
+
+SY_API SyAllocErr sy_list_reserve(SyList* self, size_t minCapacity, size_t typeSize,
+                                  size_t typeAlign);
+
+SY_API SyAllocErr sy_list_reserve_front(SyList* self, size_t minCapacity, size_t typeSize,
+                                        size_t typeAlign);
 
 #ifdef __cplusplus
 } // extern "C"
