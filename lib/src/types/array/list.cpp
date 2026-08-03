@@ -1,5 +1,6 @@
 #include "list.hpp"
 #include "../../core/core_internal.h"
+#include "../type.hpp"
 #include "list.h"
 #include <cstring>
 
@@ -153,12 +154,9 @@ static Result<void*, AllocErr> addOneElementToInsertAt(SyList* self, size_t type
     return static_cast<void*>(&dataBytes[index * typeSize]);
 }
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-SY_API void sy_list_destroy(SyList* self, size_t typeSize, size_t typeAlign,
-                            SyNativeDestructorFn typeDestruct) {
+template <typename DestructFunc>
+static void listDestroyTyped(SyList* self, size_t typeSize, size_t typeAlign,
+                             DestructFunc* destructFunc) noexcept {
 #ifndef NDEBUG
     if (self->capacity_ == 0) {
         sy_assert(self->data_ == nullptr, "Should have no list memory");
@@ -173,9 +171,9 @@ SY_API void sy_list_destroy(SyList* self, size_t typeSize, size_t typeAlign,
     }
 
     uint8_t* dataBytes = static_cast<uint8_t*>(self->data_);
-    if (typeDestruct != nullptr) {
+    if (destructFunc != nullptr) {
         for (size_t i = 0; i < self->len; i++) {
-            typeDestruct(&dataBytes[i * typeSize]);
+            (*destructFunc)(&dataBytes[i * typeSize]);
         }
     }
 
@@ -187,9 +185,10 @@ SY_API void sy_list_destroy(SyList* self, size_t typeSize, size_t typeAlign,
     self->allocated_ = nullptr;
 }
 
-SY_API SyExceptional sy_list_clone(const SyList* self, SyList* out, size_t typeSize,
-                                   size_t typeAlign, SyNativeCloneFn typeClone,
-                                   SyNativeDestructorFn typeDestruct) {
+template <typename CloneFunc, typename DestructFunc>
+static SyExceptional listCloneTyped(const SyList* self, SyList* out, size_t typeSize,
+                                    size_t typeAlign, CloneFunc cloneFunc,
+                                    DestructFunc* destructFunc) {
     const sy::Allocator* cppallocPtr = reinterpret_cast<const sy::Allocator*>(&self->allocator);
     sy::Allocator alloc = *cppallocPtr;
 
@@ -204,7 +203,7 @@ SY_API SyExceptional sy_list_clone(const SyList* self, SyList* out, size_t typeS
     SyExceptional outErr = SyExceptional::SY_EXCEPTIONAL_NONE;
     size_t copied = 0;
     for (copied = 0; copied < self->len; copied++) {
-        outErr = typeClone(&mem[copied * typeSize],
+        outErr = cloneFunc(&mem[copied * typeSize],
                            &static_cast<const uint8_t*>(self->data_)[copied * typeSize]);
         if (outErr != SyExceptional::SY_EXCEPTIONAL_NONE) { // TODO obviously this is slow, so also
                                                             // make a memcpy variant in the future
@@ -213,8 +212,10 @@ SY_API SyExceptional sy_list_clone(const SyList* self, SyList* out, size_t typeS
     }
 
     if (outErr != SyExceptional::SY_EXCEPTIONAL_NONE) { // cleanup
-        for (size_t i = 0; i < copied; i++) {
-            typeDestruct(&mem[i * typeSize]);
+        if (destructFunc) {
+            for (size_t i = 0; i < copied; i++) {
+                (*destructFunc)(&mem[i * typeSize]);
+            }
         }
         return outErr;
     }
@@ -229,14 +230,84 @@ SY_API SyExceptional sy_list_clone(const SyList* self, SyList* out, size_t typeS
     return SyExceptional::SY_EXCEPTIONAL_NONE;
 }
 
+template <typename DestructFunc>
+static void listRemoveAt(SyList* self, size_t index, size_t typeSize,
+                         DestructFunc* destructFunc) noexcept {
+    sy_assert_release(index < self->len, "Index out of bounds in List");
+
+    uint8_t* dataBytes = static_cast<uint8_t*>(self->data_);
+    if (destructFunc) {
+        (*destructFunc)(&dataBytes[index * typeSize]);
+    }
+
+    if (index != (self->len - 1)) { // not the end element
+        memmove(&dataBytes[index * typeSize], &dataBytes[(index + 1) * typeSize],
+                self->len - 1 - index);
+        return;
+    }
+
+    self->len -= 1;
+}
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+SY_API void sy_list_destroy(SyList* self, size_t typeSize, size_t typeAlign,
+                            SyNativeDestructorFn typeDestruct) {
+    auto destructLambda = [typeDestruct](void* obj) { typeDestruct(obj); };
+    listDestroyTyped(self, typeSize, typeAlign, &destructLambda);
+}
+
+SY_API void sy_list_destroy_script(SyList* self, const SyType* dataType) {
+    const sy::Type* asCppType = reinterpret_cast<const sy::Type*>(dataType);
+    auto destructLambda = [dataType, asCppType](void* obj) {
+        (void)asCppType->destroyUnchecked(obj);
+    }; // TODO what if fail?
+    listDestroyTyped(self, asCppType->byteSize(), asCppType->byteAlign(), &destructLambda);
+}
+
+SY_API SyExceptional sy_list_clone(const SyList* self, SyList* out, size_t typeSize,
+                                   size_t typeAlign, SyNativeCloneFn typeClone,
+                                   SyNativeDestructorFn typeDestruct) {
+    auto cloneLambda = [typeClone](void* out, const void* src) { return typeClone(out, src); };
+    auto destructLambda = [typeDestruct](void* obj) { typeDestruct(obj); };
+    return listCloneTyped(self, out, typeSize, typeAlign, cloneLambda, &destructLambda);
+}
+
+SY_API SyExceptional sy_list_clone_script(const SyList* self, SyList* out,
+                                          const struct SyType* dataType) {
+    const sy::Type* asCppType = reinterpret_cast<const sy::Type*>(dataType);
+    auto cloneLambda = [dataType, asCppType](void* out, const void* src) {
+        auto res = asCppType->cloneUnchecked(out, src);
+        if (res.hasErr()) {
+            auto err = res.takeErr();
+            if (auto exc = err.exceptional(); exc.hasValue()) {
+                return static_cast<SyExceptional>(exc.value());
+            }
+            return SyExceptional::SY_EXCEPTIONAL_OTHER;
+        }
+        return SyExceptional::SY_EXCEPTIONAL_NONE;
+    };
+    auto destructLambda = [dataType, asCppType](void* obj) {
+        (void)asCppType->destroyUnchecked(obj);
+    }; // TODO what if fail?
+    return listCloneTyped(self, out, asCppType->byteSize(), asCppType->byteAlign(), cloneLambda,
+                          &destructLambda);
+}
+
 SY_API SyAllocErr sy_list_push(SyList* self, void* obj, size_t typeSize, size_t typeAlign) {
     auto res = addOneElementToListBack(self, typeSize, typeAlign);
     if (res.hasErr()) {
         return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
     }
-
     memcpy(res.value(), obj, typeSize);
     return SyAllocErr::SY_ALLOC_ERR_NONE;
+}
+
+SY_API SyAllocErr sy_list_push_script(SyList* self, void* obj, const SyType* dataType) {
+    const sy::Type* asCppType = reinterpret_cast<const sy::Type*>(dataType);
+    return sy_list_push(self, obj, asCppType->byteSize(), asCppType->byteAlign());
 }
 
 SY_API SyAllocErr sy_list_push_front(SyList* self, void* obj, size_t typeSize, size_t typeAlign) {
@@ -244,9 +315,13 @@ SY_API SyAllocErr sy_list_push_front(SyList* self, void* obj, size_t typeSize, s
     if (res.hasErr()) {
         return SyAllocErr::SY_ALLOC_ERR_OUT_OF_MEMORY;
     }
-
     memcpy(res.value(), obj, typeSize);
     return SyAllocErr::SY_ALLOC_ERR_NONE;
+}
+
+SY_API SyAllocErr sy_list_push_front_script(SyList* self, void* obj, const SyType* dataType) {
+    const sy::Type* asCppType = reinterpret_cast<const sy::Type*>(dataType);
+    return sy_list_push_front(self, obj, asCppType->byteSize(), asCppType->byteAlign());
 }
 
 SY_API SyAllocErr sy_list_insert_at(SyList* self, void* obj, size_t index, size_t typeSize,
@@ -260,20 +335,24 @@ SY_API SyAllocErr sy_list_insert_at(SyList* self, void* obj, size_t index, size_
     return SyAllocErr::SY_ALLOC_ERR_NONE;
 }
 
+SY_API SyAllocErr sy_list_insert_at_script(SyList* self, void* obj, size_t index,
+                                           const SyType* dataType) {
+    const sy::Type* asCppType = reinterpret_cast<const sy::Type*>(dataType);
+    return sy_list_insert_at(self, obj, index, asCppType->byteSize(), asCppType->byteAlign());
+}
+
 SY_API void sy_list_remove_at(SyList* self, size_t index, size_t typeSize,
                               SyNativeDestructorFn typeDestruct) {
-    sy_assert_release(index < self->len, "Index out of bounds in List");
+    auto destructLambda = [typeDestruct](void* obj) { typeDestruct(obj); };
+    listRemoveAt(self, index, typeSize, &destructLambda);
+}
 
-    uint8_t* dataBytes = static_cast<uint8_t*>(self->data_);
-    typeDestruct(&dataBytes[index * typeSize]);
-
-    if (index != (self->len - 1)) { // not the end element
-        memmove(&dataBytes[index * typeSize], &dataBytes[(index + 1) * typeSize],
-                self->len - 1 - index);
-        return;
-    }
-
-    self->len -= 1;
+SY_API void sy_list_remove_at_script(SyList* self, size_t index, const SyType* dataType) {
+    const sy::Type* asCppType = reinterpret_cast<const sy::Type*>(dataType);
+    auto destructLambda = [dataType, asCppType](void* obj) {
+        (void)asCppType->destroyUnchecked(obj);
+    }; // TODO what if fail?
+    listRemoveAt(self, index, asCppType->byteSize(), &destructLambda);
 }
 
 SY_API SyAllocErr sy_list_reserve(SyList* self, size_t minCapacity, size_t typeSize,
@@ -312,6 +391,11 @@ SY_API SyAllocErr sy_list_reserve(SyList* self, size_t minCapacity, size_t typeS
     self->allocated_ = static_cast<void*>(mem);
     self->capacity_ = newFullAllocationCapacity;
     return SyAllocErr::SY_ALLOC_ERR_NONE;
+}
+
+SY_API SyAllocErr sy_list_reserve_script(SyList* self, size_t minCapacity, const SyType* dataType) {
+    const sy::Type* asCppType = reinterpret_cast<const sy::Type*>(dataType);
+    return sy_list_reserve(self, minCapacity, asCppType->byteSize(), asCppType->byteAlign());
 }
 
 SY_API SyAllocErr sy_list_reserve_front(SyList* self, size_t minCapacity, size_t typeSize,
@@ -355,6 +439,12 @@ SY_API SyAllocErr sy_list_reserve_front(SyList* self, size_t minCapacity, size_t
     self->allocated_ = static_cast<void*>(mem);
     self->capacity_ = newFullAllocationCapacity;
     return SyAllocErr::SY_ALLOC_ERR_NONE;
+}
+
+SY_API SyAllocErr sy_list_reserve_front_script(SyList* self, size_t minCapacity,
+                                               const SyType* dataType) {
+    const sy::Type* asCppType = reinterpret_cast<const sy::Type*>(dataType);
+    return sy_list_reserve_front(self, minCapacity, asCppType->byteSize(), asCppType->byteAlign());
 }
 
 #ifdef __cplusplus
